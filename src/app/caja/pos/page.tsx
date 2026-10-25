@@ -591,24 +591,35 @@ export default function PosPage() {
         throw new Error(data.error || "No se pudo registrar la factura.");
       }
 
-      // Consultar datos de la empresa para impresión
+      // Consultar datos de la empresa y factura para impresión
       let datosEmpresa = {
-        nombreComercial: "ALMACÉN & TRAJES LLANOMIO",
+        nombreTienda: "LLANOMIO",
+        nombreComercial: "LLANOMIO",
+        eslogan: "Trajes Típicos, Disfraces y Sastrería",
         nit: "900.123.456-7",
+        regimenFiscal: "No Responsable de IVA",
         direccion: "Calle 15 # 22-30, Barrio Siete de Agosto",
+        ciudad: "Villavicencio, Meta",
         telefono: "310 123 4567",
+        email: "contacto@llanomio.com",
         logoUrl: null,
+        encabezadoFactura: "Ropa, Disfraces, Trajes Típicos y Sastrería Profesional",
+        mostrarVendedorFactura: true,
         politicasFactura:
           "Prendas de alquiler deben devolverse en perfecto estado en la fecha pactada. Pasada la hora pactada se generará recargo de mora automático.",
+        piePaginaFactura: "¡Gracias por su preferencia! Sistema POS Local LLANOMIO",
+        formatoPredeterminado: "MEDIA_CARTA" as const,
+        formatoImpresionDefault: "MEDIA_CARTA" as const,
       };
 
       try {
-        const resEmp = await fetch("/api/empresa");
+        const resEmp = await fetch("/api/empresa", { cache: "no-store" });
         const dataEmp = await resEmp.json();
-        if (dataEmp.success && dataEmp.empresa) {
+        const conf = dataEmp.configuracion || dataEmp.empresa;
+        if (conf) {
           datosEmpresa = {
             ...datosEmpresa,
-            ...dataEmp.empresa,
+            ...conf,
           };
         }
       } catch (errEmp) {

@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 interface Params {
   params: Promise<{ id: string }>;
 }
 
 /**
  * GET /api/impresion/[id]
- * Retorna los datos estructurados de una factura junto con la configuración
- * corporativa de LLANOMIO para impresión en Tirilla, Media Carta o Carta.
+ * Retorna los datos estructurados en vivo de una factura junto con la última
+ * configuración corporativa y logo de LLANOMIO para impresión 1:1 o descarga en PDF.
  */
 export async function GET(req: NextRequest, { params }: Params) {
   try {
@@ -56,6 +65,7 @@ export async function GET(req: NextRequest, { params }: Params) {
               select: {
                 id: true,
                 nombre: true,
+                username: true,
               },
             },
           },
@@ -67,35 +77,55 @@ export async function GET(req: NextRequest, { params }: Params) {
     if (!factura) {
       return NextResponse.json(
         { success: false, error: "La factura solicitada no existe" },
-        { status: 404 }
+        { status: 404, headers: NO_CACHE_HEADERS }
       );
     }
 
-    // 2. Obtener datos corporativos de LLANOMIO
+    // 2. Obtener datos corporativos actualizados de LLANOMIO
     const empresa = await prisma.configuracionEmpresa.findFirst();
 
+    const formatoEfectivo =
+      empresa?.formatoPredeterminado || empresa?.formatoImpresionDefault || "MEDIA_CARTA";
+
     const datosEmpresa = {
+      nombreTienda: empresa?.nombreTienda || "LLANOMIO",
       nombreComercial: empresa?.nombreComercial || "LLANOMIO",
+      eslogan: empresa?.eslogan || "Trajes Típicos, Disfraces y Sastrería",
       nit: empresa?.nit || "900.123.456-7",
-      direccion: empresa?.direccion || "Calle Principal #10-20, Villavicencio, Meta",
-      telefono: empresa?.telefono || "3101234567",
+      regimenFiscal: empresa?.regimenFiscal || "No Responsable de IVA",
+      direccion: empresa?.direccion || "Calle 15 # 22-30, Barrio Siete de Agosto",
+      ciudad: empresa?.ciudad || "Villavicencio, Meta",
+      telefono: empresa?.telefono || "310 123 4567",
+      email: empresa?.email || "contacto@llanomio.com",
       logoUrl: empresa?.logoUrl || null,
+      encabezadoFactura:
+        empresa?.encabezadoFactura || "Ropa, Disfraces, Trajes Típicos y Sastrería Profesional",
+      mostrarVendedorFactura:
+        empresa?.mostrarVendedorFactura !== undefined ? empresa.mostrarVendedorFactura : true,
       politicasFactura:
         empresa?.politicasFactura ||
-        "El cliente se compromete a devolver las prendas en la fecha pactada en el mismo estado en que las recibe. Todo retraso generara cobro de tarifa de mora por dia o por fraccion de hora segun corresponda.",
-      formatoImpresionDefault: empresa?.formatoImpresionDefault || "TIRILLA",
+        "El cliente se compromete a devolver las prendas en la fecha pactada en el mismo estado en que las recibe. Todo retraso generará cobro de recargo de mora. Cuide su comprobante de pago.",
+      piePaginaFactura:
+        empresa?.piePaginaFactura || "¡Gracias por su preferencia! Sistema POS Local LLANOMIO",
+      formatoPredeterminado: formatoEfectivo,
+      formatoImpresionDefault: formatoEfectivo,
     };
 
-    return NextResponse.json({
-      success: true,
-      factura,
-      empresa: datosEmpresa,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        factura,
+        empresa: datosEmpresa,
+      },
+      { headers: NO_CACHE_HEADERS }
+    );
   } catch (error: unknown) {
+    const errorMensaje =
+      error instanceof Error ? error.message : "Error interno al preparar datos de impresión";
     console.error("Error al obtener datos para impresión:", error);
     return NextResponse.json(
-      { success: false, error: "Error interno al preparar los datos de impresión" },
-      { status: 500 }
+      { success: false, error: errorMensaje },
+      { status: 500, headers: NO_CACHE_HEADERS }
     );
   }
 }

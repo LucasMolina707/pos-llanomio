@@ -366,3 +366,73 @@ Se reestructuró la pantalla del POS (`src/app/caja/pos/page.tsx`) y el motor do
 - `TurnoCaja` y `CierreCaja`: Agregados `totalBancolombia Float @default(0)` y `totalLlave Float @default(0)`.
 - Base de datos sincronizada limpiamente con `npx prisma db push` y cliente regenerado con `npx prisma generate`.
 
+---
+
+## 9. Coherencia 1:1 Documental (Tirilla 80mm, Media Carta y Carta), Corrección Quirúrgica Anti-Hoja en Blanco y Sincronización Dinámica de Logo y Factura
+
+Se implementó una solución arquitectónica integral para garantizar la coherencia geométrica exacta (1:1) entre la pantalla, la impresión física y los archivos PDF exportados, junto con la sincronización inmediata del logotipo corporativo y los datos fiscales desde el panel administrativo:
+
+### 1. Coherencia 1:1 por Formato Físico (`PlantillaImpresion.tsx` & `pdf-media-carta.ts`)
+- **Estado de Control Único:** La variable `formato: 'TIRILLA' | 'MEDIA_CARTA' | 'CARTA'` sincroniza en tiempo real:
+  1. El contenedor visual en pantalla.
+  2. Las directivas `@page` y estilos del `iframe` de impresión aislada.
+  3. El motor de generación vectorial `jsPDF` (`descargarPdfSegunFormato` y `/api/facturas/[id]/pdf`).
+- **Formato 1 — `TIRILLA` (80mm / POS Térmico):**
+  - *Vista en pantalla:* Contenedor fijo de `w-[80mm] max-w-[80mm] min-w-[80mm]`, tipografía mono compacta (`text-[10px]` / `[11px]`), logo centrado arriba (`max-h-14 object-contain`), datos de empresa, factura, cajero, cliente, ítems, totales, abonos/vueltas y políticas al pie.
+  - *Impresión (`iframe`):* `@page { size: 80mm auto; margin: 0mm; }` y `body { width: 76mm; margin: 0 auto; padding: 2mm 1mm; }`.
+  - *Exportación PDF:* Ancho exacto de 80mm con altura dinámica calculada en función de los ítems y abonos.
+- **Formato 2 — `MEDIA_CARTA` (Half Letter: 215.9mm x 139.7mm / 8.5in x 5.5in):**
+  - *Vista en pantalla:* Contenedor apaisado (Landscape: `max-w-[215.9mm]`) con encabezado ejecutivo (Logo a la izquierda `max-h-16`, datos comerciales al centro, recuadro de factura a la derecha), ficha de cliente y operación, tabla de prendas, desglose financiero, políticas y firmas.
+  - *Impresión (`iframe`):* `@page { size: 215.9mm 139.7mm landscape; margin: 6mm; }` y `.hoja-media-carta-impresion { max-height: 127mm !important; overflow: hidden !important; break-inside: avoid !important; }`.
+  - *Exportación PDF:* Exactamente 1 página tamaño Media Carta horizontal (`format: [139.7, 215.9]`).
+- **Formato 3 — `CARTA` (Letter Portrait: 215.9mm x 279.4mm / 8.5in x 11in):**
+  - *Vista en pantalla:* Contenedor vertical (`max-w-[215.9mm] min-h-[255mm] max-h-[258mm]`) con distribución ejecutiva amplia: Logo corporativo (`max-h-20`), datos fiscales, caja de numeración + vendedor, ficha del cliente, tabla estilizada, cuadro de liquidación financiera, historial de pagos, políticas de alquiler y firmas autorizadas.
+  - **Corrección Quirúrgica Anti-Hoja en Blanco:**
+    - En el `iframe` de impresión:
+      ```css
+      @page {
+        size: letter portrait;
+        margin: 8mm;
+      }
+      html, body {
+        width: 100%;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+      }
+      .hoja-carta-impresion {
+        width: 100%;
+        max-height: 258mm !important;
+        box-sizing: border-box;
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+        break-after: avoid !important;
+        break-inside: avoid !important;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      ```
+    - En el generador PDF (`crearDocumentoPdfCarta`): Se fuerza un límite de altura y se valida programáticamente `if (doc.getNumberOfPages() > 1) { doc.deletePage(2); }` para suprimir cualquier página vacía residual.
+  - **CERO CÓDIGOS QR en los 3 formatos:** Estricto cumplimiento de directriz comercial.
+
+### 2. Carga y Persistencia de Logotipo en Base64 Data URL (100% Offline)
+- **Compresión en Canvas Cliente (`/admin/configuracion`):**
+  - Al subir una imagen (`.png`, `.jpg`, `.webp`), un `<canvas>` invisible redimensiona la imagen a un ancho máximo de `600px` manteniendo la relación de aspecto y convirtiéndola a Data URL Base64 (`data:image/png;base64,...`).
+  - Permite cargar imágenes pesadas de hasta 5MB sin sobrecargar la base de datos SQLite (<120 KB por logo).
+  - Al estar almacenado en Base64 dentro del campo `logoUrl` de `ConfiguracionEmpresa`, el logo se renderiza de forma **inmediata, 100% offline y sin problemas de CORS ni rutas absolutas rotas** en celulares, tablets o computadores secundarios de la red local.
+
+### 3. Panel de Configuración Administrativa (`/admin/configuracion`)
+- **Sección 1 — Identidad Visual y Logotipo:** Cargador con previsualización instantánea, dimensiones optimizadas y botón para quitar logotipo.
+- **Sección 2 — Datos Comerciales y Fiscales:** Nombre comercial, eslogan, NIT, régimen fiscal (IVA), dirección física, ciudad, teléfono y formato predeterminado.
+- **Sección 3 — Información del Cajero / Vendedor:** Switch interactivo para alternar la visibilidad del cajero en el comprobante impreso.
+- **Sección 4 — Políticas y Términos al Pie de Factura:** Textarea multilínea para normativas, garantías y penalizaciones de alquiler, más campo de pie institucional.
+- **Sección 5 — Simulador en Vivo de Factura:** Pestañas para simular en tiempo real la apariencia del documento en **Tirilla (80mm)**, **Media Carta** y **Carta Completa**.
+
+### 4. Rutas de Backend Actualizadas
+- `prisma/schema.prisma` y `database/schema.prisma`: Sincronizado el modelo `ConfiguracionEmpresa` con `eslogan`, `regimenFiscal`, `ciudad`, `email`, `encabezadoFactura`, `mostrarVendedorFactura`, `politicasFactura`, `piePaginaFactura`, `formatoPredeterminado` y `formatoImpresionDefault`.
+- `src/app/api/empresa/route.ts`: Endpoints `GET`, `PUT` y `POST` con `export const dynamic = "force-dynamic"` y cabeceras `Cache-Control: no-store` para reflejar cambios instantáneamente.
+- `src/app/api/impresion/[id]/route.ts`: Con `force-dynamic` y `Cache-Control: no-store`, retorna la factura junto con la configuración corporativa y el logo actualizado.
+- `src/app/api/facturas/[id]/pdf/route.ts`: Genera y sirve el PDF binario en los 3 formatos según el query parameter `?formato=TIRILLA|MEDIA_CARTA|CARTA`.
+

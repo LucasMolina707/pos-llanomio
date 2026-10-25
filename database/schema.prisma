@@ -122,13 +122,22 @@ model ConfiguracionEmpresa {
   id                      String           @id @default(cuid())
   nombreTienda            String           @default("LLANOMIO")
   nombreComercial         String           @default("LLANOMIO")
+  eslogan                 String?          @default("Trajes Típicos, Disfraces y Sastrería")
   nit                     String           @unique @default("900.123.456-7")
-  direccion               String           @default("Calle Principal #10-20, Villavicencio, Meta")
-  telefono                String           @default("3101234567")
-  logoUrl                 String?
-  politicasFactura        String?
-  formatoImpresionDefault FormatoImpresion @default(TIRILLA)
+  regimenFiscal           String?          @default("No Responsable de IVA")
+  direccion               String           @default("Calle 15 # 22-30, Barrio Siete de Agosto")
+  ciudad                  String?          @default("Villavicencio, Meta")
+  telefono                String           @default("310 123 4567")
+  email                   String?          @default("contacto@llanomio.com")
+  logoUrl                 String?          // Base64 Data URL o ruta local
+  encabezadoFactura       String?          // Subtítulo o lema de encabezado
+  mostrarVendedorFactura  Boolean          @default(true)
+  politicasFactura        String?          // Términos, condiciones, requisitos y normas de alquiler/venta
+  piePaginaFactura        String?          // Agradecimiento o pie institucional
+  formatoPredeterminado   String           @default("MEDIA_CARTA") // TIRILLA | MEDIA_CARTA | CARTA
+  formatoImpresionDefault FormatoImpresion @default(MEDIA_CARTA)
   rutaCarpetaRespaldo     String           @default("C:\\POS_LLANOMIO_BACKUPS")
+  createdAt               DateTime         @default(now())
   updatedAt               DateTime         @updatedAt
 
   @@map("configuracion_empresa")

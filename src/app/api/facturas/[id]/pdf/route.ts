@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { crearDocumentoPdfMediaCarta } from "@/lib/pdf-media-carta";
-import { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
+import {
+  crearDocumentoPdfMediaCarta,
+  crearDocumentoPdfCarta,
+  crearDocumentoPdfTirilla,
+} from "@/lib/pdf-media-carta";
+import { DatosImpresionFactura, FormatoImpresionTipo } from "@/components/impresion/PlantillaImpresion";
+
+export const dynamic = "force-dynamic";
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -9,7 +15,7 @@ interface Params {
 
 /**
  * GET /api/facturas/[id]/pdf
- * Exporta y entrega la factura en formato binario PDF tamaño Media Carta (5.5" x 8.5")
+ * Exporta y entrega la factura en formato binario PDF (TIRILLA 80mm, MEDIA_CARTA o CARTA)
  */
 export async function GET(req: NextRequest, { params }: Params) {
   try {
@@ -75,6 +81,13 @@ export async function GET(req: NextRequest, { params }: Params) {
     // 2. Obtener datos corporativos de la empresa
     const empresaConfig = await prisma.configuracionEmpresa.findFirst();
 
+    const { searchParams } = new URL(req.url);
+    const formatoParam = searchParams.get("formato") as FormatoImpresionTipo | null;
+    const formatoSeleccionado: FormatoImpresionTipo =
+      formatoParam === "TIRILLA" || formatoParam === "CARTA" || formatoParam === "MEDIA_CARTA"
+        ? formatoParam
+        : (empresaConfig?.formatoPredeterminado as FormatoImpresionTipo) || "MEDIA_CARTA";
+
     const datosImpresion: DatosImpresionFactura = {
       factura: {
         id: factura.id,
@@ -126,22 +139,41 @@ export async function GET(req: NextRequest, { params }: Params) {
         })),
       },
       empresa: {
+        nombreTienda: empresaConfig?.nombreTienda || "LLANOMIO",
         nombreComercial: empresaConfig?.nombreComercial || "LLANOMIO",
+        eslogan: empresaConfig?.eslogan || "Trajes Típicos, Disfraces y Sastrería",
         nit: empresaConfig?.nit || "900.123.456-7",
-        direccion: empresaConfig?.direccion || "Calle Principal #10-20, Villavicencio, Meta",
-        telefono: empresaConfig?.telefono || "3101234567",
+        regimenFiscal: empresaConfig?.regimenFiscal || "No Responsable de IVA",
+        direccion: empresaConfig?.direccion || "Calle 15 # 22-30, Barrio Siete de Agosto",
+        ciudad: empresaConfig?.ciudad || "Villavicencio, Meta",
+        telefono: empresaConfig?.telefono || "310 123 4567",
+        email: empresaConfig?.email || "contacto@llanomio.com",
         logoUrl: empresaConfig?.logoUrl || null,
+        encabezadoFactura: empresaConfig?.encabezadoFactura || null,
+        mostrarVendedorFactura:
+          empresaConfig?.mostrarVendedorFactura !== undefined ? empresaConfig.mostrarVendedorFactura : true,
         politicasFactura:
           empresaConfig?.politicasFactura ||
-          "El cliente se compromete a devolver las prendas en la fecha pactada en el mismo estado en que las recibe. Todo retraso generara cobro de tarifa de mora por dia o por hora.",
+          "El cliente se compromete a devolver las prendas en la fecha pactada en el mismo estado en que las recibe. Todo retraso generará cobro de tarifa de mora.",
+        piePaginaFactura:
+          empresaConfig?.piePaginaFactura || "Sistema POS Local LLANOMIO — Impreso sin códigos QR externos",
+        formatoPredeterminado: formatoSeleccionado,
+        formatoImpresionDefault: formatoSeleccionado,
       },
     };
 
-    // 3. Generar documento PDF Media Carta
-    const doc = crearDocumentoPdfMediaCarta(datosImpresion);
+    // 3. Generar documento PDF según formato
+    let doc;
+    if (formatoSeleccionado === "TIRILLA") {
+      doc = crearDocumentoPdfTirilla(datosImpresion);
+    } else if (formatoSeleccionado === "CARTA") {
+      doc = crearDocumentoPdfCarta(datosImpresion);
+    } else {
+      doc = crearDocumentoPdfMediaCarta(datosImpresion);
+    }
+
     const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
 
-    const { searchParams } = new URL(req.url);
     const descargar = searchParams.get("descargar") === "true";
     const disposition = descargar ? "attachment" : "inline";
 
@@ -149,7 +181,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `${disposition}; filename="Factura_${factura.numeroFactura}_MediaCarta.pdf"`,
+        "Content-Disposition": `${disposition}; filename="Factura_${factura.numeroFactura}_${formatoSeleccionado}.pdf"`,
         "Cache-Control": "no-store, max-age=0",
       },
     });
