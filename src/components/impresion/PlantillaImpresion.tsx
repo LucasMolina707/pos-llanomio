@@ -53,6 +53,10 @@ export interface DatosImpresionFactura {
       monto: number;
       metodoPago: string;
       referenciaComprobante?: string | null;
+      cajero?: {
+        nombre: string;
+        username?: string;
+      } | null;
     }>;
   };
   empresa: {
@@ -272,9 +276,17 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
           </div>
 
           <div className="text-right">
-            <div className="border-2 border-slate-900 rounded-xl p-3 bg-slate-50">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">
-                FACTURA COMERCIAL
+            <div className={`border-2 rounded-xl p-3 ${
+              factura.saldoPendiente <= 0
+                ? "border-emerald-600 bg-emerald-50/50"
+                : "border-slate-900 bg-slate-50"
+            }`}>
+              <span className={`text-[10px] uppercase font-bold tracking-wider block ${
+                factura.saldoPendiente <= 0 ? "text-emerald-700 font-black" : "text-slate-500"
+              }`}>
+                {factura.saldoPendiente <= 0
+                  ? "COMPROBANTE DE PAGO FINAL (PAZ Y SALVO)"
+                  : "FACTURA COMERCIAL"}
               </span>
               <span className="text-lg font-black font-mono block text-slate-900">
                 {factura.numeroFactura}
@@ -289,8 +301,21 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
           </div>
         </div>
 
+        {/* Sello Visual de Factura Pagada al 100% / Paz y Salvo */}
+        {factura.saldoPendiente <= 0 && (
+          <div className="mb-3 px-3 py-1.5 rounded-lg bg-emerald-600 text-white flex items-center justify-between text-xs font-black tracking-wide shadow-xs">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+              <span>FACTURA PAGADA AL 100% — PAZ Y SALVO DE OBLIGACIÓN</span>
+            </div>
+            <span className="bg-emerald-700 px-2 py-0.5 rounded text-[11px] font-mono">
+              SALDO TOTAL: $0
+            </span>
+          </div>
+        )}
+
         {/* Ficha de Cliente y Operación */}
-        <div className="grid grid-cols-2 gap-4 my-4 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+        <div className="grid grid-cols-2 gap-4 my-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
           <div>
             <p className="font-bold uppercase text-slate-500 text-[10px] mb-1">
               Información del Cliente:
@@ -319,7 +344,7 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
               </p>
             )}
             <p className="text-slate-500 text-[11px]">
-              Cajero: {factura.usuarioCajero?.nombre}
+              Cajero Emisor: {factura.usuarioCajero?.nombre}
             </p>
           </div>
         </div>
@@ -383,6 +408,39 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
             })}
           </tbody>
         </table>
+
+        {/* Historial Completo de Pagos / Abonos Recibidos */}
+        {factura.abonos && factura.abonos.length > 0 && (
+          <div className="mb-3 p-2 bg-slate-50 rounded-lg border border-slate-200">
+            <p className="font-bold uppercase text-[9.5px] text-slate-700 mb-1 flex items-center justify-between">
+              <span>Historial de Pagos & Abonos Registrados:</span>
+              <span className="font-mono text-emerald-700">
+                Total Pagado: ${factura.totalAbonado.toLocaleString("es-CO")}
+              </span>
+            </p>
+            <div className="space-y-1 text-[10px]">
+              {factura.abonos.map((abono, aIdx) => (
+                <div
+                  key={abono.id || aIdx}
+                  className="flex items-center justify-between bg-white px-2 py-1 rounded border border-slate-200/80 font-mono"
+                >
+                  <span className="text-slate-600">
+                    Pago #{aIdx + 1} — {new Date(abono.fecha).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                    {abono.cajero?.nombre ? ` (Cajero: ${abono.cajero.nombre})` : ""}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-slate-100 text-slate-700 border">
+                      {abono.metodoPago}
+                    </span>
+                    <strong className="text-emerald-700 font-bold">
+                      ${abono.monto.toLocaleString("es-CO")}
+                    </strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Liquidación de Totales */}
         <div className="flex justify-between items-start gap-4 border-t-2 border-slate-900 pt-2.5">
@@ -451,19 +509,20 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
 
             {/* Total Abonado y Método */}
             <div className="flex justify-between text-[11px] text-emerald-700 font-bold">
-              <span className="font-sans">
-                Abono Recibido
-                {factura.abonos && factura.abonos.length > 0
-                  ? ` (${factura.abonos[0].metodoPago})`
-                  : ""}:
-              </span>
+              <span className="font-sans">Total Abonado:</span>
               <span>-${factura.totalAbonado.toLocaleString("es-CO")}</span>
             </div>
 
             {/* Saldo Pendiente */}
-            <div className="flex justify-between text-xs font-black font-sans pt-1 p-1.5 rounded bg-slate-100 border border-slate-300">
-              <span className="text-slate-900">SALDO PENDIENTE:</span>
-              <span className="text-rose-600">${factura.saldoPendiente.toLocaleString("es-CO")}</span>
+            <div className={`flex justify-between text-xs font-black font-sans pt-1 p-1.5 rounded border ${
+              factura.saldoPendiente <= 0
+                ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                : "bg-slate-100 text-rose-600 border-slate-300"
+            }`}>
+              <span>SALDO PENDIENTE:</span>
+              <span>
+                {factura.saldoPendiente <= 0 ? "$0 (PAZ Y SALVO)" : `$${factura.saldoPendiente.toLocaleString("es-CO")}`}
+              </span>
             </div>
           </div>
         </div>

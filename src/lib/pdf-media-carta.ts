@@ -53,30 +53,41 @@ export function crearDocumentoPdfMediaCarta(
   cursorY += 3.5;
   doc.text(`Teléfono / WhatsApp: ${empresa.telefono}`, margenIzquierdo, cursorY);
 
-  // Recuadro derecho: Factura Comercial N° Consecutivo
-  const anchoCajaFactura = 62;
+  // Recuadro derecho: Factura Comercial N° Consecutivo o Comprobante Pago Final
+  const anchoCajaFactura = 68;
   const altoCajaFactura = 17;
   const xCajaFactura = margenDerecho - anchoCajaFactura;
   const yCajaFactura = 8;
+  const esPazYSalvo = factura.saldoPendiente <= 0;
 
-  doc.setFillColor(248, 250, 252); // Slate 50
-  doc.setDrawColor(15, 23, 42); // Slate 900
+  if (esPazYSalvo) {
+    doc.setFillColor(236, 253, 245); // Emerald 50
+    doc.setDrawColor(5, 150, 105);   // Emerald 600
+  } else {
+    doc.setFillColor(248, 250, 252); // Slate 50
+    doc.setDrawColor(15, 23, 42);   // Slate 900
+  }
   doc.setLineWidth(0.4);
   doc.roundedRect(xCajaFactura, yCajaFactura, anchoCajaFactura, altoCajaFactura, 2, 2, "FD");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  doc.setTextColor(100, 116, 139); // Slate 500
-  doc.text("FACTURA COMERCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
+  doc.setFontSize(7);
+  if (esPazYSalvo) {
+    doc.setTextColor(5, 150, 105);
+    doc.text("PAGO FINAL (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
+  } else {
+    doc.setTextColor(100, 116, 139); // Slate 500
+    doc.text("FACTURA COMERCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
+  }
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
+  doc.setFontSize(12.5);
   doc.setTextColor(15, 23, 42);
   doc.text(`N° ${factura.numeroFactura}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 10, { align: "center" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.5);
-  doc.setTextColor(37, 99, 235); // Blue 600
+  doc.setTextColor(esPazYSalvo ? 5 : 37, esPazYSalvo ? 150 : 99, esPazYSalvo ? 105 : 235);
   doc.text(`** ${tipoCopia} **`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 14.5, { align: "center" });
 
   // Fecha y Cajero debajo del recuadro
@@ -341,18 +352,31 @@ export function crearDocumentoPdfMediaCarta(
   cursorTotY += 4;
 
   // SALDO PENDIENTE (Recuadro destacado)
-  doc.setFillColor(241, 245, 249); // Slate 100
-  doc.setDrawColor(15, 23, 42);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(xTotales - 2, cursorTotY - 1, anchoTotales + 2, 6, 1, 1, "FD");
+  if (factura.saldoPendiente <= 0) {
+    doc.setFillColor(236, 253, 245); // Emerald 50
+    doc.setDrawColor(16, 185, 129);  // Emerald 500
+    doc.setLineWidth(0.3);
+    doc.roundedRect(xTotales - 2, cursorTotY - 1, anchoTotales + 2, 6, 1, 1, "FD");
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.setTextColor(225, 29, 72); // Rose 600
-  doc.text("SALDO PENDIENTE:", xTotales, cursorTotY + 3.5);
-  doc.text(`$${factura.saldoPendiente.toLocaleString("es-CO")}`, margenDerecho - 1, cursorTotY + 3.5, {
-    align: "right",
-  });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(5, 150, 105); // Emerald 600
+    doc.text("SALDO PENDIENTE:", xTotales, cursorTotY + 3.5);
+    doc.text("$0 (PAZ Y SALVO)", margenDerecho - 1, cursorTotY + 3.5, { align: "right" });
+  } else {
+    doc.setFillColor(241, 245, 249); // Slate 100
+    doc.setDrawColor(15, 23, 42);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(xTotales - 2, cursorTotY - 1, anchoTotales + 2, 6, 1, 1, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(225, 29, 72); // Rose 600
+    doc.text("SALDO PENDIENTE:", xTotales, cursorTotY + 3.5);
+    doc.text(`$${factura.saldoPendiente.toLocaleString("es-CO")}`, margenDerecho - 1, cursorTotY + 3.5, {
+      align: "right",
+    });
+  }
 
   // Pie de página de cortesía
   doc.setFont("helvetica", "normal");

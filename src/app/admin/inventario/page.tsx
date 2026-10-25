@@ -21,8 +21,12 @@ import {
   SlidersHorizontal,
   BookmarkCheck,
   AlertTriangle,
+  X,
+  Layers,
+  Palette,
 } from "lucide-react";
 import ModalProducto, { ProductoData } from "@/components/inventario/ModalProducto";
+import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 
 interface ProductoItem extends ProductoData {
   id: string;
@@ -59,6 +63,8 @@ export default function InventarioAdminPage() {
   const [cargando, setCargando] = useState(true);
   const [pestañaTipo, setPestañaTipo] = useState<"ALQUILER" | "VENTA" | "TODOS">("ALQUILER");
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
+  const [filtroCategoria, setFiltroCategoria] = useState<string>("TODAS");
+  const [filtroTalla, setFiltroTalla] = useState<string>("TODAS");
   const [busqueda, setBusqueda] = useState<string>("");
 
   // Control del modal
@@ -73,8 +79,6 @@ export default function InventarioAdminPage() {
       setCargando(true);
       const params = new URLSearchParams();
       if (pestañaTipo !== "TODOS") params.set("tipo", pestañaTipo);
-      if (filtroEstado !== "TODOS") params.set("estado", filtroEstado);
-      if (busqueda.trim()) params.set("busqueda", busqueda.trim());
 
       const res = await fetch(`/api/inventario?${params.toString()}`);
       const data = await res.json();
@@ -91,7 +95,56 @@ export default function InventarioAdminPage() {
 
   useEffect(() => {
     cargarInventario();
-  }, [pestañaTipo, filtroEstado]);
+  }, [pestañaTipo]);
+
+  // Extraer categorías y tallas únicas presentes en el catálogo cargado
+  const categoriasUnicas = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of productos) {
+      if (p.categoria && p.categoria.trim()) set.add(p.categoria.trim());
+    }
+    return Array.from(set).sort();
+  }, [productos]);
+
+  const tallasUnicas = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of productos) {
+      if (p.talla && p.talla.trim()) set.add(p.talla.trim());
+    }
+    return Array.from(set).sort();
+  }, [productos]);
+
+  // Autofiltrado dinámico no-preciso (Fuzzy) y por etiquetas de filtro
+  const productosFiltrados = useMemo(() => {
+    let base = productos;
+
+    // Filtro por Estado
+    if (filtroEstado !== "TODOS") {
+      base = base.filter((p) => p.estado === filtroEstado);
+    }
+
+    // Filtro por Categoría
+    if (filtroCategoria !== "TODAS") {
+      base = base.filter((p) => p.categoria?.trim() === filtroCategoria);
+    }
+
+    // Filtro por Talla
+    if (filtroTalla !== "TODAS") {
+      base = base.filter((p) => p.talla?.trim() === filtroTalla);
+    }
+
+    // Búsqueda difusa multi-campo
+    return filtrarPorRelevancia(base, busqueda, (item) => ({
+      primarios: [item.codigo, item.nombre],
+      secundarios: [
+        item.talla,
+        item.color,
+        item.categoria,
+        item.estado,
+        String(item.precioBase || ""),
+      ],
+    }));
+  }, [productos, filtroEstado, filtroCategoria, filtroTalla, busqueda]);
 
   const handleBuscar = (e: React.FormEvent) => {
     e.preventDefault();
@@ -356,9 +409,9 @@ export default function InventarioAdminPage() {
           </div>
         </section>
 
-        {/* Barra de Búsqueda */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-          <form onSubmit={handleBuscar} className="flex gap-2">
+        {/* Barra de Búsqueda Dinámica No-Precisa + Selector de Chips Táctiles */}
+        <section className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <Search className="h-4 w-4" />
@@ -367,17 +420,134 @@ export default function InventarioAdminPage() {
                 type="text"
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar por código, descripción, talla, color o categoría..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="Buscador difuso: escribe código, nombre, talla, color o categoría (sin importar tildes)..."
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
+              {busqueda && (
+                <button
+                  type="button"
+                  onClick={() => setBusqueda("")}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  title="Limpiar búsqueda"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
-            <button
-              type="submit"
-              className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition shadow-sm"
-            >
-              Buscar
-            </button>
-          </form>
+
+            <div className="flex items-center justify-between sm:justify-end gap-2 text-xs">
+              <span className="text-slate-500 font-medium">
+                Mostrando <strong>{productosFiltrados.length}</strong> de {productos.length} prendas
+              </span>
+              <button
+                type="button"
+                onClick={cargarInventario}
+                className="p-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition"
+                title="Recargar catálogo"
+              >
+                <RefreshCw className={`h-4 w-4 ${cargando ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Chips Interactivos Táctiles de Filtro Rápido */}
+          <div className="space-y-2 pt-1 border-t border-slate-100">
+            {/* Fila 1: Estados */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1">
+                <Filter className="w-3 h-3" /> Estado:
+              </span>
+              {[
+                { id: "TODOS", label: "Todos los Estados" },
+                { id: "DISPONIBLE", label: "Disponibles" },
+                { id: "ALQUILADO", label: "Alquilados" },
+                { id: "SEPARADO", label: "Separados" },
+                { id: "EN_ARREGLO", label: "En Arreglo" },
+                { id: "INACTIVO", label: "Inactivos" },
+              ].map((est) => (
+                <button
+                  key={est.id}
+                  type="button"
+                  onClick={() => setFiltroEstado(est.id)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                    filtroEstado === est.id
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {est.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Fila 2: Categorías Dinámicas */}
+            {categoriasUnicas.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1">
+                  <Layers className="w-3 h-3" /> Categoría:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFiltroCategoria("TODAS")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                    filtroCategoria === "TODAS"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Todas
+                </button>
+                {categoriasUnicas.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setFiltroCategoria(filtroCategoria === cat ? "TODAS" : cat)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                      filtroCategoria === cat
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Fila 3: Tallas Dinámicas */}
+            {tallasUnicas.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1">
+                  <Tag className="w-3 h-3" /> Talla:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFiltroTalla("TODAS")}
+                  className={`px-2 py-0.5 rounded-md text-xs font-semibold transition ${
+                    filtroTalla === "TODAS"
+                      ? "bg-slate-800 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Todas
+                </button>
+                {tallasUnicas.map((talla) => (
+                  <button
+                    key={talla}
+                    type="button"
+                    onClick={() => setFiltroTalla(filtroTalla === talla ? "TODAS" : talla)}
+                    className={`px-2 py-0.5 rounded-md text-xs font-semibold transition ${
+                      filtroTalla === talla
+                        ? "bg-slate-800 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {talla}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Tabla de Productos */}
@@ -387,10 +557,10 @@ export default function InventarioAdminPage() {
               <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-emerald-600" />
               <span>Cargando catálogo de prendas...</span>
             </div>
-          ) : productos.length === 0 ? (
+          ) : productosFiltrados.length === 0 ? (
             <div className="p-12 text-center text-slate-500 text-xs font-semibold">
               <Package className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-              <p>No se encontraron prendas con los filtros seleccionados.</p>
+              <p>No se encontraron prendas con los filtros o búsqueda seleccionada.</p>
               <button
                 onClick={handleNuevoProducto}
                 className="mt-3 inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold hover:bg-emerald-100 transition"
@@ -416,7 +586,7 @@ export default function InventarioAdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {productos.map((prod) => (
+                  {productosFiltrados.map((prod) => (
                     <tr
                       key={prod.id}
                       className="hover:bg-slate-50/70 transition duration-150 text-slate-800"

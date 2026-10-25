@@ -143,19 +143,48 @@ export async function POST(req: NextRequest, { params }: Params) {
       ? (metodoPago as MetodoPago)
       : MetodoPago.EFECTIVO;
 
-    // 5. Transacción atómica: Crear abono y actualizar totales de la factura
+    // 5. Transacción atómica: Crear abono, actualizar caja del turno y totales de factura
     const resultado = await prisma.$transaction(async (tx) => {
+      // Buscar turno de caja abierto actual
+      const turnoAbierto = await tx.turnoCaja.findFirst({
+        where: { estado: "ABIERTO" },
+        orderBy: { fechaApertura: "desc" },
+      });
+
       // Crear el registro de abono
       const nuevoAbono = await tx.abono.create({
         data: {
           facturaId: facturaExistente.id,
           cajeroId,
+          turnoCajaId: turnoAbierto?.id || null,
           monto: montoNumerico,
           metodoPago: metodo,
           referenciaComprobante: referenciaComprobante?.trim() || null,
           notas: notas?.trim() || "Abono a saldo pendiente",
         },
       });
+
+      // Impactar movimiento de caja en el turno activo si existe
+      if (turnoAbierto) {
+        const campoMetodoMap: Record<MetodoPago, string> = {
+          [MetodoPago.EFECTIVO]: "totalEfectivo",
+          [MetodoPago.NEQUI]: "totalNequi",
+          [MetodoPago.DAVIPLATA]: "totalDaviplata",
+          [MetodoPago.TRANSFERENCIA]: "totalTransferencia",
+          [MetodoPago.CONSIGNACION]: "totalConsignacion",
+        };
+
+        const campoAIncrementar = campoMetodoMap[metodo];
+        if (campoAIncrementar) {
+          await tx.turnoCaja.update({
+            where: { id: turnoAbierto.id },
+            data: {
+              [campoAIncrementar]: { increment: montoNumerico },
+              totalRecaudado: { increment: montoNumerico },
+            },
+          });
+        }
+      }
 
       // Calcular nuevo acumulado de abonos
       const abonosActualizados = await tx.abono.findMany({
@@ -238,6 +267,14 @@ export async function POST(req: NextRequest, { params }: Params) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * PATCH /api/facturas/[id]
+ * Alias para liquidar o registrar abonos a una factura existente
+ */
+export async function PATCH(req: NextRequest, ctx: Params) {
+  return POST(req, ctx);
 }
 
 /**

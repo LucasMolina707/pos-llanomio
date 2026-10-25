@@ -274,3 +274,55 @@ Se implementó una experiencia de mostrador estructurada y lineal en `src/app/ca
    - Ejecución de `scripts/test-pos-qa.ts` validando la creación de factura mixta (Venta + Alquiler + Arreglo), los 3 escenarios de liquidación (100% pagado, adelanto parcial, $0 pendiente) y generación de PDF Media Carta con cero códigos QR.
    - Compilación exitosa de Next.js 15 (`npm run build`) con código 0 y cero errores de TypeScript.
 
+---
+
+## 7. Motor Universal de Búsqueda Difusa, Bandeja de Facturas Pendientes y Liquidación con Paz y Salvo PDF
+
+Se completó la integración transversal de dos ejes funcionales críticos para la operación fluida del mostrador y el control de cartera de la tienda:
+
+### 1. Motor Utilitario Universal de Búsqueda Difusa (`src/lib/fuzzy-search.ts`)
+- **Normalización NFD Universal:** Limpieza estricta de tildes, diacríticos y conversión de cualquier símbolo o signo ortográfico a espacios (`normalizarTexto`), asegurando que búsquedas como `"camisón"` coincidan con `"camison"` o `"Ángel"` con `"angel"`.
+- **Distancia de Edición & Erratas Tipográficas:** Algoritmo optimizado de distancia de edición (`distanciaEdicion`) con tolerancia a una inserción, omisión o transposición adyacente en tokens de longitud $\ge 4$, permitiendo encontrar registros aún con letras invertidas o faltantes (ej: `"albornos"` -> `"Pedro Albornoz"`, `"tarje"` -> `"traje"`).
+- **Puntuación de Relevancia Ponderada:** Ordena los resultados priorizando:
+  1. Prefijo exacto en campos primarios (100 pts).
+  2. Coincidencia de subcadena en campos primarios (60 pts).
+  3. Coincidencia en campos secundarios (35 pts).
+  4. Coincidencia difusa aproximada por tolerancia a erratas (15 pts).
+- **Etiquetas por Defecto (0 ms de latencia):** Cuando el campo de búsqueda está vacío, devuelve la lista completa para ser renderizada inmediatamente como tarjetas y píldoras táctiles listas para tocar con el dedo o hacer clic con el mouse.
+
+### 2. Autofiltrado Táctil en Todos los Módulos
+- **POS Paso 1 (Clientes):** Catálogo completo precargado en memoria, chips táctiles con avatar, badges de documento, teléfono y badge `"NUEVO"` para clientes creados en la misma sesión. Selección en 1 clic o con tecla `Enter`.
+- **POS Paso 2 (Módulo Venta):** Tarjetas/chips táctiles con código, nombre, talla, color, precio y stock actual. Un toque agrega la prenda directamente al carrito.
+- **POS Paso 2 (Módulo Alquiler):** Tarjetas/chips táctiles con badge de estado (`DISPONIBLE`, `ALQUILADO`, `SEPARADO`), talla, color y tarifa base. Al tocar, precarga la prenda en el configurador de fechas de entrega y devolución obligatoria.
+- **POS Paso 2 (Módulo Arreglos):** Píldoras interactivas de servicios frecuentes (*"Dobladillo / Bota"*, *"Entalle de Prenda"*, *"Cambio de Cremallera"*, *"Ajuste de Cintura"*, *"Lavandería / Mantenimiento"*, *"Confección a Medida"*) que al tocarlas autocompletan la descripción libre.
+- **Inventario (`/admin/inventario`):** Buscador difuso multi-campo acoplado a chips táctiles de filtro por estado (`DISPONIBLES`, `ALQUILADOS`, `SEPARADOS`, `EN_ARREGLO`, `INACTIVOS`), categorías extraídas dinámicamente y tallas.
+- **Monitoreo & Cartera (`/admin/monitoreo`):** Buscador difuso en tiempo real cruzando consecutivo de factura, cliente, cédula, teléfono, cajero y saldo pendiente, con pestaña rápida `"CON_SALDO"` y botón directo `"Cobrar Saldo"`.
+
+### 3. Ciclo de Vida de Transacción y Persistencia de Saldos
+- **3 Modalidades Financieras:**
+  1. *Pago Completo ($100%):* Abono total registrado, `saldoPendiente = 0`, pasa a `CERRADA` (o `ACTIVA_ALQUILADA` si tiene devolución física pendiente).
+  2. *Pago Parcial / Adelanto:* `0 < abono < total`, persiste `saldoPendiente = total - abono`, estado `EN_PROCESO` o `ACTIVA_ALQUILADA`.
+  3. *Pendiente por Pagar ($0):* `totalAbonado = 0`, `saldoPendiente = total`, estado `EN_PROCESO`.
+- **Cierre Limpio en Memoria del POS:** Al emitir la factura en el Paso 4, el cajero puede imprimir/descargar el comprobante y reiniciar el mostrador mediante el botón `"Iniciar Siguiente Factura / Limpiar Mostrador"`, purgando el carrito y retornando al Paso 1 sin cruce de datos.
+
+### 4. Conmutador Superior y Bandeja de Facturas Pendientes
+- En la cabecera de `/caja/pos` se añadió un conmutador prominente:
+  - **`[1. Nueva Factura]`**
+  - **`[2. Cobrar Facturas Pendientes (X)]`** con contador de facturas abiertas en tiempo real.
+- Permite a cualquier cajero o administrador buscar facturas pendientes, inspeccionar el cliente, ver el total facturado, total abonado hasta el momento y el saldo restante por recaudar.
+
+### 5. Modal de Liquidación Posterior y Comprobante Final Paz y Salvo (`ModalLiquidarFactura.tsx`)
+- Historial transparente de todos los abonos previos (fecha, hora, monto, método y cajero que recibió el dinero).
+- Opciones de pago en un solo clic: **"Pagar Saldo Completo Restante ($[Saldo])"** (predeterminado) o **"Registrar Otro Abono Parcial"**.
+- Selección de método de pago (`EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`, `CONSIGNACION`).
+- Impacto atómico en SQLite:
+  - Crea el nuevo registro en la tabla `Abono` vinculándolo al `turnoCajaId` de la caja abierta actualmente.
+  - Actualiza el arqueo del turno sumando el importe al método de pago correspondiente y a `totalRecaudado`.
+  - Si el saldo llega a `$0`, actualiza `saldoPendiente = 0` y pasa la factura a `CERRADA`.
+- Despliegue automático del **Comprobante de Pago Final (Paz y Salvo)** en formato **Media Carta (`MEDIA_CARTA`)** con sello visual verde de `"FACTURA PAGADA AL 100% — PAZ Y SALVO DE OBLIGACIÓN — SALDO TOTAL: $0"`, desglose cronológico de todos los pagos y **CERO códigos QR**.
+
+### 6. Control de Calidad Integral (QA - Agente 5)
+- Archivo de pruebas automatizadas: `scripts/test-pos-fuzzy-and-settlement-qa.ts`.
+- **36 de 36 pruebas exitosas** cubriendo normalización, distancias de edición, creación de 3 modalidades de facturas en mostrador, consulta en bandeja de pendientes, liquidación posterior por un segundo cajero, impacto en arqueo de caja y generación del PDF Media Carta con cero QR.
+- Verificación de tipos con `npx tsc --noEmit` y compilación de producción con `npm run build` completada con éxito (código 0, 24 rutas generadas).
+

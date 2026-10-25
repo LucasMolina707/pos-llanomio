@@ -28,12 +28,18 @@ export async function GET(req: NextRequest) {
     const estado = searchParams.get("estado") as EstadoFactura | null;
     const clienteId = searchParams.get("clienteId");
     const q = searchParams.get("q")?.trim() || "";
-    const limite = parseInt(searchParams.get("limite") || "50", 10);
+    const pendientes = searchParams.get("pendientes") === "true" || searchParams.get("soloPendientes") === "true";
+    const limiteParam = searchParams.get("limite");
+    const limite = limiteParam ? parseInt(limiteParam, 10) : pendientes ? 500 : 50;
 
     const where: Record<string, unknown> = {};
 
     if (estado) {
       where.estado = estado;
+    }
+
+    if (pendientes) {
+      where.saldoPendiente = { gt: 0 };
     }
 
     if (clienteId) {
@@ -50,7 +56,7 @@ export async function GET(req: NextRequest) {
 
     const facturas = await prisma.factura.findMany({
       where,
-      take: Math.min(limite, 100),
+      take: Math.min(limite, 500),
       orderBy: { fechaCreacion: "desc" },
       include: {
         cliente: {
@@ -385,12 +391,26 @@ export async function POST(req: NextRequest) {
       // Reservar correlativo estrictamente numérico, secuencial e inmodificable
       const { consecutivo, numeroFactura } = await reservarSiguienteFolioFactura(tx);
 
+      // Buscar turno de caja abierto actual
+      const turnoAbierto = await tx.turnoCaja.findFirst({
+        where: { estado: "ABIERTO" },
+        orderBy: { fechaApertura: "desc" },
+      });
+
+      const abonoConTurno = abonoDataCreacion
+        ? {
+            ...abonoDataCreacion,
+            turnoCajaId: turnoAbierto?.id || null,
+          }
+        : null;
+
       const factura = await tx.factura.create({
         data: {
           consecutivo,
           numeroFactura,
           clienteId,
           usuarioCajeroId: cajeroId,
+          turnoCajaId: turnoAbierto?.id || null,
           tipoOperacion: tipoOpFinal,
           estado: estadoFinal,
           subtotalProductos,
@@ -411,9 +431,9 @@ export async function POST(req: NextRequest) {
               subtotal: d.subtotal,
             })),
           },
-          abonos: abonoDataCreacion
+          abonos: abonoConTurno
             ? {
-                create: [abonoDataCreacion],
+                create: [abonoConTurno],
               }
             : undefined,
         },
@@ -460,6 +480,28 @@ export async function POST(req: NextRequest) {
           } catch (errProd) {
             console.warn(`[INVENTARIO] No se pudo cambiar estado a ALQUILADO para producto ${item.productoId}:`, errProd);
           }
+        }
+      }
+
+      // Impactar movimiento de caja en el turno activo si hubo abono inicial
+      if (turnoAbierto && abonoConTurno && montoAbonoInicial > 0) {
+        const campoMetodoMap: Record<MetodoPago, string> = {
+          [MetodoPago.EFECTIVO]: "totalEfectivo",
+          [MetodoPago.NEQUI]: "totalNequi",
+          [MetodoPago.DAVIPLATA]: "totalDaviplata",
+          [MetodoPago.TRANSFERENCIA]: "totalTransferencia",
+          [MetodoPago.CONSIGNACION]: "totalConsignacion",
+        };
+
+        const campoAIncrementar = campoMetodoMap[abonoConTurno.metodoPago];
+        if (campoAIncrementar) {
+          await tx.turnoCaja.update({
+            where: { id: turnoAbierto.id },
+            data: {
+              [campoAIncrementar]: { increment: montoAbonoInicial },
+              totalRecaudado: { increment: montoAbonoInicial },
+            },
+          });
         }
       }
 
