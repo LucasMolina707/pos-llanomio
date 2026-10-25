@@ -92,7 +92,7 @@ async function ejecutarQA() {
       data: {
         nombre: "Cajero Principal QA",
         username: "cajero_qa_" + Date.now(),
-        password: "hash_temporal_qa",
+        passwordHash: "hash_temporal_qa",
         rol: "CAJERO",
         activo: true,
       },

@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
+import { DatosImpresionFactura, FormatoImpresionTipo } from "@/components/impresion/PlantillaImpresion";
 
 /**
  * Dimensiones exactas de Media Carta (Half Letter) Horizontal:
@@ -393,7 +393,382 @@ export function crearDocumentoPdfMediaCarta(
 }
 
 /**
- * Descarga directamente el archivo PDF de la factura en el navegador
+ * Genera una instancia vectorial de jsPDF en formato Carta Completa (Letter Portrait)
+ */
+export function crearDocumentoPdfCarta(
+  datos: DatosImpresionFactura,
+  opciones: OpcionesPdfMediaCarta = {}
+): jsPDF {
+  const { factura, empresa } = datos;
+  const tipoCopia = opciones.tipoCopia || "ORIGINAL CLIENTE";
+  const anchoCartaMm = 215.9;
+  const altoCartaMm = 279.4;
+
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "letter",
+    compress: true,
+  });
+
+  const margenIzquierdo = 12;
+  const margenDerecho = anchoCartaMm - 12;
+  let cursorY = 14;
+
+  // 1. ENCABEZADO
+  doc.setTextColor(15, 23, 42);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text(empresa.nombreComercial.toUpperCase(), margenIzquierdo, cursorY);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+  cursorY += 5;
+  doc.text(`NIT: ${empresa.nit}`, margenIzquierdo, cursorY);
+  cursorY += 4.5;
+  doc.text(`${empresa.direccion} — Villavicencio, Meta`, margenIzquierdo, cursorY);
+  cursorY += 4.5;
+  doc.text(`Teléfono / WhatsApp: ${empresa.telefono}`, margenIzquierdo, cursorY);
+
+  // Recuadro derecho de Factura
+  const anchoCajaFactura = 74;
+  const altoCajaFactura = 22;
+  const xCajaFactura = margenDerecho - anchoCajaFactura;
+  const yCajaFactura = 10;
+  const esPazYSalvo = factura.saldoPendiente <= 0;
+
+  if (esPazYSalvo) {
+    doc.setFillColor(236, 253, 245);
+    doc.setDrawColor(5, 150, 105);
+  } else {
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(15, 23, 42);
+  }
+  doc.setLineWidth(0.4);
+  doc.roundedRect(xCajaFactura, yCajaFactura, anchoCajaFactura, altoCajaFactura, 2, 2, "FD");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  if (esPazYSalvo) {
+    doc.setTextColor(5, 150, 105);
+    doc.text("PAGO FINAL (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+  } else {
+    doc.setTextColor(100, 116, 139);
+    doc.text("FACTURA COMERCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`N° ${factura.numeroFactura}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 13, { align: "center" });
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(esPazYSalvo ? 5 : 37, esPazYSalvo ? 150 : 99, esPazYSalvo ? 105 : 235);
+  doc.text(`** ${tipoCopia} **`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 19, { align: "center" });
+
+  // Fecha y cajero
+  cursorY += 10;
+  const fechaTexto = new Date(factura.fechaCreacion).toLocaleString("es-CO", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+  // 2. BANNER DE PAZ Y SALVO SI APLICA
+  if (esPazYSalvo) {
+    doc.setFillColor(5, 150, 105);
+    doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 7.5, 1.5, 1.5, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text("FACTURA PAGADA AL 100% — PAZ Y SALVO DE OBLIGACIÓN — SALDO TOTAL: $0", anchoCartaMm / 2, cursorY + 5, { align: "center" });
+    cursorY += 11;
+  } else {
+    cursorY += 2;
+  }
+
+  // 3. DATOS DE CLIENTE Y DETALLES
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 26, 2, 2, "FD");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105);
+  doc.text("CLIENTE / ADQUIRIENTE:", margenIzquierdo + 4, cursorY + 5);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  doc.text(factura.cliente.nombre.toUpperCase(), margenIzquierdo + 4, cursorY + 10.5);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`Cédula / NIT: ${factura.cliente.documento}`, margenIzquierdo + 4, cursorY + 15.5);
+  doc.text(`Teléfono: ${factura.cliente.telefono || "N/A"}`, margenIzquierdo + 4, cursorY + 20);
+  doc.text(`Dirección: ${factura.cliente.direccion || "N/A"}`, margenIzquierdo + 4, cursorY + 24);
+
+  // Columna derecha cliente
+  const colDerX = anchoCartaMm / 2 + 5;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("DETALLES DE LA OPERACIÓN:", colDerX, cursorY + 5);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.text(`Fecha Emisión: ${fechaTexto}`, colDerX, cursorY + 10.5);
+  doc.text(`Tipo Operación: ${factura.tipoOperacion}`, colDerX, cursorY + 15.5);
+  doc.text(`Atendido por: ${factura.usuarioCajero?.nombre || "Caja Mostrador"}`, colDerX, cursorY + 20);
+
+  if (factura.fechaDevolucionPactada) {
+    const fDev = new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(180, 83, 9);
+    doc.text(`Devolución Pactada: ${fDev}`, colDerX, cursorY + 24);
+  }
+
+  cursorY += 31;
+
+  // 4. TABLA DE ÍTEMS
+  const yCabeceraTabla = cursorY;
+  const altoCabecera = 7;
+  doc.setFillColor(30, 41, 59);
+  doc.rect(margenIzquierdo, yCabeceraTabla, margenDerecho - margenIzquierdo, altoCabecera, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text("CANT", margenIzquierdo + 3, yCabeceraTabla + 4.8);
+  doc.text("DESCRIPCIÓN DE LA PRENDA O SERVICIO", margenIzquierdo + 18, yCabeceraTabla + 4.8);
+  doc.text("VALOR UNIT.", margenDerecho - 46, yCabeceraTabla + 4.8, { align: "right" });
+  doc.text("SUBTOTAL", margenDerecho - 4, yCabeceraTabla + 4.8, { align: "right" });
+
+  cursorY += altoCabecera;
+
+  factura.detalles.forEach((det, i) => {
+    const esPar = i % 2 === 0;
+    const altoFila = 7;
+    if (esPar) {
+      doc.setFillColor(255, 255, 255);
+    } else {
+      doc.setFillColor(248, 250, 252);
+    }
+    doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoFila, "F");
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(15, 23, 42);
+    doc.text(String(det.cantidad), margenIzquierdo + 6, cursorY + 4.8, { align: "center" });
+
+    let desc = det.esServicioLibre
+      ? (det.descripcionLibre || "Servicio de Sastrería")
+      : (det.producto?.nombre || "Prenda");
+    if (det.producto?.codigo) desc = `[${det.producto.codigo}] ${desc}`;
+    doc.text(desc.substring(0, 75), margenIzquierdo + 18, cursorY + 4.8);
+
+    doc.text(`$${det.precioUnitario.toLocaleString("es-CO")}`, margenDerecho - 46, cursorY + 4.8, { align: "right" });
+    doc.setFont("helvetica", "bold");
+    doc.text(`$${det.subtotal.toLocaleString("es-CO")}`, margenDerecho - 4, cursorY + 4.8, { align: "right" });
+
+    cursorY += altoFila;
+  });
+
+  // 5. TOTALES Y ABONOS
+  cursorY += 6;
+  const anchoTotales = 75;
+  const xTotales = margenDerecho - anchoTotales;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+  doc.text("TOTAL FACTURA:", xTotales, cursorY);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`$${factura.totalFactura.toLocaleString("es-CO")}`, margenDerecho, cursorY, { align: "right" });
+
+  cursorY += 5;
+  doc.setTextColor(71, 85, 105);
+  doc.text("Total Abonado:", xTotales, cursorY);
+  doc.setTextColor(5, 150, 105);
+  doc.text(`-$${factura.totalAbonado.toLocaleString("es-CO")}`, margenDerecho, cursorY, { align: "right" });
+
+  cursorY += 5;
+  if (esPazYSalvo) {
+    doc.setFillColor(236, 253, 245);
+    doc.setDrawColor(16, 185, 129);
+    doc.roundedRect(xTotales - 2, cursorY - 1, anchoTotales + 2, 7.5, 1, 1, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(5, 150, 105);
+    doc.text("SALDO PENDIENTE:", xTotales, cursorY + 4.5);
+    doc.text("$0 (PAZ Y SALVO)", margenDerecho - 1, cursorY + 4.5, { align: "right" });
+  } else {
+    doc.setFillColor(255, 241, 242);
+    doc.setDrawColor(225, 29, 72);
+    doc.roundedRect(xTotales - 2, cursorY - 1, anchoTotales + 2, 7.5, 1, 1, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(225, 29, 72);
+    doc.text("SALDO PENDIENTE:", xTotales, cursorY + 4.5);
+    doc.text(`$${factura.saldoPendiente.toLocaleString("es-CO")}`, margenDerecho - 1, cursorY + 4.5, { align: "right" });
+  }
+
+  // 6. HISTORIAL DE ABONOS
+  if (factura.abonos && factura.abonos.length > 0) {
+    cursorY += 12;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text("HISTORIAL DE ABONOS Y MÉTODOS DE PAGO:", margenIzquierdo, cursorY);
+
+    cursorY += 3;
+    factura.abonos.forEach((ab) => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      const fAb = new Date(ab.fecha).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+      const cajeroAb = ab.cajero?.nombre ? ` por ${ab.cajero.nombre}` : "";
+      doc.text(`- ${fAb} | ${ab.metodoPago}${cajeroAb}: $${ab.monto.toLocaleString("es-CO")}`, margenIzquierdo + 3, cursorY);
+      cursorY += 4;
+    });
+  }
+
+  // Pie de página
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(148, 163, 184);
+  doc.text(
+    `Comprobante Oficial LLANOMIO POS — Consecutivo ${factura.numeroFactura} — Impreso sin códigos QR externos`,
+    anchoCartaMm / 2,
+    altoCartaMm - 6,
+    { align: "center" }
+  );
+
+  return doc;
+}
+
+/**
+ * Genera una instancia vectorial de jsPDF en formato POS Tirilla Térmica (80mm)
+ */
+export function crearDocumentoPdfTirilla(
+  datos: DatosImpresionFactura,
+  opciones: OpcionesPdfMediaCarta = {}
+): jsPDF {
+  const { factura, empresa } = datos;
+  const tipoCopia = opciones.tipoCopia || "ORIGINAL CLIENTE";
+  const anchoMm = 80;
+  const altoEstimadoMm = Math.max(160, 100 + factura.detalles.length * 8 + (factura.abonos?.length || 0) * 6);
+
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: [anchoMm, altoEstimadoMm],
+    compress: true,
+  });
+
+  const margen = 4;
+  const margenDer = anchoMm - 4;
+  let cursorY = 6;
+
+  // Cabecera Empresa
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.text(empresa.nombreComercial.toUpperCase(), anchoMm / 2, cursorY, { align: "center" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  cursorY += 4;
+  doc.text(`NIT: ${empresa.nit}`, anchoMm / 2, cursorY, { align: "center" });
+  cursorY += 3.5;
+  doc.text(empresa.direccion, anchoMm / 2, cursorY, { align: "center" });
+  cursorY += 3.5;
+  doc.text(`Tel: ${empresa.telefono}`, anchoMm / 2, cursorY, { align: "center" });
+  cursorY += 3.5;
+  doc.setFont("helvetica", "bold");
+  doc.text(`** ${tipoCopia} **`, anchoMm / 2, cursorY, { align: "center" });
+
+  cursorY += 4;
+  doc.setLineWidth(0.2);
+  doc.line(margen, cursorY, margenDer, cursorY);
+
+  // Datos Factura
+  cursorY += 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.text(`FACTURA: ${factura.numeroFactura}`, margen, cursorY);
+  cursorY += 3.5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.text(`Fecha: ${new Date(factura.fechaCreacion).toLocaleString("es-CO")}`, margen, cursorY);
+  cursorY += 3.5;
+  doc.text(`Cliente: ${factura.cliente.nombre.toUpperCase()}`, margen, cursorY);
+  cursorY += 3.5;
+  doc.text(`Cédula/NIT: ${factura.cliente.documento}`, margen, cursorY);
+  if (factura.cliente.telefono) {
+    cursorY += 3.5;
+    doc.text(`Tel: ${factura.cliente.telefono}`, margen, cursorY);
+  }
+
+  cursorY += 4;
+  doc.line(margen, cursorY, margenDer, cursorY);
+
+  // Tabla ítems
+  cursorY += 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.text("CANT  DESCRIPCIÓN", margen, cursorY);
+  doc.text("TOTAL", margenDer, cursorY, { align: "right" });
+
+  cursorY += 3.5;
+  factura.detalles.forEach((det) => {
+    doc.setFont("helvetica", "normal");
+    const desc = det.esServicioLibre
+      ? (det.descripcionLibre || "Servicio")
+      : (det.producto?.nombre || "Prenda");
+    doc.text(`${det.cantidad}x ${desc.substring(0, 26)}`, margen, cursorY);
+    doc.setFont("helvetica", "bold");
+    doc.text(`$${det.subtotal.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
+    cursorY += 3.5;
+  });
+
+  cursorY += 2;
+  doc.line(margen, cursorY, margenDer, cursorY);
+
+  // Totales
+  cursorY += 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("TOTAL:", margen, cursorY);
+  doc.text(`$${factura.totalFactura.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
+
+  cursorY += 3.5;
+  doc.text("TOTAL ABONADO:", margen, cursorY);
+  doc.text(`-$${factura.totalAbonado.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
+
+  cursorY += 4;
+  doc.setFontSize(8.5);
+  doc.text("SALDO PENDIENTE:", margen, cursorY);
+  if (factura.saldoPendiente <= 0) {
+    doc.text("$0 (PAZ Y SALVO)", margenDer, cursorY, { align: "right" });
+  } else {
+    doc.text(`$${factura.saldoPendiente.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
+  }
+
+  cursorY += 6;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.text("¡GRACIAS POR SU PREFERENCIA!", anchoMm / 2, cursorY, { align: "center" });
+  cursorY += 3.5;
+  doc.text("Sistema POS Local LLANOMIO — Cero QR", anchoMm / 2, cursorY, { align: "center" });
+
+  return doc;
+}
+
+/**
+ * Descarga directamente el archivo PDF de la factura en el navegador en formato Media Carta
  */
 export function descargarPdfMediaCarta(
   datos: DatosImpresionFactura,
@@ -401,6 +776,28 @@ export function descargarPdfMediaCarta(
 ): void {
   const doc = crearDocumentoPdfMediaCarta(datos);
   const nombre = nombreArchivo || `Factura_${datos.factura.numeroFactura}_MediaCarta.pdf`;
+  doc.save(nombre);
+}
+
+/**
+ * Descarga el archivo PDF de la factura según el formato documental elegido (TIRILLA, MEDIA_CARTA o CARTA)
+ */
+export function descargarPdfSegunFormato(
+  datos: DatosImpresionFactura,
+  formato: FormatoImpresionTipo = "MEDIA_CARTA",
+  nombreArchivo?: string
+): void {
+  let doc: jsPDF;
+  if (formato === "TIRILLA") {
+    doc = crearDocumentoPdfTirilla(datos);
+  } else if (formato === "CARTA") {
+    doc = crearDocumentoPdfCarta(datos);
+  } else {
+    doc = crearDocumentoPdfMediaCarta(datos);
+  }
+
+  const nombre =
+    nombreArchivo || `Factura_${datos.factura.numeroFactura}_${formato}.pdf`;
   doc.save(nombre);
 }
 

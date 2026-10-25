@@ -326,3 +326,43 @@ Se completó la integración transversal de dos ejes funcionales críticos para 
 - **36 de 36 pruebas exitosas** cubriendo normalización, distancias de edición, creación de 3 modalidades de facturas en mostrador, consulta en bandeja de pendientes, liquidación posterior por un segundo cajero, impacto en arqueo de caja y generación del PDF Media Carta con cero QR.
 - Verificación de tipos con `npx tsc --noEmit` y compilación de producción con `npm run build` completada con éxito (código 0, 24 rutas generadas).
 
+---
+
+## 8. Migración Progresiva por Vistas Independientes (Wizard Lineal de 4 Pantallas), Calculadora de Vueltas e Impresión Aislada
+
+Se reestructuró la pantalla del POS (`src/app/caja/pos/page.tsx`) y el motor documental (`src/components/impresion/PlantillaImpresion.tsx`) para eliminar el amontonamiento de pasos y ofrecer una experiencia guiada donde cada vista ocupa el 100% del área de trabajo:
+
+### 1. Stepper Superior y Máquina de Estados de 4 Pantallas
+- Estado principal: `pasoActual: 1 | 2 | 3 | 4`.
+- **VISTA 1 — Selección / Creación de Cliente:**
+  - Barra de búsqueda grande con autofiltrado fuzzy en vivo (`filtrarPorRelevancia`) y botón `+ Crear Nuevo Cliente` con `ModalCrearClienteRapido.tsx`.
+  - Grilla de chips táctiles de todos los clientes precargados en memoria.
+  - **Transición Automática:** Al hacer clic o toque en cualquier cliente (o al crearlo), el cliente se asigna y la aplicación migra de forma inmediata a la **Vista 2 (`setPasoActual(2)`)**.
+- **VISTA 2 — Catálogo de Productos y Resumen de Carrito:**
+  - Encabezado compacto con el cliente seleccionado y botón *"Cambiar Cliente"* para retroceder a la Vista 1 si se requiere.
+  - Pestañas independientes:
+    - *Venta:* Búsqueda difusa y tarjetas táctiles con precio de venta y stock actual.
+    - *Alquiler:* Búsqueda difusa, tarjetas con badges de disponibilidad, tarifa base y selectores obligatorios de fecha de salida y fecha/hora de devolución pactada.
+    - *Servicios/Sastrería:* Sugerencias rápidas de arreglos frecuentes y campos libres de descripción y precio.
+  - Carrito lateral con controles de cantidad y eliminación.
+  - Botón *"Ir a Caja y Pagos (Paso 3) →"* habilitado con al menos 1 ítem en el carrito.
+- **VISTA 3 — Terminal de Cobro de Caja & Calculadora de Vueltas:**
+  - *Panel Izquierdo:* Modalidad de pago (*Pago Completo 100%*, *Adelanto Parcial* con cálculo en vivo de saldo en cartera, o *Pendiente $0*).
+  - *Métodos de Pago:* Soporte ampliado en base de datos (`MetodoPago`) para `EFECTIVO`, `NEQUI`, `BANCOLOMBIA`, `LLAVE`, `DAVIPLATA`, `TRANSFERENCIA` y `CONSIGNACION`.
+  - *Panel Derecho (Calculadora de Efectivo):*
+    - Campo de efectivo recibido con botones rápidos de billetes colombianos (`$2k`, `$5k`, `$10k`, `$20k`, `$50k`, `$100k` y botón `"Exacto"`).
+    - Tipografía gigante en tiempo real: **`VUELTAS / CAMBIO A ENTREGAR: $XX.XXX`** ($\text{Vueltas} = \text{Efectivo Recibido} - \text{Valor a Cobrar Hoy}$). Alerta en rojo si el dinero entregado no cubre el cobro.
+    - Botón *"Finalizar Venta y Generar Factura →"*: guarda en SQLite (`/api/facturas`), vincula abonos con `turnoCajaId` del turno activo, persiste `montoRecibido` y `vueltasEntregadas` y migra automáticamente a la **Vista 4 (`setPasoActual(4)`)**.
+- **VISTA 4 — Consola Final de Impresión y Exportación Directa de Documento Aislado:**
+  - Renderiza exclusivamente la factura generada con `PlantillaImpresion.tsx`.
+  - Selector de 3 formatos oficiales: `TIRILLA` 80mm, `MEDIA_CARTA` (Half Letter) y `CARTA` (Letter Portrait).
+  - **Impresión Aislada en Iframe Dedicado (`imprimirDocumentoAislado`):** Inyecta el HTML puro del documento con reglas `@page` específicas (`80mm auto`, `215.9mm 139.7mm landscape` o `letter portrait`) y llama a `print()`, garantizando que en el cuadro de diálogo de Windows **únicamente salga el documento puro** (sin menús, sin barras del navegador y sin la interfaz de la terminal).
+  - **Exportación Directa a PDF (`descargarPdfSegunFormato`):** Genera y descarga el archivo vectorial `Factura_[Consecutivo]_[Formato].pdf` con dimensiones exactas y **CERO códigos QR**.
+  - Botón *"Iniciar Nueva Factura (Volver al Paso 1)"* que reinicia el mostrador para el siguiente cliente.
+
+### 2. Soporte en Base de Datos SQLite (Prisma ORM)
+- `MetodoPago`: Agregados `BANCOLOMBIA` y `LLAVE`.
+- `Abono`: Agregados `montoRecibido Float?` y `vueltasEntregadas Float?`.
+- `TurnoCaja` y `CierreCaja`: Agregados `totalBancolombia Float @default(0)` y `totalLlave Float @default(0)`.
+- Base de datos sincronizada limpiamente con `npx prisma db push` y cliente regenerado con `npx prisma generate`.
+

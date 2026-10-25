@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Printer, Copy, FileText, CheckCircle2, X, FileDown, ExternalLink } from "lucide-react";
-import { descargarPdfMediaCarta, abrirPdfMediaCarta } from "@/lib/pdf-media-carta";
+import {
+  descargarPdfMediaCarta,
+  abrirPdfMediaCarta,
+  descargarPdfSegunFormato,
+} from "@/lib/pdf-media-carta";
 
 export type FormatoImpresionTipo = "TIRILLA" | "MEDIA_CARTA" | "CARTA";
 
@@ -52,6 +56,8 @@ export interface DatosImpresionFactura {
       fecha: string;
       monto: number;
       metodoPago: string;
+      montoRecibido?: number | null;
+      vueltasEntregadas?: number | null;
       referenciaComprobante?: string | null;
       cajero?: {
         nombre: string;
@@ -78,11 +84,106 @@ interface PlantillaImpresionProps {
 export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresionProps) {
   const { factura, empresa } = datos;
   // Formato predeterminado estricto: MEDIA_CARTA (Half Letter)
-  const [formato, setFormato] = useState<FormatoImpresionTipo>("MEDIA_CARTA");
+  const [formato, setFormato] = useState<FormatoImpresionTipo>(
+    empresa.formatoImpresionDefault || "MEDIA_CARTA"
+  );
   const [numCopias, setNumCopias] = useState<1 | 2>(1);
+  const areaImprimibleRef = useRef<HTMLDivElement>(null);
 
-  const ejecutarImpresion = () => {
-    window.print();
+  /**
+   * Imprime exclusivamente el documento generado dentro de un iframe aislado,
+   * garantizando que el diálogo de impresión de Windows SOLO muestre el documento
+   * limpio (encabezado, cuerpo y pie de página) y NUNCA la interfaz del sistema.
+   */
+  const imprimirDocumentoAislado = () => {
+    const contenedor = areaImprimibleRef.current;
+    if (!contenedor) {
+      window.print();
+      return;
+    }
+
+    let iframe = document.getElementById("iframe-impresion-documento-pos") as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id = "iframe-impresion-documento-pos";
+      iframe.style.position = "fixed";
+      iframe.style.top = "-9999px";
+      iframe.style.left = "-9999px";
+      iframe.style.width = "0px";
+      iframe.style.height = "0px";
+      iframe.style.border = "none";
+      document.body.appendChild(iframe);
+    }
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    const pageSize =
+      formato === "TIRILLA"
+        ? "80mm auto"
+        : formato === "MEDIA_CARTA"
+        ? "215.9mm 139.7mm landscape"
+        : "letter portrait";
+
+    const pageMargin =
+      formato === "TIRILLA" ? "2mm 1mm" : formato === "MEDIA_CARTA" ? "6mm" : "10mm";
+
+    // Copiar estilos CSS de Tailwind cargados en el documento
+    const styleTags = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
+      .map((el) => el.outerHTML)
+      .join("\n");
+
+    const htmlDocumento = `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="utf-8">
+        <title>Comprobante Factura ${factura.numeroFactura}</title>
+        ${styleTags}
+        <style>
+          @page {
+            size: ${pageSize};
+            margin: ${pageMargin};
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            box-sizing: border-box;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+            background: white !important;
+            color: black !important;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          }
+          .no-print {
+            display: none !important;
+          }
+        </style>
+      </head>
+      <body>
+        ${contenedor.innerHTML}
+      </body>
+      </html>
+    `;
+
+    doc.open();
+    doc.write(htmlDocumento);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error("Error al disparar impresión en iframe:", err);
+        window.print();
+      }
+    }, 350);
   };
 
   // Renderizador de un documento individual
@@ -216,13 +317,21 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
           {/* Desglose de Abonos */}
           {factura.abonos && factura.abonos.length > 0 && (
             <div className="py-1.5 border-b border-dashed border-black text-[9px] space-y-0.5">
-              <p className="font-bold uppercase">Abonos Registrados:</p>
+              <p className="font-bold uppercase">Abonos / Pagos Registrados:</p>
               {factura.abonos.map((a, idx) => (
-                <div key={idx} className="flex justify-between">
-                  <span>
-                    {new Date(a.fecha).toLocaleDateString("es-CO")} ({a.metodoPago})
-                  </span>
-                  <span>${a.monto.toLocaleString("es-CO")}</span>
+                <div key={idx} className="space-y-0.5">
+                  <div className="flex justify-between">
+                    <span>
+                      {new Date(a.fecha).toLocaleDateString("es-CO")} ({a.metodoPago})
+                    </span>
+                    <span className="font-bold">${a.monto.toLocaleString("es-CO")}</span>
+                  </div>
+                  {a.montoRecibido && a.montoRecibido > 0 && (
+                    <div className="flex justify-between text-[8.5px] text-slate-700 pl-2">
+                      <span>Recibido: ${a.montoRecibido.toLocaleString("es-CO")}</span>
+                      <span>Cambio: ${((a.vueltasEntregadas || 0)).toLocaleString("es-CO")}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -427,6 +536,11 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                   <span className="text-slate-600">
                     Pago #{aIdx + 1} — {new Date(abono.fecha).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
                     {abono.cajero?.nombre ? ` (Cajero: ${abono.cajero.nombre})` : ""}
+                    {abono.montoRecibido && abono.montoRecibido > 0 ? (
+                      <span className="text-[9px] text-slate-500 block">
+                        Recibió: ${abono.montoRecibido.toLocaleString("es-CO")} | Cambio: ${((abono.vueltasEntregadas || 0)).toLocaleString("es-CO")}
+                      </span>
+                    ) : null}
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-slate-100 text-slate-700 border">
@@ -602,15 +716,15 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
             </button>
           </div>
 
-          {/* Botón Exportar PDF Media Carta */}
+          {/* Botón Exportar / Descargar PDF Oficial según Formato */}
           <button
             type="button"
-            onClick={() => descargarPdfMediaCarta(datos)}
+            onClick={() => descargarPdfSegunFormato(datos, formato)}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-md transition"
-            title="Descargar archivo PDF oficial en tamaño Media Carta"
+            title={`Descargar archivo PDF oficial en tamaño ${formato}`}
           >
             <FileDown className="w-4 h-4" />
-            <span>Descargar PDF</span>
+            <span>Descargar PDF ({formato})</span>
           </button>
 
           {/* Botón Abrir / Ver PDF */}
@@ -624,14 +738,15 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
             <span>Ver PDF</span>
           </button>
 
-          {/* Botón Imprimir Nativo */}
+          {/* Botón Imprimir Aislado (Documento Puro en Iframe) */}
           <button
             type="button"
-            onClick={ejecutarImpresion}
+            onClick={imprimirDocumentoAislado}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-emerald-500 hover:bg-emerald-600 text-white shadow-md transition"
+            title="Imprimir exclusivamente el documento puro en la impresora seleccionada"
           >
             <Printer className="w-4 h-4" />
-            <span>Imprimir</span>
+            <span>Imprimir Factura</span>
           </button>
 
           {onCerrar && (
@@ -647,8 +762,11 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
         </div>
       </div>
 
-      {/* Área Imprimible */}
-      <div className="bg-slate-200 dark:bg-slate-900/60 p-4 sm:p-8 rounded-2xl print:p-0 print:bg-white print:m-0">
+      {/* Área Imprimible Aislada */}
+      <div
+        ref={areaImprimibleRef}
+        className="bg-slate-200 dark:bg-slate-900/60 p-4 sm:p-8 rounded-2xl print:p-0 print:bg-white print:m-0"
+      >
         {/* Copia 1: Original Cliente */}
         {renderDocumento("ORIGINAL CLIENTE")}
 

@@ -79,6 +79,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     const {
       monto,
       metodoPago = MetodoPago.EFECTIVO,
+      montoRecibido,
+      vueltasEntregadas,
       cajeroId: cajeroIdBody,
       referenciaComprobante,
       notas,
@@ -159,6 +161,8 @@ export async function POST(req: NextRequest, { params }: Params) {
           turnoCajaId: turnoAbierto?.id || null,
           monto: montoNumerico,
           metodoPago: metodo,
+          montoRecibido: montoRecibido ? Number(montoRecibido) : null,
+          vueltasEntregadas: vueltasEntregadas ? Number(vueltasEntregadas) : null,
           referenciaComprobante: referenciaComprobante?.trim() || null,
           notas: notas?.trim() || "Abono a saldo pendiente",
         },
@@ -169,6 +173,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         const campoMetodoMap: Record<MetodoPago, string> = {
           [MetodoPago.EFECTIVO]: "totalEfectivo",
           [MetodoPago.NEQUI]: "totalNequi",
+          [MetodoPago.BANCOLOMBIA]: "totalBancolombia",
+          [MetodoPago.LLAVE]: "totalLlave",
           [MetodoPago.DAVIPLATA]: "totalDaviplata",
           [MetodoPago.TRANSFERENCIA]: "totalTransferencia",
           [MetodoPago.CONSIGNACION]: "totalConsignacion",

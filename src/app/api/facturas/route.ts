@@ -336,24 +336,44 @@ export async function POST(req: NextRequest) {
 
     const totalFactura = Math.round((subtotalProductos + subtotalArreglosLibres) * 100) / 100;
 
-    // 5. Procesar abono inicial (Pago Completo, Adelanto o $0 Pendiente por Pagar)
-    let montoAbonoInicial = 0;
-    let abonoDataCreacion = null;
+    // 5. Procesar abono inicial (uno o múltiples pagos parciales / mixtos)
+    const abonosInput: any[] = Array.isArray(body.abonos) && body.abonos.length > 0
+      ? body.abonos
+      : (abonoInicial && Number(abonoInicial.monto) > 0 ? [abonoInicial] : []);
 
-    if (abonoInicial && Number(abonoInicial.monto) > 0) {
-      montoAbonoInicial = Math.round(Number(abonoInicial.monto) * 100) / 100;
-      const metodoPago = (abonoInicial.metodoPago as MetodoPago) || MetodoPago.EFECTIVO;
+    const abonosDataCreacion: {
+      monto: number;
+      metodoPago: MetodoPago;
+      montoRecibido?: number | null;
+      vueltasEntregadas?: number | null;
+      cajeroId: string;
+      referenciaComprobante?: string | null;
+      notas?: string | null;
+    }[] = [];
 
-      abonoDataCreacion = {
-        monto: montoAbonoInicial,
-        metodoPago,
-        cajeroId,
-        referenciaComprobante: abonoInicial.referenciaComprobante?.trim() || null,
-        notas: abonoInicial.notas?.trim() || "Abono inicial en mostrador",
-      };
+    let totalAbonado = 0;
+
+    for (const ab of abonosInput) {
+      const monto = Math.round(Number(ab.monto) * 100) / 100;
+      if (monto > 0) {
+        totalAbonado += monto;
+        const metodoPago = Object.values(MetodoPago).includes(ab.metodoPago)
+          ? (ab.metodoPago as MetodoPago)
+          : MetodoPago.EFECTIVO;
+
+        abonosDataCreacion.push({
+          monto,
+          metodoPago,
+          montoRecibido: ab.montoRecibido ? Number(ab.montoRecibido) : null,
+          vueltasEntregadas: ab.vueltasEntregadas ? Number(ab.vueltasEntregadas) : null,
+          cajeroId,
+          referenciaComprobante: ab.referenciaComprobante?.trim() || null,
+          notas: ab.notas?.trim() || "Abono en mostrador",
+        });
+      }
     }
 
-    const totalAbonado = montoAbonoInicial;
+    totalAbonado = Math.round(totalAbonado * 100) / 100;
     const saldoPendiente = Math.max(0, Math.round((totalFactura - totalAbonado) * 100) / 100);
 
     // 6. Determinar estado final según liquidación
@@ -397,12 +417,10 @@ export async function POST(req: NextRequest) {
         orderBy: { fechaApertura: "desc" },
       });
 
-      const abonoConTurno = abonoDataCreacion
-        ? {
-            ...abonoDataCreacion,
-            turnoCajaId: turnoAbierto?.id || null,
-          }
-        : null;
+      const abonosConTurno = abonosDataCreacion.map((ab) => ({
+        ...ab,
+        turnoCajaId: turnoAbierto?.id || null,
+      }));
 
       const factura = await tx.factura.create({
         data: {
@@ -431,11 +449,12 @@ export async function POST(req: NextRequest) {
               subtotal: d.subtotal,
             })),
           },
-          abonos: abonoConTurno
-            ? {
-                create: [abonoConTurno],
-              }
-            : undefined,
+          abonos:
+            abonosConTurno.length > 0
+              ? {
+                  create: abonosConTurno,
+                }
+              : undefined,
         },
         include: {
           cliente: true,
@@ -483,25 +502,29 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Impactar movimiento de caja en el turno activo si hubo abono inicial
-      if (turnoAbierto && abonoConTurno && montoAbonoInicial > 0) {
+      // Impactar movimiento de caja en el turno activo si hubo abonos
+      if (turnoAbierto && abonosConTurno.length > 0) {
         const campoMetodoMap: Record<MetodoPago, string> = {
           [MetodoPago.EFECTIVO]: "totalEfectivo",
           [MetodoPago.NEQUI]: "totalNequi",
+          [MetodoPago.BANCOLOMBIA]: "totalBancolombia",
+          [MetodoPago.LLAVE]: "totalLlave",
           [MetodoPago.DAVIPLATA]: "totalDaviplata",
           [MetodoPago.TRANSFERENCIA]: "totalTransferencia",
           [MetodoPago.CONSIGNACION]: "totalConsignacion",
         };
 
-        const campoAIncrementar = campoMetodoMap[abonoConTurno.metodoPago];
-        if (campoAIncrementar) {
-          await tx.turnoCaja.update({
-            where: { id: turnoAbierto.id },
-            data: {
-              [campoAIncrementar]: { increment: montoAbonoInicial },
-              totalRecaudado: { increment: montoAbonoInicial },
-            },
-          });
+        for (const ab of abonosConTurno) {
+          const campoAIncrementar = campoMetodoMap[ab.metodoPago];
+          if (campoAIncrementar) {
+            await tx.turnoCaja.update({
+              where: { id: turnoAbierto.id },
+              data: {
+                [campoAIncrementar]: { increment: ab.monto },
+                totalRecaudado: { increment: ab.monto },
+              },
+            });
+          }
         }
       }
 
