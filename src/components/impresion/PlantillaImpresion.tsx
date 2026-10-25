@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Printer, Copy, FileText, CheckCircle2, X } from "lucide-react";
+import { Printer, Copy, FileText, CheckCircle2, X, FileDown, ExternalLink } from "lucide-react";
+import { descargarPdfMediaCarta, abrirPdfMediaCarta } from "@/lib/pdf-media-carta";
 
 export type FormatoImpresionTipo = "TIRILLA" | "MEDIA_CARTA" | "CARTA";
 
@@ -491,6 +492,28 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
             </button>
           </div>
 
+          {/* Botón Exportar PDF Media Carta */}
+          <button
+            type="button"
+            onClick={() => descargarPdfMediaCarta(datos)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-md transition"
+            title="Descargar archivo PDF oficial en tamaño Media Carta"
+          >
+            <FileDown className="w-4 h-4" />
+            <span>Descargar PDF</span>
+          </button>
+
+          {/* Botón Abrir / Ver PDF */}
+          <button
+            type="button"
+            onClick={() => abrirPdfMediaCarta(datos)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-md transition"
+            title="Abrir PDF en pestaña nueva para visualizar o imprimir con lector predeterminado"
+          >
+            <ExternalLink className="w-4 h-4" />
+            <span>Ver PDF</span>
+          </button>
+
           {/* Botón Imprimir Nativo */}
           <button
             type="button"
@@ -548,8 +571,8 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
             display: none !important;
           }
           @page {
-            margin: ${formato === "TIRILLA" ? "2mm" : "10mm"};
-            size: auto;
+            margin: ${formato === "TIRILLA" ? "2mm" : formato === "MEDIA_CARTA" ? "6mm" : "10mm"};
+            size: ${formato === "MEDIA_CARTA" ? "landscape" : "auto"};
           }
         }
       `}</style>

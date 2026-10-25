@@ -189,3 +189,36 @@ pos-llanomio/
    - Ejecución de [scripts/test-caja-impresion-qa.ts](file:///d:/Proyectos%20IA/pos-llanomio/scripts/test-caja-impresion-qa.ts) aprobada al 100% con cero códigos QR en facturas y control de caja balanceado ($0 discrepancia).
 5. **QA Compilación de Producción:**
    - Next.js 15 compiló **24 rutas** (`npm run build`) con código de salida 0 y tipado estricto en TypeScript.
+
+---
+
+## 5. Módulo de Consecutivos Secuenciales y Exportación PDF en Media Carta
+
+1. **Secuencia de Facturación Estrictamente Numérica e Inmodificable:**
+   - **Modelo en Prisma (`database/schema.prisma` y `prisma/schema.prisma`):**
+     - Campo `consecutivo Int? @unique` en el modelo `Factura`.
+     - Modelo singleton `SecuenciaFactura` con clave fija `"FACTURA_SECUENCIA"` y valor inicial `ultimoFolio = 1000`.
+   - **Lógica Transaccional Atómica (`src/app/api/facturas/route.ts`):**
+     - El folio se calcula dentro de `prisma.$transaction(...)` incrementando atómicamente el contador de secuencia.
+     - Formato estrictamente numérico (ej: `1001`, `1002`, `1003`...) sin prefijos alfabéticos, guiones ni fechas integradas.
+     - Bloqueo total en la interfaz: ningún cajero ni petición cliente puede alterar o manipular el número asignado por el servidor.
+
+2. **Generador Vectorial de PDF en Tamaño Media Carta (`src/lib/pdf-media-carta.ts`):**
+   - **Dimensiones:** Half Letter Landscape (215.9 mm de ancho x 139.7 mm de alto / 8.5" x 5.5"), aprovechando media página de papel comercial.
+   - **Contenido Estructurado:**
+     - Datos corporativos fijos de LLANOMIO: NIT, Razón Social, Dirección, Teléfono y Ciudad (Villavicencio, Meta).
+     - Recuadro destacado con número de factura (`N° 1001`), tipo de copia y fecha exacta.
+     - Ficha completa del cliente: Nombre, Cédula/NIT, Teléfono y Dirección.
+     - Tabla detallada de referencias: Cantidad, descripción de prendas (código, talla, color) o arreglos libres de sastrería, precio unitario y subtotal.
+     - Resumen de totales: Subtotal prendas, sastrería, recargo de mora, total de factura, abonos y saldo pendiente en caja destacada.
+     - Espacio físico para firma autorizada de la tienda y firma de aceptación del cliente.
+     - Políticas breves de alquiler al pie del documento.
+   - **Políticas de Privacidad:** CERO códigos QR en el documento para clientes.
+
+3. **Flujo de Exportación e Impresión:**
+   - **Ruta de Backend (`/api/facturas/[id]/pdf`):** Endpoint que genera y sirve el binario PDF en streaming (`application/pdf`) para apertura en navegador o descarga directa (`?descargar=true`).
+   - **Pantalla de Cobro POS (`src/app/caja/pos/page.tsx`):** Botón directo "Exportar PDF Media Carta" en el modal de factura registrada con éxito.
+   - **Componente de Impresión (`src/components/impresion/PlantillaImpresion.tsx`):** Botones "Descargar PDF" y "Ver PDF" con apertura inmediata mediante Blob URL y configuración de página `@page { size: landscape; }`.
+
+4. **Validación de Control de Calidad (QA):**
+   - Ejecución de `scripts/test-facturacion-pdf-qa.ts` validando la creación de folios correlativos consecutivos (`1001` -> `1002`), generación de binarios PDF no vacíos (> 5KB) y respuesta HTTP 200 en el endpoint PDF sin presencia de códigos QR.

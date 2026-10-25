@@ -101,22 +101,79 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * Genera el siguiente número correlativo de factura
+ * Obtiene y reserva el siguiente número correlativo de factura:
+ * Estrictamente secuencial, numérico, autoincremental e inmodificable (ej: 1001, 1002, 1003...).
+ * Sin letras, prefijos ni fechas integradas en el código.
  */
-async function generarNumeroFactura(): Promise<string> {
-  const conteo = await prisma.factura.count();
-  let siguienteNumero = conteo + 1;
-  let candidato = `FAC-${String(siguienteNumero).padStart(5, "0")}`;
+async function reservarSiguienteFolioFactura(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+): Promise<{ consecutivo: number; numeroFactura: string }> {
+  let secuencia = await tx.secuenciaFactura.findUnique({
+    where: { id: "FACTURA_SECUENCIA" },
+  });
 
-  // Verificar si ya existe por seguridad
-  let existe = await prisma.factura.findUnique({ where: { numeroFactura: candidato } });
-  while (existe) {
-    siguienteNumero += 1;
-    candidato = `FAC-${String(siguienteNumero).padStart(5, "0")}`;
-    existe = await prisma.factura.findUnique({ where: { numeroFactura: candidato } });
+  if (!secuencia) {
+    // Si la secuencia no ha sido inicializada, calcular a partir de 1000 o máximo existente
+    const facturas = await tx.factura.findMany({
+      select: { consecutivo: true, numeroFactura: true },
+    });
+
+    let maximo = 1000;
+    for (const f of facturas) {
+      if (f.consecutivo && f.consecutivo > maximo) {
+        maximo = f.consecutivo;
+      }
+      const num = parseInt(f.numeroFactura, 10);
+      if (!isNaN(num) && String(num) === f.numeroFactura.trim() && num > maximo) {
+        maximo = num;
+      }
+    }
+
+    secuencia = await tx.secuenciaFactura.create({
+      data: {
+        id: "FACTURA_SECUENCIA",
+        ultimoFolio: maximo,
+      },
+    });
   }
 
-  return candidato;
+  // Incrementar correlativo secuencial
+  let siguienteConsecutivo = secuencia.ultimoFolio + 1;
+  let candidatoNumero = String(siguienteConsecutivo);
+
+  // Asegurar unicidad absoluta contra cualquier registro previo
+  let colision = await tx.factura.findFirst({
+    where: {
+      OR: [
+        { consecutivo: siguienteConsecutivo },
+        { numeroFactura: candidatoNumero },
+      ],
+    },
+  });
+
+  while (colision) {
+    siguienteConsecutivo += 1;
+    candidatoNumero = String(siguienteConsecutivo);
+    colision = await tx.factura.findFirst({
+      where: {
+        OR: [
+          { consecutivo: siguienteConsecutivo },
+          { numeroFactura: candidatoNumero },
+        ],
+      },
+    });
+  }
+
+  // Actualizar tabla de secuencias
+  await tx.secuenciaFactura.update({
+    where: { id: "FACTURA_SECUENCIA" },
+    data: { ultimoFolio: siguienteConsecutivo },
+  });
+
+  return {
+    consecutivo: siguienteConsecutivo,
+    numeroFactura: candidatoNumero,
+  };
 }
 
 /**
@@ -284,8 +341,6 @@ export async function POST(req: NextRequest) {
       estadoFinal = EstadoFactura.ACTIVA;
     }
 
-    const numeroFactura = await generarNumeroFactura();
-
     // 7. Determinar TipoOperacion
     let tipoOpFinal: TipoOperacion = TipoOperacion.VENTA;
     if (tipoOperacion && Object.values(TipoOperacion).includes(tipoOperacion as TipoOperacion)) {
@@ -300,8 +355,12 @@ export async function POST(req: NextRequest) {
 
     // 8. Crear factura y registrar abono atómicamente con Prisma
     const nuevaFactura = await prisma.$transaction(async (tx) => {
+      // Reservar correlativo estrictamente numérico, secuencial e inmodificable
+      const { consecutivo, numeroFactura } = await reservarSiguienteFolioFactura(tx);
+
       const factura = await tx.factura.create({
         data: {
+          consecutivo,
           numeroFactura,
           clienteId,
           usuarioCajeroId: cajeroId,

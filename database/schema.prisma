@@ -177,6 +177,7 @@ model Producto {
 
 model Factura {
   id                     String         @id @default(cuid())
+  consecutivo            Int?           @unique
   numeroFactura          String         @unique
   clienteId              String
   cliente                Cliente        @relation(fields: [clienteId], references: [id])
@@ -307,4 +308,12 @@ model CierreCaja {
 
   @@index([usuarioId])
   @@map("cierres_caja")
+}
+
+model SecuenciaFactura {
+  id          String   @id @default("FACTURA_SECUENCIA")
+  ultimoFolio Int      @default(1000)
+  updatedAt   DateTime @updatedAt
+
+  @@map("secuencias_factura")
 }

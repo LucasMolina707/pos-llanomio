@@ -24,9 +24,11 @@ import {
   Clock,
   Layers,
   Tag,
+  FileDown,
 } from "lucide-react";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
+import { descargarPdfMediaCarta } from "@/lib/pdf-media-carta";
 
 interface ProductoInventario {
   id: string;
@@ -1168,14 +1170,26 @@ export default function PosPage() {
                 Cerrar y Nueva Venta
               </button>
               {datosImpresion && (
-                <button
-                  type="button"
-                  onClick={() => setMostrarImpresionAvanzada(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 transition"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>Formatos & 2 Copias</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => descargarPdfMediaCarta(datosImpresion)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition"
+                    title="Exportar archivo PDF oficial tamaño Media Carta"
+                  >
+                    <FileDown className="w-4 h-4" />
+                    <span>Exportar PDF Media Carta</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMostrarImpresionAvanzada(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 transition"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Formatos & 2 Copias</span>
+                  </button>
+                </>
               )}
               <button
                 type="button"
