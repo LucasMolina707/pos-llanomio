@@ -1,0 +1,43 @@
+{
+  "name": "pos-llanomio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema POS Local LLANOMIO - Control de Ventas, Alquileres y Facturación Local",
+  "scripts": {
+    "dev": "next dev",
+    "dev:lan": "next dev -p 80 -H 0.0.0.0",
+    "build": "next build",
+    "start": "next start -p 80 -H 0.0.0.0",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx database/seed.ts",
+    "db:studio": "prisma studio"
+  },
+  "prisma": {
+    "schema": "database/schema.prisma",
+    "seed": "tsx database/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.4.1",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.475.0",
+    "next": "^15.2.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.0.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.13.8",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.3",
+    "prisma": "^6.4.1",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

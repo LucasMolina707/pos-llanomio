@@ -1,0 +1,7 @@
+Markdown
+# REGLAS OBLIGATORIAS DEL PROYECTO POS LLANOMIO
+1. Stack Oficial: Next.js (App Router) + TypeScript + TailwindCSS + Prisma ORM + SQLite (`/database/llanomio.db`).
+2. Prohibido usar servicios Cloud pagos (No Vercel, No Firebase). Todo corre 100% en servidor local Windows con soporte de red LAN `http://llanomio.local` (mDNS/Bonjour) y puerto 80.
+3. El QR público de clientes está DESACTIVADO. No incluir QR de consulta en las facturas impresas.
+4. Respetar estrictamente la integridad del archivo `/database/llanomio.db`. Nunca ejecutar comandos destructivos (`prisma migrate reset` o borrado de tablas) sin hacer antes una copia de seguridad automática.
+5. Cada vez que cierres una tarea, debes actualizar el archivo `CONTEXTO_POS.md` en la raíz con el resumen técnico de lo implementado y subir los cambios al repositorio privado de GitHub (`pos-llanomio`).

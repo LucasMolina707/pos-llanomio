@@ -1,0 +1,276 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// ENUMERACIONES DEL NEGOCIO
+// ==========================================
+
+enum RolUsuario {
+  ADMIN_GENERAL
+  CAJERO
+}
+
+enum FormatoImpresion {
+  TIRILLA
+  MEDIA_CARTA
+  CARTA
+}
+
+enum CategoriaProducto {
+  VENTA
+  ALQUILER
+}
+
+enum EstadoPrenda {
+  DISPONIBLE
+  ALQUILADO
+  SEPARADO
+  EN_ARREGLO
+}
+
+enum TipoOperacion {
+  VENTA
+  ALQUILER
+  SEPARE
+  ARREGLO
+}
+
+enum EstadoFactura {
+  EN_PROCESO
+  ACTIVA_ALQUILADA
+  EN_MORA
+  CERRADA
+}
+
+enum MetodoPago {
+  EFECTIVO
+  NEQUI
+  DAVIPLATA
+  TRANSFERENCIA
+  CONSIGNACION
+}
+
+enum EstadoTurno {
+  ABIERTO
+  CERRADO
+}
+
+enum TipoCierre {
+  DIARIO
+  CONSOLIDADO_MENSUAL
+}
+
+// ==========================================
+// MODELOS RELACIONALES
+// ==========================================
+
+model Usuario {
+  id           String     @id @default(cuid())
+  nombre       String
+  usuario      String     @unique
+  passwordHash String
+  rol          RolUsuario @default(CAJERO)
+  activo       Boolean    @default(true)
+  fechaCreacion DateTime  @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  facturas     Factura[]
+  abonos       AbonoPago[]
+  turnos       TurnoCaja[]
+  cierres      CierreCaja[]
+
+  @@map("usuarios")
+}
+
+model ConfiguracionEmpresa {
+  id                     String           @id @default(cuid())
+  nombreComercial        String           @default("LLANOMIO")
+  nit                    String           @default("900000000-1")
+  direccion              String           @default("Villavicencio, Meta")
+  telefono               String           @default("3000000000")
+  logoUrl                String?
+  politicasFactura       String?
+  formatoImpresionDefault FormatoImpresion @default(TIRILLA)
+  rutaCarpetaRespaldo    String           @default("C:\\POS_LLANOMIO_BACKUPS")
+  updatedAt              DateTime         @updatedAt
+
+  @@map("configuracion_empresa")
+}
+
+model Cliente {
+  id            String    @id @default(cuid())
+  documento     String    @unique
+  nombre        String
+  telefono      String?
+  direccion     String?
+  notas         String?
+  fechaCreacion DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  facturas      Factura[]
+
+  @@map("clientes")
+}
+
+model Producto {
+  id                     String            @id @default(cuid())
+  codigo                 String            @unique
+  nombre                 String
+  categoria              CategoriaProducto @default(ALQUILER)
+  talla                  String?
+  color                  String?
+  stockActual            Int               @default(1)
+  estadoPrenda           EstadoPrenda      @default(DISPONIBLE)
+  precioVenta            Float             @default(0)
+  precioAlquilerBase     Float             @default(0)
+  tiempoAlquilerBaseHoras Int              @default(24)
+  tarifaMoraPorDia       Float             @default(0)
+  tarifaMoraPorHora      Float             @default(0)
+  activo                 Boolean           @default(true)
+  fechaCreacion          DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  itemsFactura           ItemFactura[]
+
+  @@map("productos")
+}
+
+model Factura {
+  id                     String        @id @default(cuid())
+  numeroFactura          String        @unique
+  clienteId              String
+  cliente                Cliente       @relation(fields: [clienteId], references: [id])
+  usuarioCajeroId        String
+  usuarioCajero          Usuario       @relation(fields: [usuarioCajeroId], references: [id])
+  turnoCajaId            String?
+  turnoCaja              TurnoCaja?    @relation(fields: [turnoCajaId], references: [id])
+  tipoOperacion          TipoOperacion
+  estado                 EstadoFactura @default(EN_PROCESO)
+  fechaCreacion          DateTime      @default(now())
+  fechaEntregaAlquiler   DateTime?
+  fechaDevolucionPactada DateTime?
+  fechaDevolucionReal    DateTime?
+  subtotalProductos      Float         @default(0)
+  subtotalArreglosLibres Float         @default(0)
+  recargoMoraAcumulado   Float         @default(0)
+  totalFactura           Float         @default(0)
+  totalAbonado           Float         @default(0)
+  saldoPendiente         Float         @default(0)
+  notas                  String?
+  updatedAt              DateTime      @updatedAt
+
+  items                  ItemFactura[]
+  abonos                 AbonoPago[]
+
+  @@index([clienteId])
+  @@index([usuarioCajeroId])
+  @@index([turnoCajaId])
+  @@map("facturas")
+}
+
+model ItemFactura {
+  id                 String    @id @default(cuid())
+  facturaId          String
+  factura            Factura   @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  productoId         String?
+  producto           Producto? @relation(fields: [productoId], references: [id])
+  esServicioLibre    Boolean   @default(false)
+  descripcionArreglo String?
+  cantidad           Int       @default(1)
+  valorUnitario      Float     @default(0)
+  subtotal           Float     @default(0)
+  fechaCreacion      DateTime  @default(now())
+
+  @@index([facturaId])
+  @@index([productoId])
+  @@map("items_factura")
+}
+
+model AbonoPago {
+  id                    String     @id @default(cuid())
+  facturaId             String
+  factura               Factura    @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  usuarioCajeroId       String
+  usuarioCajero         Usuario    @relation(fields: [usuarioCajeroId], references: [id])
+  turnoCajaId           String?
+  turnoCaja             TurnoCaja? @relation(fields: [turnoCajaId], references: [id])
+  monto                 Float
+  metodoPago            MetodoPago
+  referenciaComprobante String?
+  notas                 String?
+  fechaHora             DateTime   @default(now())
+
+  @@index([facturaId])
+  @@index([usuarioCajeroId])
+  @@index([turnoCajaId])
+  @@map("abonos_pago")
+}
+
+model TurnoCaja {
+  id                  String      @id @default(cuid())
+  usuarioCajeroId     String
+  usuarioCajero       Usuario     @relation(fields: [usuarioCajeroId], references: [id])
+  fechaApertura       DateTime    @default(now())
+  fechaCierre         DateTime?
+  estado              EstadoTurno @default(ABIERTO)
+  baseInicialEfectivo Float       @default(0)
+
+  // Desglose consolidado del turno por método de pago
+  totalEfectivo       Float       @default(0)
+  totalNequi          Float       @default(0)
+  totalDaviplata      Float       @default(0)
+  totalTransferencia  Float       @default(0)
+  totalConsignacion   Float       @default(0)
+  totalRecaudado      Float       @default(0)
+  diferenciaEfectivo  Float       @default(0)
+  observaciones       String?
+
+  cierreCajaId        String?
+  cierreCaja          CierreCaja? @relation(fields: [cierreCajaId], references: [id])
+
+  facturas            Factura[]
+  abonos              AbonoPago[]
+
+  @@index([usuarioCajeroId])
+  @@index([cierreCajaId])
+  @@map("turnos_caja")
+}
+
+model CierreCaja {
+  id                 String     @id @default(cuid())
+  usuarioId          String
+  usuario            Usuario    @relation(fields: [usuarioId], references: [id])
+  tipo               TipoCierre @default(DIARIO)
+  fechaInicio        DateTime
+  fechaFin           DateTime
+  fechaGeneracion    DateTime   @default(now())
+
+  // Consolidado por métodos de pago
+  totalBaseInicial   Float      @default(0)
+  totalEfectivo      Float      @default(0)
+  totalNequi         Float      @default(0)
+  totalDaviplata     Float      @default(0)
+  totalTransferencia Float      @default(0)
+  totalConsignacion  Float      @default(0)
+  totalGeneral       Float      @default(0)
+
+  // Desglose por tipo de operación
+  totalVentas        Float      @default(0)
+  totalAlquileres    Float      @default(0)
+  totalSepares       Float      @default(0)
+  totalArreglos      Float      @default(0)
+  totalMoras         Float      @default(0)
+  cantidadFacturas   Int        @default(0)
+  observaciones      String?
+
+  turnos             TurnoCaja[]
+
+  @@index([usuarioId])
+  @@map("cierres_caja")
+}
