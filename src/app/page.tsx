@@ -80,7 +80,7 @@ export default function HomePage() {
       icono: Package,
       color: "bg-amber-50 text-amber-700 border-amber-200",
       etiqueta: "Catálogo",
-      href: "/login",
+      href: "/admin/inventario",
     },
     {
       titulo: "Configuración y Datos de Factura",

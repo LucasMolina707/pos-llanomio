@@ -22,9 +22,19 @@ enum FormatoImpresion {
   CARTA
 }
 
+enum TipoProducto {
+  VENTA
+  ALQUILER
+}
+
 enum CategoriaProducto {
   VENTA
   ALQUILER
+}
+
+enum UnidadMora {
+  HORA
+  DIA
 }
 
 enum EstadoPrenda {
@@ -32,6 +42,7 @@ enum EstadoPrenda {
   ALQUILADO
   SEPARADO
   EN_ARREGLO
+  INACTIVO
 }
 
 enum TipoOperacion {
@@ -135,22 +146,27 @@ model Cliente {
 }
 
 model Producto {
-  id                     String            @id @default(cuid())
-  codigo                 String            @unique
+  id                     String       @id @default(cuid())
+  codigo                 String       @unique
   nombre                 String
-  categoria              CategoriaProducto @default(ALQUILER)
+  tipo                   TipoProducto @default(ALQUILER)
+  categoria              String       @default("General")
   talla                  String?
   color                  String?
-  stockActual            Int               @default(1)
-  estadoPrenda           EstadoPrenda      @default(DISPONIBLE)
-  precioVenta            Float             @default(0)
-  precioAlquilerBase     Float             @default(0)
-  tiempoAlquilerBaseHoras Int              @default(24)
-  tarifaMoraPorDia       Float             @default(0)
-  tarifaMoraPorHora      Float             @default(0)
-  activo                 Boolean           @default(true)
-  fechaCreacion          DateTime          @default(now())
-  updatedAt              DateTime          @updatedAt
+  stockActual            Int          @default(1)
+  estado                 EstadoPrenda @default(DISPONIBLE)
+  estadoPrenda           EstadoPrenda @default(DISPONIBLE)
+  precioBase             Float        @default(0)
+  precioVenta            Float        @default(0)
+  precioAlquilerBase     Float        @default(0)
+  tiempoAlquilerBaseHoras Int         @default(24)
+  tarifaMora             Float        @default(0)
+  unidadMora             UnidadMora   @default(DIA)
+  tarifaMoraPorDia       Float        @default(0)
+  tarifaMoraPorHora      Float        @default(0)
+  activo                 Boolean      @default(true)
+  fechaCreacion          DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
   itemsFactura           ItemFactura[]
 

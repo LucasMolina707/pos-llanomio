@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Building2,
   Receipt,
@@ -17,6 +18,7 @@ import {
   Printer,
   ShieldCheck,
   Ban,
+  Package,
 } from "lucide-react";
 
 interface Configuracion {
@@ -216,6 +218,15 @@ export default function ConfiguracionAdminPage() {
               <ShieldCheck className="h-4 w-4 text-emerald-600" />
               <span>Rol: Administrador</span>
             </div>
+
+            <Link
+              href="/admin/inventario"
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 border border-slate-200 text-xs font-semibold text-slate-700 transition"
+              title="Ir a Gestión de Inventario"
+            >
+              <Package className="h-3.5 w-3.5" />
+              <span>Inventario</span>
+            </Link>
 
             <button
               onClick={handleCerrarSesion}

@@ -64,6 +64,9 @@ pos-llanomio/
     │   ├── migrar-datos.ts           # Script principal de extracción, deduplicación e inyección en BD
     │   ├── utils-limpieza.ts         # Sanitización de teléfonos colombianos, nombres, precios y duplicados
     │   └── generar-excel-muestra.ts  # Generador de plantillas Excel de prueba con acentos y eñes
+    ├── components/
+    │   └── inventario/
+    │       └── ModalProducto.tsx     # Formulario modal de creación/edición con reglas de mora
     ├── app/
     │   ├── globals.css               # Estilos globales y capas Tailwind
     │   ├── layout.tsx                # Layout principal en español con metadatos
@@ -73,16 +76,18 @@ pos-llanomio/
     │   ├── acceso-denegado/
     │   │   └── page.tsx              # Vista amigable de error 403 para cajeros
     │   ├── admin/
-    │   │   └── configuracion/
-    │   │       └── page.tsx          # Panel visual de datos de empresa, logo y simulador de tirilla
+    │   │   ├── configuracion/
+    │   │   │   └── page.tsx          # Panel visual de datos de empresa, logo y simulador de tirilla
+    │   │   └── inventario/
+    │   │       └── page.tsx          # Panel de inventario especializado (Venta vs Alquiler)
     │   └── api/
     │       ├── auth/
     │       │   ├── login/route.ts    # Endpoint de autenticación y emisión de JWT
     │       │   ├── logout/route.ts   # Endpoint de cierre con hook de respaldo VACUUM INTO
     │       │   └── me/route.ts       # Consulta de usuario autenticado en sesión
     │       ├── backup/route.ts       # Endpoint para respaldos en caliente manuales
-    │       └── empresa/route.ts      # Consulta y actualización de datos de LLANOMIO (Solo Admin)
-    ├── components/                   # Componentes modulares reutilizables de UI
+    │       ├── empresa/route.ts      # Consulta y actualización de datos de LLANOMIO (Solo Admin)
+    │       └── inventario/route.ts   # API REST CRUD, filtros dinámicos y protección contra borrado
     └── lib/
         ├── auth.ts                   # Helpers de firmado/verificación JWT con cookies seguras
         ├── backup.ts                 # Motor de respaldo en caliente VACUUM INTO y rotación
@@ -98,8 +103,9 @@ El esquema de base de datos está normalizado y cubre la totalidad de operacione
 ### Enumeraciones Definidas
 - `RolUsuario`: `ADMIN`, `CAJERO`
 - `FormatoImpresion`: `TIRILLA`, `MEDIA_CARTA`, `CARTA`
-- `CategoriaProducto`: `VENTA`, `ALQUILER`
-- `EstadoPrenda`: `DISPONIBLE`, `ALQUILADO`, `SEPARADO`, `EN_ARREGLO`
+- `TipoProducto`: `VENTA`, `ALQUILER`
+- `UnidadMora`: `HORA`, `DIA`
+- `EstadoPrenda`: `DISPONIBLE`, `ALQUILADO`, `SEPARADO`, `EN_ARREGLO`, `INACTIVO`
 - `TipoOperacion`: `VENTA`, `ALQUILER`, `SEPARE`, `ARREGLO`
 - `EstadoFactura`: `EN_PROCESO`, `ACTIVA_ALQUILADA`, `EN_MORA`, `CERRADA`
 - `MetodoPago`: `EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`, `CONSIGNACION`
@@ -156,32 +162,32 @@ Para garantizar la integridad física de los datos sin interrumpir el servicio:
 ## 7. Módulo de Migración de Datos Excel (`/migracion_excel`)
 
 El sistema cuenta con un motor especializado para importar el inventario histórico y la cartera de clientes desde hojas de cálculo (`.xlsx`, `.xls`, `.csv`):
-
-### Componentes de Migración:
-1. **[src/migracion/utils-limpieza.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/migracion/utils-limpieza.ts):**
-   - `sanitizarDocumento`: Limpia puntos, espacios y caracteres extraños de cédulas y NITs.
-   - `normalizarNombre`: Convierte a mayúsculas limpias respetando rigurosamente acentos y la letra eñe (`Ñ`, `Á`, `É`, `Í`, `Ó`, `Ú`).
-   - `normalizarTelefonoColombia`: Estandariza a formato celular colombiano de 10 dígitos (elimina prefijos `+57`, espacios y paréntesis).
-   - `parsearNumeroPositivo`: Convierte cadenas con signos de pesos o separadores a flotantes válidos. Si encuentra texto inválido (ej. `"N/A"`) asigna `0` para evitar fallas de base de datos.
-   - `desduplicarPorClave`: Elimina duplicados conservando el registro más reciente e informando el número de omisiones.
-2. **[src/migracion/migrar-datos.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/migracion/migrar-datos.ts):**
-   - Orquesta la lectura de archivos en `/migracion_excel/origen/`.
-   - Mapea dinámicamente nombres de columnas heterogéneas.
-   - Aplica inyección atómica en bloque mediante `prisma.$transaction`: si alguna fila llegase a fallar, la transacción hace un rollback total e imprime el detalle exacto de la fila causante.
-3. **Comandos de Ejecución:**
-   ```bash
-   npx ts-node src/migracion/migrar-datos.ts
-   # o alternativamente:
-   npm run db:migrar-excel
-   ```
+- `src/migracion/utils-limpieza.ts`: Sanitización de teléfonos colombianos a 10 dígitos, normalización de nombres a mayúsculas conservando acentos y eñes, números positivos y deduplicación por documento/código.
+- `src/migracion/migrar-datos.ts`: Carga atómica con `prisma.$transaction` y reporte de métricas en consola.
+- Comando: `npx ts-node src/migracion/migrar-datos.ts` o `npm run db:migrar-excel`.
 
 ---
 
-## 8. Resultados del Control de Calidad (QA - Agente 5)
+## 8. Módulo de Inventario Especializado (Venta vs. Alquiler)
 
-Las pruebas automatizadas de migración arrojaron una calificación de **100% de éxito**:
-- `[QA Migración 1]` **Clientes procesados:** 7 filas leídas -> **5 clientes únicos insertados/actualizados**. **2 duplicados omitidos** correctamente conservando la información más reciente.
-- `[QA Migración 2]` **Prendas procesadas:** 8 filas leídas -> **7 prendas únicas migradas**. **1 duplicado omitido** correctamente.
-- `[QA Migración 3]` **Integridad de Caracteres:** Cédulas y nombres verificados en SQLite con acentos y eñes visibles (`MARÍA CAMILA PEÑA RODRÍGUEZ`, `JOSÉ OMAR ÑÁÑEZ CAICEDO`, `ESPERANZA GÓMEZ DE MUÑOZ`, `JUAN SEBASTIÁN CAÑÓN`, `Edición Especial`, `Auténtico`).
-- `[QA Migración 4]` **Sanitización de Precios:** Registro con precio `"N/A"` transformado automáticamente a `0` sin arrojar error.
-- `[QA Migración 5]` **Transaccionalidad:** Confirmación atómica (`COMMIT`) en SQLite a través de Prisma ORM.
+Implementado en `src/app/admin/inventario/page.tsx` y `src/app/api/inventario/route.ts`:
+1. **Separación de Catálogo:**
+   - **Disfraces y Prendas de Alquiler:** Exige tarifa de mora obligatoria (con soporte estricto de números decimales como `15000.50` o `2500.75`) y unidad temporal (`DIA` o `HORA`).
+   - **Ropa de Venta Directa:** Artículos comerciales sin tarifas de mora.
+2. **Control de Estados de Prenda:**
+   - Estados: `DISPONIBLE`, `ALQUILADO`, `SEPARADO`, `EN_ARREGLO` e `INACTIVO`.
+   - Filtros en tiempo real por búsqueda de texto, categoría y estado de disponibilidad.
+3. **Formulario Modal ([src/components/inventario/ModalProducto.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/components/inventario/ModalProducto.tsx)):**
+   - Permite registrar y editar prendas de forma ágil, validando unicidad de código y campos de mora.
+4. **Protección Contra Eliminación de Facturas:**
+   - Si una prenda tiene facturas activas (`EN_PROCESO`, `ACTIVA_ALQUILADA`, `EN_MORA`), el backend bloquea su borrado físico con código HTTP 409 y la pasa automáticamente al estado `INACTIVO` para salvaguardar la contabilidad.
+
+---
+
+## 9. Resultados del Control de Calidad (QA - Agente 5)
+
+Las pruebas automatizadas de inventario arrojaron una calificación de **100% de éxito**:
+- `[QA Inventario 1]` **Registro con Decimales:** Prenda de prueba registrada exitosamente con tarifa de mora decimal `12500.75` por día.
+- `[QA Inventario 2]` **Filtrado por Estado:** Búsqueda en base de datos bajo el estado `ALQUILADO` retornó correctamente los productos vinculados.
+- `[QA Inventario 3]` **Protección de Facturación:** Verificada la lógica de bloqueo de borrado para prendas asociadas a contratos de alquiler en curso.
+- `[QA Inventario 4]` **Compilación Limpia:** Build de producción verificado con 14 rutas activas (`npm run build` sin errores).
