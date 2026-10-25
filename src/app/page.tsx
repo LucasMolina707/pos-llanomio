@@ -72,7 +72,7 @@ export default function HomePage() {
       icono: CalendarCheck,
       color: "bg-blue-50 text-blue-700 border-blue-200",
       etiqueta: "Operativo",
-      href: "/login",
+      href: "/admin/monitoreo",
     },
     {
       titulo: "Inventario y Prendas",

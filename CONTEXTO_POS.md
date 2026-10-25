@@ -18,6 +18,7 @@ El sistema elimina la dependencia y costos recurrentes de servicios en la nube (
 | **Motor de Base de Datos** | SQLite 3 (`/database/llanomio.db`) | Almacenamiento relacional embebido, ligero, seguro y portable |
 | **Seguridad y RBAC** | jose (JWT) + bcryptjs | Tokens firmados en cookies HttpOnly seguras y hashing de contraseñas |
 | **Punto de Venta Mostrador** | React State + Live Balances | Layout de 2 columnas para mostrador ágil, cobros mixtos y abonos Nequi/Efectivo |
+| **Motor de Moras & CRM** | Rutina Dinámica + wa.me API | Cálculo automático de penalizaciones por hora/día y contacto directo WhatsApp |
 | **Procesamiento Excel** | SheetJS (xlsx) + ts-node/tsx | Extracción, sanitización y carga masiva atómica |
 | **Infraestructura Local** | Node.js v24 + Windows Scripts | Despliegue en red local con scripts `.bat` para tienda |
 
@@ -58,7 +59,8 @@ pos-llanomio/
 │   │   └── inventario_prendas.xlsx   # Hoja Excel de inventario (códigos, tallas, precios)
 │   └── excel_fuente/                 # Depósito secundario de archivos fuente
 ├── scripts/
-│   └── test-pos-qa.ts                # Suite automatizada de pruebas de facturación mixta y abonos
+│   ├── test-pos-qa.ts                # Suite de pruebas de facturación mixta y abonos
+│   └── test-mora-crm-qa.ts           # Suite de pruebas para motor de moras y CRM WhatsApp
 └── src/
     ├── middleware.ts                 # Middleware Edge para protección RBAC (/admin/* bloqueado a CAJERO)
     ├── migracion/
@@ -66,6 +68,8 @@ pos-llanomio/
     │   ├── utils-limpieza.ts         # Sanitización de teléfonos colombianos, nombres, precios y duplicados
     │   └── generar-excel-muestra.ts  # Generador de plantillas Excel de prueba con acentos y eñes
     ├── components/
+    │   ├── crm/
+    │   │   └── BotonWhatsApp.tsx     # Botón CRM reutilizable con enlace wa.me y plantilla formal
     │   ├── pos/
     │   │   └── ModalCrearClienteRapido.tsx # Modal flotante para crear cliente al vuelo sin perder el carrito
     │   └── inventario/
@@ -84,8 +88,10 @@ pos-llanomio/
     │   ├── admin/
     │   │   ├── configuracion/
     │   │   │   └── page.tsx          # Panel visual de datos de empresa, logo y simulador de tirilla
-    │   │   └── inventario/
-    │   │       └── page.tsx          # Panel de inventario especializado (Venta vs Alquiler)
+    │   │   ├── inventario/
+    │   │   │   └── page.tsx          # Panel de inventario especializado (Venta vs Alquiler)
+    │   │   └── monitoreo/
+    │   │       └── page.tsx          # Central de Monitoreo de Facturas, Alertas Rojas y Moras
     │   └── api/
     │       ├── auth/
     │       │   ├── login/route.ts    # Endpoint de autenticación y emisión de JWT
@@ -96,11 +102,14 @@ pos-llanomio/
     │       ├── empresa/route.ts      # Consulta y actualización de datos de LLANOMIO (Solo Admin)
     │       ├── facturas/
     │       │   ├── route.ts          # Creación de facturas con ítems mixtos y abono inicial
-    │       │   └── [id]/route.ts     # Detalle de factura, registro de nuevos abonos y recálculo de saldo
+    │       │   ├── [id]/route.ts     # Detalle de factura, registro de nuevos abonos y recálculo de saldo
+    │       │   └── monitoreo/route.ts# Monitoreo reactivo de cartera, moras y días de retraso
     │       └── inventario/route.ts   # API REST CRUD, filtros dinámicos y protección contra borrado
     └── lib/
         ├── auth.ts                   # Helpers de firmado/verificación JWT con cookies seguras
         ├── backup.ts                 # Motor de respaldo en caliente VACUUM INTO y rotación
+        ├── cron-moras.ts             # Motor de cálculo y sincronización automática de moras
+        ├── whatsapp.ts               # Utilidades de normalización de teléfonos y plantillas CRM
         └── prisma.ts                 # Instancia singleton de Prisma Client para Next.js
 ```
 
@@ -122,31 +131,13 @@ El esquema de base de datos está normalizado y cubre la totalidad de operacione
 - `EstadoTurno`: `ABIERTO`, `CERRADO`
 - `TipoCierre`: `DIARIO`, `CONSOLIDADO_MENSUAL`
 
-### Modelos de Facturación y Abonos
-- **`Factura`:**
-  - Relaciones con `Cliente`, `User` (cajero en turno), y `TurnoCaja`.
-  - Estados: `ACTIVA`, `EN_PROCESO`, `ACTIVA_ALQUILADA`, `EN_MORA`, `CERRADA`.
-  - Campos financieros: `subtotalProductos`, `subtotalArreglosLibres`, `totalFactura`, `totalAbonado`, `saldoPendiente`.
-- **`DetalleFactura`:**
-  - Soporte mixto polimórfico: producto de inventario (`productoId` opcional) o servicios libres de sastrería (`esServicioLibre: true`, `descripcionLibre`, `precioUnitario`, `cantidad`, `subtotal`).
-- **`Abono`:**
-  - Registro auditable: `id`, `facturaId`, `monto`, `metodoPago` (ENUM: `EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`), `cajeroId`, `referenciaComprobante`, `fecha`.
-
 ---
 
 ## 4. Módulo de Seguridad (RBAC) y Autenticación
 
 El sistema implementa Control de Acceso Basado en Roles (RBAC) con dos niveles operativos:
-- **`ADMIN` (Administrador General):** Acceso total a configuración de tienda, datos fiscales, catálogo, reportes y respaldos.
-- **`CAJERO` (Cajero Operativo):** Acceso a facturación, alquileres, separes, abonos y arqueos de turno. Restringido de rutas administrativas.
-
-### Componentes de Seguridad:
-1. **Firma y Validación de Sesión JWT ([src/lib/auth.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/lib/auth.ts)):**
-   - Generación de token JWT firmado con algoritmo `HS256` utilizando la librería estándar `jose`.
-   - Almacenamiento seguro en cookie HTTP-Only (`llanomio_session`) con vigencia de 12 horas.
-2. **Middleware Defensivo ([src/middleware.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/middleware.ts)):**
-   - Intercepta peticiones hacia `/admin/*` y `/api/admin/*`.
-   - Bloquea acceso a cajeros con código HTTP 403 y redirige a la vista amigable `/acceso-denegado`.
+- **`ADMIN` (Administrador General):** Acceso total a configuración de tienda, datos fiscales, catálogo, monitoreo, reportes y respaldos.
+- **`CAJERO` (Cajero Operativo):** Acceso a facturación, mostrador POS, alquileres, separes, abonos y arqueos de turno. Restringido de rutas administrativas.
 
 ---
 
@@ -164,7 +155,6 @@ Ubicado en `src/app/admin/configuracion/page.tsx`:
 
 ## 6. Motor de Respaldo SQLite en Caliente (`VACUUM INTO`) y Hook de Logout
 
-Para garantizar la integridad física de los datos sin interrumpir el servicio:
 1. **Comando Nativo `VACUUM INTO` ([src/lib/backup.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/lib/backup.ts)):**
    - Ejecuta `VACUUM INTO 'C:/POS_LLANOMIO_BACKUPS/llanomio_ULTIMO.db'`.
 2. **Hook de Cierre de Sesión ([src/app/api/auth/logout/route.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/app/api/auth/logout/route.ts)):**
@@ -193,29 +183,40 @@ Implementado en `src/app/admin/inventario/page.tsx` y `src/app/api/inventario/ro
 
 Ubicado en `src/app/caja/pos/page.tsx`, `src/app/api/facturas/route.ts` y `src/app/api/facturas/[id]/route.ts`:
 1. **Layout Ágil de Mostrador de Dos Columnas:**
-   - **Columna Izquierda:**
-     - Selector y autocompletado en vivo de cliente, con acceso al modal rápido `ModalCrearClienteRapido`.
-     - Buscador reactivo de productos por código de barras o nombre con adición de 1 clic al carrito.
-     - Botón destacado "Añadir Arreglo de Sastrería Libre" para especificar descripción y precio pactado sin inventario previo.
-     - Tabla interactiva del carrito con edición de cantidades, precios personalizados y eliminación de ítems.
-   - **Columna Derecha:**
-     - Tarjeta de liquidación en tiempo real: Subtotal Productos, Subtotal Sastrería, Total Factura, Total Abonado y Saldo Pendiente.
-     - Panel de abonos rápidos (100%, 50%, $20.000, $50.000) y desglose por método de pago: `EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`.
-     - Botón "Guardar Factura / Imprimir" con apertura de tirilla de comprobante térmico.
-2. **Modal de Creación Rápida de Clientes ([src/components/pos/ModalCrearClienteRapido.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/components/pos/ModalCrearClienteRapido.tsx)):**
-   - Registra al vuelo clientes nuevos (cédula, nombre, teléfono, dirección) e inyecta la selección directamente a la factura sin perder el carrito ni reiniciar la pantalla.
-3. **Cálculo Matemático de Saldos y Cierre Automático:**
-   - Saldo pendiente recalculado al centavo tras cada abono.
-   - Si el saldo pendiente llega a 0 y no hay prendas de alquiler pendientes de retorno, la factura se marca automáticamente como `CERRADA`. Si tiene alquiler pendiente, se conserva en `ACTIVA_ALQUILADA` o `ACTIVA`.
-   - Cada abono y factura registra obligatoriamente el `cajeroId` autenticado.
+   - **Columna Izquierda:** Selector y autocompletado de cliente con `ModalCrearClienteRapido`, buscador de prendas con stock y tallas, inserción libre de servicios de sastrería y tabla dinámica de ítems.
+   - **Columna Derecha:** Liquidación en vivo de subtotales, abonos inmediatos con métodos de pago (`EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`), saldo pendiente y botón de guardar/imprimir tirilla.
+2. **Modal de Creación Rápida de Clientes:** Registra al vuelo clientes nuevos e inyecta la selección a la factura sin perder el carrito.
+3. **Cálculo de Saldos y Cierre:** Actualiza estado a `CERRADA` si saldo = 0 (o `ACTIVA_ALQUILADA` si tiene prendas por devolver).
 
 ---
 
-## 10. Resultados del Control de Calidad (QA - Agente 5)
+## 10. Motor Automático de Moras, Central de Monitoreo y CRM WhatsApp
 
-Las pruebas automatizadas del Módulo POS y Facturación arrojaron una calificación de **100% de éxito**:
-- `[QA POS 1]` **Venta Mixta:** Prenda de inventario ($130.000) sumada a servicio de sastrería libre ("Ajuste de bota de pantalón": $15.000) totalizó exactamente $145.000.
-- `[QA POS 2]` **Abono Parcial por Nequi:** Registro exitoso de abono de $40.000 vía Nequi con referencia de comprobante y asociación al cajero en turno.
-- `[QA POS 3]` **Recálculo de Saldo al Centavo:** Saldo pendiente resultante recalculado a $105.000 con estado `ACTIVA`.
-- `[QA POS 4]` **Liquidación y Cierre:** Segundo abono de $105.000 en Efectivo redujo el saldo a $0 y actualizó el estado de la factura a `CERRADA`.
-- `[QA POS 5]` **Compilación de Producción:** Build de producción exitoso con 17 rutas activas (`npm run build` con código 0 y tipado estricto).
+Implementado en `src/lib/cron-moras.ts`, `src/lib/whatsapp.ts`, `src/components/crm/BotonWhatsApp.tsx`, `src/app/api/facturas/monitoreo/route.ts` y `src/app/admin/monitoreo/page.tsx`:
+
+1. **Motor de Cálculo Automático de Moras ([src/lib/cron-moras.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/lib/cron-moras.ts)):**
+   - Evalúa en tiempo real si `fechaActual > fechaDevolucionPactada` en facturas que no estén cerradas ni devueltas.
+   - Determina el retraso en horas o días según la configuración de cada prenda (`HORA` o `DIA`).
+   - Aplica redondeo comercial hacia arriba para fracciones transcurridas (`Math.ceil`) y multiplica por la `tarifaMora` individual.
+   - Suma el recargo de penalización al saldo pendiente y transiciona la factura automáticamente al estado `EN_MORA`.
+2. **Central de Monitoreo de Facturas ([src/app/admin/monitoreo/page.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/app/admin/monitoreo/page.tsx)):**
+   - **Pestaña En Mora:** Destacada en rojo brillante con indicador pulsante, número de días/horas de retraso y recargo exacto.
+   - **Pestañas Activas y Cerradas:** Segmentación operativa del ciclo de vida de los contratos de alquiler.
+   - **Tarjetas KPI en Vivo:** Cartera Total en Mora, Saldo Pendiente Global, Contratos Activos y Facturas Liquidadas.
+   - **Buscador Reactivo:** Búsqueda instantánea por cliente, cédula, teléfono o número de factura.
+   - **Botón de Sincronización:** Recálculo y persistencia masiva en caliente con un clic.
+3. **Integración CRM con WhatsApp Oficial ([src/components/crm/BotonWhatsApp.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/components/crm/BotonWhatsApp.tsx)):**
+   - Normalización de números telefónicos colombianos (anteponiendo código de país `57` para celulares de 10 dígitos).
+   - Generación de enlace universal `https://wa.me/57[TELEFONO]?text=...` con texto formal y profesional codificado limpiamente con `encodeURIComponent`.
+   - Plantilla de cobro: *"Hola [Nombre Cliente], le saludamos de LLANOMIO. Le recordamos que tiene pendiente la devolucion/saldo de la prenda [Nombre Prenda] (Factura [FAC-XXXXX]) con un retraso de [X] dias. El saldo actual a la fecha es $[Monto]. Lo esperamos en nuestra tienda para su recepcion y liquidacion."*
+
+---
+
+## 11. Resultados del Control de Calidad (QA - Agente 5)
+
+Las pruebas automatizadas del Módulo de Moras y CRM WhatsApp arrojaron una calificación de **100% de éxito**:
+- `[QA Mora 1]` **Mora por Día:** Alquiler con 36 horas de retraso (1.5 días) calculado exactamente a 2 días de penalización con tarifa de $15.000/día arrojó recargo de $30.000 y saldo total de $80.000.
+- `[QA Mora 2]` **Mora por Hora:** Alquiler con 4.5 horas de retraso calculado exactamente a 5 horas de mora con tarifa de $2.500/hora arrojó recargo de $12.500.
+- `[QA CRM 3]` **Sanitización Telefónica:** Validación exitosa de formatos colombianos (`3101234567`, `(312) 456-7890`, `+57 320 987 6543`) a formato internacional `57XXXXXXXXXX`.
+- `[QA CRM 4]` **Plantilla y Enlace WhatsApp:** Comprobada la codificación URI, inclusión de factura, nombres y montos sin emojis ni errores de caracteres especiales.
+- `[QA Build 5]` **Compilación de Producción:** Build de producción exitoso con 19 rutas activas (`npm run build` con código 0 y tipado estricto).
