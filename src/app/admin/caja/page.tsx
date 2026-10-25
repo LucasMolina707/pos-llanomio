@@ -188,54 +188,53 @@ export default function ControlCajaAdminPage() {
   const diferenciaEnVivo = Math.round((contadoNumerico - esperadoGaveta) * 100) / 100;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 lg:p-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Cabecera Principal */}
-        <header className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl">
-              <Vault className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-                  Control de Caja & Turnos
-                </h1>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                    hayTurnoAbierto
-                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                      : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                  }`}
-                >
-                  {hayTurnoAbierto ? "Caja Abierta" : "Caja Cerrada"}
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                Apertura con base inicial, arqueo físico en gaveta y cierre diario por métodos de pago
-              </p>
-            </div>
+    <div className="w-full space-y-6">
+      {/* Cabecera Principal */}
+      <header className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl">
+            <Vault className="w-5 h-5" />
           </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+                Control de Caja & Turnos
+              </h1>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                  hayTurnoAbierto
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    : "bg-slate-100 text-slate-700 border border-slate-200"
+                }`}
+              >
+                {hayTurnoAbierto ? "Caja Abierta" : "Caja Cerrada"}
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-500">
+              Apertura con base inicial, arqueo físico en gaveta y cierre diario por métodos de pago
+            </p>
+          </div>
+        </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-            <button
-              type="button"
-              onClick={consultarEstadoCaja}
-              disabled={cargando}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 border border-slate-200 dark:border-slate-700 transition"
-            >
-              <RefreshCw className={`w-4 h-4 ${cargando ? "animate-spin" : ""}`} />
-              <span>Actualizar Arqueo</span>
-            </button>
-            <Link
-              href="/caja/pos"
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 transition shadow-sm"
-            >
-              <Receipt className="w-4 h-4" />
-              <span>Ir a Facturar POS</span>
-            </Link>
-          </div>
-        </header>
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+          <button
+            type="button"
+            onClick={consultarEstadoCaja}
+            disabled={cargando}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition"
+          >
+            <RefreshCw className={`w-4 h-4 text-blue-600 ${cargando ? "animate-spin" : ""}`} />
+            <span>Actualizar Arqueo</span>
+          </button>
+          <Link
+            href="/caja/pos"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
+          >
+            <Receipt className="w-4 h-4" />
+            <span>Ir a Facturar POS</span>
+          </Link>
+        </div>
+      </header>
 
         {/* Mensaje de Alerta */}
         {mensaje && (
@@ -675,6 +674,5 @@ export default function ControlCajaAdminPage() {
           </div>
         </div>
       </div>
-    </div>
   );
 }

@@ -1,0 +1,90 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import Sidebar from "./Sidebar";
+import Navbar from "./Navbar";
+
+interface UsuarioSesion {
+  userId: string;
+  username: string;
+  nombre: string;
+  rol: "ADMIN" | "CAJERO";
+}
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [usuario, setUsuario] = useState<UsuarioSesion | null>(null);
+
+  // Consultar usuario en sesión
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.ok && data?.user) {
+          setUsuario(data.user);
+        }
+      })
+      .catch(() => {});
+  }, [pathname]);
+
+  // Cerrar menú móvil al navegar
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [pathname]);
+
+  // Si es la página de login o vista sin shell, renderizar directamente
+  const esPaginaLogin = pathname === "/login";
+
+  if (esPaginaLogin) {
+    return <main className="min-h-screen bg-slate-50">{children}</main>;
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex">
+      {/* 1. Barra Lateral en Escritorio */}
+      <div className="hidden md:block">
+        <Sidebar
+          isCollapsed={isCollapsed}
+          onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+          usuario={usuario}
+        />
+      </div>
+
+      {/* 2. Barra Lateral en Móvil (Overlay / Drawer) */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileOpen(false)}
+          />
+          <div className="relative w-64 max-w-[80vw] h-full z-10">
+            <Sidebar
+              isCollapsed={false}
+              onToggleCollapse={() => setIsMobileOpen(false)}
+              usuario={usuario}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 3. Contenedor Principal (Navbar + Contenido Full-Width) */}
+      <div
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out ${
+          isCollapsed ? "md:ml-20" : "md:ml-64"
+        }`}
+      >
+        <Navbar
+          onToggleSidebarMobile={() => setIsMobileOpen(!isMobileOpen)}
+          isSidebarCollapsed={isCollapsed}
+          usuario={usuario}
+        />
+        <main className="flex-1 w-full p-4 sm:p-6 lg:p-8">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}

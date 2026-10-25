@@ -136,48 +136,47 @@ export default function CentralMonitoreoPage() {
   }, [cargarFacturas]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 lg:p-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Cabecera Principal */}
-        <header className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl">
-              <Clock className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-                  Central de Monitoreo & Control de Moras
-                </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
-                  CRM & Cobranza
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                Auditoría en vivo de fechas pactadas de devolución, recargos acumulados y contacto directo
-              </p>
-            </div>
+    <div className="w-full space-y-6">
+      {/* Cabecera Principal */}
+      <header className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl">
+            <Clock className="w-5 h-5" />
           </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+                Central de Monitoreo & Control de Moras
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80">
+                Auditoría en Vivo
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-500">
+              Seguimiento de fechas pactadas de devolución, recargos acumulados y contacto CRM por WhatsApp
+            </p>
+          </div>
+        </div>
 
-          <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
-            <button
-              type="button"
-              onClick={() => cargarFacturas(true)}
-              disabled={sincronizando || cargando}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition shadow-xs disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${sincronizando ? "animate-spin text-rose-500" : ""}`} />
-              <span>{sincronizando ? "Recalculando..." : "Recalcular Moras Ahora"}</span>
-            </button>
-            <Link
-              href="/caja/pos"
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 transition shadow-sm"
-            >
-              <Receipt className="w-4 h-4" />
-              <span>Ir a Caja POS</span>
-            </Link>
-          </div>
-        </header>
+        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+          <button
+            type="button"
+            onClick={() => cargarFacturas(true)}
+            disabled={sincronizando || cargando}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 text-blue-600 ${sincronizando ? "animate-spin" : ""}`} />
+            <span>{sincronizando ? "Recalculando..." : "Recalcular Moras"}</span>
+          </button>
+          <Link
+            href="/caja/pos"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
+          >
+            <Receipt className="w-4 h-4" />
+            <span>Ir a Facturar POS</span>
+          </Link>
+        </div>
+      </header>
 
         {/* Tarjetas de Métricas de Cartera */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -518,6 +517,5 @@ export default function CentralMonitoreoPage() {
           </div>
         </div>
       </div>
-    </div>
   );
 }

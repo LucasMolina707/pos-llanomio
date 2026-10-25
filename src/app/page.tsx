@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ShoppingBag,
   CalendarCheck,
@@ -12,13 +11,13 @@ import {
   Server,
   Database,
   ArrowRight,
-  Sparkles,
   Settings,
-  LogOut,
-  User,
-  LogIn,
   Vault,
   BarChart3,
+  Radio,
+  FileText,
+  Clock,
+  Sparkles,
 } from "lucide-react";
 
 interface UsuarioSesion {
@@ -29,9 +28,7 @@ interface UsuarioSesion {
 }
 
 export default function HomePage() {
-  const router = useRouter();
   const [usuario, setUsuario] = useState<UsuarioSesion | null>(null);
-  const [cerrandoSesion, setCerrandoSesion] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -44,222 +41,212 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
-  const handleCerrarSesion = async () => {
-    setCerrandoSesion(true);
-    try {
-      // Disparar logout que ejecuta automáticamente VACUUM INTO
-      await fetch("/api/auth/logout", { method: "POST" });
-      setUsuario(null);
-      router.push("/login");
-      router.refresh();
-    } catch {
-      router.push("/login");
-    } finally {
-      setCerrandoSesion(false);
-    }
-  };
-
   const modulos = [
     {
       titulo: "Terminal de Facturación",
-      descripcion: "Emisión de facturas para ventas directas, alquileres, separes y servicios libres de arreglo.",
+      descripcion: "Emisión ágil de facturas para ventas directas, alquileres, separes y servicios libres de arreglo.",
       icono: ShoppingBag,
-      color: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      etiqueta: "Caja Activa",
+      colorIcono: "bg-blue-50 text-blue-600 border-blue-100",
+      etiqueta: "Mostrador POS",
+      colorBadge: "bg-blue-50 text-blue-700 border-blue-200",
       href: "/caja/pos",
     },
     {
-      titulo: "Alquileres y Control de Moras",
-      descripcion: "Seguimiento riguroso de fechas de entrega, devoluciones pactadas y cálculo automático de mora.",
-      icono: CalendarCheck,
-      color: "bg-blue-50 text-blue-700 border-blue-200",
-      etiqueta: "Operativo",
-      href: "/admin/monitoreo",
-    },
-    {
-      titulo: "Inventario y Prendas",
-      descripcion: "Control de stock, estados de prendas (Disponible, Alquilado, Separado, Arreglo) y tarifas base.",
-      icono: Package,
-      color: "bg-amber-50 text-amber-700 border-amber-200",
-      etiqueta: "Catálogo",
-      href: "/admin/inventario",
-    },
-    {
       titulo: "Control de Caja & Arqueos",
-      descripcion: "Apertura con base inicial, arqueo físico en gaveta y cierre diario por métodos de pago.",
+      descripcion: "Apertura con base inicial en efectivo, arqueo físico en gaveta y cierre diario por métodos de pago.",
       icono: Vault,
-      color: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      etiqueta: "Caja y Cuadre",
+      colorIcono: "bg-emerald-50 text-emerald-600 border-emerald-100",
+      etiqueta: "Caja y Turnos",
+      colorBadge: "bg-emerald-50 text-emerald-700 border-emerald-200",
       href: "/admin/caja",
     },
     {
+      titulo: "Alquileres & Control de Moras",
+      descripcion: "Seguimiento riguroso de fechas de entrega pactadas, cálculo automático de mora y contacto CRM vía WhatsApp.",
+      icono: CalendarCheck,
+      colorIcono: "bg-rose-50 text-rose-600 border-rose-100",
+      etiqueta: "Auditoría en Vivo",
+      colorBadge: "bg-rose-50 text-rose-700 border-rose-200",
+      href: "/admin/monitoreo",
+    },
+    {
+      titulo: "Inventario Especializado",
+      descripcion: "Control de stock, prendas por talla y color, estados de disponibilidad y tarifas de penalización.",
+      icono: Package,
+      colorIcono: "bg-amber-50 text-amber-600 border-amber-100",
+      etiqueta: "Catálogo",
+      colorBadge: "bg-amber-50 text-amber-700 border-amber-200",
+      href: "/admin/inventario",
+    },
+    {
       titulo: "Dashboard Gerencial",
-      descripcion: "Métricas financieras con filtros de fecha, ingresos netos, cuentas por cobrar y rendimiento.",
+      descripcion: "Consolidado de métricas financieras, ingresos netos, cuentas por cobrar y rendimiento por líneas de negocio.",
       icono: BarChart3,
-      color: "bg-indigo-50 text-indigo-700 border-indigo-200",
-      etiqueta: "Gerencia",
+      colorIcono: "bg-indigo-50 text-indigo-600 border-indigo-100",
+      etiqueta: "Inteligencia",
+      colorBadge: "bg-indigo-50 text-indigo-700 border-indigo-200",
       href: "/admin/dashboard",
     },
     {
-      titulo: "Configuración y Datos de Factura",
-      descripcion: "Panel de administración de datos fiscales, logotipos, políticas de alquiler y formatos de impresión.",
+      titulo: "Configuración y Datos Fiscales",
+      descripcion: "Administración de datos de la empresa, NIT, políticas de factura, logotipos y formatos de impresión.",
       icono: Settings,
-      color: "bg-purple-50 text-purple-700 border-purple-200",
-      etiqueta: "Solo Admin",
+      colorIcono: "bg-purple-50 text-purple-600 border-purple-100",
+      etiqueta: "Solo Administrador",
+      colorBadge: "bg-purple-50 text-purple-700 border-purple-200",
       href: "/admin/configuracion",
     },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      {/* Barra Superior Informativa */}
-      <header className="border-b border-slate-200 bg-white shadow-sm sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md">
-              <Sparkles className="h-6 w-6" />
-            </div>
-            <div>
-              <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight">
-                POS LLANOMIO
-              </span>
-              <span className="text-xs text-slate-500 font-medium">
-                Sistema Operativo Local de Facturación e Inventario
-              </span>
-            </div>
+    <div className="w-full space-y-6">
+      {/* 1. Banner Corporativo Principal */}
+      <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl p-6 sm:p-8 text-white shadow-md border border-slate-800 relative overflow-hidden">
+        <div className="relative z-10 max-w-3xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold mb-3">
+            <Radio className="h-3.5 w-3.5 text-blue-400 animate-pulse" />
+            <span>Red Local LAN Activa &bull; llanomio.local</span>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800">
-              <Server className="h-3.5 w-3.5" />
-              <span>Red Local LAN</span>
-            </div>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+            Sistema POS Local LLANOMIO
+          </h1>
 
-            {usuario ? (
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-slate-800 flex items-center space-x-1.5">
-                  <User className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>{usuario.username} ({usuario.rol})</span>
-                </span>
-                <button
-                  onClick={handleCerrarSesion}
-                  disabled={cerrandoSesion}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-700 hover:border-red-200 border border-slate-200 text-xs font-semibold text-slate-700 transition"
-                  title="Cerrar sesión y respaldar base de datos SQLite"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                  <span>{cerrandoSesion ? "Respaldando..." : "Cerrar Sesión"}</span>
-                </button>
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
-              >
-                <LogIn className="h-3.5 w-3.5" />
-                <span>Ingresar al Sistema</span>
-              </Link>
-            )}
+          <p className="mt-2 text-slate-300 text-xs sm:text-sm leading-relaxed">
+            Plataforma autónoma de punto de venta, gestión de alquileres y control de inventario.
+            Operando 100% en red de área local en Windows sin requerir conexión a internet ni costos en la nube.
+          </p>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Link
+              href="/caja/pos"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm shadow-blue-500/30"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              <span>Abrir Mostrador POS</span>
+            </Link>
+
+            <Link
+              href="/admin/dashboard"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition"
+            >
+              <BarChart3 className="h-4 w-4 text-blue-400" />
+              <span>Ver Métricas Gerenciales</span>
+            </Link>
           </div>
         </div>
-      </header>
 
-      {/* Contenido Principal */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        {/* Banner de Bienvenida y Estado */}
-        <section className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 rounded-2xl p-6 sm:p-8 text-white shadow-lg mb-8">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-xs font-medium mb-4">
-              <ShieldCheck className="h-4 w-4 text-emerald-300" />
-              <span>Entorno de Tienda Local 100% Autónomo</span>
+        {/* Decoración de fondo */}
+        <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+          <Layers className="w-64 h-64 text-white" />
+        </div>
+      </section>
+
+      {/* 2. Cuadrícula de Módulos del Sistema */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-1.5 rounded-full bg-blue-600"></div>
+            <h2 className="text-base font-bold text-slate-900">
+              Módulos Operativos del Negocio
+            </h2>
+          </div>
+          <span className="text-xs font-medium text-slate-500">
+            Acceso Rápido
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {modulos.map((modulo, idx) => {
+            const Icono = modulo.icono;
+            return (
+              <Link
+                key={idx}
+                href={modulo.href}
+                className="group bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`h-11 w-11 rounded-xl flex items-center justify-center border ${modulo.colorIcono}`}>
+                      <Icono className="h-5 w-5" />
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${modulo.colorBadge}`}>
+                      {modulo.etiqueta}
+                    </span>
+                  </div>
+
+                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                    {modulo.titulo}
+                  </h3>
+
+                  <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                    {modulo.descripcion}
+                  </p>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600">
+                  <span>Acceder al módulo</span>
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Panel de Información de Arquitectura y Red Local */}
+      <div className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg">
+              <Server className="h-4 w-4" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Bienvenido a POS Llanomio
-            </h1>
-            <p className="mt-2 text-emerald-100 text-sm sm:text-base leading-relaxed">
-              Plataforma diseñada para alta disponibilidad sin depender de conexión a internet o servicios externos pagos. Todos los datos se almacenan de manera local y cifrada en el servidor de la tienda.
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">
+                Infraestructura y Seguridad de Datos
+              </h3>
+              <p className="text-xs text-slate-500">
+                Configuración local persistente para tienda física
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Zero-Config mDNS
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+            <span className="font-bold text-slate-700 block">Acceso Móvil Wi-Fi:</span>
+            <span className="text-blue-600 font-mono font-semibold mt-0.5 block">
+              http://llanomio.local
+            </span>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Sin configurar direcciones IP ni puertos en celulares de mostrador.
             </p>
           </div>
-        </section>
 
-        {/* Cuadrícula de Módulos */}
-        <section className="mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-900">
-              Módulos Principales del Sistema
-            </h2>
-            <span className="text-xs text-slate-500 font-medium">
-              Acceso Rápido
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+            <span className="font-bold text-slate-700 block">Respaldo Automático SQLite:</span>
+            <span className="text-slate-800 font-mono font-semibold mt-0.5 block">
+              VACUUM INTO al Logout
             </span>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Copia atómica garantizada en C:\POS_LLANOMIO_BACKUPS.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {modulos.map((modulo) => {
-              const Icono = modulo.icono;
-              return (
-                <Link
-                  key={modulo.titulo}
-                  href={modulo.href}
-                  className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between group"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className={`p-3 rounded-xl border ${modulo.color}`}>
-                        <Icono className="h-6 w-6" />
-                      </div>
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
-                        {modulo.etiqueta}
-                      </span>
-                    </div>
-                    <h3 className="font-semibold text-slate-900 text-base mb-1 group-hover:text-emerald-700 transition">
-                      {modulo.titulo}
-                    </h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {modulo.descripcion}
-                    </p>
-                  </div>
-
-                  <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-emerald-700 group-hover:text-emerald-800">
-                    <span>Acceder al módulo</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </div>
-                </Link>
-              );
-            })}
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+            <span className="font-bold text-slate-700 block">Motor de Procesos:</span>
+            <span className="text-slate-800 font-mono font-semibold mt-0.5 block">
+              PM2 Daemon Persistente
+            </span>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Reanudación automática al encender o reiniciar el computador de la tienda.
+            </p>
           </div>
-        </section>
-
-        {/* Sección de Estado Técnico y Seguridad */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-          <h2 className="text-base font-bold text-slate-900 mb-4">
-            Estado de los Servicios de Tienda
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-slate-500 block font-medium">Base de Datos SQLite</span>
-              <span className="font-bold text-slate-800 text-sm mt-1 block">/database/llanomio.db</span>
-              <span className="text-emerald-600 font-semibold mt-1 block">Sincronizado vía Prisma</span>
-            </div>
-
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-slate-500 block font-medium">Motor VACUUM INTO</span>
-              <span className="font-bold text-slate-800 text-sm mt-1 block">C:\POS_LLANOMIO_BACKUPS</span>
-              <span className="text-emerald-600 font-semibold mt-1 block">llanomio_ULTIMO.db en Logout</span>
-            </div>
-
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-slate-500 block font-medium">Seguridad RBAC</span>
-              <span className="font-bold text-slate-800 text-sm mt-1 block">ADMIN vs. CAJERO</span>
-              <span className="text-emerald-600 font-semibold mt-1 block">Rutas /admin protegidas</span>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* Pie de Página */}
-      <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
-        <p>Sistema POS Local LLANOMIO - Desarrollado bajo arquitectura local de alta confiabilidad.</p>
-      </footer>
+        </div>
+      </div>
     </div>
   );
 }

@@ -195,45 +195,42 @@ export default function InventarioAdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Barra Superior */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Link
-              href="/admin/configuracion"
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-              title="Volver a Configuración"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <div className="h-10 w-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md">
-              <Package className="h-6 w-6" />
-            </div>
-            <div>
-              <span className="text-lg font-black tracking-tight text-slate-900 block leading-tight">
-                POS LLANOMIO
-              </span>
-              <span className="text-xs text-slate-500 font-medium">
-                Catálogo e Inventario Especializado
-              </span>
-            </div>
+    <div className="w-full space-y-6">
+      {/* Cabecera Principal */}
+      <header className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl">
+            <Package className="w-5 h-5" />
           </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+                Inventario & Catálogo de Prendas
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/80">
+                Alquiler & Venta
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-500">
+              Control de prendas por tallas, colores, estados de disponibilidad y tarifas de mora
+            </p>
+          </div>
+        </div>
 
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleNuevoProducto}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Nueva Prenda</span>
-            </button>
-          </div>
+        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+          <button
+            type="button"
+            onClick={handleNuevoProducto}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm shadow-blue-500/20 transition"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Nueva Prenda</span>
+          </button>
         </div>
       </header>
 
       {/* Contenido Principal */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-6">
+      <div className="w-full space-y-6">
         {/* Notificación flotante */}
         {notificacion && (
           <div
@@ -516,7 +513,7 @@ export default function InventarioAdminPage() {
             </div>
           )}
         </section>
-      </main>
+      </div>
 
       {/* Modal de Registro / Edición */}
       <ModalProducto

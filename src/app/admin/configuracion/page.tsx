@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Ban,
   Package,
+  Settings,
 } from "lucide-react";
 
 interface Configuracion {
@@ -195,77 +196,43 @@ export default function ConfiguracionAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Barra Superior de Administración */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md">
-              <Sparkles className="h-6 w-6" />
-            </div>
-            <div>
-              <span className="text-lg font-black tracking-tight text-slate-900 block leading-tight">
-                POS LLANOMIO
-              </span>
-              <span className="text-xs text-slate-500 font-medium">
-                Panel de Administración General
-              </span>
-            </div>
+    <div className="w-full space-y-6">
+      {/* Cabecera Principal */}
+      <header className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl">
+            <Settings className="w-5 h-5" />
           </div>
-
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800">
-              <ShieldCheck className="h-4 w-4 text-emerald-600" />
-              <span>Rol: Administrador</span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+                Configuración de Facturación y Datos de Empresa
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/80">
+                Solo Administrador
+              </span>
             </div>
-
-            <Link
-              href="/admin/inventario"
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-200 border border-slate-200 text-xs font-semibold text-slate-700 transition"
-              title="Ir a Gestión de Inventario"
-            >
-              <Package className="h-3.5 w-3.5" />
-              <span>Inventario</span>
-            </Link>
-
-            <button
-              onClick={handleCerrarSesion}
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-700 hover:border-red-200 border border-slate-200 text-xs font-semibold text-slate-700 transition duration-150"
-              title="Cierra la sesión y genera un respaldo atómico VACUUM INTO"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span>Cerrar Sesión</span>
-            </button>
+            <p className="text-xs sm:text-sm text-slate-500">
+              Datos fiscales, logotipos, políticas de alquiler y formatos de impresión para tirilla y carta
+            </p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+          <button
+            type="button"
+            onClick={handleForzarRespaldo}
+            disabled={respaldando}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-xs transition disabled:opacity-50"
+          >
+            <Database className="h-4 w-4 text-blue-600" />
+            <span>{respaldando ? "Respaldando..." : "Respaldo en Caliente"}</span>
+          </button>
         </div>
       </header>
 
       {/* Contenido Principal */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        {/* Encabezado de la Sección */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              Configuración de Facturación y Datos de Empresa
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">
-              Modifique los datos fiscales, encabezados, logotipos y términos que se imprimirán en las tirillas de venta y alquiler.
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={handleForzarRespaldo}
-              disabled={respaldando}
-              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-sm transition disabled:opacity-50"
-            >
-              <Database className="h-4 w-4 text-emerald-600" />
-              <span>{respaldando ? "Respaldando..." : "Respaldo en Caliente"}</span>
-            </button>
-          </div>
-        </div>
-
+      <div className="w-full space-y-6">
         {/* Notificaciones */}
         {mensajeExito && (
           <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center space-x-3 text-emerald-800 text-xs font-semibold shadow-sm">
@@ -631,7 +598,7 @@ export default function ConfiguracionAdminPage() {
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
