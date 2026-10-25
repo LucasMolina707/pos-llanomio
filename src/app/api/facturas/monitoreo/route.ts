@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const pestana = searchParams.get("pestana") || searchParams.get("estado") || "TODAS";
     const q = searchParams.get("q")?.trim() || "";
+    const clienteId = searchParams.get("clienteId")?.trim() || "";
     const sincronizar = searchParams.get("sync") === "true";
 
     // Si se solicita sincronización forzada en BD
@@ -30,6 +31,10 @@ export async function GET(req: NextRequest) {
     }
 
     const where: Record<string, unknown> = {};
+
+    if (clienteId) {
+      where.clienteId = clienteId;
+    }
 
     if (q) {
       where.OR = [
@@ -85,18 +90,24 @@ export async function GET(req: NextRequest) {
       const recargoMora = Math.round(calculo.recargoMoraCalculado * 100) / 100;
       const totalExigible = Math.round((saldoBase + recargoMora) * 100) / 100;
 
+      const prendaSinEntregar =
+        (fac.tipoOperacion === "ALQUILER" || fac.tipoOperacion === "MIXTO") &&
+        !fac.fechaDevolucionReal &&
+        !!fac.fechaDevolucionPactada &&
+        new Date(fac.fechaDevolucionPactada) < ahora;
+
       const estaCerrada =
         fac.estado === EstadoFactura.CERRADA ||
-        (saldoBase === 0 && recargoMora === 0 && !!fac.fechaDevolucionReal);
+        (saldoBase === 0 && recargoMora === 0 && !prendaSinEntregar);
 
-      // Clasificación en 4 categorías excluyentes
+      // Clasificación en 4 categorías de negocio
       const esSoloMora =
-        !estaCerrada && saldoBase === 0 && recargoMora > 0;
+        !estaCerrada && saldoBase === 0 && (recargoMora > 0 || prendaSinEntregar);
       const esMoraYSaldo =
         !estaCerrada && saldoBase > 0 && recargoMora > 0;
       const esPendienteAlDia =
         !estaCerrada && saldoBase > 0 && recargoMora === 0;
-      const esPazYSalvo = estaCerrada || (saldoBase === 0 && recargoMora === 0);
+      const esPazYSalvo = estaCerrada || (saldoBase === 0 && recargoMora === 0 && !prendaSinEntregar);
 
       // Prenda principal para mensajes y resúmenes
       const prendaPrincipal =
@@ -142,13 +153,32 @@ export async function GET(req: NextRequest) {
 
     // Filtrar según la pestaña activa seleccionada
     let facturasFiltradas = facturasProcesadas;
-    if (pestana === "PENDIENTES_AL_DIA" || pestana === "ACTIVAS" || pestana === "ACTIVA") {
+    if (
+      pestana === "PENDIENTES_AL_DIA" ||
+      pestana === "PENDIENTES" ||
+      pestana === "ACTIVAS" ||
+      pestana === "ACTIVA"
+    ) {
       facturasFiltradas = facturasProcesadas.filter((f) => f.esPendienteAlDia);
-    } else if (pestana === "MORA_Y_SALDO" || pestana === "EN_MORA") {
+    } else if (
+      pestana === "MORA_Y_SALDO" ||
+      pestana === "EN_MORA" ||
+      pestana === "CON_MORA"
+    ) {
       facturasFiltradas = facturasProcesadas.filter((f) => f.esMoraYSaldo);
-    } else if (pestana === "SOLO_MORA") {
+    } else if (
+      pestana === "SOLO_MORA" ||
+      pestana === "PRENDAS_PENDIENTES" ||
+      pestana === "FUERA_INVENTARIO"
+    ) {
       facturasFiltradas = facturasProcesadas.filter((f) => f.esSoloMora);
-    } else if (pestana === "PAZ_Y_SALVOS" || pestana === "CERRADAS" || pestana === "CERRADA") {
+    } else if (
+      pestana === "PAZ_Y_SALVOS" ||
+      pestana === "PAZ_Y_SALVO" ||
+      pestana === "CERRADAS" ||
+      pestana === "CERRADA" ||
+      pestana === "HISTORIAL"
+    ) {
       facturasFiltradas = facturasProcesadas.filter((f) => f.esPazYSalvo);
     }
 

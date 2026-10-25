@@ -47,7 +47,10 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
       return { titulo: "Control de Caja & Arqueos", seccion: "Operaciones", icono: Vault };
     }
     if (pathname === "/admin/monitoreo") {
-      return { titulo: "Monitoreo de Alquileres & Moras", seccion: "Operaciones", icono: CalendarClock };
+      return { titulo: "Historial de Facturas y Moras", seccion: "Cartera", icono: CalendarClock };
+    }
+    if (pathname.startsWith("/admin/clientes")) {
+      return { titulo: "Directorio de Clientes & Historial", seccion: "Clientes", icono: User };
     }
     if (pathname === "/admin/inventario") {
       return { titulo: "Inventario Especializado & Prendas", seccion: "Catálogo", icono: Package };

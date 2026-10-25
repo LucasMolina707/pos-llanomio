@@ -1047,7 +1047,7 @@ export default function PosPage() {
             <RefreshCw className="w-4 h-4" />
           </button>
 
-          {/* Botón Principal: Historial de Facturas y Pagos con Badges de Alerta */}
+          {/* Botón Principal Universal: Historial de Facturas y Moras con Badges de Alerta */}
           <button
             type="button"
             onClick={() => {
@@ -1059,10 +1059,10 @@ export default function PosPage() {
                 ? "bg-amber-500 text-slate-950 font-black ring-2 ring-amber-400/40"
                 : "bg-slate-800 text-slate-200 hover:bg-slate-750 border border-slate-700"
             }`}
-            title="Ver cartera, facturas por cobrar, retrasos en mora y paz y salvos"
+            title="Ver centro de cartera, facturas por cobrar, retrasos en mora y paz y salvos"
           >
             <History className="w-4 h-4 text-amber-400 shrink-0" />
-            <span className="hidden sm:inline">Historial & Moras</span>
+            <span className="hidden sm:inline">Historial de Facturas y Moras</span>
             <span className="sm:hidden">Historial</span>
 
             {/* Badges de alerta de moras y pendientes */}

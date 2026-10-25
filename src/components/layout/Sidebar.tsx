@@ -59,9 +59,15 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
           icon: Vault,
         },
         {
-          name: "Alquileres y Moras",
+          name: "Historial de Facturas y Moras",
           href: "/admin/monitoreo",
           icon: CalendarClock,
+          badge: "Cartera",
+        },
+        {
+          name: "Directorio de Clientes",
+          href: "/admin/clientes",
+          icon: UserCheck,
         },
       ],
     },

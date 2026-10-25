@@ -11,8 +11,6 @@ import {
   Calendar,
   User,
   ShoppingBag,
-  ArrowUpRight,
-  TrendingUp,
   Receipt,
   Layers,
   ChevronRight,
@@ -22,10 +20,17 @@ import {
   X,
   FileText,
   CreditCard,
+  Printer,
+  Coins,
+  History,
+  PhoneCall,
 } from "lucide-react";
 import BotonWhatsApp from "@/components/crm/BotonWhatsApp";
 import ModalLiquidarFactura from "@/components/facturas/ModalLiquidarFactura";
+import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
+
+export type PestanaHistorial = "PENDIENTES_AL_DIA" | "MORA_Y_SALDO" | "SOLO_MORA" | "PAZ_Y_SALVOS";
 
 interface DetalleItem {
   id: string;
@@ -45,6 +50,7 @@ interface FacturaMonitoreo {
   id: string;
   numeroFactura: string;
   cliente: {
+    id: string;
     nombre: string;
     documento: string;
     telefono?: string | null;
@@ -62,34 +68,46 @@ interface FacturaMonitoreo {
   totalFactura: number;
   totalAbonado: number;
   saldoPendiente: number;
-  recargoMoraCalculado: number;
+  saldoBase: number;
+  recargoMora: number;
+  totalExigible: number;
   diasRetraso: number;
   horasRetraso: number;
   enMora: boolean;
   prendaPrincipal: string;
   detalles: DetalleItem[];
+  esPendienteAlDia?: boolean;
+  esMoraYSaldo?: boolean;
+  esSoloMora?: boolean;
+  esPazYSalvo?: boolean;
 }
 
 interface EstadisticasMonitoreo {
   totalFacturas: number;
-  conteoActivas: number;
-  conteoEnMora: number;
-  conteoCerradas: number;
+  conteoPendientesAlDia: number;
+  conteoMoraYSaldo: number;
+  conteoSoloMora: number;
+  conteoPazYSalvos: number;
   totalCarteraMora: number;
   totalSaldoPendiente: number;
+  totalAlertas: number;
+  totalEnMora: number;
 }
 
 export default function CentralMonitoreoPage() {
-  const [pestañaActiva, setPestañaActiva] = useState<"EN_MORA" | "ACTIVAS" | "CERRADAS" | "CON_SALDO" | "TODAS">("EN_MORA");
+  const [pestanaActiva, setPestanaActiva] = useState<PestanaHistorial>("PENDIENTES_AL_DIA");
   const [busqueda, setBusqueda] = useState("");
   const [facturas, setFacturas] = useState<FacturaMonitoreo[]>([]);
   const [estadisticas, setEstadisticas] = useState<EstadisticasMonitoreo>({
     totalFacturas: 0,
-    conteoActivas: 0,
-    conteoEnMora: 0,
-    conteoCerradas: 0,
+    conteoPendientesAlDia: 0,
+    conteoMoraYSaldo: 0,
+    conteoSoloMora: 0,
+    conteoPazYSalvos: 0,
     totalCarteraMora: 0,
     totalSaldoPendiente: 0,
+    totalAlertas: 0,
+    totalEnMora: 0,
   });
   const [cargando, setCargando] = useState(true);
   const [sincronizando, setSincronizando] = useState(false);
@@ -99,6 +117,11 @@ export default function CentralMonitoreoPage() {
   const [facturaSeleccionadaId, setFacturaSeleccionadaId] = useState<string | null>(null);
   const [modalLiquidarAbierto, setModalLiquidarAbierto] = useState(false);
 
+  // Control del modal de reimpresión de comprobante y PDF
+  const [datosImpresionModal, setDatosImpresionModal] = useState<DatosImpresionFactura | null>(null);
+  const [modalImpresionAbierto, setModalImpresionAbierto] = useState(false);
+  const [cargandoImpresionId, setCargandoImpresionId] = useState<string | null>(null);
+
   // Cargar facturas desde el endpoint
   const cargarFacturas = useCallback(async (sync = false) => {
     try {
@@ -107,9 +130,7 @@ export default function CentralMonitoreoPage() {
       setError(null);
 
       const params = new URLSearchParams();
-      if (pestañaActiva !== "TODAS" && pestañaActiva !== "CON_SALDO") {
-        params.set("estado", pestañaActiva);
-      }
+      params.set("pestana", pestanaActiva);
       if (sync) {
         params.set("sync", "true");
       }
@@ -118,7 +139,7 @@ export default function CentralMonitoreoPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Error al cargar facturas de monitoreo");
+        throw new Error(data.error || "Error al cargar facturas de historial y monitoreo");
       }
 
       setFacturas(data.facturas || []);
@@ -129,13 +150,13 @@ export default function CentralMonitoreoPage() {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Error inesperado al consultar el monitoreo de facturas");
+        setError("Error inesperado al consultar el historial de facturas");
       }
     } finally {
       setCargando(false);
       setSincronizando(false);
     }
-  }, [pestañaActiva]);
+  }, [pestanaActiva]);
 
   useEffect(() => {
     cargarFacturas();
@@ -143,13 +164,7 @@ export default function CentralMonitoreoPage() {
 
   // Autofiltrado difuso en vivo
   const facturasFiltradas = useMemo(() => {
-    let base = facturas;
-
-    if (pestañaActiva === "CON_SALDO") {
-      base = base.filter((f) => f.saldoPendiente > 0);
-    }
-
-    return filtrarPorRelevancia(base, busqueda, (item) => ({
+    return filtrarPorRelevancia(facturas, busqueda, (item) => ({
       primarios: [item.numeroFactura, item.cliente?.nombre, item.cliente?.documento],
       secundarios: [
         item.cliente?.telefono,
@@ -158,35 +173,55 @@ export default function CentralMonitoreoPage() {
         item.prendaPrincipal,
         item.tipoOperacion,
         item.estado,
+        String(item.totalExigible),
         String(item.saldoPendiente),
       ],
     }));
-  }, [facturas, pestañaActiva, busqueda]);
+  }, [facturas, busqueda]);
 
   const abrirLiquidarFactura = (id: string) => {
     setFacturaSeleccionadaId(id);
     setModalLiquidarAbierto(true);
   };
 
+  const abrirImpresionFactura = async (id: string) => {
+    try {
+      setCargandoImpresionId(id);
+      const res = await fetch(`/api/impresion/${id}`);
+      const data = await res.json();
+      if (data.success && data.factura) {
+        setDatosImpresionModal(data);
+        setModalImpresionAbierto(true);
+      } else {
+        alert(data.error || "No fue posible cargar los datos de impresión de la factura.");
+      }
+    } catch (err) {
+      console.error("Error al cargar datos de impresión:", err);
+      alert("Error de conexión al cargar la factura para impresión.");
+    } finally {
+      setCargandoImpresionId(null);
+    }
+  };
+
   return (
     <div className="w-full space-y-6">
       {/* Cabecera Principal */}
-      <header className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <header className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl">
-            <Clock className="w-5 h-5" />
+          <div className="p-3 bg-amber-50 text-amber-600 border border-amber-200 rounded-2xl">
+            <History className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-                Central de Monitoreo & Control de Moras
+                Historial de Facturas y Moras
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80">
-                Auditoría en Vivo
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                Centro de Gestión y Cartera
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-500">
-              Seguimiento de fechas pactadas de devolución, recargos acumulados y contacto CRM por WhatsApp
+              Seguimiento centralizado de facturas pendientes, cobro de moras, prendas en alquiler y reimpresión de Paz y Salvos.
             </p>
           </div>
         </div>
@@ -196,16 +231,18 @@ export default function CentralMonitoreoPage() {
             type="button"
             onClick={() => cargarFacturas(true)}
             disabled={sincronizando || cargando}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition disabled:opacity-50"
+            title="Recalcular moras acumuladas y sincronizar estados en caliente"
           >
-            <RefreshCw className={`w-4 h-4 text-blue-600 ${sincronizando ? "animate-spin" : ""}`} />
-            <span>{sincronizando ? "Recalculando..." : "Recalcular Moras"}</span>
+            <RefreshCw className={`w-4 h-4 text-amber-600 ${sincronizando ? "animate-spin" : ""}`} />
+            <span>{sincronizando ? "Sincronizando..." : "Sincronizar Moras"}</span>
           </button>
+
           <Link
             href="/caja/pos"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
+            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
             title="Abrir Terminal de Facturación POS en nueva ventana"
           >
             <Receipt className="w-4 h-4" />
@@ -214,410 +251,464 @@ export default function CentralMonitoreoPage() {
         </div>
       </header>
 
-        {/* Tarjetas de Métricas de Cartera */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-rose-200 dark:border-rose-900/50 shadow-sm relative overflow-hidden">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-                Cartera en Mora
-              </span>
-              <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
+      {/* 4 Tarjetas de Métricas de Cartera */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Tarjeta 1: Pendientes al Día */}
+        <div className="bg-white p-5 rounded-2xl border border-blue-200 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
+              Pendientes al Día
+            </span>
+            <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
+              <Clock className="w-5 h-5" />
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400 mt-2 font-mono">
-              ${estadisticas.totalCarteraMora.toLocaleString("es-CO")}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {estadisticas.conteoEnMora} factura(s) con retraso en devolución
-            </p>
           </div>
-
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Saldo Pendiente Total
-              </span>
-              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600">
-                <DollarSign className="w-5 h-5" />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2 font-mono">
-              ${estadisticas.totalSaldoPendiente.toLocaleString("es-CO")}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Pendiente por recaudar en mostrador
-            </p>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                Alquileres / Activas
-              </span>
-              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600">
-                <Clock className="w-5 h-5" />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2 font-mono">
-              {estadisticas.conteoActivas}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Dentro de la fecha pactada de entrega
-            </p>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                Cerradas / Liquidadas
-              </span>
-              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
-                <CheckCircle2 className="w-5 h-5" />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2 font-mono">
-              {estadisticas.conteoCerradas}
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Devueltas y saldadas al 100%
-            </p>
-          </div>
+          <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2 font-mono">
+            {estadisticas.conteoPendientesAlDia}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Facturas con saldo dentro del plazo pactado
+          </p>
         </div>
 
-        {/* Pestañas de Estado y Buscador */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            {/* Pestañas de Filtro Rápido */}
-            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setPestañaActiva("EN_MORA")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
-                  pestañaActiva === "EN_MORA"
-                    ? "bg-rose-600 text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>En Mora</span>
-                <span className="px-2 py-0.5 rounded-full text-xs bg-white/20 text-white font-mono font-bold">
-                  {estadisticas.conteoEnMora}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPestañaActiva("CON_SALDO")}
-                className={`flex items-center gap-2 px-3.5 py-2 min-h-[38px] rounded-lg text-xs sm:text-sm font-bold transition ${
-                  pestañaActiva === "CON_SALDO"
-                    ? "bg-amber-600 text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                <DollarSign className="w-4 h-4" />
-                <span>Con Saldo Pendiente</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPestañaActiva("ACTIVAS")}
-                className={`flex items-center gap-2 px-3.5 py-2 min-h-[38px] rounded-lg text-xs sm:text-sm font-bold transition ${
-                  pestañaActiva === "ACTIVAS"
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                <Clock className="w-4 h-4" />
-                <span>Activas</span>
-                <span className="px-2 py-0.5 rounded-full text-xs bg-white/20 text-white font-mono font-bold">
-                  {estadisticas.conteoActivas}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPestañaActiva("CERRADAS")}
-                className={`flex items-center gap-2 px-3.5 py-2 min-h-[38px] rounded-lg text-xs sm:text-sm font-bold transition ${
-                  pestañaActiva === "CERRADAS"
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Cerradas / Pagadas</span>
-                <span className="px-2 py-0.5 rounded-full text-xs bg-white/20 text-white font-mono font-bold">
-                  {estadisticas.conteoCerradas}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPestañaActiva("TODAS")}
-                className={`px-3.5 py-2 min-h-[38px] rounded-lg text-xs sm:text-sm font-bold transition ${
-                  pestañaActiva === "TODAS"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                <span>Todas ({estadisticas.totalFacturas})</span>
-              </button>
-            </div>
-
-            {/* Buscador Dinámico Difuso */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="relative w-full sm:w-80">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Search className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Fuzzy: cliente, cédula, teléfono, N° factura..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 transition"
-                />
-                {busqueda && (
-                  <button
-                    type="button"
-                    onClick={() => setBusqueda("")}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              <span className="text-xs text-slate-500 whitespace-nowrap hidden lg:inline font-medium">
-                {facturasFiltradas.length} coincidencia(s)
-              </span>
+        {/* Tarjeta 2: Con Mora y Saldo */}
+        <div className="bg-white p-5 rounded-2xl border border-rose-200 shadow-xs relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-700">
+              Con Mora y Saldo
+            </span>
+            <div className="p-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-100">
+              <AlertTriangle className="w-5 h-5" />
             </div>
           </div>
+          <p className="text-2xl sm:text-3xl font-black text-rose-600 mt-2 font-mono">
+            ${estadisticas.totalCarteraMora.toLocaleString("es-CO")}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            {estadisticas.conteoMoraYSaldo} factura(s) vencidas con saldo impago
+          </p>
+        </div>
 
-          {/* Mensaje de Error */}
-          {error && (
-            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+        {/* Tarjeta 3: Solo Mora / Prenda Retenida */}
+        <div className="bg-white p-5 rounded-2xl border border-amber-200 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-700">
+              Prendas Retenidas
+            </span>
+            <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
+              <Coins className="w-5 h-5" />
             </div>
-          )}
+          </div>
+          <p className="text-2xl sm:text-3xl font-black text-amber-600 mt-2 font-mono">
+            {estadisticas.conteoSoloMora}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Pagadas pero con prenda fuera de inventario
+          </p>
+        </div>
 
-          {/* Tabla de Facturas */}
-          <div className="overflow-x-auto">
-            {cargando ? (
-              <div className="p-12 text-center text-slate-400 space-y-2">
-                <RefreshCw className="w-6 h-6 animate-spin mx-auto text-rose-500" />
-                <p className="text-xs font-semibold">Calculando estado de moras y consultando facturas...</p>
-              </div>
-            ) : facturasFiltradas.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 space-y-2">
-                <Clock className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                  No hay facturas en esta categoría o búsqueda
-                </p>
-                <p className="text-xs text-slate-400">
-                  No se encontraron registros que coincidan con los filtros actuales.
-                </p>
-              </div>
-            ) : (
-              <table className="w-full text-left text-sm md:text-base">
-                <thead className="bg-slate-50 dark:bg-slate-800/40 text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
-                  <tr>
-                    <th className="px-4 py-3.5">Factura / Fecha</th>
-                    <th className="px-4 py-3.5">Cliente</th>
-                    <th className="px-3.5 py-3.5">Prenda Principal</th>
-                    <th className="px-3.5 py-3.5 text-center">Fecha Pactada</th>
-                    <th className="px-3.5 py-3.5 text-center">Retraso</th>
-                    <th className="px-3.5 py-3.5 text-right">Recargo Mora</th>
-                    <th className="px-3.5 py-3.5 text-right">Saldo Actual</th>
-                    <th className="px-4 py-3.5 text-center">Cobrar / Liquidar</th>
-                    <th className="px-4 py-3.5 text-center">CRM WhatsApp</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {facturasFiltradas.map((f) => {
-                    const esMora = f.enMora || f.estado === "EN_MORA";
+        {/* Tarjeta 4: Paz y Salvos */}
+        <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+              Paz y Salvos
+            </span>
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+          </div>
+          <p className="text-2xl sm:text-3xl font-black text-emerald-600 mt-2 font-mono">
+            {estadisticas.conteoPazYSalvos}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Facturas cerradas y prendas devueltas
+          </p>
+        </div>
+      </div>
 
-                    return (
-                      <tr
-                        key={f.id}
-                        className={`transition ${
-                          esMora
-                            ? "bg-rose-50/40 dark:bg-rose-950/20 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                            : "hover:bg-slate-50/60 dark:hover:bg-slate-800/30"
-                        }`}
-                      >
-                        {/* 1. Factura y Fecha */}
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                                esMora
-                                  ? "bg-rose-500 ring-4 ring-rose-200 dark:ring-rose-900/50"
-                                  : f.estado === "CERRADA"
-                                  ? "bg-emerald-500"
-                                  : "bg-blue-500"
-                              }`}
-                            />
-                            <div>
-                              <p className="font-bold text-slate-900 dark:text-white font-mono">
-                                {f.numeroFactura}
-                              </p>
-                              <span className="text-xs text-slate-500 font-medium">
-                                {new Date(f.fechaCreacion).toLocaleDateString("es-CO")}
-                              </span>
-                            </div>
+      {/* Contenedor Principal: 4 Pestañas y Buscador */}
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-4 space-y-4">
+        {/* Barra de 4 Pestañas Estandarizadas */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          {/* Pestaña 1: Pendientes por Pagar (Al Día) */}
+          <button
+            type="button"
+            onClick={() => setPestanaActiva("PENDIENTES_AL_DIA")}
+            className={`flex items-center justify-between p-3.5 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[48px] ${
+              pestanaActiva === "PENDIENTES_AL_DIA"
+                ? "bg-blue-50 border-blue-600 text-blue-900 ring-2 ring-blue-600/20"
+                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>1. Pendientes al Día</span>
+            </div>
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
+                pestanaActiva === "PENDIENTES_AL_DIA"
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-200 text-slate-700"
+              }`}
+            >
+              {estadisticas.conteoPendientesAlDia}
+            </span>
+          </button>
+
+          {/* Pestaña 2: Con Mora y Saldo Pendiente */}
+          <button
+            type="button"
+            onClick={() => setPestanaActiva("MORA_Y_SALDO")}
+            className={`flex items-center justify-between p-3.5 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[48px] ${
+              pestanaActiva === "MORA_Y_SALDO"
+                ? "bg-rose-50 border-rose-600 text-rose-900 ring-2 ring-rose-600/20"
+                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>2. Con Mora y Saldo</span>
+            </div>
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
+                estadisticas.conteoMoraYSaldo > 0
+                  ? "bg-rose-600 text-white"
+                  : "bg-slate-200 text-slate-700"
+              }`}
+            >
+              {estadisticas.conteoMoraYSaldo}
+            </span>
+          </button>
+
+          {/* Pestaña 3: Solo en Mora (Prenda Retenida) */}
+          <button
+            type="button"
+            onClick={() => setPestanaActiva("SOLO_MORA")}
+            className={`flex items-center justify-between p-3.5 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[48px] ${
+              pestanaActiva === "SOLO_MORA"
+                ? "bg-amber-50 border-amber-600 text-amber-900 ring-2 ring-amber-600/20"
+                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Coins className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>3. Prendas en Mora</span>
+            </div>
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
+                estadisticas.conteoSoloMora > 0
+                  ? "bg-amber-600 text-white"
+                  : "bg-slate-200 text-slate-700"
+              }`}
+            >
+              {estadisticas.conteoSoloMora}
+            </span>
+          </button>
+
+          {/* Pestaña 4: Paz y Salvos / Historial Cerrado */}
+          <button
+            type="button"
+            onClick={() => setPestanaActiva("PAZ_Y_SALVOS")}
+            className={`flex items-center justify-between p-3.5 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[48px] ${
+              pestanaActiva === "PAZ_Y_SALVOS"
+                ? "bg-emerald-50 border-emerald-600 text-emerald-900 ring-2 ring-emerald-600/20"
+                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>4. Paz y Salvos</span>
+            </div>
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
+                pestanaActiva === "PAZ_Y_SALVOS"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-slate-200 text-slate-700"
+              }`}
+            >
+              {estadisticas.conteoPazYSalvos}
+            </span>
+          </button>
+        </div>
+
+        {/* Buscador Difuso */}
+        <div className="flex items-center justify-between gap-4 pt-1">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Fuzzy: Factura, Cliente, Documento, Prenda, Teléfono o Saldo..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+            />
+            {busqueda && (
+              <button
+                type="button"
+                onClick={() => setBusqueda("")}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <span className="text-xs sm:text-sm font-semibold text-slate-500 shrink-0">
+            {facturasFiltradas.length} factura(s) encontrada(s)
+          </span>
+        </div>
+
+        {/* Tabla de Facturas */}
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          {cargando ? (
+            <div className="p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-3">
+              <RefreshCw className="w-8 h-8 animate-spin text-amber-600" />
+              <p className="text-sm md:text-base font-semibold">Cargando facturas de historial...</p>
+            </div>
+          ) : error ? (
+            <div className="p-8 text-center text-rose-600 bg-rose-50 flex flex-col items-center justify-center gap-2">
+              <AlertCircle className="w-7 h-7" />
+              <p className="text-sm md:text-base font-bold">{error}</p>
+            </div>
+          ) : facturasFiltradas.length === 0 ? (
+            <div className="p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-2">
+              <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+              <p className="text-sm md:text-base font-bold text-slate-800">
+                No hay facturas en esta categoría
+              </p>
+              <p className="text-xs sm:text-sm text-slate-500">
+                Todas las cuentas están cuadradas o no coinciden con los términos de búsqueda.
+              </p>
+            </div>
+          ) : (
+            <table className="w-full text-left text-sm md:text-base border-collapse">
+              <thead>
+                <tr className="bg-slate-100/90 text-slate-700 text-xs sm:text-sm font-bold uppercase tracking-wider border-b border-slate-200">
+                  <th className="px-3.5 py-3 text-center">Factura / Fecha</th>
+                  <th className="px-3.5 py-3">Cliente</th>
+                  <th className="px-3.5 py-3">Concepto / Prenda</th>
+                  <th className="px-3.5 py-3 text-center">Devolución</th>
+                  <th className="px-3.5 py-3 text-center">Retraso / Estado</th>
+                  <th className="px-3.5 py-3 text-right">Saldo Base</th>
+                  <th className="px-3.5 py-3 text-right">Recargo Mora</th>
+                  <th className="px-3.5 py-3 text-right">Total Exigible</th>
+                  <th className="px-3.5 py-3 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {facturasFiltradas.map((f) => {
+                  const tieneMora = f.recargoMora > 0 || (f.enMora && f.diasRetraso > 0);
+                  const esPazYSalvo = f.estado === "CERRADA" || (f.saldoPendiente === 0 && f.recargoMora === 0);
+
+                  return (
+                    <tr
+                      key={f.id}
+                      className={`hover:bg-slate-50/80 transition ${
+                        tieneMora ? "bg-rose-50/30" : ""
+                      }`}
+                    >
+                      {/* 1. Factura / Fecha */}
+                      <td className="px-3.5 py-3 text-center">
+                        <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm block">
+                          {f.numeroFactura}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {new Date(f.fechaCreacion).toLocaleDateString("es-CO", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </td>
+
+                      {/* 2. Cliente con enlace a su perfil */}
+                      <td className="px-3.5 py-3">
+                        <Link
+                          href={`/admin/clientes/${f.cliente?.id || ""}`}
+                          className="font-bold text-blue-700 hover:text-blue-900 hover:underline block leading-tight text-xs sm:text-sm"
+                          title="Ver perfil completo e historial del cliente"
+                        >
+                          {f.cliente?.nombre || "Consumidor Final"}
+                        </Link>
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                          <span>CC: {f.cliente?.documento || "N/A"}</span>
+                          {f.cliente?.telefono && (
+                            <span className="font-mono font-medium text-slate-700">
+                              Tel: {f.cliente.telefono}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 3. Concepto / Prenda */}
+                      <td className="px-3.5 py-3">
+                        <p className="font-semibold text-slate-800 text-xs sm:text-sm truncate max-w-[200px]" title={f.prendaPrincipal}>
+                          {f.prendaPrincipal}
+                        </p>
+                        <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                          {f.tipoOperacion}
+                        </span>
+                      </td>
+
+                      {/* 4. Fecha Devolución */}
+                      <td className="px-3.5 py-3 text-center">
+                        {f.fechaDevolucionPactada ? (
+                          <div className="text-xs">
+                            <span className="font-semibold text-slate-700 block">
+                              {new Date(f.fechaDevolucionPactada).toLocaleDateString("es-CO", {
+                                day: "2-digit",
+                                month: "short",
+                              })}
+                            </span>
+                            <span className="text-slate-500 font-mono text-xs">
+                              {new Date(f.fechaDevolucionPactada).toLocaleTimeString("es-CO", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
                           </div>
-                        </td>
+                        ) : (
+                          <span className="text-slate-400 text-xs">N/A</span>
+                        )}
+                      </td>
 
-                        {/* 2. Cliente */}
-                        <td className="px-4 py-3.5">
-                          <p className="font-bold text-slate-900 dark:text-white">
-                            {f.cliente?.nombre}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                            C.C: {f.cliente?.documento}{" "}
-                            {f.cliente?.telefono && `| Tel: ${f.cliente.telefono}`}
-                          </p>
-                        </td>
-
-                        {/* 3. Prenda */}
-                        <td className="px-3 py-3.5">
-                          <p className="font-semibold text-slate-800 dark:text-slate-200 max-w-xs truncate">
-                            {f.prendaPrincipal}
-                          </p>
-                          <span className="text-xs text-slate-500 uppercase font-bold">
-                            {f.tipoOperacion}
+                      {/* 5. Retraso / Estado */}
+                      <td className="px-3.5 py-3 text-center">
+                        {tieneMora ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-rose-600 text-white animate-pulse">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <span>{f.diasRetraso}d mora</span>
                           </span>
-                        </td>
+                        ) : esPazYSalvo ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Paz y Salvo</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                            <Clock className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Al Día</span>
+                          </span>
+                        )}
+                      </td>
 
-                        {/* 4. Fecha Pactada */}
-                        <td className="px-3 py-3.5 text-center">
-                          {f.fechaDevolucionPactada ? (
-                            <div>
-                              <p className="font-semibold text-slate-700 dark:text-slate-300 text-xs">
-                                {new Date(f.fechaDevolucionPactada).toLocaleDateString("es-CO")}
-                              </p>
-                              <span className="text-xs text-slate-500 font-mono">
-                                {new Date(f.fechaDevolucionPactada).toLocaleTimeString("es-CO", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-slate-400 text-xs">N/A</span>
-                          )}
-                        </td>
+                      {/* 6. Saldo Base */}
+                      <td className="px-3.5 py-3 text-right">
+                        <span className="font-mono font-bold text-slate-800 text-xs sm:text-sm">
+                          ${f.saldoBase.toLocaleString("es-CO")}
+                        </span>
+                        {f.totalAbonado > 0 && (
+                          <span className="text-xs text-slate-500 block font-mono">
+                            Abonó: ${f.totalAbonado.toLocaleString("es-CO")}
+                          </span>
+                        )}
+                      </td>
 
-                        {/* 5. Retraso */}
-                        <td className="px-3 py-3.5 text-center">
-                          {esMora ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-600 text-white shadow-xs animate-pulse">
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                              {f.diasRetraso} {f.diasRetraso === 1 ? "día" : "días"}
-                            </span>
-                          ) : f.estado === "CERRADA" ? (
-                            <span className="text-emerald-600 dark:text-emerald-400 text-xs font-bold">
-                              Devuelto
-                            </span>
-                          ) : (
-                            <span className="text-blue-600 dark:text-blue-400 text-xs font-semibold">
-                              A tiempo
-                            </span>
-                          )}
-                        </td>
+                      {/* 7. Recargo Mora */}
+                      <td className="px-3.5 py-3 text-right">
+                        {f.recargoMora > 0 ? (
+                          <span className="font-mono font-black text-rose-600 text-xs sm:text-sm">
+                            +${f.recargoMora.toLocaleString("es-CO")}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-mono text-xs">$0</span>
+                        )}
+                      </td>
 
-                        {/* 6. Recargo Mora */}
-                        <td className="px-3 py-3.5 text-right">
-                          {f.recargoMoraCalculado > 0 ? (
-                            <span className="font-mono font-black text-rose-600 dark:text-rose-400 text-sm md:text-base">
-                              +${f.recargoMoraCalculado.toLocaleString("es-CO")}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-xs font-mono">$0</span>
-                          )}
-                        </td>
+                      {/* 8. Total Exigible */}
+                      <td className="px-3.5 py-3 text-right">
+                        <span
+                          className={`font-mono font-black text-sm md:text-base ${
+                            f.totalExigible > 0
+                              ? tieneMora
+                                ? "text-rose-600"
+                                : "text-amber-600"
+                              : "text-emerald-600"
+                          }`}
+                        >
+                          ${f.totalExigible.toLocaleString("es-CO")}
+                        </span>
+                      </td>
 
-                        {/* 7. Saldo Actual */}
-                        <td className="px-3 py-3.5 text-right">
-                          <p
-                            className={`font-mono font-extrabold text-sm md:text-base ${
-                              f.saldoPendiente > 0
-                                ? esMora
-                                  ? "text-rose-600 dark:text-rose-400"
-                                  : "text-amber-600 dark:text-amber-400"
-                                : "text-emerald-600 dark:text-emerald-400"
-                            }`}
-                          >
-                            ${f.saldoPendiente.toLocaleString("es-CO")}
-                          </p>
-                          {f.totalAbonado > 0 && (
-                            <span className="text-xs text-slate-500 font-mono block">
-                              Abonado: ${f.totalAbonado.toLocaleString("es-CO")}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* 8. Botón Liquidar / Cobrar Pago */}
-                        <td className="px-4 py-3.5 text-center">
-                          {f.saldoPendiente > 0 ? (
+                      {/* 9. Botones de Acción */}
+                      <td className="px-3.5 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          {/* Botón Cobrar Saldo / Recibir Prenda */}
+                          {f.totalExigible > 0 && (
                             <button
                               type="button"
                               onClick={() => abrirLiquidarFactura(f.id)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
-                              title="Registrar pago o liquidar saldo restante"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
+                              title="Cobrar saldo pendiente y liquidar mora"
                             >
                               <DollarSign className="w-3.5 h-3.5" />
-                              <span>Cobrar Saldo</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => abrirLiquidarFactura(f.id)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
-                              title="Ver comprobante de pago o historial de abonos"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Ver Paz y Salvo</span>
+                              <span>Cobrar</span>
                             </button>
                           )}
-                        </td>
 
-                        {/* 9. Botón WhatsApp CRM */}
-                        <td className="px-4 py-3.5 text-center">
+                          {/* Botón Reimprimir / Ver Comprobante PDF */}
+                          <button
+                            type="button"
+                            onClick={() => abrirImpresionFactura(f.id)}
+                            disabled={cargandoImpresionId === f.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold border border-slate-300 transition"
+                            title="Reimprimir o exportar PDF en Tirilla, Media Carta o Carta"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-blue-600" />
+                            <span>{cargandoImpresionId === f.id ? "..." : "PDF"}</span>
+                          </button>
+
+                          {/* Botón WhatsApp CRM */}
                           <BotonWhatsApp
                             telefono={f.cliente?.telefono}
                             nombreCliente={f.cliente?.nombre || "Estimado(a) Cliente"}
                             nombrePrenda={f.prendaPrincipal}
                             diasRetraso={f.diasRetraso}
                             horasRetraso={f.horasRetraso}
-                            saldoPendiente={f.saldoPendiente}
-                            tipoMensaje={esMora ? "MORA" : "RECORDATORIO"}
+                            saldoPendiente={f.totalExigible}
+                            tipoMensaje={
+                              f.esSoloMora
+                                ? "SOLO_MORA_ENTREGA"
+                                : tieneMora
+                                ? "MORA"
+                                : "RECORDATORIO"
+                            }
                             numeroFactura={f.numeroFactura}
                             mostrarTexto={false}
                           />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
+      </div>
 
-        {/* Modal de Liquidación de Saldo y Emisión de Paz y Salvo */}
-        <ModalLiquidarFactura
-          facturaId={facturaSeleccionadaId}
-          isOpen={modalLiquidarAbierto}
-          onClose={() => {
-            setModalLiquidarAbierto(false);
-            setFacturaSeleccionadaId(null);
-          }}
-          onFacturaLiquidada={() => {
-            cargarFacturas(false);
+      {/* Modal de Liquidación de Saldo y Emisión de Paz y Salvo */}
+      <ModalLiquidarFactura
+        facturaId={facturaSeleccionadaId}
+        isOpen={modalLiquidarAbierto}
+        onClose={() => {
+          setModalLiquidarAbierto(false);
+          setFacturaSeleccionadaId(null);
+        }}
+        onFacturaLiquidada={() => {
+          cargarFacturas(false);
+        }}
+      />
+
+      {/* Modal de Reimpresión Universal (Tirilla 80mm, Media Carta, Carta) */}
+      {modalImpresionAbierto && datosImpresionModal && (
+        <PlantillaImpresion
+          datos={datosImpresionModal}
+          onCerrar={() => {
+            setModalImpresionAbierto(false);
+            setDatosImpresionModal(null);
           }}
         />
-      </div>
+      )}
+    </div>
   );
 }

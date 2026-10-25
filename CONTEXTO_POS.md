@@ -585,3 +585,42 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
 - Limpieza profunda de la carpeta `.next`.
 - Compilación de producción con `npm run build` finalizada con **0 errores de TypeScript y PostCSS/Tailwind**, generando las 22 rutas estáticas y dinámicas.
 - Procesos PM2 (`pos-llanomio` y `pos-mdns-proxy`) reiniciados y activos en status `online`.
+
+---
+
+## 14. Unificación del Botón Universal ("Historial de Facturas y Moras"), Centro de Gestión y Cartera, y Módulo de Clientes con Historial Detallado
+
+### 1. Unificación del Botón Universal ("Historial de Facturas y Moras")
+- Se eliminaron las etiquetas fragmentadas o ambiguas ("Alquileres y Moras", "Historial & Moras", "Monitoreo de Moras") en favor de una **identidad visual y nominal unificada**:
+  - **Barra Superior de Terminal POS (`src/app/caja/pos/page.tsx`):** Botón principal con icono `History` y etiqueta exacta **"Historial de Facturas y Moras"** con badges de alerta en tiempo real.
+  - **Menú Lateral de Navegación (`src/components/layout/Sidebar.tsx`):** Enlace unificado **"Historial de Facturas y Moras"** bajo la sección `OPERACIÓN` con badge `"Cartera"`.
+  - **Barra de Navegación (`src/components/layout/Navbar.tsx`):** Título de ruta estandarizado a **"Historial de Facturas y Moras"** con sección `"Cartera"`.
+  - **Panel Principal (`src/app/page.tsx`):** Módulo central de acceso rápido denominado **"Historial de Facturas y Moras"** con badge `"Cartera y Auditoría"`.
+
+### 2. Centro de Gestión y Cartera Reestructurado (`src/app/admin/monitoreo/page.tsx`)
+- **Organización en 4 Pestañas Limpias de Negocio:**
+  - **Pestaña 1: Pendientes por Pagar (Al Día):** Facturas activas con saldo pendiente dentro del plazo pactado. Permite registrar cobro, enviar recordatorio por WhatsApp y reimprimir comprobante.
+  - **Pestaña 2: Con Mora y Saldo Pendiente:** Facturas vencidas que deben tanto saldo de dinero como recargo por mora acumulado (`saldoBase > 0` y `recargoMora > 0`). Incluye cálculo exacto de días de retraso.
+  - **Pestaña 3: Prendas Alquiladas Fuera de Inventario / En Mora (Prendas Pendientes de Devolución):** Facturas donde el cliente ya cubrió la cuenta inicial (`saldoBase === 0`), pero la prenda continúa fuera de inventario con fecha de retorno vencida, generando mora activa. Acciones: WhatsApp oficial (`SOLO_MORA_ENTREGA`) y recepción de prenda con liquidación.
+  - **Pestaña 4: Paz y Salvos / Historial Cerrado:** Listado inmutable de facturas a paz y salvo (`estado === 'CERRADA'`), con botón directo para **Reimprimir / Exportar PDF** (Tirilla 80mm, Media Carta o Carta con desglose de mora y CERO códigos QR).
+- **Métricas de Cabecera:** 4 tarjetas de resumen financiero (Pendientes al día, Cartera en mora, Prendas retenidas y Paz y salvos).
+- **Herramientas de Productividad:** Buscador difuso multi-campo en tiempo real (Factura, Nombre, Cédula, Prenda, Teléfono o Saldo), botón de sincronización forzada (`RefreshCw`), modal de liquidación y acceso directo al perfil de cada cliente.
+
+### 3. Módulo de Clientes e Historial Individual de Transacciones (`/admin/clientes` y `/admin/clientes/[id]`)
+- **Directorio General de Clientes (`src/app/admin/clientes/page.tsx`):**
+  - Listado de clientes con buscador difuso instantáneo (cédula/NIT, nombre, teléfono, dirección).
+  - Contador de facturas históricas por cliente.
+  - Modal integrado para registrar nuevos clientes rápidamente (`ModalCrearClienteRapido.tsx`).
+  - Botón directo para ingresar a su perfil y ver su historial completo.
+- **Perfil e Historial Detallado del Cliente (`src/app/admin/clientes/[id]/page.tsx`):**
+  - **Métricas Financieras Individuales:** Total facturado histórico, total abonado en mostrador, saldo exigible hoy, mora acumulada y prendas actualmente en alquiler fuera de tienda.
+  - **Alerta de Prendas Retenidas:** Tarjeta visual destacada que lista las prendas que el cliente tiene en su poder con indicador de días de retraso.
+  - **Sección Central "Historial de Facturas, Alquileres y Moras del Cliente":**
+    - Sub-filtros rápidos: *Todas*, *Con Saldo*, *Alquileres Activos* y *Paz y Salvos*.
+    - Desglose cronológico de cada factura con artículos, prendas, fechas pactadas, total, abonos registrados y saldo.
+    - Acciones directas: Cobrar saldo/mora (`ModalLiquidarFactura`), reimprimir comprobante o exportar PDF (`PlantillaImpresion`), y contacto WhatsApp CRM.
+- **Backend Optimizado (`src/app/api/clientes/[id]/route.ts`):**
+  - Endpoint `GET` con cálculo dinámico de moras por factura, agregación matemática de totales y extracción de prendas en alquiler activo.
+  - Endpoint `PUT` para actualización de datos de contacto del cliente.
+  - Sincronizado `src/app/api/facturas/monitoreo/route.ts` para aceptar filtrado por `clienteId`.
+
