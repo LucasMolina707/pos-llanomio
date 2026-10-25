@@ -243,7 +243,16 @@ export async function POST(req: NextRequest) {
     // 4. Procesar y calcular subtotales de productos y servicios libres
     let subtotalProductos = 0;
     let subtotalArreglosLibres = 0;
+    let tieneVenta = false;
     let tieneAlquiler = false;
+    let tieneArreglo = false;
+
+    let fechaDevolucionCalculada: Date | null = fechaDevolucionPactada
+      ? new Date(fechaDevolucionPactada)
+      : null;
+    let fechaEntregaCalculada: Date | null = fechaEntregaAlquiler
+      ? new Date(fechaEntregaAlquiler)
+      : null;
 
     const detallesProcesados: {
       productoId: string | null;
@@ -252,12 +261,20 @@ export async function POST(req: NextRequest) {
       cantidad: number;
       precioUnitario: number;
       subtotal: number;
+      tipoProducto?: TipoProducto | null;
     }[] = [];
 
-    for (const item of detalles as ItemDetalleInput[]) {
+    for (const item of detalles as (ItemDetalleInput & { fechaDevolucion?: string; fechaEntrega?: string })[]) {
       const cantidad = Math.max(1, Math.round(Number(item.cantidad) || 1));
       const precioUnitario = Math.max(0, Number(item.precioUnitario) || 0);
       const subtotalItem = Math.round(cantidad * precioUnitario * 100) / 100;
+
+      if (item.fechaDevolucion && !fechaDevolucionCalculada) {
+        fechaDevolucionCalculada = new Date(item.fechaDevolucion);
+      }
+      if (item.fechaEntrega && !fechaEntregaCalculada) {
+        fechaEntregaCalculada = new Date(item.fechaEntrega);
+      }
 
       if (item.esServicioLibre || !item.productoId) {
         // Ítem libre de sastrería / arreglo
@@ -268,6 +285,7 @@ export async function POST(req: NextRequest) {
           );
         }
 
+        tieneArreglo = true;
         subtotalArreglosLibres += subtotalItem;
         detallesProcesados.push({
           productoId: null,
@@ -276,6 +294,7 @@ export async function POST(req: NextRequest) {
           cantidad,
           precioUnitario,
           subtotal: subtotalItem,
+          tipoProducto: null,
         });
       } else {
         // Ítem de inventario
@@ -292,29 +311,31 @@ export async function POST(req: NextRequest) {
 
         if (producto.tipo === TipoProducto.ALQUILER) {
           tieneAlquiler = true;
+        } else {
+          tieneVenta = true;
         }
 
         subtotalProductos += subtotalItem;
         detallesProcesados.push({
           productoId: producto.id,
           esServicioLibre: false,
-          descripcionLibre: null,
+          descripcionLibre: item.descripcionLibre?.trim() || null,
           cantidad,
           precioUnitario,
           subtotal: subtotalItem,
+          tipoProducto: producto.tipo,
         });
       }
     }
 
     const totalFactura = Math.round((subtotalProductos + subtotalArreglosLibres) * 100) / 100;
 
-    // 5. Procesar abono inicial (si existe)
+    // 5. Procesar abono inicial (Pago Completo, Adelanto o $0 Pendiente por Pagar)
     let montoAbonoInicial = 0;
     let abonoDataCreacion = null;
 
     if (abonoInicial && Number(abonoInicial.monto) > 0) {
       montoAbonoInicial = Math.round(Number(abonoInicial.monto) * 100) / 100;
-
       const metodoPago = (abonoInicial.metodoPago as MetodoPago) || MetodoPago.EFECTIVO;
 
       abonoDataCreacion = {
@@ -322,35 +343,41 @@ export async function POST(req: NextRequest) {
         metodoPago,
         cajeroId,
         referenciaComprobante: abonoInicial.referenciaComprobante?.trim() || null,
-        notas: abonoInicial.notas?.trim() || "Abono inicial de apertura de factura",
+        notas: abonoInicial.notas?.trim() || "Abono inicial en mostrador",
       };
     }
 
     const totalAbonado = montoAbonoInicial;
     const saldoPendiente = Math.max(0, Math.round((totalFactura - totalAbonado) * 100) / 100);
 
-    // 6. Determinar estado final
+    // 6. Determinar estado final según liquidación
     let estadoFinal: EstadoFactura = EstadoFactura.ACTIVA;
-    if (saldoPendiente <= 0 && !tieneAlquiler) {
-      estadoFinal = EstadoFactura.CERRADA;
-    } else if (tieneAlquiler && saldoPendiente <= 0) {
-      estadoFinal = EstadoFactura.ACTIVA_ALQUILADA;
-    } else if (estadoInicial === "EN_PROCESO") {
-      estadoFinal = EstadoFactura.EN_PROCESO;
+    if (saldoPendiente <= 0) {
+      // Pago completo (100%)
+      estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.CERRADA;
+    } else if (totalAbonado === 0) {
+      // Pendiente por pagar ($0 adelanto)
+      estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.EN_PROCESO;
     } else {
-      estadoFinal = EstadoFactura.ACTIVA;
+      // Adelanto parcial
+      estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.ACTIVA;
     }
 
-    // 7. Determinar TipoOperacion
+    // 7. Determinar TipoOperacion con soporte para Mixto (Venta + Alquiler + Arreglo)
+    let categoriasCount = 0;
+    if (tieneVenta) categoriasCount++;
+    if (tieneAlquiler) categoriasCount++;
+    if (tieneArreglo) categoriasCount++;
+
     let tipoOpFinal: TipoOperacion = TipoOperacion.VENTA;
-    if (tipoOperacion && Object.values(TipoOperacion).includes(tipoOperacion as TipoOperacion)) {
-      tipoOpFinal = tipoOperacion as TipoOperacion;
-    } else if (subtotalProductos > 0 && subtotalArreglosLibres > 0) {
+    if (categoriasCount > 1) {
       tipoOpFinal = TipoOperacion.MIXTO;
     } else if (tieneAlquiler) {
       tipoOpFinal = TipoOperacion.ALQUILER;
-    } else if (subtotalArreglosLibres > 0) {
+    } else if (tieneArreglo) {
       tipoOpFinal = TipoOperacion.ARREGLO;
+    } else {
+      tipoOpFinal = TipoOperacion.VENTA;
     }
 
     // 8. Crear factura y registrar abono atómicamente con Prisma
@@ -372,8 +399,8 @@ export async function POST(req: NextRequest) {
           totalAbonado,
           saldoPendiente,
           notas: notas?.trim() || null,
-          fechaEntregaAlquiler: fechaEntregaAlquiler ? new Date(fechaEntregaAlquiler) : null,
-          fechaDevolucionPactada: fechaDevolucionPactada ? new Date(fechaDevolucionPactada) : null,
+          fechaEntregaAlquiler: fechaEntregaCalculada,
+          fechaDevolucionPactada: fechaDevolucionCalculada,
           detalles: {
             create: detallesProcesados.map((d) => ({
               productoId: d.productoId,
@@ -418,6 +445,23 @@ export async function POST(req: NextRequest) {
           },
         },
       });
+
+      // Actualizar estado de prendas alquiladas en inventario
+      for (const item of detallesProcesados) {
+        if (item.productoId && item.tipoProducto === TipoProducto.ALQUILER) {
+          try {
+            await tx.producto.update({
+              where: { id: item.productoId },
+              data: {
+                estado: "ALQUILADO",
+                estadoPrenda: "ALQUILADO",
+              },
+            });
+          } catch (errProd) {
+            console.warn(`[INVENTARIO] No se pudo cambiar estado a ALQUILADO para producto ${item.productoId}:`, errProd);
+          }
+        }
+      }
 
       return factura;
     });

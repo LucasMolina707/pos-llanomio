@@ -32,6 +32,13 @@ export default function ModalCrearClienteRapido({
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setDocumento(documentoInicial);
+      setError(null);
+    }
+  }, [isOpen, documentoInicial]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {

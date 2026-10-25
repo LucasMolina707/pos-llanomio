@@ -42,6 +42,7 @@ export interface DatosImpresionFactura {
       producto?: {
         codigo: string;
         nombre: string;
+        tipo?: string | null;
         talla?: string | null;
         color?: string | null;
       } | null;
@@ -72,9 +73,8 @@ interface PlantillaImpresionProps {
 
 export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresionProps) {
   const { factura, empresa } = datos;
-  const [formato, setFormato] = useState<FormatoImpresionTipo>(
-    empresa.formatoImpresionDefault || "TIRILLA"
-  );
+  // Formato predeterminado estricto: MEDIA_CARTA (Half Letter)
+  const [formato, setFormato] = useState<FormatoImpresionTipo>("MEDIA_CARTA");
   const [numCopias, setNumCopias] = useState<1 | 2>(1);
 
   const ejecutarImpresion = () => {
@@ -325,94 +325,145 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
         </div>
 
         {/* Tabla de Ítems */}
-        <table className="w-full text-xs mb-4">
-          <thead className="bg-slate-900 text-white text-[11px] font-bold uppercase">
+        <table className="w-full text-xs mb-3">
+          <thead className="bg-slate-900 text-white text-[10px] font-bold uppercase">
             <tr>
-              <th className="py-2 px-3 text-left w-14">Cant</th>
-              <th className="py-2 px-3 text-left">Descripción del Ítem o Servicio</th>
-              <th className="py-2 px-3 text-right w-28">Precio Unit.</th>
-              <th className="py-2 px-3 text-right w-28">Subtotal</th>
+              <th className="py-1.5 px-2 text-left w-12">Cant</th>
+              <th className="py-1.5 px-2 text-left w-20">Tipo</th>
+              <th className="py-1.5 px-2 text-left">Descripción del Ítem / Prenda</th>
+              <th className="py-1.5 px-2 text-right w-24">Precio Unit.</th>
+              <th className="py-1.5 px-2 text-right w-24">Subtotal</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {factura.detalles.map((d, idx) => (
-              <tr key={idx} className="hover:bg-slate-50">
-                <td className="py-2 px-3 font-bold text-center">{d.cantidad}</td>
-                <td className="py-2 px-3">
-                  <p className="font-bold text-slate-900">
-                    {d.esServicioLibre
-                      ? `[Servicio Sastrería] ${d.descripcionLibre}`
-                      : d.producto?.nombre}
-                  </p>
-                  {d.producto?.codigo && (
-                    <span className="text-[10px] font-mono text-slate-500">
-                      Cód: {d.producto.codigo}{" "}
-                      {d.producto.talla ? `| Talla: ${d.producto.talla}` : ""}
+            {factura.detalles.map((d, idx) => {
+              const esAlquiler = d.producto?.tipo === "ALQUILER" || factura.tipoOperacion === "ALQUILER";
+              const tipoTexto = d.esServicioLibre ? "SERVICIO" : esAlquiler ? "ALQUILER" : "VENTA";
+              const tipoBadgeColor = d.esServicioLibre
+                ? "bg-purple-100 text-purple-800 border-purple-200"
+                : esAlquiler
+                ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                : "bg-blue-100 text-blue-800 border-blue-200";
+
+              return (
+                <tr key={idx} className="hover:bg-slate-50">
+                  <td className="py-1.5 px-2 font-bold text-center align-top">{d.cantidad}</td>
+                  <td className="py-1.5 px-2 align-top">
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase border ${tipoBadgeColor}`}>
+                      {tipoTexto}
                     </span>
-                  )}
-                </td>
-                <td className="py-2 px-3 text-right font-mono">
-                  ${d.precioUnitario.toLocaleString("es-CO")}
-                </td>
-                <td className="py-2 px-3 text-right font-mono font-bold">
-                  ${d.subtotal.toLocaleString("es-CO")}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="py-1.5 px-2 align-top">
+                    <p className="font-bold text-slate-900 text-xs">
+                      {d.esServicioLibre
+                        ? `[Arreglo de Sastrería] ${d.descripcionLibre}`
+                        : d.producto?.nombre}
+                    </p>
+                    {d.producto?.codigo && (
+                      <p className="text-[10px] font-mono text-slate-500">
+                        Cód: {d.producto.codigo}{" "}
+                        {d.producto.talla ? `| Talla: ${d.producto.talla}` : ""}
+                        {d.producto.color ? ` | Color: ${d.producto.color}` : ""}
+                      </p>
+                    )}
+                    {esAlquiler && factura.fechaDevolucionPactada && (
+                      <p className="text-[10px] text-rose-700 font-semibold mt-0.5">
+                        Devolución: {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                      </p>
+                    )}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-mono align-top text-xs">
+                    ${d.precioUnitario.toLocaleString("es-CO")}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-mono font-bold align-top text-xs">
+                    ${d.subtotal.toLocaleString("es-CO")}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
         {/* Liquidación de Totales */}
-        <div className="flex justify-between items-start gap-6 border-t-2 border-slate-900 pt-3">
-          <div className="max-w-md text-[11px] text-slate-600 space-y-1">
+        <div className="flex justify-between items-start gap-4 border-t-2 border-slate-900 pt-2.5">
+          <div className="max-w-md text-[10px] text-slate-600 space-y-1">
             {empresa.politicasFactura && (
               <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="font-bold uppercase text-[9px] text-slate-700 mb-0.5">
                   Términos y Políticas de Alquiler:
                 </p>
-                <p className="text-[10px] leading-tight text-slate-500">
+                <p className="text-[9.5px] leading-tight text-slate-500">
                   {empresa.politicasFactura}
                 </p>
               </div>
             )}
-            <div className="pt-6 grid grid-cols-2 gap-6 text-center">
-              <div className="border-t border-slate-400 pt-1 text-[10px]">
+            <div className="pt-4 grid grid-cols-2 gap-4 text-center">
+              <div className="border-t border-slate-400 pt-1 text-[9px]">
                 Firma Autorizada LLANOMIO
               </div>
-              <div className="border-t border-slate-400 pt-1 text-[10px]">
+              <div className="border-t border-slate-400 pt-1 text-[9px]">
                 Firma y Cédula del Cliente
               </div>
             </div>
           </div>
 
-          <div className="w-64 space-y-1.5 text-xs font-mono">
-            <div className="flex justify-between">
+          <div className="w-68 space-y-1 text-xs font-mono">
+            {/* Estado de Pago */}
+            <div className="pb-1 mb-1 border-b border-slate-200 flex items-center justify-between">
+              <span className="font-sans text-[11px] font-bold text-slate-600">Estado de Pago:</span>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                  factura.saldoPendiente <= 0
+                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                    : factura.totalAbonado > 0
+                    ? "bg-amber-100 text-amber-800 border border-amber-300"
+                    : "bg-rose-100 text-rose-800 border border-rose-300"
+                }`}
+              >
+                {factura.saldoPendiente <= 0
+                  ? "PAGADO COMPLETO"
+                  : factura.totalAbonado > 0
+                  ? "CON ADELANTO"
+                  : "PENDIENTE POR PAGAR"}
+              </span>
+            </div>
+
+            <div className="flex justify-between text-[11px]">
               <span className="font-sans text-slate-500">Subtotal Prendas:</span>
               <span>${factura.subtotalProductos.toLocaleString("es-CO")}</span>
             </div>
             {factura.subtotalArreglosLibres > 0 && (
-              <div className="flex justify-between">
+              <div className="flex justify-between text-[11px]">
                 <span className="font-sans text-slate-500">Sastrería Libre:</span>
                 <span>${factura.subtotalArreglosLibres.toLocaleString("es-CO")}</span>
               </div>
             )}
             {factura.recargoMoraAcumulado > 0 && (
-              <div className="flex justify-between text-rose-700 font-bold">
+              <div className="flex justify-between text-[11px] text-rose-700 font-bold">
                 <span className="font-sans">Recargo de Mora:</span>
                 <span>+${factura.recargoMoraAcumulado.toLocaleString("es-CO")}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm font-black font-sans pt-1 border-t border-slate-900">
+            <div className="flex justify-between text-xs font-black font-sans pt-1 border-t border-slate-900">
               <span>TOTAL FACTURA:</span>
               <span>${factura.totalFactura.toLocaleString("es-CO")}</span>
             </div>
-            <div className="flex justify-between text-emerald-700 font-bold">
-              <span className="font-sans">Total Abonado:</span>
+
+            {/* Total Abonado y Método */}
+            <div className="flex justify-between text-[11px] text-emerald-700 font-bold">
+              <span className="font-sans">
+                Abono Recibido
+                {factura.abonos && factura.abonos.length > 0
+                  ? ` (${factura.abonos[0].metodoPago})`
+                  : ""}:
+              </span>
               <span>-${factura.totalAbonado.toLocaleString("es-CO")}</span>
             </div>
-            <div className="flex justify-between text-sm font-black font-sans pt-1.5 p-2 rounded bg-slate-100 border border-slate-300">
-              <span>SALDO PENDIENTE:</span>
-              <span>${factura.saldoPendiente.toLocaleString("es-CO")}</span>
+
+            {/* Saldo Pendiente */}
+            <div className="flex justify-between text-xs font-black font-sans pt-1 p-1.5 rounded bg-slate-100 border border-slate-300">
+              <span className="text-slate-900">SALDO PENDIENTE:</span>
+              <span className="text-rose-600">${factura.saldoPendiente.toLocaleString("es-CO")}</span>
             </div>
           </div>
         </div>

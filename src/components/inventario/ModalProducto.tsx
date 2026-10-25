@@ -32,7 +32,7 @@ export interface ProductoData {
 interface ModalProductoProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (productoCreado?: any) => void;
   productoAEditar?: ProductoData | null;
   tipoInicial?: "VENTA" | "ALQUILER";
 }
@@ -152,7 +152,7 @@ export default function ModalProducto({
         throw new Error(data.error || "No se pudo guardar la prenda.");
       }
 
-      onSaved();
+      onSaved(data.producto);
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error al procesar formulario";

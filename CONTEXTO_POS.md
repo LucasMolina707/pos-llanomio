@@ -222,3 +222,46 @@ pos-llanomio/
 
 4. **Validación de Control de Calidad (QA):**
    - Ejecución de `scripts/test-facturacion-pdf-qa.ts` validando la creación de folios correlativos consecutivos (`1001` -> `1002`), generación de binarios PDF no vacíos (> 5KB) y respuesta HTTP 200 en el endpoint PDF sin presencia de códigos QR.
+
+---
+
+## 6. Flujo Secuencial Guiado de Facturación en 4 Pasos Coherentes (Terminal POS)
+
+Se implementó una experiencia de mostrador estructurada y lineal en `src/app/caja/pos/page.tsx` para garantizar que el cajero facture con rapidez, cero fricciones y sin posibilidad de errores operativos:
+
+1. **Barra de Progreso Visual Superior:**
+   - Indicador de 4 pasos interactivo (`1. Cliente` ➔ `2. Productos / Alquiler / Servicios` ➔ `3. Pago o Adelanto` ➔ `4. Factura Media Carta / PDF`).
+   - Muestra el paso activo, marcas de verificación en pasos completados y permite navegar hacia atrás a pasos previos.
+
+2. **Paso 1 — Selección o Registro Obligatorio del Cliente:**
+   - Búsqueda instantánea con debounce por Cédula/NIT, Nombre o Teléfono (`/api/clientes?q=...`).
+   - Botón destacado **"+ Agregar Nuevo Cliente"** que invoca `ModalCrearClienteRapido.tsx`, precargando la identificación digitada.
+   - Al guardar o seleccionar un cliente, se inyecta automáticamente a la factura activa y avanza de inmediato al Paso 2.
+   - Ficha resumida de cliente con opción "Cambiar Cliente" en cualquier momento.
+
+3. **Paso 2 — Tres Módulos Claros de Carga & Carrito Mixto Unificado:**
+   - Selector visual mediante pestañas diferenciadas por color e íconos de `lucide-react`:
+     - **Módulo A: Venta Directa (Azul):** Buscador de productos en catálogo, ajuste de cantidad y precio unitario antes de insertar, y botón **"+ Crear Nuevo Producto"** que abre `ModalProducto.tsx` (`tipoInicial="VENTA"`) para crear prendas al vuelo sin perder el contexto.
+     - **Módulo B: Alquiler de Prendas / Disfraces (Verde Esmeralda):** Buscador de prendas de alquiler, tarifa editable, selector de fecha de salida (`type="date"`, por defecto hoy) y selector obligatorio de fecha y hora de devolución (`type="datetime-local"`). Botón **"+ Crear Prenda de Alquiler"** (`tipoInicial="ALQUILER"`). Guarda las fechas para el motor automático de moras.
+     - **Módulo C: Arreglo, Costura o Servicio Libre (Púrpura):** Formato 100% libre sin inventario con chips de sugerencias rápidas ("Entalle de chaqueta", "Dobladillo de pantalón", "Mantenimiento de traje", etc.), descripción, cantidad y precio libre.
+   - **Carrito Mixto Unificado:** Permite combinar simultáneamente Venta, Alquiler y Servicios. Clasifica automáticamente la factura como `VENTA`, `ALQUILER`, `ARREGLO` o `MIXTO`. Muestra subtotales por tipo y habilita el avance al Paso 3.
+
+4. **Paso 3 — Definición de la Condición de Pago y Liquidación:**
+   - 3 tarjetas de modalidad de cobro mutuamente excluyentes:
+     1. **Pago Completo (100%):** Abono igual al Total, saldo pendiente = `$0`.
+     2. **Dejó Adelanto / Abono Parcial:** Habilita el campo numérico del anticipo, valida `0 < Adelanto < Total`, ofrece chips rápidos (50%, $20k, $50k, $100k) y calcula en vivo el saldo pendiente (`Total - Adelanto`).
+     3. **Pendiente por Pagar ($0 Adelanto Inicial):** Registra la factura con abono inicial `$0` y deja el 100% como saldo pendiente, manteniendo la factura abierta (`EN_PROCESO` o `ACTIVA_ALQUILADA`).
+   - Selector de método de pago si hay ingreso de dinero (`EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`, `CONSIGNACION`) con campo de comprobante/aprobación.
+   - Botón principal de guardado atómico en SQLite (`/api/facturas`) y transición automática al Paso 4.
+
+5. **Paso 4 — Emisión, Exportación a PDF e Impresión en Media Carta:**
+   - Presentación inmediata de la factura en formato **Media Carta (`MEDIA_CARTA`)** mediante `PlantillaImpresion.tsx`.
+   - Botón directo **"Descargar PDF Media Carta"** generando archivo vectorial con `descargarPdfMediaCarta`.
+   - Botón **"Imprimir en Media Carta"** preconfigurado para salida física horizontal (con selector de 1 o 2 copias: Tienda + Cliente).
+   - Botón **"Nueva Venta"** para reiniciar el flujo limpiamente.
+   - Cumplimiento estricto de **CERO códigos QR** en documentos para clientes.
+
+6. **Control de Calidad (QA):**
+   - Ejecución de `scripts/test-pos-qa.ts` validando la creación de factura mixta (Venta + Alquiler + Arreglo), los 3 escenarios de liquidación (100% pagado, adelanto parcial, $0 pendiente) y generación de PDF Media Carta con cero códigos QR.
+   - Compilación exitosa de Next.js 15 (`npm run build`) con código 0 y cero errores de TypeScript.
+
