@@ -16,6 +16,7 @@ El sistema elimina la dependencia y costos recurrentes de servicios en la nube (
 | **Diseño / Estilos** | TailwindCSS + Lucide Icons | Interfaz mobile-first, esquinas redondeadas (`rounded-xl`/`rounded-2xl`), sin emojis |
 | **ORM / Acceso a Datos** | Prisma ORM 6 | Abstracción de tipos, migraciones automáticas y seguridad de consultas |
 | **Motor de Base de Datos** | SQLite 3 (`/database/llanomio.db`) | Almacenamiento relacional embebido, ligero, seguro y portable |
+| **Seguridad y RBAC** | jose (JWT) + bcryptjs | Tokens firmados en cookies HttpOnly seguras y hashing de contraseñas |
 | **Cifrado de Claves** | bcryptjs | Hashing de contraseñas de usuarios y cajeros |
 | **Infraestructura Local** | Node.js v24 + Windows Scripts | Despliegue en red local con scripts `.bat` para tienda |
 
@@ -26,7 +27,7 @@ El sistema elimina la dependencia y costos recurrentes de servicios en la nube (
 ```text
 pos-llanomio/
 ├── .antigravityrules                  # Reglas maestras del proyecto LLANOMIO
-├── .env                              # Variables de entorno activas (DATABASE_URL, PORT)
+├── .env                              # Variables de entorno activas (DATABASE_URL, PORT, JWT_SECRET)
 ├── .env.example                      # Plantilla de entorno para nuevas tiendas
 ├── .gitignore                        # Reglas de exclusión de Git (protección de BD y node_modules)
 ├── CONTEXTO_POS.md                   # Documentación viva y bitácora técnica de arquitectura
@@ -35,10 +36,12 @@ pos-llanomio/
 ├── postcss.config.mjs                # Configuración de PostCSS
 ├── tailwind.config.ts                # Tokens de diseño y colores del sistema
 ├── tsconfig.json                     # Configuración de TypeScript con alias @/*
+├── prisma/
+│   └── schema.prisma                 # Copia sincronizada del esquema relacional
 ├── database/
 │   ├── llanomio.db                   # Archivo físico de base de datos SQLite activa
 │   ├── schema.prisma                 # Definición declarativa del modelo relacional
-│   ├── seed.ts                       # Script de sembrado inicial (Admin + Empresa)
+│   ├── seed.ts                       # Script de sembrado inicial (Admin + Cajero + Empresa)
 │   ├── backups_locales/              # Carpeta interna de respaldos locales
 │   │   └── .gitkeep
 │   └── migrations/                   # Historial de migraciones automáticas de Prisma
@@ -54,12 +57,29 @@ pos-llanomio/
 │   └── excel_fuente/                 # Directorio receptor de archivos Excel/CSV de la tienda
 │       └── .gitkeep
 └── src/
+    ├── middleware.ts                 # Middleware Edge para protección RBAC (/admin/* bloqueado a CAJERO)
     ├── app/
     │   ├── globals.css               # Estilos globales y capas Tailwind
     │   ├── layout.tsx                # Layout principal en español con metadatos
-    │   └── page.tsx                  # Dashboard principal de bienvenida y estado de tienda
+    │   ├── page.tsx                  # Dashboard principal de bienvenida y estado de tienda
+    │   ├── login/
+    │   │   └── page.tsx              # Terminal de acceso con selector de credenciales
+    │   ├── acceso-denegado/
+    │   │   └── page.tsx              # Vista amigable de error 403 para cajeros
+    │   ├── admin/
+    │   │   └── configuracion/
+    │   │       └── page.tsx          # Panel visual de datos de empresa, logo y simulador de tirilla
+    │   └── api/
+    │       ├── auth/
+    │       │   ├── login/route.ts    # Endpoint de autenticación y emisión de JWT
+    │       │   ├── logout/route.ts   # Endpoint de cierre con hook de respaldo VACUUM INTO
+    │       │   └── me/route.ts       # Consulta de usuario autenticado en sesión
+    │       ├── backup/route.ts       # Endpoint para respaldos en caliente manuales
+    │       └── empresa/route.ts      # Consulta y actualización de datos de LLANOMIO (Solo Admin)
     ├── components/                   # Componentes modulares reutilizables de UI
     └── lib/
+        ├── auth.ts                   # Helpers de firmado/verificación JWT con cookies seguras
+        ├── backup.ts                 # Motor de respaldo en caliente VACUUM INTO y rotación
         └── prisma.ts                 # Instancia singleton de Prisma Client para Next.js
 ```
 
@@ -70,7 +90,7 @@ pos-llanomio/
 El esquema de base de datos está normalizado y cubre la totalidad de operaciones de alquiler, venta, confección/arreglo y control de turnos de caja.
 
 ### Enumeraciones Definidas
-- `RolUsuario`: `ADMIN_GENERAL`, `CAJERO`
+- `RolUsuario`: `ADMIN`, `CAJERO`
 - `FormatoImpresion`: `TIRILLA`, `MEDIA_CARTA`, `CARTA`
 - `CategoriaProducto`: `VENTA`, `ALQUILER`
 - `EstadoPrenda`: `DISPONIBLE`, `ALQUILADO`, `SEPARADO`, `EN_ARREGLO`
@@ -81,119 +101,93 @@ El esquema de base de datos está normalizado y cubre la totalidad de operacione
 - `TipoCierre`: `DIARIO`, `CONSOLIDADO_MENSUAL`
 
 ### Modelos y Tablas
-1. **`Usuario` (`usuarios`):**
-   - Gestión de credenciales seguras mediante `passwordHash`.
-   - Control de roles (`ADMIN_GENERAL`, `CAJERO`) y bandera `activo`.
-   - Relación con facturas, abonos de pago, turnos y cierres de caja.
+1. **`User` (`usuarios`):**
+   - Campos: `id`, `username` (único), `nombre`, `passwordHash` (bcrypt), `rol` (ADMIN, CAJERO), `activo` (Boolean), `fechaCreacion`, `updatedAt`.
+   - Relaciones: facturas, abonos de pago, turnos, cierres de caja y auditorías de sesión.
 
-2. **`ConfiguracionEmpresa` (`configuracion_empresa`):**
-   - Datos fiscales y comerciales: nombre comercial (`LLANOMIO`), NIT, dirección, teléfono, logo.
-   - Términos legales y políticas de devolución en alquiler de prendas.
-   - Formato de impresión por defecto (`TIRILLA`).
-   - Ruta centralizada para respaldos (`C:\POS_LLANOMIO_BACKUPS`).
+2. **`AuditoriaSesion` (`auditorias_sesion`):**
+   - Registra eventos de `LOGIN`, `LOGOUT` e `INTENTO_FALLIDO`.
+   - Almacena dirección IP del terminal, agente de usuario (navegador/dispositivo) y marca temporal exacta.
 
-3. **`Cliente` (`clientes`):**
-   - Identificación única por documento (cédula/NIT).
-   - Datos de contacto (nombre, teléfono, dirección, notas especiales).
+3. **`ConfiguracionEmpresa` (`configuracion_empresa`):**
+   - Campos fiscales y de tirilla: `nit` (único), `nombreTienda`, `nombreComercial`, `direccion`, `telefono`, `logoUrl`, `politicasFactura`.
+   - Parámetros operativos: `formatoImpresionDefault` (`TIRILLA`), `rutaCarpetaRespaldo` (`C:\POS_LLANOMIO_BACKUPS`).
 
-4. **`Producto` (`productos`):**
-   - Control de prendas tanto para venta como alquiler.
-   - Código único de prenda, talla, color, stock actual y estado físico de la prenda (`DISPONIBLE`, `ALQUILADO`, `SEPARADO`, `EN_ARREGLO`).
-   - Reglas financieras de alquiler: precio base de alquiler, tiempo pactado en horas, tarifa de mora acumulativa por día y por hora.
+4. **`Cliente` (`clientes`):**
+   - Identificación única por documento (cédula/NIT), nombres, contacto y notas.
 
-5. **`Factura` (`facturas`):**
-   - Numeración consecutiva única.
-   - Tipos de operación soportados: `VENTA`, `ALQUILER`, `SEPARE`, `ARREGLO`.
-   - Ciclo de vida: `EN_PROCESO` -> `ACTIVA_ALQUILADA` -> `EN_MORA` -> `CERRADA`.
-   - Trazabilidad temporal: fecha de creación, entrega de alquiler y devolución real.
-   - Discriminación financiera: subtotal productos, subtotal arreglos libres, recargo acumulado por mora, total factura, total abonado y saldo pendiente.
+5. **`Producto` (`productos`):**
+   - Prendas para venta y alquiler, código de barras/código único, talla, color, stock, estado físico (`DISPONIBLE`, `ALQUILADO`, `SEPARADO`, `EN_ARREGLO`), precio base y tarifas de mora por día/hora.
 
-6. **`ItemFactura` (`items_factura`):**
-   - Soporte híbrido: vincula productos registrados del inventario O servicios libres sin inventario (`esServicioLibre: true`, `descripcionArreglo`, `valorUnitario`).
+6. **`Factura` (`facturas`):**
+   - Numeración consecutiva única, tipos de operación (`VENTA`, `ALQUILER`, `SEPARE`, `ARREGLO`), ciclo de vida (`EN_PROCESO`, `ACTIVA_ALQUILADA`, `EN_MORA`, `CERRADA`), fechas pactadas y reales de devolución, subtotales, mora acumulada y saldos.
 
-7. **`AbonoPago` (`abonos_pago`):**
-   - Registro de transacciones parciales o totales vinculadas a una factura.
-   - Múltiples medios de pago: `EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`, `CONSIGNACION`.
-   - Identificación del cajero y turno activo al momento del recaudo.
+7. **`ItemFactura` (`items_factura`):**
+   - Vinculación híbrida de prendas del catálogo o servicios libres de arreglo/confección sin inventario.
 
-8. **`TurnoCaja` (`turnos_caja`):**
-   - Apertura de turno con `baseInicialEfectivo`.
-   - Arqueo detallado con desglose en tiempo real por método de pago.
-   - Registro de diferencias de efectivo y observaciones del cajero.
+8. **`AbonoPago` (`abonos_pago`):**
+   - Pagos parciales o totales vinculados a una factura con medios de pago locales (`EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`, `CONSIGNACION`).
 
-9. **`CierreCaja` (`cierres_caja`):**
-   - Generación de cierres diarios y consolidados mensuales.
-   - Métricas acumuladas: totales por método de pago, ingresos por ventas, alquileres, separes, arreglos y moras.
+9. **`TurnoCaja` (`turnos_caja`):**
+   - Apertura de caja con base inicial en efectivo, desglose por método de pago y arqueo de diferencias.
+
+10. **`CierreCaja` (`cierres_caja`):**
+    - Cierres diarios y consolidados mensuales con agregación de ventas, alquileres, arreglos y moras.
 
 ---
 
-## 4. Estado de Migración Inicial y Datos Base (Seed)
+## 4. Módulo de Seguridad (RBAC) y Autenticación
 
-- **Migración ejecutada:** `20261025063436_init` aplicada exitosamente sobre `/database/llanomio.db`.
-- **Credenciales Maestras Creadas:**
-  - **Usuario:** `admin`
-  - **Contraseña:** `admin123` (almacenada con hash bcrypt)
-  - **Rol:** `ADMIN_GENERAL`
-- **Configuración Inicial de la Empresa:**
-  - **Nombre Comercial:** LLANOMIO
-  - **NIT:** 900.123.456-7
-  - **Dirección:** Calle Principal #10-20, Villavicencio, Meta
-  - **Teléfono:** 3101234567
-  - **Formato Impresión:** TIRILLA
-  - **Ruta de Respaldos:** `C:\POS_LLANOMIO_BACKUPS`
+El sistema implementa Control de Acceso Basado en Roles (RBAC) con dos niveles operativos:
+- **`ADMIN` (Administrador General):** Acceso total a configuración de tienda, datos fiscales, catálogo, reportes y respaldos.
+- **`CAJERO` (Cajero Operativo):** Acceso a facturación, alquileres, separes, abonos y arqueos de turno. Restringido de rutas administrativas.
 
----
-
-## 5. Scripts de Tienda (.bat) en `/instalador_tienda`
-
-Los scripts están codificados en UTF-8 (`chcp 65001`), no contienen emojis para garantizar compatibilidad con consolas de comandos de Windows, y aplican validaciones defensivas:
-
-1. **`1_INSTALAR_POS_GITHUB.bat`:**
-   - Valida la presencia de Node.js y Git en el equipo.
-   - Crea las carpetas `C:\POS_LLANOMIO_BACKUPS` y `database\backups_locales`.
-   - Inicializa `.env` desde `.env.example`.
-   - Instala paquetes npm, genera cliente Prisma, crea tablas y ejecuta el seed.
-   - Compila la aplicación Next.js para producción local.
-
-2. **`2_ACTUALIZAR_SISTEMA.bat`:**
-   - **Mecanismo de seguridad previa:** Genera automáticamente un respaldo con timestamp de `database/llanomio.db` tanto en disco `C:\` como en carpeta local ANTES de ejecutar cualquier cambio.
-   - Ejecuta `git pull origin main`.
-   - Actualiza dependencias (`npm install`), sincroniza el esquema con Prisma y recompila la aplicación.
-
-3. **`3_RESPALDO_MANUAL.bat`:**
-   - Crea una copia instantánea con fecha y hora (`llanomio_manual_YYYYMMDD_HHMMSS.db`).
-   - Guarda réplica redundante en `C:\POS_LLANOMIO_BACKUPS` y `database\backups_locales`.
-
-4. **`4_RESTAURAR_RESPALDO.bat`:**
-   - Muestra advertencia al usuario y solicita confirmación.
-   - Crea una salvaguarda automática previa de la base de datos actual antes de sobrescribirla.
-   - Lista los respaldos disponibles en `C:\POS_LLANOMIO_BACKUPS`.
-   - Solicita el nombre o ruta del archivo de respaldo y restaura el estado operativo.
+### Componentes de Seguridad:
+1. **Firma y Validación de Sesión JWT ([src/lib/auth.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/lib/auth.ts)):**
+   - Generación de token JWT firmado con algoritmo `HS256` utilizando la librería estándar `jose`.
+   - Almacenamiento seguro en cookie HTTP-Only (`llanomio_session`) con vigencia de 12 horas.
+2. **Middleware Defensivo ([src/middleware.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/middleware.ts)):**
+   - Intercepta todas las peticiones hacia `/admin/*` y `/api/admin/*`.
+   - Si no hay sesión válida: redirige a `/login`.
+   - Si el rol es `CAJERO`: bloquea el acceso con código HTTP 403 y redirige a la vista amigable `/acceso-denegado`.
+3. **Auditoría de Sesión:**
+   - Todo ingreso y salida queda asentado en la tabla `auditorias_sesion`.
 
 ---
 
-## 6. Procedimiento para Ejecución en Red Local (LAN)
+## 5. Panel de Configuración de Factura LLANOMIO (`/admin/configuracion`)
 
-Para ejecutar el sistema en la tienda y permitir acceso desde otros dispositivos (tablets, computadores cajeros o teléfonos en la misma red WiFi/LAN):
-
-1. **Modo Desarrollo:**
-   ```bash
-   npm run dev
-   # O en red local puerto 80:
-   npm run dev:lan
-   ```
-2. **Modo Producción Local (Recomendado para tienda):**
-   ```bash
-   npm run build
-   npm run start
-   ```
-3. **Acceso desde otros equipos:**
-   - Abrir el navegador en cualquier equipo de la red y acceder a: `http://<IP_DEL_SERVIDOR_LOCAL>` o `http://llanomio.local`.
+Ubicado en `src/app/admin/configuracion/page.tsx`, permite gestionar:
+- **Datos Fiscales y Comerciales:** NIT, Nombre de la Tienda, Dirección física, Teléfono de atención.
+- **Logotipo de la Tienda:** Carga directa de imagen local (convertida a Data URL base64) o URL externa, con previsualización en vivo.
+- **Políticas de Facturación:** Condiciones legales de alquiler y tarifas de mora impresas al pie de los comprobantes.
+- **Directiva de Negocio - Código QR Desactivado:**
+  - El sistema **NO** incluye ningún código QR de clientes en las facturas, garantizando la privacidad y cumplimiento de las directrices del negocio.
+- **Simulador de Tirilla Térmica de 80mm:**
+  - Emulador visual en tiempo real que refleja el diseño exacto que saldrá por la impresora POS.
 
 ---
 
-## 7. Políticas de Respaldo e Integridad de Datos
+## 6. Motor de Respaldo SQLite en Caliente (`VACUUM INTO`) y Hook de Logout
 
-- El archivo físico `database/llanomio.db` está protegido en `.gitignore` para evitar que `git pull` o `git push` sobrescriba las ventas reales de la tienda.
-- Está terminantemente prohibido ejecutar `prisma migrate reset` en producción.
-- Toda actualización mediante el script `2_ACTUALIZAR_SISTEMA.bat` genera obligatoriamente una copia de seguridad antes de modificar el repositorio.
+Para garantizar la integridad física de los datos sin interrumpir el servicio:
+1. **Comando Nativo `VACUUM INTO` ([src/lib/backup.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/lib/backup.ts)):**
+   - Ejecuta `VACUUM INTO 'C:/POS_LLANOMIO_BACKUPS/llanomio_ULTIMO.db'`.
+   - Genera una copia limpia, compactada y transaccionalmente consistente de SQLite sin bloqueos de lectura/escritura.
+2. **Hook de Cierre de Sesión ([src/app/api/auth/logout/route.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/app/api/auth/logout/route.ts)):**
+   - Cada vez que un cajero o administrador hace clic en "Cerrar Sesión", el sistema dispara automáticamente el respaldo en caliente.
+   - Crea adicionalmente una copia fechada en `C:\POS_LLANOMIO_BACKUPS\historial\llanomio_YYYYMMDD_HHMMSS.db` y en `database/backups_locales/`.
+   - Protección con `try/catch` defensivo: un fallo en la unidad secundaria de respaldo **nunca** impide que el cajero cierre su sesión.
+
+---
+
+## 7. Resultados del Control de Calidad (QA - Agente 5)
+
+Las pruebas automatizadas ejecutadas arrojaron una calificación de **100% de éxito**:
+- `[QA 1]` Verificación de Usuarios: `admin` (ADMIN) y `cajero` (CAJERO) verificados y activos.
+- `[QA 2]` Autenticación: Contraseñas encriptadas con bcrypt validadas correctamente.
+- `[QA 3]` Tokens JWT: Firmas válidas y roles reconocidos.
+- `[QA 4]` Restricción RBAC: Verificada la denegación de acceso para el rol `CAJERO` a rutas administrativas.
+- `[QA 5]` Motor `VACUUM INTO`: Respaldo en caliente ejecutado con éxito (tamaño generado: 176 KB).
+- `[QA 6]` Integridad Física: Archivo `C:\POS_LLANOMIO_BACKUPS\llanomio_ULTIMO.db` validado físicamente con firma de cabecera `SQLite format 3`.
+- `[QA 7]` QR Desactivado: Verificada la ausencia total de códigos QR en facturación.

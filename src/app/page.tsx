@@ -1,4 +1,8 @@
-import React from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ShoppingBag,
   CalendarCheck,
@@ -9,9 +13,50 @@ import {
   Database,
   ArrowRight,
   Sparkles,
+  Settings,
+  LogOut,
+  User,
+  LogIn,
 } from "lucide-react";
 
+interface UsuarioSesion {
+  userId: string;
+  username: string;
+  nombre: string;
+  rol: "ADMIN" | "CAJERO";
+}
+
 export default function HomePage() {
+  const router = useRouter();
+  const [usuario, setUsuario] = useState<UsuarioSesion | null>(null);
+  const [cerrandoSesion, setCerrandoSesion] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.ok && data?.user) {
+          setUsuario(data.user);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleCerrarSesion = async () => {
+    setCerrandoSesion(true);
+    try {
+      // Disparar logout que ejecuta automáticamente VACUUM INTO
+      await fetch("/api/auth/logout", { method: "POST" });
+      setUsuario(null);
+      router.push("/login");
+      router.refresh();
+    } catch {
+      router.push("/login");
+    } finally {
+      setCerrandoSesion(false);
+    }
+  };
+
   const modulos = [
     {
       titulo: "Terminal de Facturación",
@@ -19,6 +64,7 @@ export default function HomePage() {
       icono: ShoppingBag,
       color: "bg-emerald-50 text-emerald-700 border-emerald-200",
       etiqueta: "Caja Activa",
+      href: "/login",
     },
     {
       titulo: "Alquileres y Control de Moras",
@@ -26,20 +72,23 @@ export default function HomePage() {
       icono: CalendarCheck,
       color: "bg-blue-50 text-blue-700 border-blue-200",
       etiqueta: "Operativo",
+      href: "/login",
     },
     {
       titulo: "Inventario y Prendas",
       descripcion: "Control de stock, estados de prendas (Disponible, Alquilado, Separado, Arreglo) y tarifas base.",
       icono: Package,
       color: "bg-amber-50 text-amber-700 border-amber-200",
-      etiqueta: "Catalogo",
+      etiqueta: "Catálogo",
+      href: "/login",
     },
     {
-      titulo: "Control y Cierre de Turno",
-      descripcion: "Apertura de turno con base inicial, arqueo detallado por método de pago y consolidados periódicos.",
-      icono: Layers,
+      titulo: "Configuración y Datos de Factura",
+      descripcion: "Panel de administración de datos fiscales, logotipos, políticas de alquiler y formatos de impresión.",
+      icono: Settings,
       color: "bg-purple-50 text-purple-700 border-purple-200",
-      etiqueta: "Auditoria",
+      etiqueta: "Solo Admin",
+      href: "/admin/configuracion",
     },
   ];
 
@@ -53,7 +102,7 @@ export default function HomePage() {
               <Sparkles className="h-6 w-6" />
             </div>
             <div>
-              <span className="text-xl font-bold tracking-tight text-slate-900 block leading-tight">
+              <span className="text-xl font-black tracking-tight text-slate-900 block leading-tight">
                 POS LLANOMIO
               </span>
               <span className="text-xs text-slate-500 font-medium">
@@ -62,15 +111,37 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800">
               <Server className="h-3.5 w-3.5" />
-              <span>Red Local Activa (LAN)</span>
+              <span>Red Local LAN</span>
             </div>
-            <div className="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
-              <Database className="h-3.5 w-3.5" />
-              <span>SQLite Local Seguro</span>
-            </div>
+
+            {usuario ? (
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-slate-800 flex items-center space-x-1.5">
+                  <User className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>{usuario.username} ({usuario.rol})</span>
+                </span>
+                <button
+                  onClick={handleCerrarSesion}
+                  disabled={cerrandoSesion}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-700 hover:border-red-200 border border-slate-200 text-xs font-semibold text-slate-700 transition"
+                  title="Cerrar sesión y respaldar base de datos SQLite"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>{cerrandoSesion ? "Respaldando..." : "Cerrar Sesión"}</span>
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                <span>Ingresar al Sistema</span>
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -108,9 +179,10 @@ export default function HomePage() {
             {modulos.map((modulo) => {
               const Icono = modulo.icono;
               return (
-                <div
+                <Link
                   key={modulo.titulo}
-                  className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between"
+                  href={modulo.href}
+                  className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between group"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-4">
@@ -121,7 +193,7 @@ export default function HomePage() {
                         {modulo.etiqueta}
                       </span>
                     </div>
-                    <h3 className="font-semibold text-slate-900 text-base mb-1">
+                    <h3 className="font-semibold text-slate-900 text-base mb-1 group-hover:text-emerald-700 transition">
                       {modulo.titulo}
                     </h3>
                     <p className="text-xs text-slate-600 leading-relaxed">
@@ -129,11 +201,11 @@ export default function HomePage() {
                     </p>
                   </div>
 
-                  <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-emerald-700 hover:text-emerald-800">
+                  <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-emerald-700 group-hover:text-emerald-800">
                     <span>Acceder al módulo</span>
                     <ArrowRight className="h-4 w-4" />
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -152,15 +224,15 @@ export default function HomePage() {
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-slate-500 block font-medium">Ubicación de Respaldos</span>
+              <span className="text-slate-500 block font-medium">Motor VACUUM INTO</span>
               <span className="font-bold text-slate-800 text-sm mt-1 block">C:\POS_LLANOMIO_BACKUPS</span>
-              <span className="text-emerald-600 font-semibold mt-1 block">Doble copia automatizada</span>
+              <span className="text-emerald-600 font-semibold mt-1 block">llanomio_ULTIMO.db en Logout</span>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-slate-500 block font-medium">Usuario Maestro Inicial</span>
-              <span className="font-bold text-slate-800 text-sm mt-1 block">admin (Administrador General)</span>
-              <span className="text-slate-600 font-semibold mt-1 block">Credenciales iniciales listas</span>
+              <span className="text-slate-500 block font-medium">Seguridad RBAC</span>
+              <span className="font-bold text-slate-800 text-sm mt-1 block">ADMIN vs. CAJERO</span>
+              <span className="text-emerald-600 font-semibold mt-1 block">Rutas /admin protegidas</span>
             </div>
           </div>
         </section>

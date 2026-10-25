@@ -12,7 +12,7 @@ generator client {
 // ==========================================
 
 enum RolUsuario {
-  ADMIN_GENERAL
+  ADMIN
   CAJERO
 }
 
@@ -70,35 +70,51 @@ enum TipoCierre {
 // MODELOS RELACIONALES
 // ==========================================
 
-model Usuario {
-  id           String     @id @default(cuid())
-  nombre       String
-  usuario      String     @unique
-  passwordHash String
-  rol          RolUsuario @default(CAJERO)
-  activo       Boolean    @default(true)
-  fechaCreacion DateTime  @default(now())
-  updatedAt    DateTime   @updatedAt
+model User {
+  id            String           @id @default(cuid())
+  username      String           @unique
+  nombre        String
+  passwordHash  String
+  rol           RolUsuario       @default(CAJERO)
+  activo        Boolean          @default(true)
+  fechaCreacion DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
-  facturas     Factura[]
-  abonos       AbonoPago[]
-  turnos       TurnoCaja[]
-  cierres      CierreCaja[]
+  facturas      Factura[]
+  abonos        AbonoPago[]
+  turnos        TurnoCaja[]
+  cierres       CierreCaja[]
+  auditorias    AuditoriaSesion[]
 
   @@map("usuarios")
 }
 
+model AuditoriaSesion {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accion     String   // LOGIN, LOGOUT, INTENTO_FALLIDO
+  detalles   String?
+  ip         String?
+  userAgent  String?
+  fechaHora  DateTime @default(now())
+
+  @@index([userId])
+  @@map("auditorias_sesion")
+}
+
 model ConfiguracionEmpresa {
-  id                     String           @id @default(cuid())
-  nombreComercial        String           @default("LLANOMIO")
-  nit                    String           @default("900000000-1")
-  direccion              String           @default("Villavicencio, Meta")
-  telefono               String           @default("3000000000")
-  logoUrl                String?
-  politicasFactura       String?
+  id                      String           @id @default(cuid())
+  nombreTienda            String           @default("LLANOMIO")
+  nombreComercial         String           @default("LLANOMIO")
+  nit                     String           @unique @default("900.123.456-7")
+  direccion               String           @default("Calle Principal #10-20, Villavicencio, Meta")
+  telefono                String           @default("3101234567")
+  logoUrl                 String?
+  politicasFactura        String?
   formatoImpresionDefault FormatoImpresion @default(TIRILLA)
-  rutaCarpetaRespaldo    String           @default("C:\\POS_LLANOMIO_BACKUPS")
-  updatedAt              DateTime         @updatedAt
+  rutaCarpetaRespaldo     String           @default("C:\\POS_LLANOMIO_BACKUPS")
+  updatedAt               DateTime         @updatedAt
 
   @@map("configuracion_empresa")
 }
@@ -147,7 +163,7 @@ model Factura {
   clienteId              String
   cliente                Cliente       @relation(fields: [clienteId], references: [id])
   usuarioCajeroId        String
-  usuarioCajero          Usuario       @relation(fields: [usuarioCajeroId], references: [id])
+  usuarioCajero          User          @relation(fields: [usuarioCajeroId], references: [id])
   turnoCajaId            String?
   turnoCaja              TurnoCaja?    @relation(fields: [turnoCajaId], references: [id])
   tipoOperacion          TipoOperacion
@@ -197,7 +213,7 @@ model AbonoPago {
   facturaId             String
   factura               Factura    @relation(fields: [facturaId], references: [id], onDelete: Cascade)
   usuarioCajeroId       String
-  usuarioCajero         Usuario    @relation(fields: [usuarioCajeroId], references: [id])
+  usuarioCajero         User       @relation(fields: [usuarioCajeroId], references: [id])
   turnoCajaId           String?
   turnoCaja             TurnoCaja? @relation(fields: [turnoCajaId], references: [id])
   monto                 Float
@@ -215,7 +231,7 @@ model AbonoPago {
 model TurnoCaja {
   id                  String      @id @default(cuid())
   usuarioCajeroId     String
-  usuarioCajero       Usuario     @relation(fields: [usuarioCajeroId], references: [id])
+  usuarioCajero       User        @relation(fields: [usuarioCajeroId], references: [id])
   fechaApertura       DateTime    @default(now())
   fechaCierre         DateTime?
   estado              EstadoTurno @default(ABIERTO)
@@ -245,7 +261,7 @@ model TurnoCaja {
 model CierreCaja {
   id                 String     @id @default(cuid())
   usuarioId          String
-  usuario            Usuario    @relation(fields: [usuarioId], references: [id])
+  usuario            User       @relation(fields: [usuarioId], references: [id])
   tipo               TipoCierre @default(DIARIO)
   fechaInicio        DateTime
   fechaFin           DateTime
