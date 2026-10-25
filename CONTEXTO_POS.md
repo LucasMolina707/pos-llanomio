@@ -15,6 +15,7 @@ El sistema elimina la dependencia y costos recurrentes de servicios en la nube (
 | **Red Local Zero-Config** | Bonjour Service (mDNS) | Anuncio de hostname `http://llanomio.local` en la red local Wi-Fi |
 | **Proxy Local Puerto 80** | Node.js HTTP Proxy Inverso | Enrutamiento transparente del puerto 80 (LAN) hacia Next.js (puerto 3000) |
 | **Gestor de Procesos** | PM2 Runtime (Fork Mode) | Orquestación persistente en segundo plano y auto-arranque tras reinicios de Windows |
+| **Conexión LAN & QR Offline**| Node.js `os` + `qrcode` local | Detección automática de IPs de adaptadores Wi-Fi/Ethernet y QR interactivo sin internet |
 | **Diseño y UI/UX** | TailwindCSS + Lucide Icons | Paleta moderna empresarial (`bg-slate-900` / `bg-blue-600` / `bg-white`), layouts full-width, CERO emojis |
 | **Lenguaje** | TypeScript 5 (Strict Mode) | Tipado estricto en toda la lógica de negocio y esquemas |
 | **ORM / Acceso a Datos** | Prisma ORM 6 | Abstracción de tipos, migraciones automáticas y seguridad de consultas |
@@ -84,6 +85,8 @@ pos-llanomio/
     │   │   ├── AppLayout.tsx         # Orquestador del Shell responsivo (Sidebar + Navbar + Main w-full)
     │   │   ├── Sidebar.tsx           # Barra lateral colapsable profesional en azul profundo (bg-slate-900)
     │   │   └── Navbar.tsx            # Barra superior fija con migas de pan, botón POS rápido y usuario
+    │   ├── red/
+    │   │   └── TarjetaConexionLAN.tsx# Widget interactivo con QR offline y selector mDNS / IP LAN
     │   ├── crm/
     │   │   └── BotonWhatsApp.tsx     # Botón CRM reutilizable con enlace wa.me y plantilla formal
     │   ├── impresion/
@@ -131,7 +134,8 @@ pos-llanomio/
     │       │   └── monitoreo/route.ts# Monitoreo reactivo de cartera, moras y días de retraso
     │       ├── impresion/
     │       │   └── [id]/route.ts     # Datos estructurados para impresión documental (Tirilla/Carta)
-    │       └── inventario/route.ts   # API REST CRUD, filtros dinámicos y protección contra borrado
+    │       ├── inventario/route.ts   # API REST CRUD, filtros dinámicos y protección contra borrado
+    │       └── red-local/route.ts    # Inspección de interfaces IPv4 LAN, hostname y URLs
     └── lib/
         ├── auth.ts                   # Helpers de firmado/verificación JWT con cookies seguras
         ├── backup.ts                 # Motor de respaldo en caliente VACUUM INTO y rotación
@@ -142,50 +146,38 @@ pos-llanomio/
 
 ---
 
-## 3. Rediseño de Layouts Globales, Sidebar y UI/UX Full-Width
+## 3. Módulo de Conexión Rápida LAN y QR Offline para Dispositivos de Tienda
 
-1. **Arquitectura de Pantalla Completa (Full-Width Experience):**
-   - Se eliminaron todos los anchos máximos restrictivos (`max-w-4xl`, `max-w-6xl` o `max-w-7xl` fijos) de las vistas principales del sistema.
-   - Las pantallas de administración, caja mostrador y monitoreo operan ahora con `w-full` y espaciado armónico `p-4 sm:p-6 lg:p-8`, aprovechando al 100% monitores Full HD, 2K o pantallas táctiles de mostrador sin franjas muertas a los lados.
+1. **Detección Dinámica de Red Local (`src/app/api/red-local/route.ts`):**
+   - Utiliza la API nativa `os.networkInterfaces()` y `os.hostname()` para listar las interfaces de red IPv4 activas sin necesidad de conexión a internet externa.
+   - Detecta automáticamente adaptadores Wi-Fi y Ethernet locales (ej: `192.168.1.243` y `192.168.56.10`).
+   - Retorna las URLs formateadas para acceso por puerto 80 (limpio, sin puerto) y por puerto 3000 (directo a Next.js).
 
-2. **Paleta de Colores Corporativa Inspirada en Dashboards Profesionales:**
-   - **Fondo General:** Gris claro suave corporativo (`bg-slate-50` o `#f8fafc`).
-   - **Navegación / Sidebar:** Azul oscuro profundo (`bg-slate-900` o `#0f172a`) con bordes en `border-slate-800`.
-   - **Acentos de Alta Visibilidad:** Azul vibrante (`bg-blue-600` o `#2563eb`), hover en `bg-blue-700` y sombras de brillo suave (`shadow-blue-500/25`).
-   - **Tarjetas y Contenedores:** Blancos puros (`bg-white`), con bordes suaves (`border border-slate-200/80`), esquinas redondeadas (`rounded-xl`) y sombras sutiles (`shadow-xs` / `shadow-sm`).
+2. **Componente Visual Interactivo (`TarjetaConexionLAN.tsx`):**
+   - Renderiza un código QR de alta resolución **100% offline** empleando la librería `qrcode` con renderizado local en base64 DataURL (cero llamadas a APIs de Google Charts o servidores externos).
+   - **Selector de Modo:**
+     - **Modo mDNS (`http://llanomio.local`):** Ideal para iPhones, iPads, Macs y PCs con resolución Bonjour.
+     - **Modo IP LAN Directa (`http://192.168.X.X`):** Ideal para teléfonos Android o equipos donde la resolución de nombres `.local` tarde en responder.
+   - **Selector de Puerto:** Alterna entre puerto 80 (predeterminado) y puerto 3000.
+   - **Herramientas de Mostrador:** Botón de copiado con confirmación interactiva y guía visual de conexión en 3 pasos.
 
-3. **Barra Lateral Colapsable (`Sidebar.tsx`) & Navbar Gerencial (`Navbar.tsx`):**
-   - **Sidebar Colapsable:** Permite alternar entre vista expandida (256px) y vista compacta con iconografía (80px), optimizando el espacio de facturación para personal en mostrador.
-   - **Organización Modular:** Agrupación por secciones: *Operación*, *Catálogo* y *Gerencia*.
-   - **Navbar Fija:** Incorpora botón de acceso directo a *Terminal POS*, migas de pan dinámicas con ícono de la sección, estado mDNS `llanomio.local` y menú de usuario con botón de cierre de sesión.
+3. **Ubicaciones del Módulo en el Sistema:**
+   - **Panel de Configuración General ([/admin/configuracion](file:///d:/Proyectos%20IA/pos-llanomio/src/app/admin/configuracion/page.tsx)):** Embebido como primera sección de infraestructura para administración del sistema.
+   - **Menú Principal de Bienvenida ([/](file:///d:/Proyectos%20IA/pos-llanomio/src/app/page.tsx)):** Botón en el banner "Conectar Celular / PC en Red" con modal interactivo y tarjeta completa al final del dashboard.
 
-4. **Dashboard Gerencial Expandido (`/admin/dashboard`):**
-   - **Cuadrícula de 5 Columnas:** En pantallas de escritorio grandes despliega las 5 métricas clave (*Ingresos Netos*, *Cuentas por Cobrar*, *Moras Recaudadas*, *Prendas Alquiladas*, *Sastrería Libre*).
-   - **Indicadores Circulares Vectoriales:** Cada métrica cuenta con un contenedor circular distintivo (Azul, Ámbar, Rosa, Índigo y Esmeralda) con iconografía fresca de `lucide-react`.
-   - **Desgloses Amplios:** Comparativa gráfica de métodos de pago y líneas de negocio en dos columnas anchas.
-
----
-
-## 4. Infraestructura de Red Local (Zero-Config mDNS y Proxy Puerto 80)
-
-1. **Servicio mDNS (Bonjour):**
-   - El archivo `server-mdns.js` (y `src/server-mdns.ts`) publica el registro multicast DNS `llanomio` de tipo `http` en el puerto 80 con hostname `llanomio.local`.
-   - Permite que cualquier dispositivo conectado al Wi-Fi de la tienda ingrese a `http://llanomio.local` sin teclear IPs ni puertos.
-
-2. **Proxy Inverso HTTP Nativo (Puerto 80 -> Puerto 3000):**
-   - Escucha en `0.0.0.0:80` y reenvía limpiamente el tráfico a `127.0.0.1:3000` (Next.js).
-   - Inyecta cabeceras `X-Forwarded-Host`, `X-Forwarded-For` y `X-Forwarded-Proto`.
-
-3. **Orquestación Persistente con PM2 (`ecosystem.config.js`):**
-   - Ejecución en modo `fork` para garantizar el aislamiento de sockets y compatibilidad total con Windows.
-   - Comando `pm2 save` configurado para persistir en `C:\Users\works\.pm2\dump.pm2`.
-   - Auto-arranque configurado en la carpeta de Inicio de Windows.
+4. **Preservación Estricta de Privacidad en Impresión:**
+   - El componente de generación QR es exclusivo para la interfaz de pantalla de empleados.
+   - Las facturas y comprobantes para clientes en [PlantillaImpresion.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/components/impresion/PlantillaImpresion.tsx) mantienen rigurosamente **CERO códigos QR**.
 
 ---
 
-## 5. Control de Calidad Integral (QA Final - Agente 5)
+## 4. Control de Calidad Integral (QA Final - Agente 5)
 
-1. **QA Full-Width & Responsividad:** La interfaz se expande fluidamente en monitores anchos sin desbordamientos horizontales ni cajas estrechas centradas.
-2. **QA Paleta y Contraste:** El fondo `bg-slate-50` junto al sidebar `bg-slate-900` y acentos `bg-blue-600` ofrecen un contraste nítido y ergonómico para largas jornadas en mostrador.
-3. **QA Cero Emojis:** Cumplimiento total de la regla de cero emojis, empleando exclusivamente íconos vectoriales de `lucide-react`.
-4. **QA Build de Producción:** Next.js 15 compiló **23 rutas** (`npm run build`) con código 0 y tipado estricto en TypeScript.
+1. **QA Endpoint `/api/red-local`:**
+   - Respuesta **200 OK** con interfaces Wi-Fi (`192.168.1.243`) y Ethernet (`192.168.56.10`), hostname de la máquina y URLs mDNS sin internet.
+2. **QA Renderizado y Reactividad del QR:**
+   - El código QR se genera y actualiza de inmediato al alternar entre `llanomio.local` y las distintas IPs de red.
+3. **QA Formatos de Impresión Sin QR:**
+   - Ejecución exitosa de [scripts/test-caja-impresion-qa.ts](file:///d:/Proyectos%20IA/pos-llanomio/scripts/test-caja-impresion-qa.ts) validando cero etiquetas de código QR en los documentos de clientes.
+4. **QA Compilación de Producción:**
+   - Next.js 15 compiló **24 rutas** (`npm run build`) con código 0 y tipado estricto en TypeScript.

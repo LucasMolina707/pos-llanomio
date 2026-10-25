@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import TarjetaConexionLAN from "@/components/red/TarjetaConexionLAN";
 import {
   Building2,
   Receipt,
@@ -247,6 +248,9 @@ export default function ConfiguracionAdminPage() {
             <span>{mensajeError}</span>
           </div>
         )}
+
+        {/* Conexión de Dispositivos en Red Local (Celulares, Tablets y PCs) */}
+        <TarjetaConexionLAN />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Columna Izquierda: Formulario de Datos (7 columnas) */}

@@ -18,7 +18,11 @@ import {
   FileText,
   Clock,
   Sparkles,
+  QrCode,
+  X,
+  Wifi,
 } from "lucide-react";
+import TarjetaConexionLAN from "@/components/red/TarjetaConexionLAN";
 
 interface UsuarioSesion {
   userId: string;
@@ -29,6 +33,7 @@ interface UsuarioSesion {
 
 export default function HomePage() {
   const [usuario, setUsuario] = useState<UsuarioSesion | null>(null);
+  const [mostrarModalQR, setMostrarModalQR] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -126,12 +131,21 @@ export default function HomePage() {
               <span>Abrir Mostrador POS</span>
             </Link>
 
+            <button
+              type="button"
+              onClick={() => setMostrarModalQR(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm shadow-emerald-500/20"
+            >
+              <QrCode className="h-4 w-4" />
+              <span>Conectar Celular / PC en Red</span>
+            </button>
+
             <Link
               href="/admin/dashboard"
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition"
             >
               <BarChart3 className="h-4 w-4 text-blue-400" />
-              <span>Ver Métricas Gerenciales</span>
+              <span>Ver Métricas</span>
             </Link>
           </div>
         </div>
@@ -194,59 +208,28 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 3. Panel de Información de Arquitectura y Red Local */}
-      <div className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg">
-              <Server className="h-4 w-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Infraestructura y Seguridad de Datos
-              </h3>
-              <p className="text-xs text-slate-500">
-                Configuración local persistente para tienda física
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Zero-Config mDNS
-          </span>
-        </div>
+      {/* 3. Módulo Vivo de Conexión LAN y Código QR */}
+      <TarjetaConexionLAN
+        titulo="Dispositivos Conectados en Red Local (Wi-Fi de Tienda)"
+        subtitulo="Inspección automática de direcciones IP y código QR para conectar tablets y celulares de cajeros sin internet."
+      />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-            <span className="font-bold text-slate-700 block">Acceso Móvil Wi-Fi:</span>
-            <span className="text-blue-600 font-mono font-semibold mt-0.5 block">
-              http://llanomio.local
-            </span>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Sin configurar direcciones IP ni puertos en celulares de mostrador.
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-            <span className="font-bold text-slate-700 block">Respaldo Automático SQLite:</span>
-            <span className="text-slate-800 font-mono font-semibold mt-0.5 block">
-              VACUUM INTO al Logout
-            </span>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Copia atómica garantizada en C:\POS_LLANOMIO_BACKUPS.
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-            <span className="font-bold text-slate-700 block">Motor de Procesos:</span>
-            <span className="text-slate-800 font-mono font-semibold mt-0.5 block">
-              PM2 Daemon Persistente
-            </span>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Reanudación automática al encender o reiniciar el computador de la tienda.
-            </p>
+      {/* Modal Flotante de Conexión Rápida QR */}
+      {mostrarModalQR && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm p-4 sm:p-6 flex items-center justify-center animate-in fade-in duration-200">
+          <div className="relative w-full max-w-4xl">
+            <button
+              type="button"
+              onClick={() => setMostrarModalQR(false)}
+              className="absolute -top-3 -right-3 z-10 p-2 rounded-full bg-slate-900 text-white hover:bg-slate-800 shadow-md transition"
+              title="Cerrar modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <TarjetaConexionLAN />
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
