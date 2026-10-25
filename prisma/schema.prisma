@@ -50,9 +50,11 @@ enum TipoOperacion {
   ALQUILER
   SEPARE
   ARREGLO
+  MIXTO
 }
 
 enum EstadoFactura {
+  ACTIVA
   EN_PROCESO
   ACTIVA_ALQUILADA
   EN_MORA
@@ -92,7 +94,7 @@ model User {
   updatedAt     DateTime         @updatedAt
 
   facturas      Factura[]
-  abonos        AbonoPago[]
+  abonos        Abono[]
   turnos        TurnoCaja[]
   cierres       CierreCaja[]
   auditorias    AuditoriaSesion[]
@@ -168,37 +170,37 @@ model Producto {
   fechaCreacion          DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 
-  itemsFactura           ItemFactura[]
+  detallesFactura        DetalleFactura[]
 
   @@map("productos")
 }
 
 model Factura {
-  id                     String        @id @default(cuid())
-  numeroFactura          String        @unique
+  id                     String         @id @default(cuid())
+  numeroFactura          String         @unique
   clienteId              String
-  cliente                Cliente       @relation(fields: [clienteId], references: [id])
+  cliente                Cliente        @relation(fields: [clienteId], references: [id])
   usuarioCajeroId        String
-  usuarioCajero          User          @relation(fields: [usuarioCajeroId], references: [id])
+  usuarioCajero          User           @relation(fields: [usuarioCajeroId], references: [id])
   turnoCajaId            String?
-  turnoCaja              TurnoCaja?    @relation(fields: [turnoCajaId], references: [id])
-  tipoOperacion          TipoOperacion
-  estado                 EstadoFactura @default(EN_PROCESO)
-  fechaCreacion          DateTime      @default(now())
+  turnoCaja              TurnoCaja?     @relation(fields: [turnoCajaId], references: [id])
+  tipoOperacion          TipoOperacion  @default(VENTA)
+  estado                 EstadoFactura  @default(ACTIVA)
+  fechaCreacion          DateTime       @default(now())
   fechaEntregaAlquiler   DateTime?
   fechaDevolucionPactada DateTime?
   fechaDevolucionReal    DateTime?
-  subtotalProductos      Float         @default(0)
-  subtotalArreglosLibres Float         @default(0)
-  recargoMoraAcumulado   Float         @default(0)
-  totalFactura           Float         @default(0)
-  totalAbonado           Float         @default(0)
-  saldoPendiente         Float         @default(0)
+  subtotalProductos      Float          @default(0)
+  subtotalArreglosLibres Float          @default(0)
+  recargoMoraAcumulado   Float          @default(0)
+  totalFactura           Float          @default(0)
+  totalAbonado           Float          @default(0)
+  saldoPendiente         Float          @default(0)
   notas                  String?
-  updatedAt              DateTime      @updatedAt
+  updatedAt              DateTime       @updatedAt
 
-  items                  ItemFactura[]
-  abonos                 AbonoPago[]
+  detalles               DetalleFactura[]
+  abonos                 Abono[]
 
   @@index([clienteId])
   @@index([usuarioCajeroId])
@@ -206,42 +208,42 @@ model Factura {
   @@map("facturas")
 }
 
-model ItemFactura {
-  id                 String    @id @default(cuid())
-  facturaId          String
-  factura            Factura   @relation(fields: [facturaId], references: [id], onDelete: Cascade)
-  productoId         String?
-  producto           Producto? @relation(fields: [productoId], references: [id])
-  esServicioLibre    Boolean   @default(false)
-  descripcionArreglo String?
-  cantidad           Int       @default(1)
-  valorUnitario      Float     @default(0)
-  subtotal           Float     @default(0)
-  fechaCreacion      DateTime  @default(now())
+model DetalleFactura {
+  id               String    @id @default(cuid())
+  facturaId        String
+  factura          Factura   @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  productoId       String?
+  producto         Producto? @relation(fields: [productoId], references: [id])
+  esServicioLibre  Boolean   @default(false)
+  descripcionLibre String?
+  cantidad         Int       @default(1)
+  precioUnitario   Float     @default(0)
+  subtotal         Float     @default(0)
+  fechaCreacion    DateTime  @default(now())
 
   @@index([facturaId])
   @@index([productoId])
-  @@map("items_factura")
+  @@map("detalles_factura")
 }
 
-model AbonoPago {
+model Abono {
   id                    String     @id @default(cuid())
   facturaId             String
   factura               Factura    @relation(fields: [facturaId], references: [id], onDelete: Cascade)
-  usuarioCajeroId       String
-  usuarioCajero         User       @relation(fields: [usuarioCajeroId], references: [id])
+  cajeroId              String
+  cajero                User       @relation(fields: [cajeroId], references: [id])
   turnoCajaId           String?
   turnoCaja             TurnoCaja? @relation(fields: [turnoCajaId], references: [id])
   monto                 Float
   metodoPago            MetodoPago
   referenciaComprobante String?
   notas                 String?
-  fechaHora             DateTime   @default(now())
+  fecha                 DateTime   @default(now())
 
   @@index([facturaId])
-  @@index([usuarioCajeroId])
+  @@index([cajeroId])
   @@index([turnoCajaId])
-  @@map("abonos_pago")
+  @@map("abonos")
 }
 
 model TurnoCaja {
@@ -267,7 +269,7 @@ model TurnoCaja {
   cierreCaja          CierreCaja? @relation(fields: [cierreCajaId], references: [id])
 
   facturas            Factura[]
-  abonos              AbonoPago[]
+  abonos              Abono[]
 
   @@index([usuarioCajeroId])
   @@index([cierreCajaId])

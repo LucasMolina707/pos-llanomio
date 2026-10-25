@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       orderBy: [{ updatedAt: "desc" }, { codigo: "asc" }],
       include: {
         _count: {
-          select: { itemsFactura: true },
+          select: { detallesFactura: true },
         },
       },
     });
@@ -307,7 +307,7 @@ export async function DELETE(req: NextRequest) {
     const producto = await prisma.producto.findUnique({
       where: { id },
       include: {
-        itemsFactura: {
+        detallesFactura: {
           include: {
             factura: true,
           },
@@ -325,8 +325,8 @@ export async function DELETE(req: NextRequest) {
     // Regla de Negocio Crítica:
     // Evita la eliminación de productos que tengan facturas activas o en proceso asociadas,
     // permitiendo en su lugar cambiar su estado a INACTIVO.
-    const facturasActivas = producto.itemsFactura.filter(
-      (item) => item.factura && ["EN_PROCESO", "ACTIVA_ALQUILADA", "EN_MORA"].includes(item.factura.estado)
+    const facturasActivas = producto.detallesFactura.filter(
+      (item) => item.factura && ["EN_PROCESO", "ACTIVA", "ACTIVA_ALQUILADA", "EN_MORA"].includes(item.factura.estado)
     );
 
     if (facturasActivas.length > 0) {
@@ -351,7 +351,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Si tiene facturas históricas cerradas, aplicar baja lógica (INACTIVO)
-    if (producto.itemsFactura.length > 0) {
+    if (producto.detallesFactura.length > 0) {
       await prisma.producto.update({
         where: { id },
         data: {

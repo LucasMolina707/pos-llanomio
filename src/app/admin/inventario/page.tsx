@@ -27,7 +27,8 @@ import ModalProducto, { ProductoData } from "@/components/inventario/ModalProduc
 interface ProductoItem extends ProductoData {
   id: string;
   _count?: {
-    itemsFactura: number;
+    detallesFactura?: number;
+    itemsFactura?: number;
   };
 }
 

@@ -64,7 +64,7 @@ export default function HomePage() {
       icono: ShoppingBag,
       color: "bg-emerald-50 text-emerald-700 border-emerald-200",
       etiqueta: "Caja Activa",
-      href: "/login",
+      href: "/caja/pos",
     },
     {
       titulo: "Alquileres y Control de Moras",
