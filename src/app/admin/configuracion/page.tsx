@@ -377,7 +377,7 @@ export default function ConfiguracionAdminPage() {
                   ) : (
                     <div className="text-center p-2">
                       <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-1" />
-                      <span className="text-[10px] text-slate-400 font-bold block">
+                      <span className="text-xs text-slate-400 font-bold block">
                         Sin logotipo
                       </span>
                     </div>
@@ -567,10 +567,10 @@ export default function ConfiguracionAdminPage() {
 
               <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                 <div>
-                  <span className="font-bold text-xs text-slate-900 block">
+                  <span className="font-bold text-sm text-slate-900 block">
                     Mostrar Cajero / Vendedor en la Factura Impresa
                   </span>
-                  <span className="text-[11px] text-slate-500 block">
+                  <span className="text-xs text-slate-500 block">
                     Incluye el nombre del usuario autenticado que emitió la factura o registró el abono.
                   </span>
                 </div>
@@ -596,7 +596,7 @@ export default function ConfiguracionAdminPage() {
                 </h2>
               </div>
 
-              <div className="space-y-4 text-xs">
+              <div className="space-y-4 text-xs sm:text-sm">
                 <div>
                   <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Términos, Condiciones y Políticas de Alquiler / Venta
@@ -607,9 +607,9 @@ export default function ConfiguracionAdminPage() {
                     value={config.politicasFactura}
                     onChange={handleChange}
                     placeholder="Escriba los requisitos de entrega, garantías, moras por retraso..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs leading-relaxed focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs sm:text-sm leading-relaxed focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
-                  <p className="text-[10.5px] text-slate-500 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     Aparece impreso en la parte inferior de las facturas en Tirilla, Media Carta y Carta.
                   </p>
                 </div>
@@ -633,11 +633,11 @@ export default function ConfiguracionAdminPage() {
             {/* SECCIÓN 5: POLÍTICA ESTRICTA CERO CÓDIGOS QR EN FACTURAS */}
             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start space-x-3">
               <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="text-xs">
+              <div className="text-xs sm:text-sm">
                 <span className="font-bold text-amber-900 block mb-0.5">
                   Política Estricta del Sistema: CERO Códigos QR en Facturas de Cliente
                 </span>
-                <span className="text-amber-800 leading-relaxed block">
+                <span className="text-amber-800 leading-relaxed block text-xs">
                   Por directriz operativa, las facturas entregadas a los clientes no incorporan códigos QR
                   externos, preservando el espacio para los detalles de las prendas, el desglose financiero y las firmas autorizadas.
                 </span>
@@ -649,7 +649,7 @@ export default function ConfiguracionAdminPage() {
               <button
                 type="submit"
                 disabled={guardando}
-                className="px-8 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition duration-200 flex items-center space-x-2 disabled:opacity-50"
+                className="px-8 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition duration-200 flex items-center space-x-2 disabled:opacity-50 min-h-[44px]"
               >
                 <Save className="h-4 w-4" />
                 <span>{guardando ? "Guardando cambios..." : "Guardar Configuración de Facturación"}</span>
@@ -668,7 +668,7 @@ export default function ConfiguracionAdminPage() {
                   Simulador en Vivo de Factura
                 </span>
               </div>
-              <div className="flex items-center space-x-1 text-slate-500 text-[11px]">
+              <div className="flex items-center space-x-1 text-slate-500 text-xs">
                 <Printer className="h-3.5 w-3.5" />
                 <span>Vista Previa 1:1</span>
               </div>

@@ -499,4 +499,44 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
 - Sello destacado: **"PAZ Y SALVO — FACTURA Y PRENDAS AL DÍA (SALDO $0)"** cuando `estado === 'CERRADA'`.
 - **Regla Inquebrantable:** CERO códigos QR en todos los formatos documentales para clientes.
 
+---
+
+## 12. Apertura de Terminal POS en Ventana Independiente y Balance Tipográfico Responsivo (UI/UX)
+
+### 1. Apertura de Terminal POS en Ventana/Pestaña Independiente
+- **Objetivo Operativo:** Permitir que el cajero mantenga abierta la estación de facturación en una pestaña o monitor dedicado, sin perder el contexto de su trabajo al navegar por el panel administrativo o dashboard.
+- **Implementación Técnica (`target="_blank"` con `rel="noopener noreferrer"`):**
+  - **Panel Principal (`src/app/page.tsx`):** Tanto el banner promocional superior como el módulo de acción rápida "Facturación POS" abren directamente `/caja/pos` en nueva ventana.
+  - **Barra de Navegación Superior (`src/components/layout/Navbar.tsx`):** Botón de acceso directo "Terminal POS" configurado con `target="_blank" rel="noopener noreferrer"`.
+  - **Menú Lateral Navegación (`src/components/layout/Sidebar.tsx`):** Enlace de "Terminal POS" configurado con `target="_blank" rel="noopener noreferrer"`.
+  - **Monitoreo de Facturas (`src/app/admin/monitoreo/page.tsx`):** Botón "Facturación POS" en cabecera abre en nueva ventana para agilizar cobros sin abandonar el filtro de moras.
+  - **Control de Caja (`src/app/admin/caja/page.tsx`):** Botón "Ir a Terminal POS" configurado con `target="_blank" rel="noopener noreferrer"`.
+
+### 2. Consola de Facturación Autónoma en Mostrador (`src/app/caja/pos/page.tsx`)
+- **Cabecera Independiente:**
+  - **Botón Volver al Menú Principal:** Enlace limpio (`Link href="/"`) con icono `ArrowLeft` que permite regresar al sistema sin dependencia del historial de navegación de la pestaña.
+  - **Botón Recargar Consola:** Botón con icono `RefreshCw` que sincroniza en tiempo real:
+    - Sesión de usuario autenticado (`/api/auth/me`).
+    - Turno de caja activo (`/api/caja`).
+    - Catálogo de clientes (`/api/clientes`).
+    - Catálogo de inventario (`/api/inventario?tipo=TODOS`).
+    - Facturas y estadísticas de monitoreo/cartera (`/api/facturas/monitoreo`).
+  - **Identificador de Cajero y Turno:** Indicador visible de `"Caja Abierta"` o `"Sin Turno"` con nombre completo y usuario del cajero activo (`text-xs sm:text-sm font-medium`).
+  - **Conmutador Rápido:** Acceso directo entre el Asistente Lineal de Facturación y el Centro de Historial, Cartera y Moras.
+
+### 3. Moderación y Equilibrio Tipográfico Responsivo (PC, Tablet y Celulares)
+- **Eliminación Total de Micro-Textos:** Se erradicaron de las pantallas operativas las clases `text-[10px]`, `text-[11px]`, `text-[9px]` y el uso de `text-xs` en datos críticos de negocio (nombres de clientes, referencias, tallas, precios, saldos y acciones).
+- **Escala Tipográfica Estandarizada:**
+  - **Cuerpo base, celdas de tablas e inputs:** `text-sm md:text-base` (14px móvil, 16px tablet/escritorio) con altura de línea `leading-normal`.
+  - **Badges, chips y etiquetas secundarias:** `text-xs md:text-sm font-semibold` garantizando alto contraste y legibilidad inmediata.
+  - **Precios unitarios y subtotales en carrito:** `text-sm md:text-base font-black`.
+  - **Total general de venta y saldo exigible:** `text-lg md:text-xl font-black text-blue-600` en carrito y `text-2xl md:text-3xl font-black font-mono` en calculadora de cambio/vueltas.
+  - **Títulos de sección:** `text-lg md:text-xl font-bold` equilibrados para maximizar el área de trabajo útil.
+- **Accesibilidad Táctil (Mobile-First):**
+  - Incorporación de la utilidad `.btn-tactil` (`min-h-[42px]`) en `src/app/globals.css`.
+  - Botones de acción, modales, pestañas de historial y selectores de catálogo configurados con alturas táctiles mínimas (`min-h-[38px]` a `min-h-[48px]`).
+- **Aislamiento de Ventana Fija (`100vh`):**
+  - La pantalla `/caja/pos` conserva su estructura fija sin scroll global en pantalla de computador (`h-screen w-screen overflow-hidden flex flex-col`), manteniendo cabecera y pie de acciones inmóviles con scroll interno fluido en las zonas de selección.
+
+
 

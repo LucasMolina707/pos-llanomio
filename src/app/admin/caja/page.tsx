@@ -228,10 +228,13 @@ export default function ControlCajaAdminPage() {
           </button>
           <Link
             href="/caja/pos"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
+            title="Abrir Terminal de Facturación POS en nueva ventana"
           >
             <Receipt className="w-4 h-4" />
-            <span>Ir a Facturar POS</span>
+            <span>Terminal POS (Nueva Ventana)</span>
           </Link>
         </div>
       </header>
@@ -371,7 +374,7 @@ export default function ControlCajaAdminPage() {
               </div>
 
               <div className="text-right sm:border-l sm:border-amber-200 dark:sm:border-amber-900/60 sm:pl-4">
-                <span className="text-[11px] uppercase font-bold text-slate-500 block">
+                <span className="text-xs uppercase font-bold text-slate-500 block">
                   Base Inicial
                 </span>
                 <span className="text-base font-mono font-black text-amber-700 dark:text-amber-400">
@@ -614,48 +617,48 @@ export default function ControlCajaAdminPage() {
                 No hay turnos cerrados registrados todavía en el historial.
               </p>
             ) : (
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-slate-800/40 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800/40 text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className="px-4 py-2.5">Apertura / Cierre</th>
-                    <th className="px-3 py-2.5">Cajero</th>
-                    <th className="px-3 py-2.5 text-right">Base Inicial</th>
-                    <th className="px-3 py-2.5 text-right">Efectivo</th>
-                    <th className="px-3 py-2.5 text-right">Nequi / Digital</th>
-                    <th className="px-3 py-2.5 text-right">Total Recaudado</th>
-                    <th className="px-3 py-2.5 text-center">Diferencia</th>
+                    <th className="px-4 py-3">Apertura / Cierre</th>
+                    <th className="px-3 py-3">Cajero</th>
+                    <th className="px-3 py-3 text-right">Base Inicial</th>
+                    <th className="px-3 py-3 text-right">Efectivo</th>
+                    <th className="px-3 py-3 text-right">Nequi / Digital</th>
+                    <th className="px-3 py-3 text-right">Total Recaudado</th>
+                    <th className="px-3 py-3 text-center">Diferencia</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {historialTurnos.map((t) => (
                     <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
                       <td className="px-4 py-3">
-                        <p className="font-bold text-slate-900 dark:text-white">
+                        <p className="font-bold text-slate-900 dark:text-white text-sm">
                           {new Date(t.fechaApertura).toLocaleDateString("es-CO")}
                         </p>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-xs text-slate-500 font-mono">
                           {new Date(t.fechaApertura).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })} -{" "}
                           {t.fechaCierre ? new Date(t.fechaCierre).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }) : "Abierto"}
                         </span>
                       </td>
-                      <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">
+                      <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300 text-sm">
                         {t.usuarioCajero?.nombre}
                       </td>
-                      <td className="px-3 py-3 text-right font-mono">
+                      <td className="px-3 py-3 text-right font-mono text-sm">
                         ${Number(t.baseInicialEfectivo).toLocaleString("es-CO")}
                       </td>
-                      <td className="px-3 py-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                      <td className="px-3 py-3 text-right font-mono font-bold text-slate-900 dark:text-white text-sm">
                         ${Number(t.totalEfectivo).toLocaleString("es-CO")}
                       </td>
-                      <td className="px-3 py-3 text-right font-mono text-purple-700 dark:text-purple-400">
+                      <td className="px-3 py-3 text-right font-mono text-purple-700 dark:text-purple-400 text-sm">
                         ${(Number(t.totalNequi) + Number(t.totalDaviplata) + Number(t.totalTransferencia)).toLocaleString("es-CO")}
                       </td>
-                      <td className="px-3 py-3 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
+                      <td className="px-3 py-3 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm md:text-base">
                         ${Number(t.totalRecaudado).toLocaleString("es-CO")}
                       </td>
                       <td className="px-3 py-3 text-center">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono ${
+                          className={`px-2.5 py-1 rounded-full text-xs font-bold font-mono ${
                             t.diferenciaEfectivo === 0
                               ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                               : t.diferenciaEfectivo > 0

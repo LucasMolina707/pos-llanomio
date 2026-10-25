@@ -125,16 +125,18 @@ export default function HomePage() {
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <Link
               href="/caja/pos"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm shadow-blue-500/30"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[42px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm md:text-base font-bold transition shadow-sm shadow-blue-500/30"
             >
-              <ShoppingBag className="h-4 w-4" />
-              <span>Abrir Mostrador POS</span>
+              <ShoppingBag className="h-5 w-5" />
+              <span>Abrir Terminal POS (Nueva Ventana)</span>
             </Link>
 
             <button
               type="button"
               onClick={() => setMostrarModalQR(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm shadow-emerald-500/20"
+              className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition shadow-sm shadow-emerald-500/20"
             >
               <QrCode className="h-4 w-4" />
               <span>Conectar Celular / PC en Red</span>
@@ -142,7 +144,7 @@ export default function HomePage() {
 
             <Link
               href="/admin/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition"
+              className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-semibold transition"
             >
               <BarChart3 className="h-4 w-4 text-blue-400" />
               <span>Ver Métricas</span>
@@ -161,11 +163,11 @@ export default function HomePage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="h-6 w-1.5 rounded-full bg-blue-600"></div>
-            <h2 className="text-base font-bold text-slate-900">
+            <h2 className="text-lg md:text-xl font-bold text-slate-900">
               Módulos Operativos del Negocio
             </h2>
           </div>
-          <span className="text-xs font-medium text-slate-500">
+          <span className="text-xs sm:text-sm font-medium text-slate-500">
             Acceso Rápido
           </span>
         </div>
@@ -173,10 +175,14 @@ export default function HomePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {modulos.map((modulo, idx) => {
             const Icono = modulo.icono;
+            const esPos = modulo.href === "/caja/pos";
+
             return (
               <Link
                 key={idx}
                 href={modulo.href}
+                target={esPos ? "_blank" : undefined}
+                rel={esPos ? "noopener noreferrer" : undefined}
                 className="group bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col justify-between"
               >
                 <div>
@@ -184,22 +190,22 @@ export default function HomePage() {
                     <div className={`h-11 w-11 rounded-xl flex items-center justify-center border ${modulo.colorIcono}`}>
                       <Icono className="h-5 w-5" />
                     </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${modulo.colorBadge}`}>
+                    <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${modulo.colorBadge}`}>
                       {modulo.etiqueta}
                     </span>
                   </div>
 
-                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                     {modulo.titulo}
                   </h3>
 
-                  <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  <p className="text-sm text-slate-600 mt-2 leading-relaxed">
                     {modulo.descripcion}
                   </p>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600">
-                  <span>Acceder al módulo</span>
+                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-sm font-bold text-blue-600">
+                  <span>{esPos ? "Abrir Terminal en Nueva Ventana" : "Acceder al módulo"}</span>
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </div>
               </Link>

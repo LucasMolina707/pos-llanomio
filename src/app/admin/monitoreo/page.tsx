@@ -203,10 +203,13 @@ export default function CentralMonitoreoPage() {
           </button>
           <Link
             href="/caja/pos"
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
+            title="Abrir Terminal de Facturación POS en nueva ventana"
           >
             <Receipt className="w-4 h-4" />
-            <span>Ir a Facturar POS</span>
+            <span>Terminal POS (Nueva Ventana)</span>
           </Link>
         </div>
       </header>
@@ -298,7 +301,7 @@ export default function CentralMonitoreoPage() {
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>En Mora</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-white font-mono">
+                <span className="px-2 py-0.5 rounded-full text-xs bg-white/20 text-white font-mono font-bold">
                   {estadisticas.conteoEnMora}
                 </span>
               </button>
@@ -306,28 +309,28 @@ export default function CentralMonitoreoPage() {
               <button
                 type="button"
                 onClick={() => setPestañaActiva("CON_SALDO")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
+                className={`flex items-center gap-2 px-3.5 py-2 min-h-[38px] rounded-lg text-xs sm:text-sm font-bold transition ${
                   pestañaActiva === "CON_SALDO"
                     ? "bg-amber-600 text-white shadow-sm"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
-                <DollarSign className="w-3.5 h-3.5" />
+                <DollarSign className="w-4 h-4" />
                 <span>Con Saldo Pendiente</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setPestañaActiva("ACTIVAS")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
+                className={`flex items-center gap-2 px-3.5 py-2 min-h-[38px] rounded-lg text-xs sm:text-sm font-bold transition ${
                   pestañaActiva === "ACTIVAS"
                     ? "bg-blue-600 text-white shadow-sm"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
-                <Clock className="w-3.5 h-3.5" />
+                <Clock className="w-4 h-4" />
                 <span>Activas</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-white font-mono">
+                <span className="px-2 py-0.5 rounded-full text-xs bg-white/20 text-white font-mono font-bold">
                   {estadisticas.conteoActivas}
                 </span>
               </button>
@@ -335,15 +338,15 @@ export default function CentralMonitoreoPage() {
               <button
                 type="button"
                 onClick={() => setPestañaActiva("CERRADAS")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
+                className={`flex items-center gap-2 px-3.5 py-2 min-h-[38px] rounded-lg text-xs sm:text-sm font-bold transition ${
                   pestañaActiva === "CERRADAS"
                     ? "bg-emerald-600 text-white shadow-sm"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
+                <CheckCircle2 className="w-4 h-4" />
                 <span>Cerradas / Pagadas</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-white font-mono">
+                <span className="px-2 py-0.5 rounded-full text-xs bg-white/20 text-white font-mono font-bold">
                   {estadisticas.conteoCerradas}
                 </span>
               </button>
@@ -351,7 +354,7 @@ export default function CentralMonitoreoPage() {
               <button
                 type="button"
                 onClick={() => setPestañaActiva("TODAS")}
-                className={`px-3.5 py-2 rounded-lg text-xs font-bold transition ${
+                className={`px-3.5 py-2 min-h-[38px] rounded-lg text-xs sm:text-sm font-bold transition ${
                   pestañaActiva === "TODAS"
                     ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -384,7 +387,7 @@ export default function CentralMonitoreoPage() {
                   </button>
                 )}
               </div>
-              <span className="text-[11px] text-slate-400 whitespace-nowrap hidden lg:inline">
+              <span className="text-xs text-slate-500 whitespace-nowrap hidden lg:inline font-medium">
                 {facturasFiltradas.length} coincidencia(s)
               </span>
             </div>
@@ -416,18 +419,18 @@ export default function CentralMonitoreoPage() {
                 </p>
               </div>
             ) : (
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800/40 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-sm md:text-base">
+                <thead className="bg-slate-50 dark:bg-slate-800/40 text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className="px-4 py-3">Factura / Fecha</th>
-                    <th className="px-4 py-3">Cliente</th>
-                    <th className="px-3 py-3">Prenda Principal</th>
-                    <th className="px-3 py-3 text-center">Fecha Pactada</th>
-                    <th className="px-3 py-3 text-center">Retraso</th>
-                    <th className="px-3 py-3 text-right">Recargo Mora</th>
-                    <th className="px-3 py-3 text-right">Saldo Actual</th>
-                    <th className="px-4 py-3 text-center">Cobrar / Liquidar</th>
-                    <th className="px-4 py-3 text-center">CRM WhatsApp</th>
+                    <th className="px-4 py-3.5">Factura / Fecha</th>
+                    <th className="px-4 py-3.5">Cliente</th>
+                    <th className="px-3.5 py-3.5">Prenda Principal</th>
+                    <th className="px-3.5 py-3.5 text-center">Fecha Pactada</th>
+                    <th className="px-3.5 py-3.5 text-center">Retraso</th>
+                    <th className="px-3.5 py-3.5 text-right">Recargo Mora</th>
+                    <th className="px-3.5 py-3.5 text-right">Saldo Actual</th>
+                    <th className="px-4 py-3.5 text-center">Cobrar / Liquidar</th>
+                    <th className="px-4 py-3.5 text-center">CRM WhatsApp</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -459,7 +462,7 @@ export default function CentralMonitoreoPage() {
                               <p className="font-bold text-slate-900 dark:text-white font-mono">
                                 {f.numeroFactura}
                               </p>
-                              <span className="text-[10px] text-slate-400">
+                              <span className="text-xs text-slate-500 font-medium">
                                 {new Date(f.fechaCreacion).toLocaleDateString("es-CO")}
                               </span>
                             </div>
@@ -471,7 +474,7 @@ export default function CentralMonitoreoPage() {
                           <p className="font-bold text-slate-900 dark:text-white">
                             {f.cliente?.nombre}
                           </p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
                             C.C: {f.cliente?.documento}{" "}
                             {f.cliente?.telefono && `| Tel: ${f.cliente.telefono}`}
                           </p>
@@ -482,7 +485,7 @@ export default function CentralMonitoreoPage() {
                           <p className="font-semibold text-slate-800 dark:text-slate-200 max-w-xs truncate">
                             {f.prendaPrincipal}
                           </p>
-                          <span className="text-[10px] text-slate-400 uppercase font-bold">
+                          <span className="text-xs text-slate-500 uppercase font-bold">
                             {f.tipoOperacion}
                           </span>
                         </td>
@@ -494,7 +497,7 @@ export default function CentralMonitoreoPage() {
                               <p className="font-semibold text-slate-700 dark:text-slate-300 text-xs">
                                 {new Date(f.fechaDevolucionPactada).toLocaleDateString("es-CO")}
                               </p>
-                              <span className="text-[10px] text-slate-400">
+                              <span className="text-xs text-slate-500 font-mono">
                                 {new Date(f.fechaDevolucionPactada).toLocaleTimeString("es-CO", {
                                   hour: "2-digit",
                                   minute: "2-digit",
@@ -509,8 +512,8 @@ export default function CentralMonitoreoPage() {
                         {/* 5. Retraso */}
                         <td className="px-3 py-3.5 text-center">
                           {esMora ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-rose-600 text-white shadow-xs animate-pulse">
-                              <AlertTriangle className="w-3 h-3" />
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-600 text-white shadow-xs animate-pulse">
+                              <AlertTriangle className="w-3.5 h-3.5" />
                               {f.diasRetraso} {f.diasRetraso === 1 ? "día" : "días"}
                             </span>
                           ) : f.estado === "CERRADA" ? (
@@ -527,7 +530,7 @@ export default function CentralMonitoreoPage() {
                         {/* 6. Recargo Mora */}
                         <td className="px-3 py-3.5 text-right">
                           {f.recargoMoraCalculado > 0 ? (
-                            <span className="font-mono font-black text-rose-600 dark:text-rose-400 text-sm">
+                            <span className="font-mono font-black text-rose-600 dark:text-rose-400 text-sm md:text-base">
                               +${f.recargoMoraCalculado.toLocaleString("es-CO")}
                             </span>
                           ) : (
@@ -538,7 +541,7 @@ export default function CentralMonitoreoPage() {
                         {/* 7. Saldo Actual */}
                         <td className="px-3 py-3.5 text-right">
                           <p
-                            className={`font-mono font-extrabold text-sm ${
+                            className={`font-mono font-extrabold text-sm md:text-base ${
                               f.saldoPendiente > 0
                                 ? esMora
                                   ? "text-rose-600 dark:text-rose-400"
@@ -549,7 +552,7 @@ export default function CentralMonitoreoPage() {
                             ${f.saldoPendiente.toLocaleString("es-CO")}
                           </p>
                           {f.totalAbonado > 0 && (
-                            <span className="text-[10px] text-slate-400 block">
+                            <span className="text-xs text-slate-500 font-mono block">
                               Abonado: ${f.totalAbonado.toLocaleString("es-CO")}
                             </span>
                           )}

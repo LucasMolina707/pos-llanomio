@@ -135,7 +135,7 @@ export default function LoginPage() {
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                   <span>Admin</span>
                 </div>
-                <div className="text-slate-500 text-[11px] mt-0.5">admin / admin123</div>
+                <div className="text-slate-500 text-xs font-mono mt-0.5">admin / admin123</div>
               </button>
 
               <button
@@ -147,7 +147,7 @@ export default function LoginPage() {
                   <User className="h-3.5 w-3.5 text-blue-600" />
                   <span>Cajero</span>
                 </div>
-                <div className="text-slate-500 text-[11px] mt-0.5">cajero / cajero123</div>
+                <div className="text-slate-500 text-xs font-mono mt-0.5">cajero / cajero123</div>
               </button>
             </div>
           </div>

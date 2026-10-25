@@ -45,6 +45,14 @@ body {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Altura mínima ergonómica para botones e interacciones táctiles en POS y Admin */
+.btn-tactil {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Tarjeta estándar del panel empresarial */
 .tarjeta-empresa {
   background-color: #ffffff;
@@ -57,3 +65,4 @@ body {
   border-color: rgba(203, 213, 225, 0.95);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
 }
+

@@ -150,7 +150,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
           {menuSections.map((section, idx) => (
             <div key={idx} className="space-y-1">
               {!isCollapsed && (
-                <div className="px-3 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                <div className="px-3 pb-1.5 text-xs font-bold tracking-wider text-slate-400 uppercase">
                   {section.title}
                 </div>
               )}
@@ -158,19 +158,23 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
                 {section.items.map((item) => {
                   const isActive = pathname === item.href;
                   const Icon = item.icon;
+                  const esPos = item.href === "/caja/pos";
+
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
+                      target={esPos ? "_blank" : undefined}
+                      rel={esPos ? "noopener noreferrer" : undefined}
                       title={isCollapsed ? item.name : undefined}
-                      className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
+                      className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
                         isActive
                           ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
                           : "text-slate-300 hover:text-white hover:bg-slate-800/70"
                       } ${isCollapsed ? "justify-center px-0" : ""}`}
                     >
                       <Icon
-                        className={`h-4 w-4 shrink-0 transition-transform duration-150 ${
+                        className={`h-4.5 w-4.5 shrink-0 transition-transform duration-150 ${
                           isActive ? "text-white" : "text-slate-400 group-hover:text-white"
                         }`}
                       />
@@ -179,7 +183,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
                           <span className="truncate">{item.name}</span>
                           {item.badge && (
                             <span
-                              className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                              className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                                 isActive
                                   ? "bg-blue-700 text-blue-100"
                                   : "bg-slate-800 text-blue-400 border border-blue-900/60"
@@ -203,19 +207,19 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
       <div className="p-3 border-t border-slate-800 bg-slate-900/90 space-y-2">
         {/* Indicador de Red Local */}
         <div
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-800 text-[11px] font-medium text-slate-300 ${
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-800 text-xs font-medium text-slate-300 ${
             isCollapsed ? "justify-center px-0" : ""
           }`}
           title="Servicio mDNS activo en http://llanomio.local (Puerto 80)"
         >
-          <div className="relative flex h-2 w-2">
+          <div className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
           </div>
           {!isCollapsed && (
             <div className="flex flex-col truncate">
-              <span className="font-bold text-white text-[11px] leading-tight">LAN Activa</span>
-              <span className="text-[10px] text-slate-400">llanomio.local</span>
+              <span className="font-bold text-white text-xs leading-tight">LAN Activa</span>
+              <span className="text-xs text-slate-400">llanomio.local</span>
             </div>
           )}
         </div>
@@ -223,24 +227,24 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
         {/* Datos de Usuario y Cerrar Sesión */}
         {usuario && (
           <div
-            className={`flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-800/90 text-xs ${
+            className={`flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-800/90 text-xs sm:text-sm ${
               isCollapsed ? "justify-center px-0 flex-col gap-2" : ""
             }`}
           >
-            <div className="flex items-center gap-2 truncate">
-              <div className="h-7 w-7 rounded-lg bg-blue-900/60 border border-blue-500/30 text-blue-300 flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-2.5 truncate">
+              <div className="h-8 w-8 rounded-lg bg-blue-900/60 border border-blue-500/30 text-blue-300 flex items-center justify-center shrink-0">
                 {usuario.rol === "ADMIN" ? (
-                  <Shield className="h-3.5 w-3.5" />
+                  <Shield className="h-4 w-4" />
                 ) : (
-                  <UserCheck className="h-3.5 w-3.5" />
+                  <UserCheck className="h-4 w-4" />
                 )}
               </div>
               {!isCollapsed && (
                 <div className="flex flex-col truncate">
-                  <span className="font-bold text-white text-xs truncate leading-tight">
+                  <span className="font-bold text-white text-xs sm:text-sm truncate leading-tight">
                     {usuario.nombre || usuario.username}
                   </span>
-                  <span className="text-[10px] text-blue-400 font-semibold tracking-wide">
+                  <span className="text-xs text-blue-400 font-semibold tracking-wide">
                     {usuario.rol}
                   </span>
                 </div>

@@ -93,12 +93,12 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
           </div>
 
           <div className="flex flex-col">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
               <span>LLANOMIO</span>
-              <ChevronRight className="h-3 w-3" />
+              <ChevronRight className="h-3.5 w-3.5" />
               <span className="text-blue-600 font-bold">{infoRuta.seccion}</span>
             </div>
-            <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-tight">
+            <h1 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 tracking-tight leading-tight">
               {infoRuta.titulo}
             </h1>
           </div>
@@ -107,14 +107,17 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
 
       {/* 2. Lado Derecho: Acceso Rápido POS, Estado LAN y Perfil */}
       <div className="flex items-center gap-2.5 sm:gap-3">
-        {/* Acceso Rápido a Facturar si no estamos en la página del POS */}
+        {/* Acceso Rápido a Facturar en Nueva Ventana si no estamos en la página del POS */}
         {pathname !== "/caja/pos" && (
           <Link
             href="/caja/pos"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm shadow-blue-500/20"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 min-h-[42px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition shadow-sm shadow-blue-500/20"
+            title="Abrir Terminal de Facturación POS en nueva ventana"
           >
             <ShoppingBag className="h-4 w-4" />
-            <span className="hidden sm:inline">Ir a Facturar POS</span>
+            <span className="hidden sm:inline">Terminal POS</span>
             <span className="sm:hidden">POS</span>
           </Link>
         )}
@@ -129,14 +132,14 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
         {usuario ? (
           <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs">
+              <div className="h-9 w-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs sm:text-sm">
                 {usuario.nombre ? usuario.nombre.charAt(0).toUpperCase() : "U"}
               </div>
               <div className="hidden xl:flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-900 leading-none">
+                <span className="text-xs sm:text-sm font-bold text-slate-900 leading-none">
                   {usuario.nombre || usuario.username}
                 </span>
-                <span className="text-[10px] text-blue-600 font-semibold mt-0.5">
+                <span className="text-xs text-blue-600 font-semibold mt-0.5">
                   {usuario.rol}
                 </span>
               </div>

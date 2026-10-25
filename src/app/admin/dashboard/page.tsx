@@ -266,7 +266,7 @@ export default function DashboardGerencialPage() {
             <div className="text-2xl font-black tracking-tight text-slate-900">
               {formatearDinero(metricas.ingresosNetos)}
             </div>
-            <p className="text-[11px] font-medium text-slate-500 mt-1">
+            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
               Total recaudado en el periodo
             </p>
           </div>
@@ -286,7 +286,7 @@ export default function DashboardGerencialPage() {
             <div className="text-2xl font-black tracking-tight text-amber-600">
               {formatearDinero(metricas.cuentasPorCobrar)}
             </div>
-            <p className="text-[11px] font-medium text-slate-500 mt-1">
+            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
               Saldos pendientes de clientes
             </p>
           </div>
@@ -306,7 +306,7 @@ export default function DashboardGerencialPage() {
             <div className="text-2xl font-black tracking-tight text-rose-600">
               {formatearDinero(metricas.morasRecaudadas)}
             </div>
-            <p className="text-[11px] font-medium text-slate-500 mt-1">
+            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
               Recargos por retraso liquidados
             </p>
           </div>
@@ -326,7 +326,7 @@ export default function DashboardGerencialPage() {
             <div className="text-2xl font-black tracking-tight text-slate-900">
               {metricas.totalPrendasAlquiladas}
             </div>
-            <p className="text-[11px] font-medium text-slate-500 mt-1">
+            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
               Trajes en posesión de clientes
             </p>
           </div>
@@ -346,7 +346,7 @@ export default function DashboardGerencialPage() {
             <div className="text-2xl font-black tracking-tight text-emerald-600">
               {formatearDinero(metricas.rendimientoSastreria)}
             </div>
-            <p className="text-[11px] font-medium text-slate-500 mt-1">
+            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
               Arreglos y confección sin inventario
             </p>
           </div>
@@ -580,13 +580,13 @@ export default function DashboardGerencialPage() {
                       </div>
                     </td>
                     <td className="py-3 px-5">
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
                         {fac.tipoOperacion}
                       </span>
                     </td>
                     <td className="py-3 px-5">
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
                           fac.estado === "EN_MORA"
                             ? "bg-rose-50 text-rose-700 border border-rose-200"
                             : fac.estado === "CERRADA"
@@ -594,10 +594,10 @@ export default function DashboardGerencialPage() {
                             : "bg-blue-50 text-blue-700 border border-blue-200"
                         }`}
                       >
-                        {fac.estado === "EN_MORA" && <AlertTriangle className="w-3 h-3 text-rose-600" />}
-                        {fac.estado === "CERRADA" && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                        {fac.estado === "EN_MORA" && <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
+                        {fac.estado === "CERRADA" && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
                         {fac.estado !== "EN_MORA" && fac.estado !== "CERRADA" && (
-                          <ClockAlert className="w-3 h-3 text-blue-600" />
+                          <ClockAlert className="w-3.5 h-3.5 text-blue-600" />
                         )}
                         <span>{fac.estado}</span>
                       </span>
