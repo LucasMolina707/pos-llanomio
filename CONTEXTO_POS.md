@@ -1,7 +1,7 @@
 # CONTEXTO DEL SISTEMA POS LOCAL LLANOMIO
 
 ## Resumen Ejecutivo
-El **Sistema POS Local LLANOMIO** es una solución de facturación, punto de venta y gestión de inventario para alquiler y venta de prendas/trajes típica y formal, diseñada para operar en un entorno **100% Offline-First / Servidor Local Windows** con soporte de red de área local (LAN) en el puerto 80 (`http://llanomio.local` o IP local de la tienda). 
+El **Sistema POS Local LLANOMIO** es una solución integral de facturación, punto de venta y gestión de inventario para alquiler y venta de prendas/trajes típica y formal, diseñada para operar en un entorno **100% Offline-First / Servidor Local Windows** con soporte de red de área local (LAN) en el puerto 80 (`http://llanomio.local` o IP local de la tienda). 
 
 El sistema elimina la dependencia y costos recurrentes de servicios en la nube (No Vercel, No Firebase), protegiendo la soberanía de los datos del negocio mediante una base de datos relacional SQLite gestionada a través de Prisma ORM.
 
@@ -11,7 +11,10 @@ El sistema elimina la dependencia y costos recurrentes de servicios en la nube (
 
 | Capa | Tecnología | Propósito |
 | :--- | :--- | :--- |
-| **Framework Web** | Next.js 15 (App Router) | Servidor SSR / Frontend unificado con renderizado híbrido y rutas API |
+| **Framework Web** | Next.js 15 (App Router) | Servidor SSR / Frontend unificado con renderizado híbrido y rutas API en puerto 3000 |
+| **Red Local Zero-Config** | Bonjour Service (mDNS) | Anuncio de hostname `http://llanomio.local` en la red local Wi-Fi |
+| **Proxy Local Puerto 80** | Node.js HTTP Proxy Inverso | Enrutamiento transparente del puerto 80 (LAN) hacia Next.js (puerto 3000) |
+| **Gestor de Procesos** | PM2 Runtime (Fork Mode) | Orquestación persistente en segundo plano y auto-arranque tras reinicios de Windows |
 | **Lenguaje** | TypeScript 5 (Strict Mode) | Tipado estricto en toda la lógica de negocio y esquemas |
 | **Diseño / Estilos** | TailwindCSS + Lucide Icons | Interfaz mobile-first, esquinas redondeadas (`rounded-xl`/`rounded-2xl`), CERO emojis |
 | **ORM / Acceso a Datos** | Prisma ORM 6 | Abstracción de tipos, migraciones automáticas y seguridad de consultas |
@@ -23,7 +26,7 @@ El sistema elimina la dependencia y costos recurrentes de servicios en la nube (
 | **Motor de Moras & CRM** | Rutina Dinámica + wa.me API | Cálculo automático de penalizaciones por hora/día y contacto directo WhatsApp |
 | **Dashboard Gerencial** | Filtros de Fecha & Analytics | Métricas financieras, ingresos netos, cuentas por cobrar y rendimiento |
 | **Procesamiento Excel** | SheetJS (xlsx) + ts-node/tsx | Extracción, sanitización y carga masiva atómica |
-| **Infraestructura Local** | Node.js v24 + Windows Scripts | Despliegue en red local con scripts `.bat` para tienda |
+| **Infraestructura Local** | Scripts `.bat` + Node.js 24 | Despliegue guiado para personal no técnico en `/instalador_tienda` |
 
 ---
 
@@ -36,6 +39,9 @@ pos-llanomio/
 ├── .env.example                      # Plantilla de entorno para nuevas tiendas
 ├── .gitignore                        # Reglas de exclusión de Git (protección de BD y node_modules)
 ├── CONTEXTO_POS.md                   # Documentación viva y bitácora técnica de arquitectura
+├── ecosystem.config.js               # Orquestación de procesos de PM2 (Next.js + Proxy mDNS)
+├── start-pos.js                      # Script de arranque nativo de Next.js en puerto 3000
+├── server-mdns.js                    # Servidor proxy HTTP puerto 80 y anuncio Bonjour llanomio.local
 ├── next.config.mjs                   # Configuración del servidor Next.js
 ├── package.json                      # Dependencias y scripts de ejecución
 ├── postcss.config.mjs                # Configuración de PostCSS
@@ -51,10 +57,10 @@ pos-llanomio/
 │   │   └── .gitkeep
 │   └── migrations/                   # Historial de migraciones automáticas de Prisma
 ├── instalador_tienda/
-│   ├── 1_INSTALAR_POS_GITHUB.bat     # Instalador desatendido del sistema completo
-│   ├── 2_ACTUALIZAR_SISTEMA.bat      # Actualizador vía Git con respaldo preventivo automático
-│   ├── 3_RESPALDO_MANUAL.bat         # Generador de respaldos timestamped (disco C: y local)
-│   └── 4_RESTAURAR_RESPALDO.bat      # Restaurador guiado con salvaguarda de seguridad
+│   ├── 1_instalar_dependencias.bat   # Paso 1: Instalación de Node.js, dependencias, BD y build
+│   ├── 2_iniciar_sistema_pm2.bat     # Paso 2: Arranque persistente PM2, Firewall 80 y auto-arranque
+│   ├── 3_actualizar_sistema.bat      # Paso 3: Respaldo preventivo, pull Git, build y reload PM2
+│   └── 4_respaldar_manual.bat        # Paso 4: Respaldo manual en caliente SQLite (VACUUM INTO)
 ├── migracion_excel/
 │   ├── importar_excel.ts             # Redirección rápida al motor central de migración
 │   ├── origen/                       # Carpeta activa para depositar archivos Excel a migrar
@@ -62,10 +68,12 @@ pos-llanomio/
 │   │   └── inventario_prendas.xlsx   # Hoja Excel de inventario (códigos, tallas, precios)
 │   └── excel_fuente/                 # Depósito secundario de archivos fuente
 ├── scripts/
+│   ├── test-qa-final.ts              # Suite de validación integral final QA (Agente 5)
 │   ├── test-pos-qa.ts                # Suite de pruebas de facturación mixta y abonos
 │   ├── test-mora-crm-qa.ts           # Suite de pruebas para motor de moras y CRM WhatsApp
 │   └── test-caja-impresion-qa.ts     # Suite de pruebas para control de caja e impresión sin QR
 └── src/
+    ├── server-mdns.ts                # Fuente TypeScript del servicio Bonjour y proxy puerto 80
     ├── middleware.ts                 # Middleware Edge para protección RBAC (/admin/* bloqueado a CAJERO)
     ├── migracion/
     │   ├── migrar-datos.ts           # Script principal de extracción, deduplicación e inyección en BD
@@ -130,91 +138,64 @@ pos-llanomio/
 
 ---
 
-## 3. Esquema de Base de Datos Relacional (`schema.prisma`)
+## 3. Infraestructura de Red Local (Zero-Config mDNS y Proxy Puerto 80)
 
-El esquema de base de datos está normalizado y cubre la totalidad de operaciones de alquiler, venta, confección/arreglo y control de turnos de caja.
+1. **Servicio mDNS (Bonjour):**
+   - El archivo `server-mdns.js` (y `src/server-mdns.ts`) publica el registro multicast DNS `llanomio` de tipo `http` en el puerto 80 con hostname `llanomio.local`.
+   - Permite que cualquier dispositivo iOS, Android, Mac o Windows conectado al Wi-Fi de la tienda ingrese a:
+     ```text
+     http://llanomio.local
+     ```
+     sin requerir teclear direcciones IP cambiantes ni números de puerto `:3000`.
 
-### Enumeraciones Definidas
-- `RolUsuario`: `ADMIN`, `CAJERO`
-- `FormatoImpresion`: `TIRILLA`, `MEDIA_CARTA`, `CARTA`
-- `TipoProducto`: `VENTA`, `ALQUILER`
-- `UnidadMora`: `HORA`, `DIA`
-- `EstadoPrenda`: `DISPONIBLE`, `ALQUILADO`, `SEPARADO`, `EN_ARREGLO`, `INACTIVO`
-- `TipoOperacion`: `VENTA`, `ALQUILER`, `SEPARE`, `ARREGLO`, `MIXTO`
-- `EstadoFactura`: `ACTIVA`, `EN_PROCESO`, `ACTIVA_ALQUILADA`, `EN_MORA`, `CERRADA`
-- `MetodoPago`: `EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`, `CONSIGNACION`
-- `EstadoTurno`: `ABIERTO`, `CERRADO`
-- `TipoCierre`: `DIARIO`, `CONSOLIDADO_MENSUAL`
+2. **Proxy Inverso HTTP Nativo (Puerto 80 -> Puerto 3000):**
+   - Escucha en `0.0.0.0:80` y reenvía limpiamente todo el tráfico HTTP a `127.0.0.1:3000` (Next.js).
+   - Inyecta cabeceras `X-Forwarded-Host`, `X-Forwarded-For` y `X-Forwarded-Proto`.
+   - Incluye mecanismo defensivo con auto-recarga cada 2 segundos mientras Next.js inicializa en segundo plano.
 
----
-
-## 4. Control de Caja, Turnos y Arqueos Físicos (`/admin/caja` y `/api/caja`)
-
-Implementado en `src/app/admin/caja/page.tsx` y `src/app/api/caja/route.ts`:
-1. **Apertura de Turno con Base Inicial:**
-   - Registro obligatorio de la base en efectivo disponible en gaveta para cambio.
-   - Bloqueo preventivo si ya existe un turno abierto.
-2. **Arqueo en Tiempo Real:**
-   - Desglose por método de pago: `Efectivo`, `Nequi`, `Daviplata`, `Transferencia`, `Consignación`.
-   - Cálculo del total esperado en gaveta física: `Base Inicial + Efectivo Recaudado`.
-3. **Cierre de Caja y Comparación de Gaveta:**
-   - Captura del efectivo físico contado por el cajero.
-   - Cálculo automático de diferencia: Sobrante (`+`), Faltante (`-`) o Cuadre Exacto (`$0`).
-   - Generación de registro inmutable en `CierreCaja` (`DIARIO` o `CONSOLIDADO_MENSUAL`) para auditoría contable.
+3. **Orquestación Persistente con PM2 (`ecosystem.config.js`):**
+   - Ejecución en modo `fork` para garantizar el aislamiento de sockets y compatibilidad total con Windows:
+     - `pos-llanomio`: Ejecuta `start-pos.js` (Next.js en producción, puerto 3000, 800MB max memory).
+     - `pos-mdns-proxy`: Ejecuta `server-mdns.js` (Bonjour mDNS y Proxy puerto 80, 200MB max memory).
+   - Comando `pm2 save` configurado para persistir en `C:\Users\works\.pm2\dump.pm2`.
+   - Auto-arranque configurado en la carpeta de Inicio de Windows (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`).
 
 ---
 
-## 5. Formatos de Impresión Documental (`PlantillaImpresion.tsx` y `/api/impresion/[id]`)
+## 4. Paquete de Scripts del Instalador de Tienda (`/instalador_tienda`)
 
-Implementado en `src/components/impresion/PlantillaImpresion.tsx` y `src/app/api/impresion/[id]/route.ts`:
-1. **Tres Formatos Documentales:**
-   - **Tirilla 80mm (`TIRILLA`):** Diseño de ticket térmico compacto con tipografía monospace.
-   - **Media Carta (`MEDIA_CARTA`):** Documento para media hoja (5.5 x 8.5 in) con tabla y firmas.
-   - **Carta Completa (`CARTA`):** Documento formal corporativo para hoja estándar (8.5 x 11 in).
-2. **Selector de Copias y Corte:**
-   - Opción de 1 copia (`Original Cliente`) o 2 copias (`Original Cliente` + `Copia Archivo Tienda`) con línea punteada de corte para tijera.
-3. **Datos Corporativos de LLANOMIO:**
-   - Nombre comercial, NIT, Dirección, Teléfono, Logotipo y Políticas de Alquiler.
-4. **Restricción Estricta — Cero Códigos QR:**
-   - Ningún formato incluye códigos QR para consulta externa de clientes, respetando las directrices de privacidad y sobriedad del negocio.
-5. **Estilos `@media print` Nativos:**
-   - Ocultamiento de barras de navegación, botones y fondos del sistema para una impresión en papel limpia y de alto contraste.
+Diseñado para instalación, mantenimiento y operación desatendida por personal de tienda:
+
+| Script | Propósito | Acciones Clave |
+| :--- | :--- | :--- |
+| `1_instalar_dependencias.bat` | Instalación Inicial | Comprueba Node.js, crea carpetas `C:\POS_LLANOMIO_BACKUPS`, instala dependencias con `npm install`, compila cliente Prisma, siembra datos base y ejecuta `npm run build`. |
+| `2_iniciar_sistema_pm2.bat` | Arranque del Servicio | Abre regla de Firewall en Windows para el puerto 80, levanta `pos-llanomio` y `pos-mdns-proxy` en PM2, ejecuta `pm2 save` y crea script en la carpeta Startup de Windows. |
+| `3_actualizar_sistema.bat` | Actualización Remota | Genera copia de seguridad preventiva de SQLite, descarga últimos cambios con `git pull origin main`, actualiza paquetes npm, actualiza esquema Prisma, recompila con `npm run build` y recarga PM2 sin caída de servicio. |
+| `4_respaldar_manual.bat` | Copia de Seguridad | Ejecuta la rutina `VACUUM INTO` hacia `C:\POS_LLANOMIO_BACKUPS\llanomio_ULTIMO.db` y guarda copias fechadas con marca de tiempo en `historial/`. |
 
 ---
 
-## 6. Dashboard Gerencial con Filtros de Fecha (`/admin/dashboard`)
+## 5. Control de Calidad Integral (QA Final - Agente 5)
 
-Implementado en `src/app/admin/dashboard/page.tsx` y `src/app/api/admin/dashboard/route.ts`:
-1. **Filtros Temporales Interactivos:**
-   - Selectores de fecha `Desde` y `Hasta` con atajos rápidos: "Hoy", "Últimos 7 Días", "Este Mes", "Año Actual".
-2. **Cinco Métricas Clave:**
-   - **Ingresos Netos:** Suma total de abonos recaudados en el rango.
-   - **Cuentas por Cobrar:** Saldos pendientes por recaudar de facturas emitidas en el periodo.
-   - **Moras Recaudadas:** Total de penalizaciones por retraso en el periodo.
-   - **Prendas Alquiladas:** Conteo de trajes y prendas entregadas.
-   - **Rendimiento Sastrería Libre:** Total generado por arreglos de confección sin inventario.
-3. **Análisis Gráfico y Desglose:**
-   - Barras comparativas de ingresos por método de pago (`Efectivo`, `Nequi`, `Daviplata`, `Transferencia`).
-   - Rendimiento por línea de negocio (`Alquileres`, `Venta Directa`, `Sastrería`).
-   - Tabla de últimas facturas emitidas en el periodo con acceso a monitoreo.
+La validación exhaustiva certificó el funcionamiento de todos los módulos del sistema:
 
----
+1. **QA Respaldo en Caliente (`VACUUM INTO`):**
+   - Archivo generado: `C:\POS_LLANOMIO_BACKUPS\llanomio_ULTIMO.db`.
+   - Cabecera binaria `SQLite format 3` verificada sin bloqueos de lectura/escritura.
+   - Rotación histórica con marca de tiempo funcional.
 
-## 7. Resultados del Control de Calidad (QA - Agente 5)
+2. **QA Red Local mDNS y Proxy Puerto 80:**
+   - Detección automática de la IP LAN (ej. `192.168.56.10`).
+   - Hostname `http://llanomio.local` anunciado en red local.
+   - Tráfico del puerto 80 reenviado a `127.0.0.1:3000` con respuesta `HTTP 200 OK` inmediata.
 
-Las pruebas automatizadas de Control de Caja e Impresión ([scripts/test-caja-impresion-qa.ts](file:///d:/Proyectos%20IA/pos-llanomio/scripts/test-caja-impresion-qa.ts)) arrojaron una calificación de **100% de éxito**:
+3. **QA Formatos de Impresión y Privacidad:**
+   - Formatos `TIRILLA`, `MEDIA_CARTA` y `CARTA` validados con opción de doble copia y línea de corte.
+   - Cero códigos QR en documentos de clientes cumplido al 100%.
 
-- `[QA Caja 1]` **Ciclo de Caja y Cuadre Exacto:**
-  - Base inicial en efectivo: $150.000.
-  - Abonos en efectivo: $75.000.
-  - Abonos digitales (Nequi + Transferencia): $100.000.
-  - Total esperado en gaveta física: $225.000.
-  - Efectivo contado: $225.000 -> Diferencia: $0 (Cuadre Exacto).
-  - Creación de registro inmutable en `CierreCaja` con fecha y usuario validada.
-- `[QA Impresión 2]` **Formatos e Inexistencia de QR:**
-  - Cero librerías o etiquetas de código QR en `PlantillaImpresion.tsx`: Aprobado.
-  - Soporte de formatos `TIRILLA`, `MEDIA_CARTA` y `CARTA`: Aprobado.
-  - Soporte de 2 copias con división de corte: Aprobado.
-  - Inclusión de datos corporativos (NIT, Dirección, Políticas): Aprobado.
-- `[QA Build 3]` **Compilación de Producción:**
-  - Build exitoso con **23 rutas** (`npm run build` con código 0 y tipado estricto).
+4. **QA Cuadre Matemático y Cartera:**
+   - Facturas con desglose exacto por ítems (alquiler, venta, arreglos libres).
+   - Abonos parciales por método de pago (Efectivo, Nequi, Daviplata, Transferencia) y saldos pendientes calculados al centavo.
+
+5. **QA Compilación de Producción:**
+   - Next.js 15 compiló 23 rutas (`npm run build`) con 0 errores de TypeScript y 0 warnings de linting.
