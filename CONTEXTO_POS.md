@@ -233,11 +233,20 @@ Se implementó una experiencia de mostrador estructurada y lineal en `src/app/ca
    - Indicador de 4 pasos interactivo (`1. Cliente` ➔ `2. Productos / Alquiler / Servicios` ➔ `3. Pago o Adelanto` ➔ `4. Factura Media Carta / PDF`).
    - Muestra el paso activo, marcas de verificación en pasos completados y permite navegar hacia atrás a pasos previos.
 
-2. **Paso 1 — Selección o Registro Obligatorio del Cliente:**
-   - Búsqueda instantánea con debounce por Cédula/NIT, Nombre o Teléfono (`/api/clientes?q=...`).
-   - Botón destacado **"+ Agregar Nuevo Cliente"** que invoca `ModalCrearClienteRapido.tsx`, precargando la identificación digitada.
-   - Al guardar o seleccionar un cliente, se inyecta automáticamente a la factura activa y avanza de inmediato al Paso 2.
-   - Ficha resumida de cliente con opción "Cambiar Cliente" en cualquier momento.
+2. **Paso 1 — Selector Visual de Clientes por Etiquetas (Chips Táctiles) con Autofiltrado Fuzzy:**
+   - **Carga Completa Inicial (0 ms de latencia):** Al entrar a `/caja/pos`, se realiza `GET /api/clientes` trayendo el catálogo completo de clientes activos en memoria, permitiendo un filtrado instantáneo en el navegador en cada pulsación de tecla.
+   - **Algoritmo de Filtrado Fuzzy & Multi-Campo:**
+     - Función `normalizarTexto` que elimina tildes/diacríticos (`NFD`), convierte a minúsculas y remueve caracteres especiales.
+     - Búsqueda tokenizada en índice consolidado (`nombre`, `documento`, `telefono`, `direccion`, `notas`).
+     - Tolerancia a errores tipográficos (1 letra cambiada o transposición en palabras de 4+ caracteres con distancia de Levenshtein).
+     - Puntuación de relevancia: prefijo exacto en documento/nombre > coincidencia parcial > coincidencia aproximada.
+   - **Visualización en Etiquetas / Píldoras Táctiles:**
+     - Barra de búsqueda grande con botón `X` de limpieza rápida y contador en vivo de coincidencias (`Mostrando X de Y clientes`).
+     - Contenedor con scroll suave y diseño flex-wrap donde cada cliente se muestra como un chip táctil interactivo (avatar/inicial, nombre en negrita, badges de cédula y teléfono, y badge `"NUEVO"` para clientes registrados en la sesión).
+     - Selección con un solo toque (resaltado en azul vibrante con `CheckCircle2`) y selección rápida presionando `Enter` en el input.
+     - Estado sin coincidencias con botón táctil directo para registrar al cliente prellenando lo que el cajero escribió.
+     - Al crear un cliente con `ModalCrearClienteRapido.tsx`, este se inyecta inmediatamente en la primera posición (índice 0) con badge `"NUEVO"` y queda seleccionado de forma automática.
+   - Ficha resumida de cliente asignado con botón para "Continuar al Paso 2" o "Deseleccionar".
 
 3. **Paso 2 — Tres Módulos Claros de Carga & Carrito Mixto Unificado:**
    - Selector visual mediante pestañas diferenciadas por color e íconos de `lucide-react`:

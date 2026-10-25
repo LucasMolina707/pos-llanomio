@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Search,
+  X,
   User,
   UserPlus,
   UserCheck,
@@ -32,7 +33,7 @@ import {
   Wallet,
   Building2,
   Check,
-  Info,
+  Users,
 } from "lucide-react";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import ModalProducto from "@/components/inventario/ModalProducto";
@@ -104,6 +105,71 @@ const getFechaDevolucionSugerida = (diasAdicionales = 2) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+// =========================================================
+// UTILIDADES DE BÚSQUEDA FUZZY Y MULTI-CAMPO EN CLIENTES
+// =========================================================
+function normalizarTexto(str: string | null | undefined): string {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // quitar tildes/diacríticos
+    .replace(/[-_.,;/\\()]/g, " ")   // quitar guiones y signos
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function distanciaEdicion(a: string, b: string): number {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > 1) return 2;
+  let edits = 0;
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] !== b[j]) {
+      edits++;
+      if (edits > 1) return 2;
+      if (a.length > b.length) {
+        i++;
+      } else if (a.length < b.length) {
+        j++;
+      } else {
+        // Transposición
+        if (i + 1 < a.length && j + 1 < b.length && a[i] === b[j + 1] && a[i + 1] === b[j]) {
+          i += 2;
+          j += 2;
+          continue;
+        }
+        i++;
+        j++;
+      }
+    } else {
+      i++;
+      j++;
+    }
+  }
+  if (i < a.length || j < b.length) edits++;
+  return edits;
+}
+
+function esCoincidenciaAproximada(palabra: string, token: string): boolean {
+  if (!palabra || !token) return false;
+  if (palabra.includes(token)) return true;
+  if (token.length < 4) return false;
+
+  if (Math.abs(palabra.length - token.length) <= 1) {
+    return distanciaEdicion(palabra, token) <= 1;
+  }
+
+  if (palabra.length > token.length) {
+    for (let i = 0; i <= palabra.length - token.length; i++) {
+      const sub = palabra.substring(i, i + token.length);
+      if (distanciaEdicion(sub, token) <= 1) return true;
+    }
+  }
+  return false;
+}
+
 export default function PosPage() {
   // =========================================================
   // CONTROL DE PASOS GUIADOS (1 -> 2 -> 3 -> 4)
@@ -111,14 +177,17 @@ export default function PosPage() {
   const [pasoActual, setPasoActual] = useState<1 | 2 | 3 | 4>(1);
 
   // =========================================================
-  // PASO 1: ESTADO DE CLIENTE
+  // PASO 1: ESTADO DE CLIENTE (CATÁLOGO COMPLETO + CHIPS FUZZY)
   // =========================================================
+  const [todosLosClientes, setTodosLosClientes] = useState<ClienteCreado[]>([]);
+  const [cargandoClientesInicial, setCargandoClientesInicial] = useState(false);
+  const [clientesNuevosIds, setClientesNuevosIds] = useState<Set<string>>(new Set());
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteCreado | null>(null);
   const [busquedaCliente, setBusquedaCliente] = useState("");
-  const [clientesSugeridos, setClientesSugeridos] = useState<ClienteCreado[]>([]);
-  const [buscandoClientes, setBuscandoClientes] = useState(false);
   const [mostrarModalCliente, setMostrarModalCliente] = useState(false);
-  const clienteSearchTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [modalDocInicial, setModalDocInicial] = useState("");
+  const [modalNomInicial, setModalNomInicial] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // =========================================================
   // PASO 2: MÓDULOS DE CARGA (VENTA, ALQUILER, ARREGLO)
@@ -175,35 +244,109 @@ export default function PosPage() {
   const [datosImpresion, setDatosImpresion] = useState<DatosImpresionFactura | null>(null);
 
   // =========================================================
-  // BÚSQUEDA REACTIVA DE CLIENTES (Paso 1)
+  // CARGA COMPLETA INICIAL DE CLIENTES (0 ms de latencia local)
   // =========================================================
   useEffect(() => {
-    if (!busquedaCliente.trim() || clienteSeleccionado) {
-      setClientesSugeridos([]);
-      return;
-    }
-
-    if (clienteSearchTimeout.current) clearTimeout(clienteSearchTimeout.current);
-
-    clienteSearchTimeout.current = setTimeout(async () => {
+    let cancelado = false;
+    const cargarClientes = async () => {
       try {
-        setBuscandoClientes(true);
-        const res = await fetch(`/api/clientes?q=${encodeURIComponent(busquedaCliente.trim())}`);
+        setCargandoClientesInicial(true);
+        const res = await fetch("/api/clientes");
         const data = await res.json();
-        if (data.success) {
-          setClientesSugeridos(data.clientes || []);
+        if (!cancelado && data.success) {
+          setTodosLosClientes(data.clientes || []);
         }
       } catch (err) {
-        console.error("Error al buscar clientes:", err);
+        console.error("Error al cargar clientes iniciales:", err);
       } finally {
-        setBuscandoClientes(false);
+        if (!cancelado) setCargandoClientesInicial(false);
       }
-    }, 250);
-
-    return () => {
-      if (clienteSearchTimeout.current) clearTimeout(clienteSearchTimeout.current);
     };
-  }, [busquedaCliente, clienteSeleccionado]);
+    cargarClientes();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  // =========================================================
+  // FILTRADO DINÁMICO FUZZY & MULTI-CAMPO EN MEMORIA (useMemo)
+  // =========================================================
+  const clientesFiltrados = useMemo(() => {
+    if (!busquedaCliente.trim()) {
+      return todosLosClientes;
+    }
+
+    const tokens = normalizarTexto(busquedaCliente).split(" ").filter(Boolean);
+    if (tokens.length === 0) return todosLosClientes;
+
+    const resultados: { cliente: ClienteCreado; score: number }[] = [];
+
+    for (const cliente of todosLosClientes) {
+      const nomNorm = normalizarTexto(cliente.nombre);
+      const docNorm = normalizarTexto(cliente.documento);
+      const telNorm = normalizarTexto(cliente.telefono);
+      const dirNorm = normalizarTexto(cliente.direccion);
+      const notasNorm = normalizarTexto(cliente.notas);
+
+      const palabrasCliente = [
+        ...nomNorm.split(" "),
+        ...dirNorm.split(" "),
+        ...docNorm.split(" "),
+        ...telNorm.split(" "),
+      ].filter(Boolean);
+
+      let scoreTotal = 0;
+      let coincideTodos = true;
+
+      for (const token of tokens) {
+        let tokenScore = 0;
+
+        // 1. Coincidencia exacta al inicio de documento o nombre
+        if (docNorm.startsWith(token) || nomNorm.startsWith(token)) {
+          tokenScore += 100;
+        }
+        // 2. Substring en documento (ej. fragmento numérico)
+        else if (docNorm.includes(token)) {
+          tokenScore += 65;
+        }
+        // 3. Substring en nombre
+        else if (nomNorm.includes(token)) {
+          tokenScore += 50;
+        }
+        // 4. Substring en teléfono
+        else if (telNorm.includes(token)) {
+          tokenScore += 35;
+        }
+        // 5. Substring en dirección o notas
+        else if (dirNorm.includes(token) || notasNorm.includes(token)) {
+          tokenScore += 20;
+        }
+        // 6. Tolerancia a errores tipográficos (token >= 4 letras)
+        else if (token.length >= 4) {
+          const aprox = palabrasCliente.some((p) => esCoincidenciaAproximada(p, token));
+          if (aprox) {
+            tokenScore += 10;
+          } else {
+            coincideTodos = false;
+            break;
+          }
+        } else {
+          coincideTodos = false;
+          break;
+        }
+
+        scoreTotal += tokenScore;
+      }
+
+      if (coincideTodos && scoreTotal > 0) {
+        resultados.push({ cliente, score: scoreTotal });
+      }
+    }
+
+    // Ordenar de mayor a menor relevancia
+    resultados.sort((a, b) => b.score - a.score);
+    return resultados.map((r) => r.cliente);
+  }, [todosLosClientes, busquedaCliente]);
 
   // =========================================================
   // BÚSQUEDA REACTIVA DE PRODUCTOS DE VENTA (Paso 2 - Módulo A)
@@ -222,7 +365,6 @@ export default function PosPage() {
         const res = await fetch(`/api/inventario?q=${encodeURIComponent(busquedaVenta.trim())}`);
         const data = await res.json();
         if (data.ok) {
-          // Filtrar o priorizar productos de venta
           setProductosVentaSugeridos(data.productos || []);
         }
       } catch (err) {
@@ -273,17 +415,30 @@ export default function PosPage() {
   // =========================================================
   const asignarCliente = (cliente: ClienteCreado) => {
     setClienteSeleccionado(cliente);
-    setBusquedaCliente("");
-    setClientesSugeridos([]);
     setMensajeError(null);
-    // Avance automático al Paso 2
-    setPasoActual(2);
   };
 
   const cambiarCliente = () => {
     setClienteSeleccionado(null);
-    setBusquedaCliente("");
     setPasoActual(1);
+    if (searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    }
+  };
+
+  const abrirModalNuevoCliente = (textoPrellenar = "") => {
+    const limpio = textoPrellenar.trim();
+    const soloNumeros = limpio.replace(/[^\d]/g, "");
+
+    // Si tiene al menos 4 dígitos y son la mayoría, tratar como documento
+    if (soloNumeros.length >= 4 && soloNumeros.length >= limpio.length * 0.6) {
+      setModalDocInicial(limpio);
+      setModalNomInicial("");
+    } else {
+      setModalDocInicial("");
+      setModalNomInicial(limpio);
+    }
+    setMostrarModalCliente(true);
   };
 
   // =========================================================
@@ -304,7 +459,6 @@ export default function PosPage() {
     const cant = Math.max(1, cantidadVenta);
     const precioUnit = Math.max(0, parseFloat(precioVentaCustom) || 0);
 
-    // Revisar si ya existe en el carrito
     const existeIndex = itemsCarrito.findIndex(
       (item) => item.productoId === productoVentaSeleccionado.id && item.tipo === "VENTA"
     );
@@ -582,7 +736,6 @@ export default function PosPage() {
         fechaDevolucion: item.fechaDevolucion || null,
       }));
 
-      // Buscar si hay fechas de alquiler en los ítems
       const primerItemAlquiler = itemsCarrito.find((i) => i.tipo === "ALQUILER");
 
       const bodyPayload = {
@@ -690,18 +843,18 @@ export default function PosPage() {
             onClick={() => setPasoActual(1)}
             className={`flex items-center gap-2.5 p-3 rounded-xl border transition text-left ${
               pasoActual === 1
-                ? "bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/20"
+                ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20"
                 : clienteSeleccionado
-                ? "bg-amber-50/60 text-amber-900 border-amber-200 hover:bg-amber-100/50"
+                ? "bg-blue-50/60 text-blue-900 border-blue-200 hover:bg-blue-100/50"
                 : "bg-slate-50 text-slate-500 border-slate-200"
             }`}
           >
             <div
               className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
                 pasoActual === 1
-                  ? "bg-white text-amber-600"
+                  ? "bg-white text-blue-600"
                   : clienteSeleccionado
-                  ? "bg-amber-600 text-white"
+                  ? "bg-blue-600 text-white"
                   : "bg-slate-200 text-slate-600"
               }`}
             >
@@ -847,33 +1000,178 @@ export default function PosPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* VISTA DEL PASO 1: SELECCIÓN O REGISTRO DE CLIENTE                         */}
+      {/* VISTA DEL PASO 1: SELECTOR VISUAL DE CLIENTES POR ETIQUETAS TÁCTILES      */}
       {/* ========================================================================= */}
       {pasoActual === 1 && (
         <section aria-labelledby="heading-paso-1" className="space-y-6">
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6 max-w-4xl mx-auto">
-            <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6 max-w-5xl mx-auto">
+            {/* Cabecera del Paso 1 */}
+            <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
-                  <User className="w-6 h-6" />
+                <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
+                  <Users className="w-6 h-6" />
                 </div>
                 <div>
                   <h2 id="heading-paso-1" className="text-lg sm:text-xl font-black text-slate-900">
-                    Paso 1: Identificación o Registro del Cliente
+                    Paso 1: Selección de Cliente por Etiquetas Táctiles
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-500">
-                    Obligatorio para vincular la orden de venta, los contratos de alquiler y las garantías de devolución
+                    Toque una etiqueta para asignarlo o escriba cualquier fragmento para autofiltrar al instante
                   </p>
                 </div>
               </div>
+
+              {/* Botón Destacado + Nuevo Cliente */}
+              <button
+                type="button"
+                onClick={() => abrirModalNuevoCliente(busquedaCliente)}
+                className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition shrink-0"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Nuevo Cliente</span>
+              </button>
             </div>
 
-            {clienteSeleccionado ? (
-              /* Ficha de Cliente Asignado */
-              <div className="p-5 rounded-2xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            {/* Barra de Búsqueda Instantánea con Contador y Limpieza Rápida */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+                <span>Buscador flexible por nombre, cédula, teléfono o dirección:</span>
+                <span className="font-semibold text-slate-700">
+                  Mostrando {clientesFiltrados.length} de {todosLosClientes.length} clientes
+                </span>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Search className="w-5 h-5" />
+                </div>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  autoFocus
+                  placeholder="Escriba para filtrar etiquetas (ej. 'juan 311', 'meta', '1121')... Presione Enter para elegir el primero"
+                  value={busquedaCliente}
+                  onChange={(e) => setBusquedaCliente(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (clientesFiltrados.length > 0) {
+                        asignarCliente(clientesFiltrados[0]);
+                      }
+                    }
+                  }}
+                  className="w-full pl-11 pr-10 py-3.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-xs"
+                />
+                {busquedaCliente && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBusquedaCliente("");
+                      searchInputRef.current?.focus();
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition"
+                    title="Limpiar búsqueda"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Contenedor de Etiquetas / Chips Táctiles de Todos los Clientes */}
+            <div className="space-y-2">
+              <div className="p-3 bg-slate-50/70 rounded-2xl border border-slate-200/80">
+                {cargandoClientesInicial && todosLosClientes.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 space-y-2">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto text-blue-600" />
+                    <p>Cargando catálogo completo de clientes...</p>
+                  </div>
+                ) : clientesFiltrados.length === 0 ? (
+                  /* Estado Vacío de Búsqueda con Botón Directo */
+                  <div className="p-6 text-center space-y-3">
+                    <p className="text-sm font-semibold text-slate-700">
+                      No se encontró ningún cliente que coincida con &quot;{busquedaCliente}&quot;.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => abrirModalNuevoCliente(busquedaCliente)}
+                      className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>No se encontró &quot;{busquedaCliente}&quot;. Haz clic aquí para crear este cliente ahora</span>
+                    </button>
+                  </div>
+                ) : (
+                  /* Grilla de Chips / Etiquetas Táctiles */
+                  <div className="flex flex-wrap gap-2.5 max-h-72 overflow-y-auto pr-1">
+                    {clientesFiltrados.map((c) => {
+                      const estaSeleccionado = clienteSeleccionado?.id === c.id;
+                      const esNuevo = clientesNuevosIds.has(c.id);
+                      const inicial = (c.nombre || "C").trim().charAt(0).toUpperCase();
+
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => asignarCliente(c)}
+                          className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border text-left transition select-none cursor-pointer ${
+                            estaSeleccionado
+                              ? "bg-blue-600 text-white border-blue-600 ring-2 ring-blue-300 shadow-md scale-102"
+                              : "bg-white hover:bg-blue-50/80 border-slate-200/90 text-slate-800 hover:border-blue-300 shadow-xs active:scale-95"
+                          }`}
+                        >
+                          {/* Avatar con inicial o check si está seleccionado */}
+                          <div
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
+                              estaSeleccionado
+                                ? "bg-white text-blue-600"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {estaSeleccionado ? <CheckCircle2 className="w-4 h-4" /> : inicial}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs sm:text-sm font-bold truncate max-w-[190px] sm:max-w-[240px]">
+                                {c.nombre}
+                              </span>
+                              {esNuevo && (
+                                <span
+                                  className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${
+                                    estaSeleccionado
+                                      ? "bg-emerald-400 text-slate-900"
+                                      : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                  }`}
+                                >
+                                  NUEVO
+                                </span>
+                              )}
+                            </div>
+
+                            <div
+                              className={`flex items-center gap-2 text-[10px] font-mono ${
+                                estaSeleccionado ? "text-blue-100" : "text-slate-500"
+                              }`}
+                            >
+                              <span>C.C: {c.documento}</span>
+                              {c.telefono && <span>• Tel: {c.telefono}</span>}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Ficha Resumen de Cliente Seleccionado (Visible cuando hay uno elegido) */}
+            {clienteSeleccionado && (
+              <div className="p-5 rounded-2xl bg-blue-50/80 border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <UserCheck className="w-5 h-5 text-amber-700" />
+                    <UserCheck className="w-5 h-5 text-blue-700" />
                     <h3 className="text-base sm:text-lg font-black text-slate-900">
                       {clienteSeleccionado.nombre}
                     </h3>
@@ -896,95 +1194,17 @@ export default function PosPage() {
                     onClick={cambiarCliente}
                     className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 transition"
                   >
-                    Cambiar Cliente
+                    Deseleccionar
                   </button>
                   <button
                     type="button"
                     onClick={() => setPasoActual(2)}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/20 transition"
                   >
                     <span>Continuar al Paso 2</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
-              </div>
-            ) : (
-              /* Buscador y Botón de Creación Rápida */
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <div className="relative flex-1">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <Search className="w-5 h-5" />
-                    </div>
-                    <input
-                      type="text"
-                      autoFocus
-                      placeholder="Buscar por Cédula, NIT, Nombre o Teléfono..."
-                      value={busquedaCliente}
-                      onChange={(e) => setBusquedaCliente(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-amber-500 transition shadow-xs"
-                    />
-                    {buscandoClientes && (
-                      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-amber-600 text-xs font-semibold">
-                        Buscando...
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setMostrarModalCliente(true)}
-                    className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-600/20 transition shrink-0"
-                  >
-                    <UserPlus className="w-5 h-5" />
-                    <span>+ Agregar Nuevo Cliente</span>
-                  </button>
-                </div>
-
-                {/* Lista de Sugerencias de Clientes */}
-                {clientesSugeridos.length > 0 && (
-                  <div className="rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                    {clientesSugeridos.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => asignarCliente(c)}
-                        className="w-full text-left p-3.5 hover:bg-amber-50/70 transition flex items-center justify-between group"
-                      >
-                        <div>
-                          <p className="text-sm font-bold text-slate-900 group-hover:text-amber-700">
-                            {c.nombre}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Cédula / NIT: <span className="font-mono font-semibold">{c.documento}</span>
-                            {c.telefono ? ` | Tel: ${c.telefono}` : ""}
-                            {c.direccion ? ` | ${c.direccion}` : ""}
-                          </p>
-                        </div>
-                        <span className="flex items-center gap-1 text-xs font-bold text-amber-600">
-                          <span>Seleccionar</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {busquedaCliente.trim() && !buscandoClientes && clientesSugeridos.length === 0 && (
-                  <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3">
-                    <p className="text-sm font-semibold text-slate-700">
-                      No se encontró ningún cliente registrado con el criterio: &quot;{busquedaCliente}&quot;
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setMostrarModalCliente(true)}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-sm transition"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span>Registrar a &quot;{busquedaCliente}&quot; Ahora Mismo</span>
-                    </button>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -998,16 +1218,16 @@ export default function PosPage() {
         <section aria-labelledby="heading-paso-2" className="space-y-6">
           {/* Ficha Resumida del Cliente Asignado */}
           {clienteSeleccionado && (
-            <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3 sm:p-4 flex items-center justify-between text-xs sm:text-sm">
+            <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-3 sm:p-4 flex items-center justify-between text-xs sm:text-sm">
               <div className="flex items-center gap-2 text-slate-800">
-                <UserCheck className="w-4 h-4 text-amber-700" />
+                <UserCheck className="w-4 h-4 text-blue-700" />
                 <span className="font-bold">{clienteSeleccionado.nombre}</span>
                 <span className="text-slate-500 font-mono">({clienteSeleccionado.documento})</span>
               </div>
               <button
                 type="button"
                 onClick={() => setPasoActual(1)}
-                className="text-xs font-bold text-amber-800 hover:underline"
+                className="text-xs font-bold text-blue-700 hover:underline"
               >
                 Cambiar Cliente
               </button>
@@ -2059,9 +2279,17 @@ export default function PosPage() {
       <ModalCrearClienteRapido
         isOpen={mostrarModalCliente}
         onClose={() => setMostrarModalCliente(false)}
-        documentoInicial={busquedaCliente}
+        documentoInicial={modalDocInicial}
+        nombreInicial={modalNomInicial}
         onClienteCreado={(cliente) => {
+          // 1. Agregar inmediatamente al inicio de la lista local
+          setTodosLosClientes((prev) => [cliente, ...prev.filter((c) => c.id !== cliente.id)]);
+          // 2. Marcar como cliente nuevo en esta sesión para badge
+          setClientesNuevosIds((prev) => new Set(prev).add(cliente.id));
+          // 3. Quedar seleccionado automáticamente
           asignarCliente(cliente);
+          // 4. Limpiar búsqueda para ver la etiqueta al frente
+          setBusquedaCliente("");
           setMostrarModalCliente(false);
         }}
       />

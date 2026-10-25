@@ -17,6 +17,7 @@ interface ModalCrearClienteRapidoProps {
   onClose: () => void;
   onClienteCreado: (cliente: ClienteCreado) => void;
   documentoInicial?: string;
+  nombreInicial?: string;
 }
 
 export default function ModalCrearClienteRapido({
@@ -24,9 +25,10 @@ export default function ModalCrearClienteRapido({
   onClose,
   onClienteCreado,
   documentoInicial = "",
+  nombreInicial = "",
 }: ModalCrearClienteRapidoProps) {
   const [documento, setDocumento] = useState(documentoInicial);
-  const [nombre, setNombre] = useState("");
+  const [nombre, setNombre] = useState(nombreInicial);
   const [telefono, setTelefono] = useState("");
   const [direccion, setDireccion] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -35,9 +37,12 @@ export default function ModalCrearClienteRapido({
   React.useEffect(() => {
     if (isOpen) {
       setDocumento(documentoInicial);
+      setNombre(nombreInicial);
+      setTelefono("");
+      setDireccion("");
       setError(null);
     }
-  }, [isOpen, documentoInicial]);
+  }, [isOpen, documentoInicial, nombreInicial]);
 
   if (!isOpen) return null;
 

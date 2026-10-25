@@ -3,27 +3,53 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * GET /api/clientes
- * Búsqueda de clientes por documento o nombre
+ * Carga completa de clientes ordenados por más recientes / frecuentes
+ * con soporte de búsqueda multi-campo y filtrado flexible.
  */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q")?.trim() || "";
+    const limiteParam = searchParams.get("limite");
+    const limite = limiteParam ? parseInt(limiteParam, 10) : undefined;
 
-    const where = q
-      ? {
+    let where: Record<string, unknown> = {};
+
+    if (q) {
+      const tokens = q.split(/\s+/).filter(Boolean);
+      if (tokens.length === 1) {
+        where = {
           OR: [
-            { documento: { contains: q } },
-            { nombre: { contains: q } },
-            { telefono: { contains: q } },
+            { documento: { contains: tokens[0] } },
+            { nombre: { contains: tokens[0] } },
+            { telefono: { contains: tokens[0] } },
+            { direccion: { contains: tokens[0] } },
+            { notas: { contains: tokens[0] } },
           ],
-        }
-      : {};
+        };
+      } else if (tokens.length > 1) {
+        where = {
+          AND: tokens.map((token) => ({
+            OR: [
+              { documento: { contains: token } },
+              { nombre: { contains: token } },
+              { telefono: { contains: token } },
+              { direccion: { contains: token } },
+              { notas: { contains: token } },
+            ],
+          })),
+        };
+      }
+    }
 
     const clientes = await prisma.cliente.findMany({
       where,
-      take: 20,
-      orderBy: { fechaCreacion: "desc" },
+      take: limite || undefined,
+      orderBy: [
+        { updatedAt: "desc" },
+        { fechaCreacion: "desc" },
+        { nombre: "asc" },
+      ],
       select: {
         id: true,
         documento: true,
@@ -31,12 +57,21 @@ export async function GET(req: NextRequest) {
         telefono: true,
         direccion: true,
         notas: true,
+        fechaCreacion: true,
+        updatedAt: true,
+        _count: {
+          select: { facturas: true },
+        },
       },
     });
 
-    return NextResponse.json({ success: true, clientes });
+    return NextResponse.json({
+      success: true,
+      clientes,
+      total: clientes.length,
+    });
   } catch (error: unknown) {
-    console.error("Error al buscar clientes:", error);
+    console.error("Error al consultar clientes:", error);
     return NextResponse.json(
       { success: false, error: "Error al consultar clientes en la base de datos" },
       { status: 500 }
@@ -46,7 +81,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/clientes
- * Creación rápida de cliente desde mostrador
+ * Creación rápida de cliente desde mostrador con retorno de objeto completo
  */
 export async function POST(req: NextRequest) {
   try {
@@ -76,6 +111,16 @@ export async function POST(req: NextRequest) {
     // Verificar si ya existe un cliente con ese documento
     const clienteExistente = await prisma.cliente.findUnique({
       where: { documento: docSanitizado },
+      select: {
+        id: true,
+        documento: true,
+        nombre: true,
+        telefono: true,
+        direccion: true,
+        notas: true,
+        fechaCreacion: true,
+        updatedAt: true,
+      },
     });
 
     if (clienteExistente) {
@@ -97,6 +142,16 @@ export async function POST(req: NextRequest) {
         telefono: telSanitizado,
         direccion: dirSanitizada,
         notas: notasSanitizadas,
+      },
+      select: {
+        id: true,
+        documento: true,
+        nombre: true,
+        telefono: true,
+        direccion: true,
+        notas: true,
+        fechaCreacion: true,
+        updatedAt: true,
       },
     });
 
