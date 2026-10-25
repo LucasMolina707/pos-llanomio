@@ -155,6 +155,8 @@ model Cliente {
 
   facturas      Factura[]
 
+  @@index([nombre])
+  @@index([telefono])
   @@map("clientes")
 }
 
@@ -183,6 +185,10 @@ model Producto {
 
   detallesFactura        DetalleFactura[]
 
+  @@index([tipo])
+  @@index([estadoPrenda])
+  @@index([activo])
+  @@index([categoria])
   @@map("productos")
 }
 
@@ -217,6 +223,10 @@ model Factura {
   @@index([clienteId])
   @@index([usuarioCajeroId])
   @@index([turnoCajaId])
+  @@index([estado])
+  @@index([fechaCreacion])
+  @@index([fechaDevolucionPactada])
+  @@index([saldoPendiente])
   @@map("facturas")
 }
 
@@ -257,6 +267,8 @@ model Abono {
   @@index([facturaId])
   @@index([cajeroId])
   @@index([turnoCajaId])
+  @@index([fecha])
+  @@index([metodoPago])
   @@map("abonos")
 }
 
@@ -289,6 +301,8 @@ model TurnoCaja {
 
   @@index([usuarioCajeroId])
   @@index([cierreCajaId])
+  @@index([estado])
+  @@index([fechaApertura])
   @@map("turnos_caja")
 }
 
@@ -324,6 +338,7 @@ model CierreCaja {
   turnos             TurnoCaja[]
 
   @@index([usuarioId])
+  @@index([fechaGeneracion])
   @@map("cierres_caja")
 }
 

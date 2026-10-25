@@ -15,7 +15,9 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx database/seed.ts",
     "db:studio": "prisma studio",
-    "db:migrar-excel": "tsx src/migracion/migrar-datos.ts"
+    "db:migrar-excel": "tsx src/migracion/migrar-datos.ts",
+    "db:mantenimiento": "tsx scripts/mantenimiento_db.ts",
+    "db:vacuum": "tsx scripts/mantenimiento_db.ts"
   },
   "prisma": {
     "schema": "database/schema.prisma",
