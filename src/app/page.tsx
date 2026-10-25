@@ -17,6 +17,8 @@ import {
   LogOut,
   User,
   LogIn,
+  Vault,
+  BarChart3,
 } from "lucide-react";
 
 interface UsuarioSesion {
@@ -81,6 +83,22 @@ export default function HomePage() {
       color: "bg-amber-50 text-amber-700 border-amber-200",
       etiqueta: "Catálogo",
       href: "/admin/inventario",
+    },
+    {
+      titulo: "Control de Caja & Arqueos",
+      descripcion: "Apertura con base inicial, arqueo físico en gaveta y cierre diario por métodos de pago.",
+      icono: Vault,
+      color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      etiqueta: "Caja y Cuadre",
+      href: "/admin/caja",
+    },
+    {
+      titulo: "Dashboard Gerencial",
+      descripcion: "Métricas financieras con filtros de fecha, ingresos netos, cuentas por cobrar y rendimiento.",
+      icono: BarChart3,
+      color: "bg-indigo-50 text-indigo-700 border-indigo-200",
+      etiqueta: "Gerencia",
+      href: "/admin/dashboard",
     },
     {
       titulo: "Configuración y Datos de Factura",

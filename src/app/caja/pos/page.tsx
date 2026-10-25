@@ -26,6 +26,7 @@ import {
   Tag,
 } from "lucide-react";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
+import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
 
 interface ProductoInventario {
   id: string;
@@ -91,6 +92,8 @@ export default function PosPage() {
   const [mensajeError, setMensajeError] = useState<string | null>(null);
   const [facturaGuardada, setFacturaGuardada] = useState<any | null>(null);
   const [mostrarModalExito, setMostrarModalExito] = useState(false);
+  const [datosImpresion, setDatosImpresion] = useState<DatosImpresionFactura | null>(null);
+  const [mostrarImpresionAvanzada, setMostrarImpresionAvanzada] = useState(false);
 
   // Búsqueda reactiva de clientes
   useEffect(() => {
@@ -344,6 +347,18 @@ export default function PosPage() {
       }
 
       setFacturaGuardada(data.factura);
+
+      // Cargar datos estructurados completos de impresión y empresa
+      try {
+        const resImp = await fetch(`/api/impresion/${data.factura.id}`);
+        const dataImp = await resImp.json();
+        if (dataImp.success) {
+          setDatosImpresion(dataImp);
+        }
+      } catch (errImp) {
+        console.error("Error al cargar datos estructurados para impresión:", errImp);
+      }
+
       setMostrarModalExito(true);
 
       // Limpiar formulario para la siguiente venta
@@ -1143,14 +1158,27 @@ export default function PosPage() {
             </div>
 
             {/* Acciones del Modal */}
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-end gap-2.5">
               <button
                 type="button"
-                onClick={() => setMostrarModalExito(false)}
+                onClick={() => {
+                  setMostrarModalExito(false);
+                  setMostrarImpresionAvanzada(false);
+                }}
                 className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
               >
                 Cerrar y Nueva Venta
               </button>
+              {datosImpresion && (
+                <button
+                  type="button"
+                  onClick={() => setMostrarImpresionAvanzada(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 transition"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Formatos & 2 Copias</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => window.print()}
@@ -1160,6 +1188,18 @@ export default function PosPage() {
                 <span>Imprimir Tirilla</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Pantalla Completa de Impresión Documental */}
+      {mostrarImpresionAvanzada && datosImpresion && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-4 sm:p-8 animate-in fade-in duration-200">
+          <div className="max-w-4xl mx-auto">
+            <PlantillaImpresion
+              datos={datosImpresion}
+              onCerrar={() => setMostrarImpresionAvanzada(false)}
+            />
           </div>
         </div>
       )}

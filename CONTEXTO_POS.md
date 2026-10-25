@@ -18,7 +18,10 @@ El sistema elimina la dependencia y costos recurrentes de servicios en la nube (
 | **Motor de Base de Datos** | SQLite 3 (`/database/llanomio.db`) | Almacenamiento relacional embebido, ligero, seguro y portable |
 | **Seguridad y RBAC** | jose (JWT) + bcryptjs | Tokens firmados en cookies HttpOnly seguras y hashing de contraseñas |
 | **Punto de Venta Mostrador** | React State + Live Balances | Layout de 2 columnas para mostrador ágil, cobros mixtos y abonos Nequi/Efectivo |
+| **Control de Caja** | Turnos & Cierres Inmutables | Apertura con base inicial, arqueo físico en gaveta y cierre por métodos de pago |
+| **Impresión Documental** | CSS `@media print` | Tirilla 80mm, Media Carta y Carta con opción de 2 copias y CERO QR de clientes |
 | **Motor de Moras & CRM** | Rutina Dinámica + wa.me API | Cálculo automático de penalizaciones por hora/día y contacto directo WhatsApp |
+| **Dashboard Gerencial** | Filtros de Fecha & Analytics | Métricas financieras, ingresos netos, cuentas por cobrar y rendimiento |
 | **Procesamiento Excel** | SheetJS (xlsx) + ts-node/tsx | Extracción, sanitización y carga masiva atómica |
 | **Infraestructura Local** | Node.js v24 + Windows Scripts | Despliegue en red local con scripts `.bat` para tienda |
 
@@ -60,7 +63,8 @@ pos-llanomio/
 │   └── excel_fuente/                 # Depósito secundario de archivos fuente
 ├── scripts/
 │   ├── test-pos-qa.ts                # Suite de pruebas de facturación mixta y abonos
-│   └── test-mora-crm-qa.ts           # Suite de pruebas para motor de moras y CRM WhatsApp
+│   ├── test-mora-crm-qa.ts           # Suite de pruebas para motor de moras y CRM WhatsApp
+│   └── test-caja-impresion-qa.ts     # Suite de pruebas para control de caja e impresión sin QR
 └── src/
     ├── middleware.ts                 # Middleware Edge para protección RBAC (/admin/* bloqueado a CAJERO)
     ├── migracion/
@@ -70,6 +74,8 @@ pos-llanomio/
     ├── components/
     │   ├── crm/
     │   │   └── BotonWhatsApp.tsx     # Botón CRM reutilizable con enlace wa.me y plantilla formal
+    │   ├── impresion/
+    │   │   └── PlantillaImpresion.tsx# Formatos Tirilla, Media Carta y Carta (1 o 2 copias sin QR)
     │   ├── pos/
     │   │   └── ModalCrearClienteRapido.tsx # Modal flotante para crear cliente al vuelo sin perder el carrito
     │   └── inventario/
@@ -77,7 +83,7 @@ pos-llanomio/
     ├── app/
     │   ├── globals.css               # Estilos globales y capas Tailwind
     │   ├── layout.tsx                # Layout principal en español con metadatos
-    │   ├── page.tsx                  # Dashboard principal de bienvenida y acceso a Terminal POS
+    │   ├── page.tsx                  # Dashboard principal de bienvenida y accesos rápidos
     │   ├── login/
     │   │   └── page.tsx              # Terminal de acceso con selector de credenciales
     │   ├── acceso-denegado/
@@ -86,24 +92,33 @@ pos-llanomio/
     │   │   └── pos/
     │   │       └── page.tsx          # Pantalla principal de Mostrador POS y Facturación Dinámica
     │   ├── admin/
+    │   │   ├── caja/
+    │   │   │   └── page.tsx          # Control de Caja: Apertura con base, arqueo y cierre por métodos
     │   │   ├── configuracion/
     │   │   │   └── page.tsx          # Panel visual de datos de empresa, logo y simulador de tirilla
+    │   │   ├── dashboard/
+    │   │   │   └── page.tsx          # Dashboard Gerencial con filtros de fecha y KPIs financieros
     │   │   ├── inventario/
     │   │   │   └── page.tsx          # Panel de inventario especializado (Venta vs Alquiler)
     │   │   └── monitoreo/
     │   │       └── page.tsx          # Central de Monitoreo de Facturas, Alertas Rojas y Moras
     │   └── api/
+    │       ├── admin/
+    │       │   └── dashboard/route.ts# API de analítica gerencial y desglose por métodos y líneas
     │       ├── auth/
     │       │   ├── login/route.ts    # Endpoint de autenticación y emisión de JWT
     │       │   ├── logout/route.ts   # Endpoint de cierre con hook de respaldo VACUUM INTO
     │       │   └── me/route.ts       # Consulta de usuario autenticado en sesión
     │       ├── backup/route.ts       # Endpoint para respaldos en caliente manuales
+    │       ├── caja/route.ts         # Endpoint de apertura, arqueo en vivo y cierre inmutable
     │       ├── clientes/route.ts     # Búsqueda reactiva y creación rápida de clientes
     │       ├── empresa/route.ts      # Consulta y actualización de datos de LLANOMIO (Solo Admin)
     │       ├── facturas/
     │       │   ├── route.ts          # Creación de facturas con ítems mixtos y abono inicial
     │       │   ├── [id]/route.ts     # Detalle de factura, registro de nuevos abonos y recálculo de saldo
     │       │   └── monitoreo/route.ts# Monitoreo reactivo de cartera, moras y días de retraso
+    │       ├── impresion/
+    │       │   └── [id]/route.ts     # Datos estructurados para impresión documental (Tirilla/Carta)
     │       └── inventario/route.ts   # API REST CRUD, filtros dinámicos y protección contra borrado
     └── lib/
         ├── auth.ts                   # Helpers de firmado/verificación JWT con cookies seguras
@@ -133,90 +148,73 @@ El esquema de base de datos está normalizado y cubre la totalidad de operacione
 
 ---
 
-## 4. Módulo de Seguridad (RBAC) y Autenticación
+## 4. Control de Caja, Turnos y Arqueos Físicos (`/admin/caja` y `/api/caja`)
 
-El sistema implementa Control de Acceso Basado en Roles (RBAC) con dos niveles operativos:
-- **`ADMIN` (Administrador General):** Acceso total a configuración de tienda, datos fiscales, catálogo, monitoreo, reportes y respaldos.
-- **`CAJERO` (Cajero Operativo):** Acceso a facturación, mostrador POS, alquileres, separes, abonos y arqueos de turno. Restringido de rutas administrativas.
-
----
-
-## 5. Panel de Configuración de Factura LLANOMIO (`/admin/configuracion`)
-
-Ubicado en `src/app/admin/configuracion/page.tsx`:
-- **Datos Fiscales y Comerciales:** NIT, Nombre de la Tienda, Dirección física, Teléfono de atención.
-- **Logotipo de la Tienda:** Carga directa de imagen local (Data URL base64) o URL externa.
-- **Políticas de Facturación:** Condiciones legales de alquiler y tarifas de mora impresas al pie de los comprobantes.
-- **Directiva de Negocio - Código QR Desactivado:**
-  - El sistema **NO** incluye ningún código QR en las facturas, garantizando la privacidad y cumplimiento de las directrices del negocio.
-- **Simulador de Tirilla Térmica de 80mm:** Emulador visual en tiempo real.
+Implementado en `src/app/admin/caja/page.tsx` y `src/app/api/caja/route.ts`:
+1. **Apertura de Turno con Base Inicial:**
+   - Registro obligatorio de la base en efectivo disponible en gaveta para cambio.
+   - Bloqueo preventivo si ya existe un turno abierto.
+2. **Arqueo en Tiempo Real:**
+   - Desglose por método de pago: `Efectivo`, `Nequi`, `Daviplata`, `Transferencia`, `Consignación`.
+   - Cálculo del total esperado en gaveta física: `Base Inicial + Efectivo Recaudado`.
+3. **Cierre de Caja y Comparación de Gaveta:**
+   - Captura del efectivo físico contado por el cajero.
+   - Cálculo automático de diferencia: Sobrante (`+`), Faltante (`-`) o Cuadre Exacto (`$0`).
+   - Generación de registro inmutable en `CierreCaja` (`DIARIO` o `CONSOLIDADO_MENSUAL`) para auditoría contable.
 
 ---
 
-## 6. Motor de Respaldo SQLite en Caliente (`VACUUM INTO`) y Hook de Logout
+## 5. Formatos de Impresión Documental (`PlantillaImpresion.tsx` y `/api/impresion/[id]`)
 
-1. **Comando Nativo `VACUUM INTO` ([src/lib/backup.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/lib/backup.ts)):**
-   - Ejecuta `VACUUM INTO 'C:/POS_LLANOMIO_BACKUPS/llanomio_ULTIMO.db'`.
-2. **Hook de Cierre de Sesión ([src/app/api/auth/logout/route.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/app/api/auth/logout/route.ts)):**
-   - Disparado automáticamente al cerrar sesión por cualquier usuario.
-   - Crea copias fechadas con rotación automática en `C:\POS_LLANOMIO_BACKUPS\historial\` y `database/backups_locales/`.
-
----
-
-## 7. Módulo de Migración de Datos Excel (`/migracion_excel`)
-
-- `src/migracion/utils-limpieza.ts`: Sanitización de teléfonos a 10 dígitos, normalización de nombres a mayúsculas conservando acentos y eñes, números positivos y deduplicación por documento/código.
-- `src/migracion/migrar-datos.ts`: Carga atómica con `prisma.$transaction`.
-
----
-
-## 8. Módulo de Inventario Especializado (Venta vs. Alquiler)
-
-Implementado en `src/app/admin/inventario/page.tsx` y `src/app/api/inventario/route.ts`:
-1. **Separación de Catálogo:** Disfraces/alquiler con mora obligatoria (soporta decimales) y ropa de venta directa.
-2. **Estados:** `DISPONIBLE`, `ALQUILADO`, `SEPARADO`, `EN_ARREGLO`, `INACTIVO`.
-3. **Protección:** Bloqueo de borrado si la prenda está asociada a facturas activas, aplicando baja lógica (`INACTIVO`).
+Implementado en `src/components/impresion/PlantillaImpresion.tsx` y `src/app/api/impresion/[id]/route.ts`:
+1. **Tres Formatos Documentales:**
+   - **Tirilla 80mm (`TIRILLA`):** Diseño de ticket térmico compacto con tipografía monospace.
+   - **Media Carta (`MEDIA_CARTA`):** Documento para media hoja (5.5 x 8.5 in) con tabla y firmas.
+   - **Carta Completa (`CARTA`):** Documento formal corporativo para hoja estándar (8.5 x 11 in).
+2. **Selector de Copias y Corte:**
+   - Opción de 1 copia (`Original Cliente`) o 2 copias (`Original Cliente` + `Copia Archivo Tienda`) con línea punteada de corte para tijera.
+3. **Datos Corporativos de LLANOMIO:**
+   - Nombre comercial, NIT, Dirección, Teléfono, Logotipo y Políticas de Alquiler.
+4. **Restricción Estricta — Cero Códigos QR:**
+   - Ningún formato incluye códigos QR para consulta externa de clientes, respetando las directrices de privacidad y sobriedad del negocio.
+5. **Estilos `@media print` Nativos:**
+   - Ocultamiento de barras de navegación, botones y fondos del sistema para una impresión en papel limpia y de alto contraste.
 
 ---
 
-## 9. Pantalla Principal de Caja POS y Facturación Dinámica (`/caja/pos`)
+## 6. Dashboard Gerencial con Filtros de Fecha (`/admin/dashboard`)
 
-Ubicado en `src/app/caja/pos/page.tsx`, `src/app/api/facturas/route.ts` y `src/app/api/facturas/[id]/route.ts`:
-1. **Layout Ágil de Mostrador de Dos Columnas:**
-   - **Columna Izquierda:** Selector y autocompletado de cliente con `ModalCrearClienteRapido`, buscador de prendas con stock y tallas, inserción libre de servicios de sastrería y tabla dinámica de ítems.
-   - **Columna Derecha:** Liquidación en vivo de subtotales, abonos inmediatos con métodos de pago (`EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`), saldo pendiente y botón de guardar/imprimir tirilla.
-2. **Modal de Creación Rápida de Clientes:** Registra al vuelo clientes nuevos e inyecta la selección a la factura sin perder el carrito.
-3. **Cálculo de Saldos y Cierre:** Actualiza estado a `CERRADA` si saldo = 0 (o `ACTIVA_ALQUILADA` si tiene prendas por devolver).
-
----
-
-## 10. Motor Automático de Moras, Central de Monitoreo y CRM WhatsApp
-
-Implementado en `src/lib/cron-moras.ts`, `src/lib/whatsapp.ts`, `src/components/crm/BotonWhatsApp.tsx`, `src/app/api/facturas/monitoreo/route.ts` y `src/app/admin/monitoreo/page.tsx`:
-
-1. **Motor de Cálculo Automático de Moras ([src/lib/cron-moras.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/lib/cron-moras.ts)):**
-   - Evalúa en tiempo real si `fechaActual > fechaDevolucionPactada` en facturas que no estén cerradas ni devueltas.
-   - Determina el retraso en horas o días según la configuración de cada prenda (`HORA` o `DIA`).
-   - Aplica redondeo comercial hacia arriba para fracciones transcurridas (`Math.ceil`) y multiplica por la `tarifaMora` individual.
-   - Suma el recargo de penalización al saldo pendiente y transiciona la factura automáticamente al estado `EN_MORA`.
-2. **Central de Monitoreo de Facturas ([src/app/admin/monitoreo/page.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/app/admin/monitoreo/page.tsx)):**
-   - **Pestaña En Mora:** Destacada en rojo brillante con indicador pulsante, número de días/horas de retraso y recargo exacto.
-   - **Pestañas Activas y Cerradas:** Segmentación operativa del ciclo de vida de los contratos de alquiler.
-   - **Tarjetas KPI en Vivo:** Cartera Total en Mora, Saldo Pendiente Global, Contratos Activos y Facturas Liquidadas.
-   - **Buscador Reactivo:** Búsqueda instantánea por cliente, cédula, teléfono o número de factura.
-   - **Botón de Sincronización:** Recálculo y persistencia masiva en caliente con un clic.
-3. **Integración CRM con WhatsApp Oficial ([src/components/crm/BotonWhatsApp.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/components/crm/BotonWhatsApp.tsx)):**
-   - Normalización de números telefónicos colombianos (anteponiendo código de país `57` para celulares de 10 dígitos).
-   - Generación de enlace universal `https://wa.me/57[TELEFONO]?text=...` con texto formal y profesional codificado limpiamente con `encodeURIComponent`.
-   - Plantilla de cobro: *"Hola [Nombre Cliente], le saludamos de LLANOMIO. Le recordamos que tiene pendiente la devolucion/saldo de la prenda [Nombre Prenda] (Factura [FAC-XXXXX]) con un retraso de [X] dias. El saldo actual a la fecha es $[Monto]. Lo esperamos en nuestra tienda para su recepcion y liquidacion."*
+Implementado en `src/app/admin/dashboard/page.tsx` y `src/app/api/admin/dashboard/route.ts`:
+1. **Filtros Temporales Interactivos:**
+   - Selectores de fecha `Desde` y `Hasta` con atajos rápidos: "Hoy", "Últimos 7 Días", "Este Mes", "Año Actual".
+2. **Cinco Métricas Clave:**
+   - **Ingresos Netos:** Suma total de abonos recaudados en el rango.
+   - **Cuentas por Cobrar:** Saldos pendientes por recaudar de facturas emitidas en el periodo.
+   - **Moras Recaudadas:** Total de penalizaciones por retraso en el periodo.
+   - **Prendas Alquiladas:** Conteo de trajes y prendas entregadas.
+   - **Rendimiento Sastrería Libre:** Total generado por arreglos de confección sin inventario.
+3. **Análisis Gráfico y Desglose:**
+   - Barras comparativas de ingresos por método de pago (`Efectivo`, `Nequi`, `Daviplata`, `Transferencia`).
+   - Rendimiento por línea de negocio (`Alquileres`, `Venta Directa`, `Sastrería`).
+   - Tabla de últimas facturas emitidas en el periodo con acceso a monitoreo.
 
 ---
 
-## 11. Resultados del Control de Calidad (QA - Agente 5)
+## 7. Resultados del Control de Calidad (QA - Agente 5)
 
-Las pruebas automatizadas del Módulo de Moras y CRM WhatsApp arrojaron una calificación de **100% de éxito**:
-- `[QA Mora 1]` **Mora por Día:** Alquiler con 36 horas de retraso (1.5 días) calculado exactamente a 2 días de penalización con tarifa de $15.000/día arrojó recargo de $30.000 y saldo total de $80.000.
-- `[QA Mora 2]` **Mora por Hora:** Alquiler con 4.5 horas de retraso calculado exactamente a 5 horas de mora con tarifa de $2.500/hora arrojó recargo de $12.500.
-- `[QA CRM 3]` **Sanitización Telefónica:** Validación exitosa de formatos colombianos (`3101234567`, `(312) 456-7890`, `+57 320 987 6543`) a formato internacional `57XXXXXXXXXX`.
-- `[QA CRM 4]` **Plantilla y Enlace WhatsApp:** Comprobada la codificación URI, inclusión de factura, nombres y montos sin emojis ni errores de caracteres especiales.
-- `[QA Build 5]` **Compilación de Producción:** Build de producción exitoso con 19 rutas activas (`npm run build` con código 0 y tipado estricto).
+Las pruebas automatizadas de Control de Caja e Impresión ([scripts/test-caja-impresion-qa.ts](file:///d:/Proyectos%20IA/pos-llanomio/scripts/test-caja-impresion-qa.ts)) arrojaron una calificación de **100% de éxito**:
+
+- `[QA Caja 1]` **Ciclo de Caja y Cuadre Exacto:**
+  - Base inicial en efectivo: $150.000.
+  - Abonos en efectivo: $75.000.
+  - Abonos digitales (Nequi + Transferencia): $100.000.
+  - Total esperado en gaveta física: $225.000.
+  - Efectivo contado: $225.000 -> Diferencia: $0 (Cuadre Exacto).
+  - Creación de registro inmutable en `CierreCaja` con fecha y usuario validada.
+- `[QA Impresión 2]` **Formatos e Inexistencia de QR:**
+  - Cero librerías o etiquetas de código QR en `PlantillaImpresion.tsx`: Aprobado.
+  - Soporte de formatos `TIRILLA`, `MEDIA_CARTA` y `CARTA`: Aprobado.
+  - Soporte de 2 copias con división de corte: Aprobado.
+  - Inclusión de datos corporativos (NIT, Dirección, Políticas): Aprobado.
+- `[QA Build 3]` **Compilación de Producción:**
+  - Build exitoso con **23 rutas** (`npm run build` con código 0 y tipado estricto).
