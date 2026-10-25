@@ -436,3 +436,67 @@ Se implementó una solución arquitectónica integral para garantizar la coheren
 - `src/app/api/impresion/[id]/route.ts`: Con `force-dynamic` y `Cache-Control: no-store`, retorna la factura junto con la configuración corporativa y el logo actualizado.
 - `src/app/api/facturas/[id]/pdf/route.ts`: Genera y sirve el PDF binario en los 3 formatos según el query parameter `?formato=TIRILLA|MEDIA_CARTA|CARTA`.
 
+---
+
+## 11. Terminal Exclusiva de Cajero Fija Sin Scroll (`100vh`) y Centro de Historial, Cartera, Moras y Paz y Salvos
+
+### 1. Arquitectura de Ventana Fija Exclusiva de Cajero (`Zero-Scroll`)
+- **Aislamiento en AppLayout (`src/components/layout/AppLayout.tsx`):**
+  - Cuando la ruta activa es `/caja/pos`, se omite por completo el envoltorio con Sidebar y Navbar estándar, entregando el 100% del viewport al componente de mostrador:
+    ```tsx
+    if (pathname === "/caja/pos") {
+      return <main className="h-screen w-screen overflow-hidden bg-slate-100">{children}</main>;
+    }
+    ```
+- **Contenedor Principal (`src/app/caja/pos/page.tsx`):**
+  - Raíz configurada como `h-screen w-screen overflow-hidden flex flex-col bg-slate-100 select-none`.
+  - Header superior fijo de `h-14 shrink-0 px-4 bg-slate-900 text-white flex items-center justify-between shadow-sm z-30`:
+    - **Izquierda:** Título corporativo `"TERMINAL EXCLUSIVA DE CAJA - LLANOMIO"`, indicador de turno activo (punto pulsante verde `"Caja Abierta"` o ámbar `"Sin Turno"`) y nombre del cajero en turno.
+    - **Centro:** Stepper compacto interactivo de 4 pasos (`1. Cliente` ➔ `2. Ítems` ➔ `3. Cobro y Vueltas` ➔ `4. Impresión`) cuando se está en `"NUEVA_FACTURA"`.
+    - **Derecha:** Botón prominente **"Historial de Facturas y Pagos"** con badges numéricos en rojo/ámbar para alertas y moras activas + botón para alternar a **"Nueva Factura"** + acceso directo al Panel Administrativo.
+  - **Cuerpo de Trabajo (`flex-1 min-h-0 overflow-hidden p-3 flex flex-col`):**
+    - Todos los buscadores superiores y barras de botones inferiores (`shrink-0`) permanecen fijos y 100% visibles en pantalla.
+    - Únicamente las grillas internas de clientes, productos, lista de ítems del carrito y tablas de historial realizan scroll interno (`flex-1 min-h-0 overflow-y-auto`), garantizando `window.scrollY === 0` sin barras de desplazamiento global en monitores de mostrador.
+
+### 2. Centro de Historial, Cartera, Moras y Paz y Salvos (4 Pestañas)
+Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema conmuta instantáneamente sin salir del POS hacia el panel organizado en 4 vistas especializadas con buscador difuso instantáneo (fuzzy search):
+1. **Pestaña A — Pendientes por Pagar (Al Día):**
+   - Facturas con saldo base pendiente (`saldoBase > 0`) cuya fecha de devolución aún no ha vencido.
+   - Columnas: Factura/Fecha, Cliente (Nombre, Cédula, Teléfono), Concepto (`Venta`, `Alquiler`, `Arreglo`), Total, Abonado y **Saldo Pendiente**.
+   - Acciones: `[Cobrar Saldo]`, `[WhatsApp]` y `[Imprimir / PDF]`.
+2. **Pestaña B — En Mora + Saldo Pendiente:**
+   - Facturas de alquiler vencidas con saldo impago y recargo por mora acumulado (`saldoBase > 0` y `recargoMora > 0`).
+   - Muestra de forma destacada: **Tiempo de Retraso** (días/horas de mora), Saldo Base, **Recargo por Mora ($)** y **Total Exigible Hoy ($ = Saldo Base + Mora)**.
+   - Acciones: `[Cobrar Saldo & Mora]`, `[WhatsApp]` y `[Imprimir / PDF]`.
+3. **Pestaña C — Solo en Mora (Factura Pagada, Prenda NO Devuelta):**
+   - Caso de negocio crítico: Cliente pagó el 100% del alquiler inicial (`saldoBase === 0`), pero la fecha de retorno venció y no ha devuelto la prenda, generando mora.
+   - Badge destacado: `"FACTURA PAGADA - FALTA ENTREGAR PRENDA (EN MORA)"`.
+   - Detalla la prenda retenida, fecha/hora pactada de entrega, retraso y **Saldo de Mora a Cobrar**.
+   - Botón directo de WhatsApp con plantilla oficial (`SOLO_MORA_ENTREGA`) y acción `[Cobrar Mora & Prenda]`.
+4. **Pestaña D — Historial de Paz y Salvos:**
+   - Registro histórico de todas las facturas cerradas (`estado === 'CERRADA'` y `saldoPendiente === 0`) con prendas ya devueltas al inventario.
+   - Muestra fecha de cierre, total cancelado (indicando si incluyó recargo de mora), cajero que liquidó y botón directo **`[Reimprimir Paz y Salvo / PDF]`**.
+
+### 3. Liquidación con Modal (`ModalLiquidarFactura`), Devolución de Prendas y Desglose Financiero
+- Modal compacto integrado con desglose exacto:
+  - `Saldo pendiente de factura base: $X`
+  - `Recargo acumulado por mora: +$Y`
+  - `TOTAL A COBRAR PARA PAZ Y SALVO: $(X + Y)`
+- Calculadora rápida con teclado de billetes colombianos (+2k, +5k, +10k, +20k, +50k, +100k, Exacto) y cálculo de cambio/vueltas en tiempo real.
+- Checkbox verificado: *"Confirmar que el cliente devolvió las prendas alquiladas en buen estado"*.
+- **Persistencia Matemática en BD:**
+  - Al liquidar con mora, el valor cobrado se almacena en el campo `recargoMora` de la factura y se crea un `DetalleFactura` con concepto `"Recargo por Mora - Retraso en devolución de alquiler"`.
+  - Se actualiza `totalFactura = totalFactura + recargoMora`, garantizando que `totalFactura - totalAbonado = 0` centavo a centavo.
+  - Al confirmar devolución, las prendas pasan de estado `ALQUILADO` a `DISPONIBLE` en el inventario.
+  - Si el saldo queda en $0, la factura se marca como `CERRADA` con `fechaDevolucionReal = new Date()`.
+
+### 4. Reimpresión Universal y Certificado de Paz y Salvo en `PlantillaImpresion.tsx`
+- Disponible desde cualquier pestaña mediante el botón **`[Imprimir / PDF]`**, abriendo el visor modal con los 3 formatos (`TIRILLA` 80mm, `MEDIA_CARTA` y `CARTA`).
+- Muestra el rubro financiero explícito:
+  - `Subtotal Prendas / Servicios: $XX.XXX`
+  - `Recargo Adicional por Mora (Entrega tardía): $XX.XXX`
+  - `TOTAL FACTURA + MORA: $XX.XXX`
+- Sello destacado: **"PAZ Y SALVO — FACTURA Y PRENDAS AL DÍA (SALDO $0)"** cuando `estado === 'CERRADA'`.
+- **Regla Inquebrantable:** CERO códigos QR en todos los formatos documentales para clientes.
+
+

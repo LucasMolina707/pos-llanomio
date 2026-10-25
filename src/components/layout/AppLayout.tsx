@@ -35,11 +35,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setIsMobileOpen(false);
   }, [pathname]);
 
-  // Si es la página de login o vista sin shell, renderizar directamente
+  // Si es la página de login o la terminal de caja POS, renderizar directamente a pantalla completa
   const esPaginaLogin = pathname === "/login";
+  const esCajaPos = pathname === "/caja/pos";
 
   if (esPaginaLogin) {
     return <main className="min-h-screen bg-slate-50">{children}</main>;
+  }
+
+  if (esCajaPos) {
+    return <main className="h-screen w-screen overflow-hidden bg-slate-100">{children}</main>;
   }
 
   return (

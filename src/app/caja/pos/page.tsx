@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import Link from "next/link";
 import {
   Search,
   X,
@@ -24,26 +25,25 @@ import {
   Sparkles,
   FileText,
   Clock,
-  Layers,
   Tag,
-  FileDown,
   Calendar,
-  CalendarClock,
-  PackagePlus,
   Wallet,
   Building2,
   Check,
-  Users,
   DollarSign,
   AlertTriangle,
   RotateCcw,
   Coins,
   ShieldCheck,
+  History,
+  PhoneCall,
+  Download,
 } from "lucide-react";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import ModalProducto, { ProductoData } from "@/components/inventario/ModalProducto";
 import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
 import ModalLiquidarFactura from "@/components/facturas/ModalLiquidarFactura";
+import BotonWhatsApp from "@/components/crm/BotonWhatsApp";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 
 export interface ProductoInventario {
@@ -78,24 +78,68 @@ export interface ItemCarrito {
   fechaDevolucion?: string;
 }
 
-export interface FacturaPendientePos {
+export interface FacturaMonitoreo {
   id: string;
   numeroFactura: string;
   fechaCreacion: string;
+  fechaEntregaAlquiler?: string | null;
+  fechaDevolucionPactada?: string | null;
+  fechaDevolucionReal?: string | null;
   tipoOperacion: string;
   estado: string;
   totalFactura: number;
   totalAbonado: number;
   saldoPendiente: number;
+  saldoBase: number;
+  recargoMora: number;
+  totalExigible: number;
+  diasRetraso: number;
+  horasRetraso: number;
+  enMora: boolean;
+  prendasEnMora?: Array<{ prenda: string; fechaDevolucionPactada: string }>;
+  prendaPrincipal: string;
+  esPendienteAlDia: boolean;
+  esMoraYSaldo: boolean;
+  esSoloMora: boolean;
+  esPazYSalvo: boolean;
   cliente: {
+    id: string;
     nombre: string;
     documento: string;
     telefono?: string | null;
+    direccion?: string | null;
   };
   usuarioCajero?: {
+    id: string;
     nombre: string;
     username: string;
-  };
+  } | null;
+  detalles: Array<{
+    id: string;
+    cantidad: number;
+    precioUnitario: number;
+    subtotal: number;
+    esServicioLibre: boolean;
+    descripcionLibre?: string | null;
+    producto?: {
+      id: string;
+      codigo: string;
+      nombre: string;
+    } | null;
+  }>;
+  abonos: Array<{
+    id: string;
+    fecha: string;
+    monto: number;
+    metodoPago: string;
+    montoRecibido?: number | null;
+    vueltasEntregadas?: number | null;
+    referenciaComprobante?: string | null;
+    cajero?: {
+      id: string;
+      nombre: string;
+    } | null;
+  }>;
 }
 
 export type MetodoPagoPos =
@@ -109,16 +153,12 @@ export type MetodoPagoPos =
 
 export type ModalidadPago = "COMPLETO" | "ADELANTO" | "PENDIENTE";
 export type ModuloCarga = "VENTA" | "ALQUILER" | "ARREGLO";
-export type VistaPos = "NUEVA_FACTURA" | "FACTURAS_PENDIENTES";
-
-export interface PagoAbonoLocal {
-  id: string;
-  metodoPago: MetodoPagoPos;
-  monto: number;
-  montoRecibido?: number;
-  vueltasEntregadas?: number;
-  referencia?: string;
-}
+export type VistaPrincipalPos = "NUEVA_FACTURA" | "HISTORIAL";
+export type PestanaHistorial =
+  | "PENDIENTES_AL_DIA"
+  | "MORA_Y_SALDO"
+  | "SOLO_MORA"
+  | "PAZ_Y_SALVOS";
 
 const BILLETES_COLOMBIANOS = [2000, 5000, 10000, 20000, 50000, 100000];
 
@@ -156,11 +196,43 @@ const getFechaDevolucionSugerida = (diasAdicionales = 2) => {
 };
 
 export default function PosPage() {
-  // Conmutador general superior: Nueva Factura vs Facturas Pendientes
-  const [vistaPrincipal, setVistaPrincipal] = useState<VistaPos>("NUEVA_FACTURA");
+  // Conmutador General Superior: Asistente Nueva Factura vs Centro de Historial y Moras
+  const [vistaPrincipal, setVistaPrincipal] = useState<VistaPrincipalPos>("NUEVA_FACTURA");
 
-  // Stepper progresivo por vistas independientes (1 a 4)
+  // Stepper progresivo en Nueva Factura (1: Cliente, 2: Ítems, 3: Caja/Pago, 4: Impresión)
   const [pasoActual, setPasoActual] = useState<1 | 2 | 3 | 4>(1);
+
+  // Pestaña activa del Historial (4 Pestañas)
+  const [pestanaHistorial, setPestanaHistorial] = useState<PestanaHistorial>("PENDIENTES_AL_DIA");
+  const [busquedaHistorial, setBusquedaHistorial] = useState("");
+
+  // Información de Turno de Caja y Usuario Activo
+  const [turnoAbierto, setTurnoAbierto] = useState<{
+    id: string;
+    estado: string;
+    usuarioCajero?: { nombre: string; username: string };
+  } | null>(null);
+  const [usuarioSesion, setUsuarioSesion] = useState<{ nombre: string; username: string } | null>(null);
+
+  // Configuración de la Empresa
+  const [empresaConfig, setEmpresaConfig] = useState<any>({
+    nombreTienda: "LLANOMIO",
+    nombreComercial: "LLANOMIO",
+    eslogan: "Trajes Típicos, Disfraces y Sastrería",
+    nit: "900.123.456-7",
+    regimenFiscal: "No Responsable de IVA",
+    direccion: "Calle 15 # 22-30, Barrio Siete de Agosto",
+    ciudad: "Villavicencio, Meta",
+    telefono: "310 123 4567",
+    email: "contacto@llanomio.com",
+    logoUrl: null,
+    encabezadoFactura: "Ropa, Disfraces, Trajes Típicos y Sastrería Profesional",
+    mostrarVendedorFactura: true,
+    politicasFactura:
+      "Prendas de alquiler deben devolverse en perfecto estado en la fecha pactada. Pasada la hora pactada se generará recargo de mora automático.",
+    piePaginaFactura: "¡Gracias por su preferencia! Sistema POS Local LLANOMIO",
+    formatoPredeterminado: "MEDIA_CARTA" as const,
+  });
 
   // Catálogos precargados en memoria
   const [todosLosClientes, setTodosLosClientes] = useState<ClienteCreado[]>([]);
@@ -168,6 +240,30 @@ export default function PosPage() {
   const [clientesNuevosIds, setClientesNuevosIds] = useState<Set<string>>(new Set());
   const [catalogoInventario, setCatalogoInventario] = useState<ProductoInventario[]>([]);
   const [cargandoInventario, setCargandoInventario] = useState(false);
+
+  // Datos del Monitoreo de Facturas / Cartera / Moras
+  const [facturasMonitoreo, setFacturasMonitoreo] = useState<FacturaMonitoreo[]>([]);
+  const [estadisticasMonitoreo, setEstadisticasMonitoreo] = useState({
+    totalFacturas: 0,
+    conteoPendientesAlDia: 0,
+    conteoMoraYSaldo: 0,
+    conteoSoloMora: 0,
+    conteoPazYSalvos: 0,
+    totalAlertas: 0,
+    totalEnMora: 0,
+    totalCarteraMora: 0,
+    totalSaldoPendiente: 0,
+  });
+  const [cargandoMonitoreo, setCargandoMonitoreo] = useState(false);
+  const [sincronizandoMoras, setSincronizandoMoras] = useState(false);
+
+  // Modales
+  const [facturaALiquidarId, setFacturaALiquidarId] = useState<string | null>(null);
+  const [modalLiquidarAbierto, setModalLiquidarAbierto] = useState(false);
+
+  // Modal Reimpresión Universal
+  const [datosReimpresionModal, setDatosReimpresionModal] = useState<DatosImpresionFactura | null>(null);
+  const [modalReimpresionAbierto, setModalReimpresionAbierto] = useState(false);
 
   // =========================================================
   // VISTA 1: CLIENTE
@@ -226,18 +322,38 @@ export default function PosPage() {
   const [datosImpresion, setDatosImpresion] = useState<DatosImpresionFactura | null>(null);
 
   // =========================================================
-  // BANDEJA DE FACTURAS PENDIENTES
-  // =========================================================
-  const [facturasPendientes, setFacturasPendientes] = useState<FacturaPendientePos[]>([]);
-  const [cargandoPendientes, setCargandoPendientes] = useState(false);
-  const [busquedaPendientes, setBusquedaPendientes] = useState("");
-  const [filtroTipoPendiente, setFiltroTipoPendiente] = useState<"TODAS" | "ADELANTO" | "SIN_PAGO">("TODAS");
-  const [facturaALiquidarId, setFacturaALiquidarId] = useState<string | null>(null);
-  const [modalLiquidarAbierto, setModalLiquidarAbierto] = useState(false);
-
-  // =========================================================
   // CARGAS INICIALES DE DATOS (0 ms de latencia local)
   // =========================================================
+  const cargarSesionYTurno = useCallback(async () => {
+    try {
+      const [resAuth, resCaja, resEmp] = await Promise.all([
+        fetch("/api/auth/me"),
+        fetch("/api/caja"),
+        fetch("/api/empresa", { cache: "no-store" }),
+      ]);
+
+      const dataAuth = await resAuth.json();
+      if (dataAuth.ok && dataAuth.user) {
+        setUsuarioSesion(dataAuth.user);
+      }
+
+      const dataCaja = await resCaja.json();
+      if (dataCaja.ok && dataCaja.turnoAbierto) {
+        setTurnoAbierto(dataCaja.turnoAbierto);
+      } else {
+        setTurnoAbierto(null);
+      }
+
+      const dataEmp = await resEmp.json();
+      const conf = dataEmp.configuracion || dataEmp.empresa;
+      if (conf) {
+        setEmpresaConfig((prev: any) => ({ ...prev, ...conf }));
+      }
+    } catch (err) {
+      console.warn("Error cargando sesión/caja/empresa:", err);
+    }
+  }, []);
+
   const cargarClientes = useCallback(async () => {
     try {
       setCargandoClientesInicial(true);
@@ -268,26 +384,40 @@ export default function PosPage() {
     }
   }, []);
 
-  const cargarFacturasPendientes = useCallback(async () => {
+  const cargarMonitoreo = useCallback(async (forzarSincronizacion = false) => {
     try {
-      setCargandoPendientes(true);
-      const res = await fetch("/api/facturas?pendientes=true");
+      if (forzarSincronizacion) {
+        setSincronizandoMoras(true);
+      } else {
+        setCargandoMonitoreo(true);
+      }
+
+      const url = forzarSincronizacion
+        ? "/api/facturas/monitoreo?sync=true"
+        : "/api/facturas/monitoreo";
+
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
-        setFacturasPendientes(data.facturas || []);
+        setFacturasMonitoreo(data.facturas || []);
+        if (data.estadisticas) {
+          setEstadisticasMonitoreo(data.estadisticas);
+        }
       }
     } catch (err) {
-      console.error("Error al cargar facturas pendientes:", err);
+      console.error("Error al cargar monitoreo de facturas:", err);
     } finally {
-      setCargandoPendientes(false);
+      setCargandoMonitoreo(false);
+      setSincronizandoMoras(false);
     }
   }, []);
 
   useEffect(() => {
+    cargarSesionYTurno();
     cargarClientes();
     cargarInventario();
-    cargarFacturasPendientes();
-  }, [cargarClientes, cargarInventario, cargarFacturasPendientes]);
+    cargarMonitoreo();
+  }, [cargarSesionYTurno, cargarClientes, cargarInventario, cargarMonitoreo]);
 
   // =========================================================
   // FILTRADO DINÁMICO FUZZY EN MEMORIA
@@ -325,6 +455,38 @@ export default function PosPage() {
       ],
     }));
   }, [catalogoInventario, busquedaAlquiler]);
+
+  // Filtrado de las 4 pestañas de Historial
+  const facturasHistorialFiltradas = useMemo(() => {
+    // 1. Filtrar por pestaña
+    let porPestana = facturasMonitoreo;
+    if (pestanaHistorial === "PENDIENTES_AL_DIA") {
+      porPestana = facturasMonitoreo.filter((f) => f.esPendienteAlDia);
+    } else if (pestanaHistorial === "MORA_Y_SALDO") {
+      porPestana = facturasMonitoreo.filter((f) => f.esMoraYSaldo);
+    } else if (pestanaHistorial === "SOLO_MORA") {
+      porPestana = facturasMonitoreo.filter((f) => f.esSoloMora);
+    } else if (pestanaHistorial === "PAZ_Y_SALVOS") {
+      porPestana = facturasMonitoreo.filter((f) => f.esPazYSalvo);
+    }
+
+    // 2. Filtrado difuso fuzzy multi-campo
+    if (!busquedaHistorial.trim()) return porPestana;
+
+    return filtrarPorRelevancia(porPestana, busquedaHistorial, (item) => ({
+      primarios: [
+        item.numeroFactura,
+        item.cliente.nombre,
+        item.cliente.documento,
+      ],
+      secundarios: [
+        item.cliente.telefono,
+        item.prendaPrincipal,
+        item.tipoOperacion,
+        item.usuarioCajero?.nombre,
+      ],
+    }));
+  }, [facturasMonitoreo, pestanaHistorial, busquedaHistorial]);
 
   // =========================================================
   // TOTALES DEL CARRITO
@@ -371,7 +533,6 @@ export default function PosPage() {
   // =========================================================
   const seleccionarCliente = (cliente: ClienteCreado) => {
     setClienteSeleccionado(cliente);
-    // Transición progresiva automática a la Vista 2
     setPasoActual(2);
   };
 
@@ -525,7 +686,6 @@ export default function PosPage() {
       return;
     }
 
-    // Validar efectivo recibido
     if (metodoPagoPrincipal === "EFECTIVO" && valorACobrarHoy > 0) {
       if (efectivoRecibidoNum < valorACobrarHoy) {
         setMensajeError(
@@ -541,7 +701,6 @@ export default function PosPage() {
       setProcesandoFactura(true);
       setMensajeError(null);
 
-      // Determinar fechas globales de alquiler si existen
       const itemsAlquiler = itemsCarrito.filter((i) => i.tipo === "ALQUILER");
       const fEntregaGlobal = itemsAlquiler[0]?.fechaEntrega || null;
       const fDevolucionGlobal = itemsAlquiler[0]?.fechaDevolucion || null;
@@ -591,41 +750,6 @@ export default function PosPage() {
         throw new Error(data.error || "No se pudo registrar la factura.");
       }
 
-      // Consultar datos de la empresa y factura para impresión
-      let datosEmpresa = {
-        nombreTienda: "LLANOMIO",
-        nombreComercial: "LLANOMIO",
-        eslogan: "Trajes Típicos, Disfraces y Sastrería",
-        nit: "900.123.456-7",
-        regimenFiscal: "No Responsable de IVA",
-        direccion: "Calle 15 # 22-30, Barrio Siete de Agosto",
-        ciudad: "Villavicencio, Meta",
-        telefono: "310 123 4567",
-        email: "contacto@llanomio.com",
-        logoUrl: null,
-        encabezadoFactura: "Ropa, Disfraces, Trajes Típicos y Sastrería Profesional",
-        mostrarVendedorFactura: true,
-        politicasFactura:
-          "Prendas de alquiler deben devolverse en perfecto estado en la fecha pactada. Pasada la hora pactada se generará recargo de mora automático.",
-        piePaginaFactura: "¡Gracias por su preferencia! Sistema POS Local LLANOMIO",
-        formatoPredeterminado: "MEDIA_CARTA" as const,
-        formatoImpresionDefault: "MEDIA_CARTA" as const,
-      };
-
-      try {
-        const resEmp = await fetch("/api/empresa", { cache: "no-store" });
-        const dataEmp = await resEmp.json();
-        const conf = dataEmp.configuracion || dataEmp.empresa;
-        if (conf) {
-          datosEmpresa = {
-            ...datosEmpresa,
-            ...conf,
-          };
-        }
-      } catch (errEmp) {
-        console.warn("Usando configuración de empresa por defecto:", errEmp);
-      }
-
       const facturaFinal = data.factura;
       setDatosImpresion({
         factura: {
@@ -634,6 +758,7 @@ export default function PosPage() {
           fechaCreacion: facturaFinal.fechaCreacion,
           fechaEntregaAlquiler: facturaFinal.fechaEntregaAlquiler,
           fechaDevolucionPactada: facturaFinal.fechaDevolucionPactada,
+          fechaDevolucionReal: facturaFinal.fechaDevolucionReal,
           tipoOperacion: facturaFinal.tipoOperacion,
           estado: facturaFinal.estado,
           subtotalProductos: facturaFinal.subtotalProductos,
@@ -670,14 +795,11 @@ export default function PosPage() {
             cajero: a.cajero,
           })),
         },
-        empresa: datosEmpresa,
+        empresa: empresaConfig,
       });
 
-      // Refrescar inventario y pendientes
       cargarInventario();
-      cargarFacturasPendientes();
-
-      // Migrar limpiamente a Vista 4 (Consola de Impresión)
+      cargarMonitoreo();
       setPasoActual(4);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -708,504 +830,1036 @@ export default function PosPage() {
     setMensajeError(null);
     setDatosImpresion(null);
     setPasoActual(1);
+    setVistaPrincipal("NUEVA_FACTURA");
+  };
+
+  // =========================================================
+  // REIMPRESIÓN UNIVERSAL DESDE CUALQUIER PESTAÑA
+  // =========================================================
+  const abrirReimpresionUniversal = (factura: FacturaMonitoreo) => {
+    const datosParaImprimir: DatosImpresionFactura = {
+      factura: {
+        id: factura.id,
+        numeroFactura: factura.numeroFactura,
+        fechaCreacion: factura.fechaCreacion,
+        fechaEntregaAlquiler: factura.fechaEntregaAlquiler,
+        fechaDevolucionPactada: factura.fechaDevolucionPactada,
+        fechaDevolucionReal: factura.fechaDevolucionReal,
+        tipoOperacion: factura.tipoOperacion,
+        estado: factura.estado,
+        subtotalProductos:
+          factura.detalles
+            .filter((d) => !d.esServicioLibre && d.producto?.codigo !== "MORA-AUTO")
+            .reduce((sum, d) => sum + d.subtotal, 0),
+        subtotalArreglosLibres:
+          factura.detalles
+            .filter((d) => d.esServicioLibre)
+            .reduce((sum, d) => sum + d.subtotal, 0),
+        recargoMoraAcumulado: factura.recargoMora || 0,
+        totalFactura: factura.totalFactura,
+        totalAbonado: factura.totalAbonado,
+        saldoPendiente: factura.saldoPendiente,
+        notas: (factura as any).notas,
+        cliente: {
+          nombre: factura.cliente.nombre,
+          documento: factura.cliente.documento,
+          telefono: factura.cliente.telefono,
+          direccion: factura.cliente.direccion,
+        },
+        usuarioCajero: factura.usuarioCajero,
+        detalles: factura.detalles.map((d) => ({
+          id: d.id,
+          cantidad: d.cantidad,
+          precioUnitario: d.precioUnitario,
+          subtotal: d.subtotal,
+          esServicioLibre: d.esServicioLibre,
+          descripcionLibre: d.descripcionLibre,
+          producto: d.producto,
+        })),
+        abonos: factura.abonos.map((a) => ({
+          id: a.id,
+          fecha: a.fecha,
+          monto: a.monto,
+          metodoPago: a.metodoPago,
+          montoRecibido: a.montoRecibido,
+          vueltasEntregadas: a.vueltasEntregadas,
+          referenciaComprobante: a.referenciaComprobante,
+          cajero: a.cajero,
+        })),
+      },
+      empresa: empresaConfig,
+    };
+
+    setDatosReimpresionModal(datosParaImprimir);
+    setModalReimpresionAbierto(true);
   };
 
   return (
-    <div className="w-full space-y-6">
-      {/* Conmutador Superior Prominente: Nueva Factura vs Facturas Pendientes */}
-      <header className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-100 select-none text-slate-800">
+      {/* ========================================================================= */}
+      {/* 1. HEADER FIJO SUPERIOR (h-14 shrink-0) */}
+      {/* ========================================================================= */}
+      <header className="h-14 shrink-0 px-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shadow-sm z-30">
+        {/* Izquierda: Identificador de Terminal, Nombre del Cajero y Estado de Caja */}
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl">
-            <Receipt className="w-5 h-5" />
+          <div className="p-2 rounded-xl bg-blue-600 text-white shadow-xs">
+            <Receipt className="w-4 h-4" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-900 tracking-tight">
-              Terminal de Mostrador & Punto de Venta
-            </h1>
-            <p className="text-xs text-slate-500">
-              Gestión secuencial de facturación, cobro en efectivo con cálculo de vueltas y cartera
-            </p>
-          </div>
-        </div>
-
-        {/* Conmutador de Vistas del POS */}
-        <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
-          <button
-            type="button"
-            onClick={() => setVistaPrincipal("NUEVA_FACTURA")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${
-              vistaPrincipal === "NUEVA_FACTURA"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>1. Nueva Factura Secuencial</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setVistaPrincipal("FACTURAS_PENDIENTES")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${
-              vistaPrincipal === "FACTURAS_PENDIENTES"
-                ? "bg-amber-600 text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <DollarSign className="w-3.5 h-3.5" />
-            <span>2. Cobrar Facturas Pendientes</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-white font-mono">
-              {facturasPendientes.length}
-            </span>
-          </button>
-        </div>
-      </header>
-
-      {/* ========================================================================= */}
-      {/* RAMA 1: BANDEJA DE COBRO DE FACTURAS PENDIENTES */}
-      {/* ========================================================================= */}
-      {vistaPrincipal === "FACTURAS_PENDIENTES" ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-black text-slate-900">
-                  Facturas con Saldo Pendiente por Cobrar
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                  {facturasPendientes.length} por liquidar
-                </span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-black tracking-wider text-slate-100 uppercase">
+                Terminal Exclusiva de Caja
+              </span>
+              <span className="text-[10px] text-blue-400 font-bold">• LLANOMIO</span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-slate-300">
+              <div className="flex items-center gap-1">
+                {turnoAbierto ? (
+                  <span className="inline-flex items-center gap-1 text-emerald-400 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Caja Abierta
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-amber-400 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    Sin Turno
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-slate-500">
-                Selecciona cualquier factura para registrar abonos parciales o liquidar el saldo total
-              </p>
-            </div>
-
-            {/* Buscador Difuso de Pendientes */}
-            <div className="relative w-full md:w-80">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Fuzzy: cliente, factura, cédula..."
-                value={busquedaPendientes}
-                onChange={(e) => setBusquedaPendientes(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+              <span className="text-slate-500">|</span>
+              <span className="truncate max-w-[140px] text-slate-300">
+                Cajero:{" "}
+                <strong className="text-white">
+                  {turnoAbierto?.usuarioCajero?.nombre || usuarioSesion?.nombre || "Cajero en Turno"}
+                </strong>
+              </span>
             </div>
           </div>
-
-          {cargandoPendientes ? (
-            <div className="p-12 text-center text-slate-400">
-              <RefreshCw className="w-6 h-6 animate-spin mx-auto text-amber-500 mb-2" />
-              <p className="text-xs font-semibold">Consultando facturas por cobrar...</p>
-            </div>
-          ) : facturasPendientes.length === 0 ? (
-            <div className="p-12 text-center text-slate-400">
-              <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-              <p className="text-sm font-bold text-slate-800">No hay facturas pendientes por cobrar</p>
-              <p className="text-xs text-slate-500">Todas las transacciones están 100% liquidadas.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                  <tr>
-                    <th className="px-4 py-3">Factura / Fecha</th>
-                    <th className="px-4 py-3">Cliente</th>
-                    <th className="px-3 py-3 text-right">Total Factura</th>
-                    <th className="px-3 py-3 text-right">Total Abonado</th>
-                    <th className="px-3 py-3 text-right text-rose-600">Saldo Pendiente</th>
-                    <th className="px-4 py-3 text-center">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {facturasPendientes.map((f) => (
-                    <tr key={f.id} className="hover:bg-amber-50/40 transition">
-                      <td className="px-4 py-3.5">
-                        <strong className="font-mono text-slate-900 block font-black">
-                          {f.numeroFactura}
-                        </strong>
-                        <span className="text-[11px] text-slate-400">
-                          {new Date(f.fechaCreacion).toLocaleDateString("es-CO")}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className="font-bold text-slate-800 block">{f.cliente.nombre}</span>
-                        <span className="text-[11px] text-slate-400">CC: {f.cliente.documento}</span>
-                      </td>
-                      <td className="px-3 py-3.5 text-right font-mono font-bold text-slate-900">
-                        ${f.totalFactura.toLocaleString("es-CO")}
-                      </td>
-                      <td className="px-3 py-3.5 text-right font-mono font-bold text-emerald-600">
-                        ${f.totalAbonado.toLocaleString("es-CO")}
-                      </td>
-                      <td className="px-3 py-3.5 text-right font-mono font-black text-rose-600 text-sm">
-                        ${f.saldoPendiente.toLocaleString("es-CO")}
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFacturaALiquidarId(f.id);
-                            setModalLiquidarAbierto(true);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
-                        >
-                          <DollarSign className="w-3.5 h-3.5" />
-                          <span>Cobrar / Liquidar</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
-      ) : (
-        /* ========================================================================= */
-        /* RAMA 2: WIZARD LINEAL DE 4 VISTAS INDEPENDIENTES */
-        /* ========================================================================= */
-        <div className="space-y-6">
-          {/* Stepper Superior Interactivo */}
-          <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-3 sm:p-4">
-            <div className="grid grid-cols-4 gap-2 text-center text-xs font-bold">
-              {/* Paso 1 */}
+
+        {/* Centro: Stepper Compacto (visible en Nueva Factura) o Título de Historial */}
+        <div className="hidden md:flex items-center">
+          {vistaPrincipal === "NUEVA_FACTURA" ? (
+            <div className="flex items-center gap-1 p-1 bg-slate-800 rounded-xl border border-slate-700/80">
+              {/* Paso 1: Cliente */}
               <button
                 type="button"
                 onClick={() => setPasoActual(1)}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl transition ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition ${
                   pasoActual === 1
                     ? "bg-blue-600 text-white shadow-xs"
                     : clienteSeleccionado
-                    ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    : "text-slate-400 bg-slate-50"
+                    ? "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                    : "text-slate-400"
                 }`}
               >
-                <User className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">1. Cliente</span>
-                {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-500" />}
+                <User className="w-3.5 h-3.5" />
+                <span>1. Cliente</span>
+                {clienteSeleccionado && <Check className="w-3 h-3 text-emerald-400" />}
               </button>
 
-              {/* Paso 2 */}
+              <ArrowRight className="w-3 h-3 text-slate-500" />
+
+              {/* Paso 2: Ítems */}
               <button
                 type="button"
                 disabled={!clienteSeleccionado}
                 onClick={() => setPasoActual(2)}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
                   pasoActual === 2
                     ? "bg-blue-600 text-white shadow-xs"
                     : itemsCarrito.length > 0
-                    ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    : "text-slate-400 bg-slate-50"
+                    ? "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                    : "text-slate-400"
                 }`}
               >
-                <ShoppingBag className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">2. Ítems ({itemsCarrito.length})</span>
-                {itemsCarrito.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-500" />}
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>2. Ítems ({itemsCarrito.length})</span>
+                {itemsCarrito.length > 0 && <Check className="w-3 h-3 text-emerald-400" />}
               </button>
 
-              {/* Paso 3 */}
+              <ArrowRight className="w-3 h-3 text-slate-500" />
+
+              {/* Paso 3: Caja / Vueltas */}
               <button
                 type="button"
                 disabled={itemsCarrito.length === 0}
                 onClick={() => setPasoActual(3)}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
                   pasoActual === 3
                     ? "bg-blue-600 text-white shadow-xs"
-                    : "text-slate-400 bg-slate-50"
+                    : "text-slate-400"
                 }`}
               >
-                <Wallet className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">3. Caja y Pago</span>
+                <Wallet className="w-3.5 h-3.5" />
+                <span>3. Cobro & Vueltas</span>
               </button>
 
-              {/* Paso 4 */}
+              <ArrowRight className="w-3 h-3 text-slate-500" />
+
+              {/* Paso 4: Impresión */}
               <button
                 type="button"
                 disabled={!datosImpresion}
                 onClick={() => datosImpresion && setPasoActual(4)}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
                   pasoActual === 4
                     ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-400 bg-slate-50"
+                    : "text-slate-400"
                 }`}
               >
-                <Printer className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">4. Impresión PDF</span>
+                <Printer className="w-3.5 h-3.5" />
+                <span>4. Impresión</span>
               </button>
             </div>
-          </div>
-
-          {/* Alerta de Error si existe */}
-          {mensajeError && (
-            <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm flex items-center justify-between gap-2 shadow-xs">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
-                <span>{mensajeError}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMensajeError(null)}
-                className="p-1 text-rose-500 hover:text-rose-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
+          ) : (
+            <div className="flex items-center gap-2 px-3.5 py-1 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-300 text-xs font-black">
+              <History className="w-3.5 h-3.5" />
+              <span>CENTRO DE HISTORIAL, CARTERA, MORAS Y PAZ Y SALVOS</span>
             </div>
           )}
+        </div>
 
-          {/* ========================================================================= */}
-          {/* VISTA 1: SELECCIÓN EXCLUSIVA DEL CLIENTE */}
-          {/* ========================================================================= */}
-          {pasoActual === 1 && (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Derecha: Botón Prominente Historial / Moras + Alternar Nueva Factura + Salir al Panel */}
+        <div className="flex items-center gap-2">
+          {/* Botón Principal: Historial de Facturas y Pagos con Badges de Alerta */}
+          <button
+            type="button"
+            onClick={() => {
+              setVistaPrincipal("HISTORIAL");
+              cargarMonitoreo(false);
+            }}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-xs ${
+              vistaPrincipal === "HISTORIAL"
+                ? "bg-amber-500 text-slate-950 font-black ring-2 ring-amber-400/40"
+                : "bg-slate-800 text-slate-200 hover:bg-slate-750 border border-slate-700"
+            }`}
+            title="Ver cartera, facturas por cobrar, retrasos en mora y paz y salvos"
+          >
+            <History className="w-4 h-4 text-amber-400" />
+            <span className="hidden sm:inline">Historial de Facturas y Pagos</span>
+            <span className="sm:hidden">Historial</span>
+
+            {/* Badges de alerta de moras y pendientes */}
+            <div className="flex items-center gap-1 ml-0.5">
+              {estadisticasMonitoreo.totalEnMora > 0 && (
+                <span
+                  title={`${estadisticasMonitoreo.totalEnMora} facturas con prendas en mora`}
+                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black bg-rose-600 text-white animate-pulse"
+                >
+                  {estadisticasMonitoreo.totalEnMora} mora
+                </span>
+              )}
+              {estadisticasMonitoreo.conteoPendientesAlDia > 0 && (
+                <span
+                  title={`${estadisticasMonitoreo.conteoPendientesAlDia} facturas pendientes por cobrar`}
+                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500 text-slate-950"
+                >
+                  {estadisticasMonitoreo.conteoPendientesAlDia}
+                </span>
+              )}
+            </div>
+          </button>
+
+          {/* Botón: Nueva Factura */}
+          <button
+            type="button"
+            onClick={() => {
+              if (vistaPrincipal === "HISTORIAL") {
+                setVistaPrincipal("NUEVA_FACTURA");
+              } else if (itemsCarrito.length > 0 || clienteSeleccionado) {
+                if (confirm("¿Deseas reiniciar la venta actual para comenzar una nueva factura en blanco?")) {
+                  reiniciarMostrador();
+                }
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-xs ${
+              vistaPrincipal === "NUEVA_FACTURA"
+                ? "bg-blue-600 hover:bg-blue-500 text-white"
+                : "bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700"
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Nueva Factura</span>
+          </button>
+
+          {/* Acceso rápido para Salir al Panel Administrativo */}
+          <Link
+            href="/admin/dashboard"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition border border-transparent hover:border-slate-700"
+            title="Volver al Panel de Administración"
+          >
+            <Building2 className="w-4 h-4" />
+          </Link>
+        </div>
+      </header>
+
+      {/* ========================================================================= */}
+      {/* 2. CUERPO DE TRABAJO FIJO SIN SCROLL VERTICAL (flex-1 min-h-0 overflow-hidden) */}
+      {/* ========================================================================= */}
+      <main className="flex-1 min-h-0 overflow-hidden p-3 flex flex-col">
+        {/* ======================================================================= */}
+        {/* RAMA 1: CENTRO DE HISTORIAL, CARTERA, MORAS Y PAZ Y SALVOS (4 PESTAÑAS) */}
+        {/* ======================================================================= */}
+        {vistaPrincipal === "HISTORIAL" && (
+          <div className="h-full flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 p-4 overflow-hidden">
+            {/* Header del Historial Fijo (shrink-0) */}
+            <div className="shrink-0 pb-3 border-b border-slate-200 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                    Paso 1: Selección o Registro del Cliente
-                  </h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-black text-slate-900 tracking-tight">
+                      Centro de Historial, Cartera, Moras y Paz y Salvos
+                    </h2>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 font-mono font-bold text-slate-600">
+                      {facturasHistorialFiltradas.length} en vista
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-500">
-                    Toca la etiqueta de cualquier cliente registrado para avanzar automáticamente al mostrador
+                    Consulta el estado de facturas, liquida saldos pendientes, cobra recargos por retraso en entrega y reimprime comprobantes.
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={abrirModalCrearCliente}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold transition shadow-xs"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>+ Crear Nuevo Cliente</span>
-                </button>
-              </div>
-
-              {/* Barra de Búsqueda Grande Autofiltrada */}
-              <div className="relative">
-                <Search className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
-                <input
-                  ref={searchInputClienteRef}
-                  type="text"
-                  placeholder="Escribe nombre, cédula/NIT, teléfono o dirección para filtrar en vivo..."
-                  value={busquedaCliente}
-                  onChange={(e) => setBusquedaCliente(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && clientesFiltrados.length > 0) {
-                      seleccionarCliente(clientesFiltrados[0]);
-                    }
-                  }}
-                  className="w-full pl-11 pr-10 py-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50"
-                  autoFocus
-                />
-                {busquedaCliente && (
-                  <button
-                    type="button"
-                    onClick={() => setBusquedaCliente("")}
-                    className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span>
-                  Mostrando {clientesFiltrados.length} de {todosLosClientes.length} cliente(s)
-                </span>
-                <span className="hidden sm:inline">Presiona Enter para seleccionar el primer resultado</span>
-              </div>
-
-              {/* Grilla de Chips Táctiles de Clientes */}
-              <div className="max-h-[500px] overflow-y-auto p-1">
-                {cargandoClientesInicial ? (
-                  <div className="p-12 text-center text-slate-400">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto text-blue-500 mb-2" />
-                    <p className="text-xs font-semibold">Cargando catálogo de clientes...</p>
-                  </div>
-                ) : clientesFiltrados.length === 0 ? (
-                  <div className="p-12 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                    <User className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm font-bold text-slate-700">No se encontró ningún cliente</p>
-                    <p className="text-xs text-slate-500 mb-4">
-                      No hay coincidencias con &quot;{busquedaCliente}&quot;.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={abrirModalCrearCliente}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span>Registrar este cliente ahora</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {clientesFiltrados.map((cli) => {
-                      const esSeleccionado = clienteSeleccionado?.id === cli.id;
-                      const esNuevo = clientesNuevosIds.has(cli.id);
-
-                      return (
-                        <button
-                          key={cli.id}
-                          type="button"
-                          onClick={() => seleccionarCliente(cli)}
-                          className={`text-left p-3.5 rounded-xl border transition flex flex-col justify-between gap-2 shadow-xs group ${
-                            esSeleccionado
-                              ? "bg-blue-50 border-blue-600 ring-2 ring-blue-600/20"
-                              : "bg-white border-slate-200 hover:border-blue-400 hover:bg-slate-50/60"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2 w-full">
-                            <span className="font-black text-sm text-slate-900 group-hover:text-blue-600 transition truncate">
-                              {cli.nombre}
-                            </span>
-                            {esNuevo && (
-                              <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                Nuevo
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                            <span className="px-2 py-0.5 rounded-md bg-slate-100 font-mono font-bold text-slate-700">
-                              CC: {cli.documento}
-                            </span>
-                            {cli.telefono && (
-                              <span className="px-2 py-0.5 rounded-md bg-slate-100 font-mono">
-                                Tel: {cli.telefono}
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* VISTA 2: SELECCIÓN DE PRODUCTOS, ALQUILER O SERVICIOS */}
-          {/* ========================================================================= */}
-          {pasoActual === 2 && (
-            <div className="space-y-6">
-              {/* Encabezado Compacto del Cliente Seleccionado */}
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-xs">
-                    <UserCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">
-                        Cliente Asignado:
-                      </span>
-                      <strong className="text-sm font-black text-slate-900">
-                        {clienteSeleccionado?.nombre}
-                      </strong>
-                    </div>
-                    <p className="text-xs text-slate-500 font-mono">
-                      Cédula/NIT: {clienteSeleccionado?.documento} | Tel:{" "}
-                      {clienteSeleccionado?.telefono || "N/A"}
-                    </p>
-                  </div>
-                </div>
-
+                {/* Buscador Difuso y Botón de Sincronización */}
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPasoActual(1)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-blue-700 bg-white hover:bg-blue-100 border border-blue-200 transition"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Cambiar Cliente</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Contenedor Principal Vista 2: Catálogo Izquierda + Resumen Carrito Derecha */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Columna Izquierda: Pestañas de Módulos (8 cols) */}
-                <div className="lg:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-5">
-                  {/* Selector de Pestañas: Venta / Alquiler / Arreglos */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
-                    <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+                  <div className="relative w-full sm:w-72">
+                    <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Fuzzy: Factura, Cliente, CC, Prenda..."
+                      value={busquedaHistorial}
+                      onChange={(e) => setBusquedaHistorial(e.target.value)}
+                      className="w-full pl-9 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    {busquedaHistorial && (
                       <button
                         type="button"
-                        onClick={() => setModuloActivo("VENTA")}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
-                          moduloActivo === "VENTA"
-                            ? "bg-blue-600 text-white shadow-xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
+                        onClick={() => setBusquedaHistorial("")}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
                       >
-                        <Tag className="w-3.5 h-3.5" />
-                        <span>Venta de Prendas</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setModuloActivo("ALQUILER")}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
-                          moduloActivo === "ALQUILER"
-                            ? "bg-emerald-600 text-white shadow-xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>Alquiler con Retorno</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setModuloActivo("ARREGLO")}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
-                          moduloActivo === "ARREGLO"
-                            ? "bg-purple-600 text-white shadow-xs"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        <Scissors className="w-3.5 h-3.5" />
-                        <span>Servicio / Sastrería</span>
-                      </button>
-                    </div>
-
-                    {moduloActivo !== "ARREGLO" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTipoModalProducto(moduloActivo);
-                          setMostrarModalProducto(true);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>+ Crear Producto</span>
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
 
-                  {/* CONTENIDO PESTAÑA VENTA */}
-                  {moduloActivo === "VENTA" && (
-                    <div className="space-y-4">
-                      <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="Fuzzy: código, nombre, talla, color, precio..."
-                          value={busquedaVenta}
-                          onChange={(e) => setBusquedaVenta(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-                        />
+                  <button
+                    type="button"
+                    onClick={() => cargarMonitoreo(true)}
+                    disabled={sincronizandoMoras}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition disabled:opacity-50"
+                    title="Actualizar estados y recalcular moras en tiempo real"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${sincronizandoMoras ? "animate-spin text-amber-600" : ""}`} />
+                    <span className="hidden sm:inline">Sincronizar Moras</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Barra de 4 Pestañas Claras y No Saturadas */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1">
+                {/* Pestaña A: Pendientes por Pagar (Al Día) */}
+                <button
+                  type="button"
+                  onClick={() => setPestanaHistorial("PENDIENTES_AL_DIA")}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition ${
+                    pestanaHistorial === "PENDIENTES_AL_DIA"
+                      ? "bg-blue-50 border-blue-600 text-blue-900 ring-2 ring-blue-600/20"
+                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    <span>A. Pendientes al Día</span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-black ${
+                      pestanaHistorial === "PENDIENTES_AL_DIA"
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
+                  >
+                    {estadisticasMonitoreo.conteoPendientesAlDia}
+                  </span>
+                </button>
+
+                {/* Pestaña B: En Mora + Saldo Pendiente */}
+                <button
+                  type="button"
+                  onClick={() => setPestanaHistorial("MORA_Y_SALDO")}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition ${
+                    pestanaHistorial === "MORA_Y_SALDO"
+                      ? "bg-rose-50 border-rose-600 text-rose-900 ring-2 ring-rose-600/20"
+                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                    <span>B. En Mora + Saldo</span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-black ${
+                      estadisticasMonitoreo.conteoMoraYSaldo > 0
+                        ? "bg-rose-600 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
+                  >
+                    {estadisticasMonitoreo.conteoMoraYSaldo}
+                  </span>
+                </button>
+
+                {/* Pestaña C: Solo en Mora (Factura Pagada, Prenda NO Devuelta) */}
+                <button
+                  type="button"
+                  onClick={() => setPestanaHistorial("SOLO_MORA")}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition ${
+                    pestanaHistorial === "SOLO_MORA"
+                      ? "bg-amber-50 border-amber-600 text-amber-900 ring-2 ring-amber-600/20"
+                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-amber-600" />
+                    <span>C. Solo Mora (Prenda sin Entregar)</span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-black ${
+                      estadisticasMonitoreo.conteoSoloMora > 0
+                        ? "bg-amber-600 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
+                  >
+                    {estadisticasMonitoreo.conteoSoloMora}
+                  </span>
+                </button>
+
+                {/* Pestaña D: Historial de Paz y Salvos */}
+                <button
+                  type="button"
+                  onClick={() => setPestanaHistorial("PAZ_Y_SALVOS")}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition ${
+                    pestanaHistorial === "PAZ_Y_SALVOS"
+                      ? "bg-emerald-50 border-emerald-600 text-emerald-900 ring-2 ring-emerald-600/20"
+                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>D. Paz y Salvos (Cerradas)</span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-black ${
+                      pestanaHistorial === "PAZ_Y_SALVOS"
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
+                  >
+                    {estadisticasMonitoreo.conteoPazYSalvos}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Cuerpo de la Tabla del Historial con Scroll Interno Propio (flex-1 min-h-0 overflow-y-auto) */}
+            <div className="flex-1 min-h-0 overflow-y-auto pt-2">
+              {cargandoMonitoreo ? (
+                <div className="p-12 text-center text-slate-400">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-amber-500 mb-2" />
+                  <p className="text-xs font-semibold">Consultando cartera e historial...</p>
+                </div>
+              ) : facturasHistorialFiltradas.length === 0 ? (
+                <div className="p-12 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200 my-4">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                  <p className="text-sm font-bold text-slate-700">No hay facturas en esta vista</p>
+                  <p className="text-xs text-slate-500">
+                    {busquedaHistorial
+                      ? `No hay coincidencias con "${busquedaHistorial}" en esta pestaña.`
+                      : "No se registran registros bajo el criterio seleccionado."}
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-3 py-2.5">Factura / Fecha</th>
+                        <th className="px-3 py-2.5">Cliente</th>
+                        {pestanaHistorial === "PENDIENTES_AL_DIA" && (
+                          <>
+                            <th className="px-3 py-2.5">Concepto</th>
+                            <th className="px-3 py-2.5 text-right">Total Factura</th>
+                            <th className="px-3 py-2.5 text-right">Abonado</th>
+                            <th className="px-3 py-2.5 text-right text-rose-600 font-black">
+                              Saldo Pendiente
+                            </th>
+                          </>
+                        )}
+
+                        {pestanaHistorial === "MORA_Y_SALDO" && (
+                          <>
+                            <th className="px-3 py-2.5 text-center text-rose-700">Retraso en Devolución</th>
+                            <th className="px-3 py-2.5 text-right">Saldo Base</th>
+                            <th className="px-3 py-2.5 text-right text-rose-600 font-bold">Recargo Mora</th>
+                            <th className="px-3 py-2.5 text-right text-rose-700 font-black">
+                              Total Exigible Hoy
+                            </th>
+                          </>
+                        )}
+
+                        {pestanaHistorial === "SOLO_MORA" && (
+                          <>
+                            <th className="px-3 py-2.5">Prenda Retenida</th>
+                            <th className="px-3 py-2.5 text-center">Entrega Pactada</th>
+                            <th className="px-3 py-2.5 text-center text-amber-700">Retraso</th>
+                            <th className="px-3 py-2.5 text-right text-amber-700 font-black">
+                              Mora a Cobrar
+                            </th>
+                          </>
+                        )}
+
+                        {pestanaHistorial === "PAZ_Y_SALVOS" && (
+                          <>
+                            <th className="px-3 py-2.5 text-center">Fecha Cierre</th>
+                            <th className="px-3 py-2.5 text-right font-bold text-slate-800">Total Pagado</th>
+                            <th className="px-3 py-2.5 text-center">Cajero Cierre</th>
+                            <th className="px-3 py-2.5 text-center">Certificación</th>
+                          </>
+                        )}
+
+                        <th className="px-3 py-2.5 text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {facturasHistorialFiltradas.map((f) => {
+                        const tiempoRetrasoTexto =
+                          f.diasRetraso > 0
+                            ? `${f.diasRetraso} d ${f.horasRetraso % 24} h`
+                            : `${f.horasRetraso} hrs`;
+
+                        return (
+                          <tr key={f.id} className="hover:bg-slate-50/80 transition">
+                            {/* Factura / Fecha */}
+                            <td className="px-3 py-2.5">
+                              <strong className="font-mono text-slate-900 block font-black">
+                                #{f.numeroFactura}
+                              </strong>
+                              <span className="text-[10px] text-slate-400">
+                                {new Date(f.fechaCreacion).toLocaleDateString("es-CO")}
+                              </span>
+                            </td>
+
+                            {/* Cliente */}
+                            <td className="px-3 py-2.5">
+                              <span className="font-bold text-slate-900 block truncate max-w-[170px]">
+                                {f.cliente.nombre}
+                              </span>
+                              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
+                                <span>CC: {f.cliente.documento}</span>
+                                {f.cliente.telefono && <span>• {f.cliente.telefono}</span>}
+                              </div>
+                            </td>
+
+                            {/* COLUMNAS SEGÚN PESTAÑA A: PENDIENTES AL DÍA */}
+                            {pestanaHistorial === "PENDIENTES_AL_DIA" && (
+                              <>
+                                <td className="px-3 py-2.5">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
+                                    {f.tipoOperacion}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900">
+                                  ${f.totalFactura.toLocaleString("es-CO")}
+                                </td>
+                                <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-600">
+                                  ${f.totalAbonado.toLocaleString("es-CO")}
+                                </td>
+                                <td className="px-3 py-2.5 text-right font-mono font-black text-rose-600 text-sm">
+                                  ${f.saldoPendiente.toLocaleString("es-CO")}
+                                </td>
+                              </>
+                            )}
+
+                            {/* COLUMNAS SEGÚN PESTAÑA B: EN MORA + SALDO */}
+                            {pestanaHistorial === "MORA_Y_SALDO" && (
+                              <>
+                                <td className="px-3 py-2.5 text-center">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{tiempoRetrasoTexto} de mora</span>
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-700">
+                                  ${f.saldoBase.toLocaleString("es-CO")}
+                                </td>
+                                <td className="px-3 py-2.5 text-right font-mono font-bold text-rose-600">
+                                  +${f.recargoMora.toLocaleString("es-CO")}
+                                </td>
+                                <td className="px-3 py-2.5 text-right font-mono font-black text-rose-700 text-sm">
+                                  ${f.totalExigible.toLocaleString("es-CO")}
+                                </td>
+                              </>
+                            )}
+
+                            {/* COLUMNAS SEGÚN PESTAÑA C: SOLO EN MORA */}
+                            {pestanaHistorial === "SOLO_MORA" && (
+                              <>
+                                <td className="px-3 py-2.5">
+                                  <div className="space-y-0.5">
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 block w-fit">
+                                      FACTURA PAGADA - FALTA ENTREGAR PRENDA (EN MORA)
+                                    </span>
+                                    <strong className="text-slate-800 text-xs block truncate max-w-[200px]">
+                                      {f.prendaPrincipal}
+                                    </strong>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2.5 text-center text-[10px] font-mono text-slate-500">
+                                  {f.fechaDevolucionPactada
+                                    ? new Date(f.fechaDevolucionPactada).toLocaleString("es-CO", {
+                                        dateStyle: "short",
+                                        timeStyle: "short",
+                                      })
+                                    : "N/A"}
+                                </td>
+                                <td className="px-3 py-2.5 text-center">
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                    {tiempoRetrasoTexto}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 text-right font-mono font-black text-amber-700 text-sm">
+                                  ${f.recargoMora.toLocaleString("es-CO")}
+                                </td>
+                              </>
+                            )}
+
+                            {/* COLUMNAS SEGÚN PESTAÑA D: PAZ Y SALVOS */}
+                            {pestanaHistorial === "PAZ_Y_SALVOS" && (
+                              <>
+                                <td className="px-3 py-2.5 text-center text-[11px] font-mono text-slate-500">
+                                  {f.fechaDevolucionReal
+                                    ? new Date(f.fechaDevolucionReal).toLocaleDateString("es-CO")
+                                    : new Date(f.fechaCreacion).toLocaleDateString("es-CO")}
+                                </td>
+                                <td className="px-3 py-2.5 text-right font-mono font-black text-slate-900">
+                                  ${f.totalFactura.toLocaleString("es-CO")}
+                                  {f.recargoMora > 0 && (
+                                    <span className="block text-[9px] text-amber-700 font-bold">
+                                      (Inc. mora ${f.recargoMora.toLocaleString("es-CO")})
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2.5 text-center text-[11px] text-slate-600 truncate max-w-[100px]">
+                                  {f.usuarioCajero?.nombre || "Cajero"}
+                                </td>
+                                <td className="px-3 py-2.5 text-center">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                    <span>Paz y Salvo ($0)</span>
+                                  </span>
+                                </td>
+                              </>
+                            )}
+
+                            {/* Acciones */}
+                            <td className="px-3 py-2.5 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                {/* Botón Cobrar Saldo / Mora (Pestañas A, B y C) */}
+                                {pestanaHistorial !== "PAZ_Y_SALVOS" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFacturaALiquidarId(f.id);
+                                      setModalLiquidarAbierto(true);
+                                    }}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition shadow-xs text-white ${
+                                      pestanaHistorial === "SOLO_MORA"
+                                        ? "bg-amber-600 hover:bg-amber-700"
+                                        : pestanaHistorial === "MORA_Y_SALDO"
+                                        ? "bg-rose-600 hover:bg-rose-700"
+                                        : "bg-emerald-600 hover:bg-emerald-700"
+                                    }`}
+                                  >
+                                    <DollarSign className="w-3.5 h-3.5" />
+                                    <span>
+                                      {pestanaHistorial === "SOLO_MORA"
+                                        ? "Cobrar Mora & Prenda"
+                                        : pestanaHistorial === "MORA_Y_SALDO"
+                                        ? "Cobrar Saldo & Mora"
+                                        : "Cobrar Saldo"}
+                                    </span>
+                                  </button>
+                                )}
+
+                                {/* Botón WhatsApp CRM */}
+                                {pestanaHistorial !== "PAZ_Y_SALVOS" && f.cliente.telefono && (
+                                  <BotonWhatsApp
+                                    telefono={f.cliente.telefono}
+                                    nombreCliente={f.cliente.nombre}
+                                    nombrePrenda={f.prendaPrincipal}
+                                    diasRetraso={f.diasRetraso}
+                                    horasRetraso={f.horasRetraso}
+                                    saldoPendiente={f.totalExigible || f.saldoPendiente}
+                                    numeroFactura={f.numeroFactura}
+                                    fechaEntregaPactada={f.fechaDevolucionPactada || undefined}
+                                    valorMora={f.recargoMora}
+                                    tipoMensaje={
+                                      pestanaHistorial === "SOLO_MORA"
+                                        ? "SOLO_MORA_ENTREGA"
+                                        : pestanaHistorial === "MORA_Y_SALDO"
+                                        ? "MORA"
+                                        : "SALDO_PENDIENTE"
+                                    }
+                                    mostrarTexto={false}
+                                    className="p-1.5"
+                                  />
+                                )}
+
+                                {/* Botón Imprimir / PDF Universal */}
+                                <button
+                                  type="button"
+                                  onClick={() => abrirReimpresionUniversal(f)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                                  title="Ver e imprimir comprobante en 80mm, Media Carta o Carta"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">Imprimir / PDF</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================================= */}
+        {/* RAMA 2: TERMINAL DE COBRO SECUENCIAL EN 4 PASOS (NUEVA FACTURA) */}
+        {/* ======================================================================= */}
+        {vistaPrincipal === "NUEVA_FACTURA" && (
+          <div className="h-full flex flex-col overflow-hidden">
+            {/* Alerta de Error si existe */}
+            {mensajeError && (
+              <div className="shrink-0 mb-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between gap-2 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{mensajeError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMensajeError(null)}
+                  className="p-1 text-rose-500 hover:text-rose-800"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* PASO 1: SELECCIÓN EXCLUSIVA DEL CLIENTE */}
+            {/* ========================================================================= */}
+            {pasoActual === 1 && (
+              <div className="h-full flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 p-4 overflow-hidden">
+                {/* Cabecera Fija Paso 1 (shrink-0) */}
+                <div className="shrink-0 pb-3 border-b border-slate-100 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-base font-black text-slate-900 tracking-tight">
+                        Paso 1: Selección o Registro del Cliente
+                      </h2>
+                      <p className="text-xs text-slate-500">
+                        Toca la etiqueta de cualquier cliente o escribe en el buscador para avanzar al mostrador
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={abrirModalCrearCliente}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>+ Crear Nuevo Cliente</span>
+                    </button>
+                  </div>
+
+                  {/* Buscador Difuso Grande */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                    <input
+                      ref={searchInputClienteRef}
+                      type="text"
+                      placeholder="Fuzzy: Cédula, nombre, teléfono o dirección..."
+                      value={busquedaCliente}
+                      onChange={(e) => setBusquedaCliente(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && clientesFiltrados.length > 0) {
+                          seleccionarCliente(clientesFiltrados[0]);
+                        }
+                      }}
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50"
+                      autoFocus
+                    />
+                    {busquedaCliente && (
+                      <button
+                        type="button"
+                        onClick={() => setBusquedaCliente("")}
+                        className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                    <span>
+                      Mostrando {clientesFiltrados.length} de {todosLosClientes.length} cliente(s)
+                    </span>
+                    <span className="hidden sm:inline">Presiona Enter para seleccionar el primer resultado</span>
+                  </div>
+                </div>
+
+                {/* Grilla de Chips Táctiles de Clientes con Scroll Interno Propio */}
+                <div className="flex-1 min-h-0 overflow-y-auto pt-3 pr-1">
+                  {cargandoClientesInicial ? (
+                    <div className="p-12 text-center text-slate-400">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto text-blue-500 mb-2" />
+                      <p className="text-xs font-semibold">Cargando catálogo de clientes...</p>
+                    </div>
+                  ) : clientesFiltrados.length === 0 ? (
+                    <div className="p-12 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      <User className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="text-sm font-bold text-slate-700">No se encontró ningún cliente</p>
+                      <p className="text-xs text-slate-500 mb-4">
+                        No hay coincidencias con &quot;{busquedaCliente}&quot;.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={abrirModalCrearCliente}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Registrar este cliente ahora</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 content-start">
+                      {clientesFiltrados.map((cli) => {
+                        const esSeleccionado = clienteSeleccionado?.id === cli.id;
+                        const esNuevo = clientesNuevosIds.has(cli.id);
+
+                        return (
+                          <button
+                            key={cli.id}
+                            type="button"
+                            onClick={() => seleccionarCliente(cli)}
+                            className={`text-left p-3 rounded-xl border transition flex flex-col justify-between gap-1.5 shadow-xs group ${
+                              esSeleccionado
+                                ? "bg-blue-50 border-blue-600 ring-2 ring-blue-600/20"
+                                : "bg-white border-slate-200 hover:border-blue-400 hover:bg-slate-50/60"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2 w-full">
+                              <span className="font-black text-xs text-slate-900 group-hover:text-blue-600 transition truncate">
+                                {cli.nombre}
+                              </span>
+                              {esNuevo && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                  Nuevo
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+                              <span className="px-1.5 py-0.5 rounded-md bg-slate-100 font-mono font-bold text-slate-700">
+                                CC: {cli.documento}
+                              </span>
+                              {cli.telefono && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-slate-100 font-mono">
+                                  Tel: {cli.telefono}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* PASO 2: SELECCIÓN DE PRODUCTOS, ALQUILER O SERVICIOS */}
+            {/* ========================================================================= */}
+            {pasoActual === 2 && (
+              <div className="h-full flex flex-col sm:flex-row gap-3 overflow-hidden">
+                {/* Columna Izquierda: Catálogo y Pestañas de Módulos */}
+                <div className="flex-1 min-w-0 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 p-3 overflow-hidden">
+                  {/* Pestañas y Acciones Rápidas (shrink-0) */}
+                  <div className="shrink-0 pb-2.5 border-b border-slate-100 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setModuloActivo("VENTA")}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                            moduloActivo === "VENTA"
+                              ? "bg-blue-600 text-white shadow-xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <Tag className="w-3.5 h-3.5" />
+                          <span>Venta</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setModuloActivo("ALQUILER")}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                            moduloActivo === "ALQUILER"
+                              ? "bg-emerald-600 text-white shadow-xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Alquiler</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setModuloActivo("ARREGLO")}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                            moduloActivo === "ARREGLO"
+                              ? "bg-purple-600 text-white shadow-xs"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          <Scissors className="w-3.5 h-3.5" />
+                          <span>Sastrería / Arreglo</span>
+                        </button>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 max-h-[400px] overflow-y-auto p-1">
+                      {moduloActivo !== "ARREGLO" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTipoModalProducto(moduloActivo);
+                            setMostrarModalProducto(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Crear Producto</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Filtros específicos por módulo */}
+                    {moduloActivo === "VENTA" && (
+                      <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Fuzzy: código, prenda, talla, color, precio..."
+                          value={busquedaVenta}
+                          onChange={(e) => setBusquedaVenta(e.target.value)}
+                          className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        />
+                      </div>
+                    )}
+
+                    {moduloActivo === "ALQUILER" && (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2 p-2 bg-emerald-50/60 rounded-xl border border-emerald-200 text-[11px]">
+                          <div>
+                            <label className="font-bold text-emerald-800 block mb-0.5">Salida:</label>
+                            <input
+                              type="date"
+                              value={fechaSalidaAlquiler}
+                              onChange={(e) => setFechaSalidaAlquiler(e.target.value)}
+                              className="w-full px-2 py-1 bg-white border border-emerald-300 rounded-lg text-xs font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="font-bold text-emerald-800 block mb-0.5">Retorno Pactado:</label>
+                            <input
+                              type="datetime-local"
+                              value={fechaDevolucionAlquiler}
+                              onChange={(e) => setFechaDevolucionAlquiler(e.target.value)}
+                              className="w-full px-2 py-1 bg-white border border-emerald-300 rounded-lg text-xs font-mono font-bold text-emerald-900"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="relative">
+                          <Search className="w-4 h-4 absolute left-3 top-2 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Fuzzy: traje, disfraz, código, talla..."
+                            value={busquedaAlquiler}
+                            onChange={(e) => setBusquedaAlquiler(e.target.value)}
+                            className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {moduloActivo === "ARREGLO" && (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-1">
+                          {SUGERENCIAS_ARREGLOS.slice(0, 5).map((sug, sIdx) => (
+                            <button
+                              key={sIdx}
+                              type="button"
+                              onClick={() => setDescArreglo(sug)}
+                              className="px-2 py-0.5 rounded text-[10px] bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition font-medium"
+                            >
+                              {sug}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-12 gap-2">
+                          <input
+                            type="text"
+                            placeholder="Descripción de la costura / arreglo..."
+                            value={descArreglo}
+                            onChange={(e) => setDescArreglo(e.target.value)}
+                            className="col-span-7 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-600"
+                          />
+                          <input
+                            type="number"
+                            placeholder="Precio $"
+                            value={precioArreglo}
+                            onChange={(e) => setPrecioArreglo(e.target.value)}
+                            className="col-span-3 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-purple-600"
+                          />
+                          <button
+                            type="button"
+                            onClick={agregarItemArreglo}
+                            disabled={!descArreglo.trim()}
+                            className="col-span-2 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition disabled:opacity-40"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Catálogo con Scroll Interno Propio (flex-1 min-h-0 overflow-y-auto) */}
+                  <div className="flex-1 min-h-0 overflow-y-auto pt-2 pr-1">
+                    {moduloActivo === "VENTA" && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 content-start">
                         {productosVenta.map((p) => (
                           <button
                             key={p.id}
                             type="button"
                             onClick={() => agregarItemVenta(p)}
-                            className="text-left p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 transition flex flex-col justify-between gap-1.5 group shadow-xs"
+                            className="text-left p-2.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 transition flex flex-col justify-between gap-1 group shadow-xs"
                           >
                             <div className="flex items-center justify-between gap-1 w-full">
                               <span className="font-mono text-[10px] font-bold text-slate-500">
@@ -1218,8 +1872,8 @@ export default function PosPage() {
                             <strong className="text-xs font-bold text-slate-900 group-hover:text-blue-600 truncate block">
                               {p.nombre}
                             </strong>
-                            <div className="flex items-center justify-between gap-1 mt-1">
-                              <span className="text-[11px] text-slate-400">
+                            <div className="flex items-center justify-between gap-1 mt-0.5">
+                              <span className="text-[10px] text-slate-400">
                                 Talla {p.talla || "U"}
                               </span>
                               <strong className="text-xs font-mono font-black text-blue-600">
@@ -1229,50 +1883,10 @@ export default function PosPage() {
                           </button>
                         ))}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* CONTENIDO PESTAÑA ALQUILER */}
-                  {moduloActivo === "ALQUILER" && (
-                    <div className="space-y-4">
-                      {/* Fechas Obligatorias de Entrega y Devolución */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-emerald-50/60 rounded-xl border border-emerald-200 text-xs">
-                        <div>
-                          <label className="font-bold text-emerald-800 block mb-1">
-                            Fecha de Salida:
-                          </label>
-                          <input
-                            type="date"
-                            value={fechaSalidaAlquiler}
-                            onChange={(e) => setFechaSalidaAlquiler(e.target.value)}
-                            className="w-full px-2.5 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold text-emerald-800 block mb-1">
-                            Devolución Pactada (Fecha y Hora):
-                          </label>
-                          <input
-                            type="datetime-local"
-                            value={fechaDevolucionAlquiler}
-                            onChange={(e) => setFechaDevolucionAlquiler(e.target.value)}
-                            className="w-full px-2.5 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs font-mono font-bold text-emerald-900"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="Fuzzy: traje, disfraz, código, talla..."
-                          value={busquedaAlquiler}
-                          onChange={(e) => setBusquedaAlquiler(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 max-h-[350px] overflow-y-auto p-1">
+                    {moduloActivo === "ALQUILER" && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 content-start">
                         {productosAlquiler.map((p) => {
                           const estaDisponible = p.estado === "DISPONIBLE";
 
@@ -1281,7 +1895,7 @@ export default function PosPage() {
                               key={p.id}
                               type="button"
                               onClick={() => agregarItemAlquiler(p)}
-                              className="text-left p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 transition flex flex-col justify-between gap-1.5 group shadow-xs"
+                              className="text-left p-2.5 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 transition flex flex-col justify-between gap-1 group shadow-xs"
                             >
                               <div className="flex items-center justify-between gap-1 w-full">
                                 <span className="font-mono text-[10px] font-bold text-slate-500">
@@ -1300,8 +1914,8 @@ export default function PosPage() {
                               <strong className="text-xs font-bold text-slate-900 group-hover:text-emerald-700 truncate block">
                                 {p.nombre}
                               </strong>
-                              <div className="flex items-center justify-between gap-1 mt-1">
-                                <span className="text-[11px] text-slate-400">
+                              <div className="flex items-center justify-between gap-1 mt-0.5">
+                                <span className="text-[10px] text-slate-400">
                                   Talla {p.talla || "U"}
                                 </span>
                                 <strong className="text-xs font-mono font-black text-emerald-600">
@@ -1312,176 +1926,145 @@ export default function PosPage() {
                           );
                         })}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* CONTENIDO PESTAÑA ARREGLO */}
-                  {moduloActivo === "ARREGLO" && (
-                    <div className="space-y-4">
-                      {/* Sugerencias Rápidas */}
-                      <div>
-                        <span className="text-xs font-bold text-slate-500 block mb-2">
-                          Plantillas de Servicios Frecuentes:
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {SUGERENCIAS_ARREGLOS.map((sug, sIdx) => (
-                            <button
-                              key={sIdx}
-                              type="button"
-                              onClick={() => setDescArreglo(sug)}
-                              className="px-2.5 py-1 rounded-lg text-xs bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition font-medium"
-                            >
-                              {sug}
-                            </button>
-                          ))}
-                        </div>
+                    {moduloActivo === "ARREGLO" && (
+                      <div className="p-4 text-center text-slate-400">
+                        <Scissors className="w-8 h-8 mx-auto mb-2 text-purple-300" />
+                        <p className="text-xs font-bold text-slate-600">
+                          Servicios de Sastrería y Costura Personalizada
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          Escribe el concepto arriba o toca una plantilla rápida para agregar al carrito
+                        </p>
                       </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                        <div className="sm:col-span-7">
-                          <label className="text-xs font-bold text-slate-700 block mb-1">
-                            Descripción del Arreglo:
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Ej. Bota de pantalón con dobladillo original"
-                            value={descArreglo}
-                            onChange={(e) => setDescArreglo(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-600"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-3">
-                          <label className="text-xs font-bold text-slate-700 block mb-1">
-                            Precio ($):
-                          </label>
-                          <input
-                            type="number"
-                            placeholder="0"
-                            value={precioArreglo}
-                            onChange={(e) => setPrecioArreglo(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-600"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-2 flex items-end">
-                          <button
-                            type="button"
-                            onClick={agregarItemArreglo}
-                            disabled={!descArreglo.trim()}
-                            className="w-full py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition shadow-xs disabled:opacity-40"
-                          >
-                            + Agregar
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
-                {/* Columna Derecha: Carrito y Resumen Financiero (4 cols) */}
-                <div className="lg:col-span-4 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                      <div className="flex items-center gap-2">
-                        <ShoppingBag className="w-4 h-4 text-slate-700" />
-                        <h3 className="text-sm font-bold text-slate-900">
-                          Resumen del Carrito ({itemsCarrito.length})
-                        </h3>
-                      </div>
-                      {itemsCarrito.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setItemsCarrito([])}
-                          className="text-[11px] text-rose-600 hover:underline font-semibold"
-                        >
-                          Vaciar
-                        </button>
-                      )}
+                {/* Columna Derecha: Carrito de Facturación y Totales Fijos */}
+                <div className="w-full sm:w-80 md:w-96 shrink-0 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 p-3 overflow-hidden">
+                  {/* Encabezado Cliente Asignado (shrink-0) */}
+                  <div className="shrink-0 pb-2 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block">
+                        Cliente Asignado:
+                      </span>
+                      <strong className="text-xs font-black text-slate-900 truncate block max-w-[190px]">
+                        {clienteSeleccionado?.nombre}
+                      </strong>
                     </div>
-
-                    {/* Lista de Ítems */}
-                    <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-                      {itemsCarrito.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400">
-                          <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                          <p className="text-xs font-semibold">El carrito está vacío</p>
-                          <p className="text-[11px]">Toca cualquier prenda o servicio para agregar</p>
-                        </div>
-                      ) : (
-                        itemsCarrito.map((item) => (
-                          <div
-                            key={item.idTemporal}
-                            className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between gap-2"
-                          >
-                            <div className="space-y-0.5 max-w-[170px]">
-                              <strong className="text-slate-900 truncate block">
-                                {item.nombre}
-                              </strong>
-                              <span className="text-[10px] text-slate-500 block">
-                                {item.tipo} • ${item.precioUnitario.toLocaleString("es-CO")} c/u
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
-                                <button
-                                  type="button"
-                                  onClick={() => actualizarCantidadItem(item.idTemporal, -1)}
-                                  className="w-5 h-5 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded text-xs font-bold"
-                                >
-                                  -
-                                </button>
-                                <span className="font-mono text-xs font-bold w-4 text-center">
-                                  {item.cantidad}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => actualizarCantidadItem(item.idTemporal, 1)}
-                                  className="w-5 h-5 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded text-xs font-bold"
-                                >
-                                  +
-                                </button>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => eliminarItemCarrito(item.idTemporal)}
-                                className="p-1 text-slate-400 hover:text-rose-600"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPasoActual(1)}
+                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 transition"
+                    >
+                      Cambiar
+                    </button>
                   </div>
 
-                  {/* Totales y Botón de Avance a Paso 3 */}
-                  <div className="border-t border-slate-100 pt-3 space-y-3">
-                    <div className="space-y-1 text-xs">
+                  {/* Título Carrito (shrink-0) */}
+                  <div className="shrink-0 py-2 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <ShoppingBag className="w-3.5 h-3.5 text-slate-700" />
+                      <h3 className="text-xs font-black text-slate-900">
+                        Carrito ({itemsCarrito.length})
+                      </h3>
+                    </div>
+                    {itemsCarrito.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setItemsCarrito([])}
+                        className="text-[10px] text-rose-600 hover:underline font-semibold"
+                      >
+                        Vaciar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Lista de Ítems con Scroll Interno Propio (flex-1 min-h-0 overflow-y-auto) */}
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-1.5">
+                    {itemsCarrito.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400">
+                        <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-xs font-semibold">El carrito está vacío</p>
+                        <p className="text-[10px]">Toca cualquier prenda o servicio del catálogo</p>
+                      </div>
+                    ) : (
+                      itemsCarrito.map((item) => (
+                        <div
+                          key={item.idTemporal}
+                          className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between gap-1.5"
+                        >
+                          <div className="space-y-0.5 max-w-[140px]">
+                            <strong className="text-slate-900 truncate block text-[11px]">
+                              {item.nombre}
+                            </strong>
+                            <span className="text-[10px] text-slate-500 block">
+                              {item.tipo} • ${item.precioUnitario.toLocaleString("es-CO")}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
+                              <button
+                                type="button"
+                                onClick={() => actualizarCantidadItem(item.idTemporal, -1)}
+                                className="w-4 h-4 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded text-xs font-bold"
+                              >
+                                -
+                              </button>
+                              <span className="font-mono text-xs font-bold w-4 text-center">
+                                {item.cantidad}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => actualizarCantidadItem(item.idTemporal, 1)}
+                                className="w-4 h-4 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded text-xs font-bold"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => eliminarItemCarrito(item.idTemporal)}
+                              className="p-1 text-slate-400 hover:text-rose-600"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Pie Fijo de Totales y Botón Ir a Caja (shrink-0) */}
+                  <div className="shrink-0 border-t border-slate-200 pt-2.5 space-y-2">
+                    <div className="space-y-0.5 text-xs">
                       {subtotalVenta > 0 && (
-                        <div className="flex justify-between text-slate-500">
-                          <span>Venta de Prendas:</span>
+                        <div className="flex justify-between text-slate-500 text-[11px]">
+                          <span>Venta:</span>
                           <span>${subtotalVenta.toLocaleString("es-CO")}</span>
                         </div>
                       )}
                       {subtotalAlquiler > 0 && (
-                        <div className="flex justify-between text-slate-500">
-                          <span>Alquileres:</span>
+                        <div className="flex justify-between text-slate-500 text-[11px]">
+                          <span>Alquiler:</span>
                           <span>${subtotalAlquiler.toLocaleString("es-CO")}</span>
                         </div>
                       )}
                       {subtotalArreglos > 0 && (
-                        <div className="flex justify-between text-slate-500">
-                          <span>Servicios / Sastrería:</span>
+                        <div className="flex justify-between text-slate-500 text-[11px]">
+                          <span>Sastrería:</span>
                           <span>${subtotalArreglos.toLocaleString("es-CO")}</span>
                         </div>
                       )}
-                      <div className="flex justify-between text-base font-black text-slate-900 pt-1 border-t border-slate-200 font-mono">
+                      <div className="flex justify-between text-sm font-black text-slate-900 pt-1 border-t border-slate-200 font-mono">
                         <span>TOTAL:</span>
-                        <span>${totalFactura.toLocaleString("es-CO")}</span>
+                        <span className="text-base text-blue-600">
+                          ${totalFactura.toLocaleString("es-CO")}
+                        </span>
                       </div>
                     </div>
 
@@ -1489,7 +2072,7 @@ export default function PosPage() {
                       type="button"
                       disabled={itemsCarrito.length === 0}
                       onClick={() => setPasoActual(3)}
-                      className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <span>Ir a Caja y Pagos (Paso 3)</span>
                       <ArrowRight className="w-4 h-4" />
@@ -1497,369 +2080,356 @@ export default function PosPage() {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ========================================================================= */}
-          {/* VISTA 3: TERMINAL DE COBRO DE CAJA & CALCULADORA DE VUELTAS */}
-          {/* ========================================================================= */}
-          {pasoActual === 3 && (
-            <div className="space-y-6">
-              {/* Encabezado de la Terminal */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
-                    <Banknote className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-black text-slate-900">
-                      Terminal de Cobro de Caja & Liquidación
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Cliente: <strong>{clienteSeleccionado?.nombre}</strong> | Total a liquidar:{" "}
-                      <strong className="text-blue-600 font-mono">
-                        ${totalFactura.toLocaleString("es-CO")}
-                      </strong>
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setPasoActual(2)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>← Volver a Carrito</span>
-                </button>
-              </div>
-
-              {/* Grid 2 Columnas: Panel Izquierdo (Modalidades) + Panel Derecho (Calculadora) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Panel Izquierdo (6 cols): Modalidades y Métodos */}
-                <div className="lg:col-span-6 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-5">
-                  <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider">
-                    1. Condición de Cobro
-                  </h3>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setModalidadPago("COMPLETO")}
-                      className={`p-3 rounded-xl border text-center transition flex flex-col items-center gap-1 ${
-                        modalidadPago === "COMPLETO"
-                          ? "bg-emerald-50 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20"
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span className="text-xs font-bold">Pago Completo</span>
-                      <span className="text-[10px] text-slate-400">100% Saldo $0</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setModalidadPago("ADELANTO")}
-                      className={`p-3 rounded-xl border text-center transition flex flex-col items-center gap-1 ${
-                        modalidadPago === "ADELANTO"
-                          ? "bg-amber-50 border-amber-600 text-amber-800 ring-2 ring-amber-600/20"
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      <Coins className="w-4 h-4 text-amber-600" />
-                      <span className="text-xs font-bold">Pago Adelanto</span>
-                      <span className="text-[10px] text-slate-400">Abono parcial</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setModalidadPago("PENDIENTE")}
-                      className={`p-3 rounded-xl border text-center transition flex flex-col items-center gap-1 ${
-                        modalidadPago === "PENDIENTE"
-                          ? "bg-rose-50 border-rose-600 text-rose-800 ring-2 ring-rose-600/20"
-                          : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      <Clock className="w-4 h-4 text-rose-600" />
-                      <span className="text-xs font-bold">Pendiente ($0)</span>
-                      <span className="text-[10px] text-slate-400">Sin abono hoy</span>
-                    </button>
-                  </div>
-
-                  {/* Campo de Adelanto Parcial si aplica */}
-                  {modalidadPago === "ADELANTO" && (
-                    <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-2">
-                      <label className="text-xs font-bold text-amber-900 block">
-                        Monto del Adelanto Inicial ($):
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="Ej. 50000"
-                        value={montoAbonoParcial}
-                        onChange={(e) => setMontoAbonoParcial(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-amber-300 rounded-lg text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      />
-                      <div className="flex justify-between text-xs text-amber-800 font-medium">
-                        <span>Saldo que quedará en Cartera:</span>
-                        <strong className="font-mono">${saldoPendienteProyectado.toLocaleString("es-CO")}</strong>
-                      </div>
+            {/* ========================================================================= */}
+            {/* PASO 3: TERMINAL DE COBRO DE CAJA & CALCULADORA DE VUELTAS */}
+            {/* ========================================================================= */}
+            {pasoActual === 3 && (
+              <div className="h-full flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 p-4 overflow-hidden">
+                {/* Cabecera Fija Paso 3 (shrink-0) */}
+                <div className="shrink-0 pb-3 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
+                      <Banknote className="w-4 h-4" />
                     </div>
-                  )}
-
-                  {/* Selector de Métodos de Pago */}
-                  {modalidadPago !== "PENDIENTE" && (
-                    <div className="space-y-3 pt-2">
-                      <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider">
-                        2. Método de Pago del Cobro Hoy
-                      </h3>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {[
-                          { id: "EFECTIVO", label: "Efectivo", icon: Banknote },
-                          { id: "NEQUI", label: "Nequi", icon: Smartphone },
-                          { id: "BANCOLOMBIA", label: "Bancolombia", icon: Building2 },
-                          { id: "LLAVE", label: "Llave / Bre-B", icon: Coins },
-                          { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
-                          { id: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },
-                        ].map((met) => {
-                          const IconComp = met.icon;
-                          const esActivo = metodoPagoPrincipal === met.id;
-
-                          return (
-                            <button
-                              key={met.id}
-                              type="button"
-                              onClick={() => {
-                                setMetodoPagoPrincipal(met.id as MetodoPagoPos);
-                                if (met.id === "EFECTIVO") {
-                                  setEfectivoRecibido(String(valorACobrarHoy));
-                                }
-                              }}
-                              className={`p-3 rounded-xl border text-center transition flex flex-col items-center gap-1.5 ${
-                                esActivo
-                                  ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                              }`}
-                            >
-                              <IconComp className="w-4 h-4" />
-                              <span className="text-xs font-bold">{met.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Referencia opcional para pagos electrónicos */}
-                      {metodoPagoPrincipal !== "EFECTIVO" && (
-                        <div className="pt-2">
-                          <label className="text-xs font-bold text-slate-600 block mb-1">
-                            N° Aprobación / Referencia (Opcional):
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Ej. N° Comprobante 48291"
-                            value={referenciaPago}
-                            onChange={(e) => setReferenciaPago(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-600"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Notas internas */}
-                  <div className="pt-2">
-                    <label className="text-xs font-bold text-slate-600 block mb-1">
-                      Observaciones o Notas de Factura (Opcional):
-                    </label>
-                    <textarea
-                      rows={2}
-                      placeholder="Ej. Prenda separada para evento del sábado..."
-                      value={notasFactura}
-                      onChange={(e) => setNotasFactura(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-                </div>
-
-                {/* Panel Derecho (6 cols): Calculadora de Efectivo y Vueltas */}
-                <div className="lg:col-span-6 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between space-y-5">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                      <h3 className="text-xs font-black uppercase text-slate-500 tracking-wider">
-                        3. Calculadora de Caja & Resumen de Liquidación
-                      </h3>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                        Total: ${totalFactura.toLocaleString("es-CO")}
-                      </span>
-                    </div>
-
-                    {/* Resumen de Cobro Hoy */}
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                      <div className="flex justify-between text-xs text-slate-500">
-                        <span>Valor Total de la Factura:</span>
-                        <strong className="font-mono text-slate-900">${totalFactura.toLocaleString("es-CO")}</strong>
-                      </div>
-                      <div className="flex justify-between text-sm font-black text-slate-900">
-                        <span>VALOR A COBRAR HOY:</span>
-                        <strong className="font-mono text-blue-600 text-lg">
-                          ${valorACobrarHoy.toLocaleString("es-CO")}
+                    <div>
+                      <h2 className="text-sm font-black text-slate-900">
+                        Terminal de Cobro de Caja & Liquidación
+                      </h2>
+                      <p className="text-[11px] text-slate-500">
+                        Cliente: <strong>{clienteSeleccionado?.nombre}</strong> | Total:{" "}
+                        <strong className="text-blue-600 font-mono">
+                          ${totalFactura.toLocaleString("es-CO")}
                         </strong>
-                      </div>
-                      {modalidadPago === "ADELANTO" && (
-                        <div className="flex justify-between text-xs text-rose-600 font-bold pt-1 border-t border-slate-200">
-                          <span>Saldo Restante por Pagar:</span>
-                          <strong className="font-mono">${saldoPendienteProyectado.toLocaleString("es-CO")}</strong>
-                        </div>
-                      )}
+                      </p>
                     </div>
+                  </div>
 
-                    {/* Calculadora de Efectivo si el método es EFECTIVO y hay cobro */}
-                    {metodoPagoPrincipal === "EFECTIVO" && valorACobrarHoy > 0 && (
-                      <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-3">
-                        <label className="text-xs font-black uppercase text-emerald-900 tracking-wide block">
-                          ¿Cuánto efectivo estás recibiendo del cliente?
-                        </label>
+                  <button
+                    type="button"
+                    onClick={() => setPasoActual(2)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Modificar Ítems</span>
+                  </button>
+                </div>
 
-                        <div className="relative">
-                          <span className="absolute left-3.5 top-3 text-slate-400 font-mono font-bold">$</span>
-                          <input
-                            type="number"
-                            placeholder="0"
-                            value={efectivoRecibido}
-                            onChange={(e) => setEfectivoRecibido(e.target.value)}
-                            className="w-full pl-8 pr-4 py-2.5 bg-white border border-emerald-300 rounded-xl text-lg font-mono font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                          />
-                        </div>
+                {/* Contenido Central de Cobro con Scroll Interno Propio (flex-1 min-h-0 overflow-y-auto) */}
+                <div className="flex-1 min-h-0 overflow-y-auto py-3 pr-1">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    {/* Panel Izquierdo: Modalidades y Métodos */}
+                    <div className="lg:col-span-6 space-y-4">
+                      <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                        1. Condición de Pago
+                      </h3>
 
-                        {/* Botones de Denominaciones Rápidas */}
-                        <div>
-                          <span className="text-[11px] font-bold text-slate-500 block mb-1.5">
-                            Billetes colombianos rápidos (+):
-                          </span>
-                          <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-                            {BILLETES_COLOMBIANOS.map((billete) => (
-                              <button
-                                key={billete}
-                                type="button"
-                                onClick={() => sumarBillete(billete)}
-                                className="py-1.5 px-1 rounded-lg bg-white border border-emerald-200 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition font-mono"
-                              >
-                                +${billete / 1000}k
-                              </button>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={fijarEfectivoExacto}
-                              className="py-1.5 px-1 rounded-lg bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700 transition"
-                            >
-                              Exacto
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Cálculo de Vueltas en Tipografía Gigante */}
-                        <div
-                          className={`p-4 rounded-xl text-center border ${
-                            vueltasCalculadas >= 0
-                              ? "bg-white border-emerald-300"
-                              : "bg-rose-50 border-rose-300 text-rose-700"
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setModalidadPago("COMPLETO")}
+                          className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center gap-1 ${
+                            modalidadPago === "COMPLETO"
+                              ? "bg-emerald-50 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20"
+                              : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                           }`}
                         >
-                          <span className="text-xs font-bold uppercase tracking-wider block text-slate-500">
-                            Vueltas / Cambio a Entregar:
-                          </span>
-                          <span
-                            className={`text-2xl sm:text-3xl font-black font-mono block mt-1 ${
-                              vueltasCalculadas >= 0 ? "text-emerald-600" : "text-rose-600"
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span className="text-xs font-bold">Pago Completo</span>
+                          <span className="text-[10px] text-slate-400">100% Saldo $0</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setModalidadPago("ADELANTO")}
+                          className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center gap-1 ${
+                            modalidadPago === "ADELANTO"
+                              ? "bg-amber-50 border-amber-600 text-amber-800 ring-2 ring-amber-600/20"
+                              : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          <Coins className="w-4 h-4 text-amber-600" />
+                          <span className="text-xs font-bold">Pago Adelanto</span>
+                          <span className="text-[10px] text-slate-400">Abono parcial</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setModalidadPago("PENDIENTE")}
+                          className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center gap-1 ${
+                            modalidadPago === "PENDIENTE"
+                              ? "bg-rose-50 border-rose-600 text-rose-800 ring-2 ring-rose-600/20"
+                              : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          <Clock className="w-4 h-4 text-rose-600" />
+                          <span className="text-xs font-bold">Pendiente ($0)</span>
+                          <span className="text-[10px] text-slate-400">Sin abono hoy</span>
+                        </button>
+                      </div>
+
+                      {/* Campo Adelanto Parcial */}
+                      {modalidadPago === "ADELANTO" && (
+                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-1.5">
+                          <label className="text-xs font-bold text-amber-900 block">
+                            Monto del Adelanto Inicial ($):
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="Ej. 50000"
+                            value={montoAbonoParcial}
+                            onChange={(e) => setMontoAbonoParcial(e.target.value)}
+                            className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                          <div className="flex justify-between text-xs text-amber-800 font-medium">
+                            <span>Saldo que quedará en Cartera:</span>
+                            <strong className="font-mono">
+                              ${saldoPendienteProyectado.toLocaleString("es-CO")}
+                            </strong>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Métodos de Pago */}
+                      {modalidadPago !== "PENDIENTE" && (
+                        <div className="space-y-2 pt-1">
+                          <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                            2. Método de Pago del Cobro Hoy
+                          </h3>
+
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {[
+                              { id: "EFECTIVO", label: "Efectivo", icon: Banknote },
+                              { id: "NEQUI", label: "Nequi", icon: Smartphone },
+                              { id: "BANCOLOMBIA", label: "Bancolombia", icon: Building2 },
+                              { id: "LLAVE", label: "Llave / Bre-B", icon: Coins },
+                              { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
+                              { id: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },
+                            ].map((met) => {
+                              const IconComp = met.icon;
+                              const esActivo = metodoPagoPrincipal === met.id;
+
+                              return (
+                                <button
+                                  key={met.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setMetodoPagoPrincipal(met.id as MetodoPagoPos);
+                                    if (met.id === "EFECTIVO") {
+                                      setEfectivoRecibido(String(valorACobrarHoy));
+                                    }
+                                  }}
+                                  className={`p-2 rounded-xl border text-center transition flex flex-col items-center gap-1 ${
+                                    esActivo
+                                      ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                                      : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  <IconComp className="w-3.5 h-3.5" />
+                                  <span className="text-xs font-bold">{met.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Observaciones */}
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">
+                          Observaciones o Notas de Factura (Opcional):
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ej. Prenda separada para evento del fin de semana..."
+                          value={notasFactura}
+                          onChange={(e) => setNotasFactura(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Panel Derecho: Calculadora de Efectivo y Vueltas */}
+                    <div className="lg:col-span-6 space-y-3">
+                      <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                        3. Calculadora de Caja & Vueltas
+                      </h3>
+
+                      {/* Resumen Financiero */}
+                      <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>Total de la Factura:</span>
+                          <strong className="font-mono text-slate-900">
+                            ${totalFactura.toLocaleString("es-CO")}
+                          </strong>
+                        </div>
+                        <div className="flex justify-between text-xs font-black text-slate-900 pt-0.5">
+                          <span>VALOR A COBRAR HOY:</span>
+                          <strong className="font-mono text-blue-600 text-base">
+                            ${valorACobrarHoy.toLocaleString("es-CO")}
+                          </strong>
+                        </div>
+                        {modalidadPago === "ADELANTO" && (
+                          <div className="flex justify-between text-[11px] text-rose-600 font-bold pt-1 border-t border-slate-200">
+                            <span>Saldo Restante en Cartera:</span>
+                            <strong className="font-mono">
+                              ${saldoPendienteProyectado.toLocaleString("es-CO")}
+                            </strong>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Calculadora de Efectivo si aplica */}
+                      {metodoPagoPrincipal === "EFECTIVO" && valorACobrarHoy > 0 && (
+                        <div className="p-3.5 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-2.5">
+                          <label className="text-[11px] font-black uppercase text-emerald-900 tracking-wide block">
+                            Efectivo recibido del cliente:
+                          </label>
+
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-slate-400 font-mono font-bold">$</span>
+                            <input
+                              type="number"
+                              placeholder="0"
+                              value={efectivoRecibido}
+                              onChange={(e) => setEfectivoRecibido(e.target.value)}
+                              className="w-full pl-7 pr-3 py-1.5 bg-white border border-emerald-300 rounded-xl text-base font-mono font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                            />
+                          </div>
+
+                          {/* Billetes rápidos */}
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-500 block mb-1">
+                              Billetes rápidos (+):
+                            </span>
+                            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
+                              {BILLETES_COLOMBIANOS.map((billete) => (
+                                <button
+                                  key={billete}
+                                  type="button"
+                                  onClick={() => sumarBillete(billete)}
+                                  className="py-1 px-1 rounded-lg bg-white border border-emerald-200 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition font-mono text-center"
+                                >
+                                  +${billete / 1000}k
+                                </button>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={fijarEfectivoExacto}
+                                className="py-1 px-1 rounded-lg bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700 transition text-center"
+                              >
+                                Exacto
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Vueltas */}
+                          <div
+                            className={`p-3 rounded-xl text-center border ${
+                              vueltasCalculadas >= 0
+                                ? "bg-white border-emerald-300"
+                                : "bg-rose-50 border-rose-300 text-rose-700"
                             }`}
                           >
-                            ${Math.max(0, vueltasCalculadas).toLocaleString("es-CO")}
-                          </span>
-                          {vueltasCalculadas < 0 && (
-                            <span className="text-xs font-bold text-rose-600 block mt-1">
-                              Faltan ${Math.abs(vueltasCalculadas).toLocaleString("es-CO")} para cubrir el cobro
+                            <span className="text-[10px] font-bold uppercase tracking-wider block text-slate-500">
+                              Vueltas / Cambio a Entregar:
                             </span>
-                          )}
+                            <span
+                              className={`text-xl sm:text-2xl font-black font-mono block mt-0.5 ${
+                                vueltasCalculadas >= 0 ? "text-emerald-600" : "text-rose-600"
+                              }`}
+                            >
+                              ${Math.max(0, vueltasCalculadas).toLocaleString("es-CO")}
+                            </span>
+                            {vueltasCalculadas < 0 && (
+                              <span className="text-[11px] font-bold text-rose-600 block mt-0.5">
+                                Faltan ${Math.abs(vueltasCalculadas).toLocaleString("es-CO")} para cubrir el cobro
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Botón Principal de Cierre de Transacción */}
-                  <div className="pt-4 border-t border-slate-100">
-                    <button
-                      type="button"
-                      disabled={
-                        procesandoFactura ||
-                        (metodoPagoPrincipal === "EFECTIVO" &&
-                          valorACobrarHoy > 0 &&
-                          efectivoRecibidoNum < valorACobrarHoy)
-                      }
-                      onClick={finalizarTransaccion}
-                      className="w-full py-4 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base transition shadow-md flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {procesandoFactura ? (
-                        <>
-                          <RefreshCw className="w-5 h-5 animate-spin" />
-                          <span>Guardando Factura en SQLite...</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck className="w-5 h-5" />
-                          <span>Finalizar Venta y Generar Factura →</span>
-                        </>
                       )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* VISTA 4: CONSOLA FINAL DE IMPRESIÓN Y PDF AISLADO */}
-          {/* ========================================================================= */}
-          {pasoActual === 4 && datosImpresion && (
-            <div className="space-y-6">
-              {/* Barra de Éxito y Acción Siguiente Factura */}
-              <div className="bg-emerald-600 text-white p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-white/20">
-                    <CheckCircle2 className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-black">
-                      ¡Factura N° {datosImpresion.factura.numeroFactura} Registrada con Éxito!
-                    </h2>
-                    <p className="text-xs text-emerald-100">
-                      Transacción guardada en base de datos SQLite y caja de mostrador actualizada.
-                    </p>
+                    </div>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={reiniciarMostrador}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-emerald-800 hover:bg-emerald-50 font-bold text-xs sm:text-sm transition shadow-sm"
-                >
-                  <Sparkles className="w-4 h-4 text-emerald-600" />
-                  <span>Iniciar Nueva Factura (Paso 1)</span>
-                </button>
+                {/* Pie Fijo de Acción: Botón Finalizar Venta (shrink-0) */}
+                <div className="shrink-0 pt-3 border-t border-slate-200">
+                  <button
+                    type="button"
+                    disabled={
+                      procesandoFactura ||
+                      (metodoPagoPrincipal === "EFECTIVO" &&
+                        valorACobrarHoy > 0 &&
+                        efectivoRecibidoNum < valorACobrarHoy)
+                    }
+                    onClick={finalizarTransaccion}
+                    className="w-full py-3 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm transition shadow-md flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {procesandoFactura ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Guardando Factura en SQLite...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>Finalizar Venta y Generar Factura →</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
+            )}
 
-              {/* Componente Reutilizable de Impresión Aislada y Descarga PDF */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <PlantillaImpresion
-                  datos={datosImpresion}
-                  onCerrar={reiniciarMostrador}
-                />
+            {/* ========================================================================= */}
+            {/* PASO 4: CONSOLA FINAL DE IMPRESIÓN Y PDF */}
+            {/* ========================================================================= */}
+            {pasoActual === 4 && datosImpresion && (
+              <div className="h-full flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 p-3 overflow-hidden">
+                {/* Cabecera Fija Éxito y Nueva Venta (shrink-0) */}
+                <div className="shrink-0 mb-3 bg-emerald-600 text-white p-3 rounded-xl flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 className="w-5 h-5 text-white" />
+                    <div>
+                      <h2 className="text-xs sm:text-sm font-black">
+                        ¡Factura N° {datosImpresion.factura.numeroFactura} Registrada con Éxito!
+                      </h2>
+                      <p className="text-[10px] text-emerald-100">
+                        Transacción guardada en base de datos SQLite y caja de mostrador actualizada.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={reiniciarMostrador}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-white text-emerald-800 hover:bg-emerald-50 font-bold text-xs transition shadow-xs"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>+ Nueva Venta</span>
+                  </button>
+                </div>
+
+                {/* Visor Documental con Scroll Interno Propio */}
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                  <PlantillaImpresion
+                    datos={datosImpresion}
+                    onCerrar={reiniciarMostrador}
+                  />
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </main>
 
-      {/* Modales Compartidos */}
+      {/* ========================================================================= */}
+      {/* MODALES COMPARTIDOS */}
+      {/* ========================================================================= */}
+
+      {/* Modal Crear Cliente Rápido */}
       <ModalCrearClienteRapido
         isOpen={mostrarModalCliente}
         onClose={() => setMostrarModalCliente(false)}
@@ -1868,6 +2438,7 @@ export default function PosPage() {
         nombreInicial={modalNomInicial}
       />
 
+      {/* Modal Crear Producto al Vuelo */}
       <ModalProducto
         isOpen={mostrarModalProducto}
         onClose={() => setMostrarModalProducto(false)}
@@ -1878,6 +2449,7 @@ export default function PosPage() {
         }}
       />
 
+      {/* Modal de Cobro y Liquidación de Factura / Mora */}
       <ModalLiquidarFactura
         facturaId={facturaALiquidarId}
         isOpen={modalLiquidarAbierto}
@@ -1886,9 +2458,45 @@ export default function PosPage() {
           setFacturaALiquidarId(null);
         }}
         onFacturaLiquidada={() => {
-          cargarFacturasPendientes();
+          cargarMonitoreo(true);
         }}
       />
+
+      {/* Modal Reimpresión Universal */}
+      {modalReimpresionAbierto && datosReimpresionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="shrink-0 p-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Printer className="w-4 h-4 text-blue-400" />
+                <span className="text-xs font-black">
+                  Reimpresión de Factura / Paz y Salvo #{datosReimpresionModal.factura.numeroFactura}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalReimpresionAbierto(false);
+                  setDatosReimpresionModal(null);
+                }}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-slate-100">
+              <PlantillaImpresion
+                datos={datosReimpresionModal}
+                onCerrar={() => {
+                  setModalReimpresionAbierto(false);
+                  setDatosReimpresionModal(null);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -17,6 +17,7 @@ export interface DatosImpresionFactura {
     fechaCreacion: string;
     fechaEntregaAlquiler?: string | null;
     fechaDevolucionPactada?: string | null;
+    fechaDevolucionReal?: string | null;
     tipoOperacion: string;
     estado: string;
     subtotalProductos: number;
@@ -35,7 +36,7 @@ export interface DatosImpresionFactura {
     usuarioCajero?: {
       nombre: string;
       username: string;
-    };
+    } | null;
     detalles: Array<{
       id: string;
       cantidad: number;
@@ -504,18 +505,15 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
               </div>
             </div>
 
-            {/* Sello Paz y Salvo si aplica */}
-            {esPazYSalvo && (
               <div className="mb-2 px-3 py-1 rounded-lg bg-emerald-600 text-white flex items-center justify-between text-xs font-black shadow-xs">
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
-                  <span>FACTURA PAGADA AL 100% — PAZ Y SALVO DE OBLIGACIÓN</span>
+                  <span>PAZ Y SALVO — FACTURA Y PRENDAS AL DÍA (SALDO $0)</span>
                 </div>
                 <span className="bg-emerald-700 px-2 py-0.5 rounded text-[10px] font-mono">
                   SALDO: $0
                 </span>
               </div>
-            )}
 
             {/* Ficha Cliente & Operación */}
             <div className="grid grid-cols-2 gap-3 mb-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
