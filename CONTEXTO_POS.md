@@ -17,7 +17,7 @@ El sistema elimina la dependencia y costos recurrentes de servicios en la nube (
 | **ORM / Acceso a Datos** | Prisma ORM 6 | Abstracción de tipos, migraciones automáticas y seguridad de consultas |
 | **Motor de Base de Datos** | SQLite 3 (`/database/llanomio.db`) | Almacenamiento relacional embebido, ligero, seguro y portable |
 | **Seguridad y RBAC** | jose (JWT) + bcryptjs | Tokens firmados en cookies HttpOnly seguras y hashing de contraseñas |
-| **Cifrado de Claves** | bcryptjs | Hashing de contraseñas de usuarios y cajeros |
+| **Procesamiento Excel** | SheetJS (xlsx) + ts-node/tsx | Extracción, sanitización y carga masiva atómica |
 | **Infraestructura Local** | Node.js v24 + Windows Scripts | Despliegue en red local con scripts `.bat` para tienda |
 
 ---
@@ -35,7 +35,7 @@ pos-llanomio/
 ├── package.json                      # Dependencias y scripts de ejecución
 ├── postcss.config.mjs                # Configuración de PostCSS
 ├── tailwind.config.ts                # Tokens de diseño y colores del sistema
-├── tsconfig.json                     # Configuración de TypeScript con alias @/*
+├── tsconfig.json                     # Configuración de TypeScript con alias @/* y ts-node
 ├── prisma/
 │   └── schema.prisma                 # Copia sincronizada del esquema relacional
 ├── database/
@@ -53,11 +53,17 @@ pos-llanomio/
 │   ├── 3_RESPALDO_MANUAL.bat         # Generador de respaldos timestamped (disco C: y local)
 │   └── 4_RESTAURAR_RESPALDO.bat      # Restaurador guiado con salvaguarda de seguridad
 ├── migracion_excel/
-│   ├── importar_excel.ts             # Script TypeScript para procesar hojas de inventario/clientes
-│   └── excel_fuente/                 # Directorio receptor de archivos Excel/CSV de la tienda
-│       └── .gitkeep
+│   ├── importar_excel.ts             # Redirección rápida al motor central de migración
+│   ├── origen/                       # Carpeta activa para depositar archivos Excel a migrar
+│   │   ├── clientes_tienda.xlsx      # Hoja Excel de clientes (cédula, nombres, teléfonos)
+│   │   └── inventario_prendas.xlsx   # Hoja Excel de inventario (códigos, tallas, precios)
+│   └── excel_fuente/                 # Depósito secundario de archivos fuente
 └── src/
     ├── middleware.ts                 # Middleware Edge para protección RBAC (/admin/* bloqueado a CAJERO)
+    ├── migracion/
+    │   ├── migrar-datos.ts           # Script principal de extracción, deduplicación e inyección en BD
+    │   ├── utils-limpieza.ts         # Sanitización de teléfonos colombianos, nombres, precios y duplicados
+    │   └── generar-excel-muestra.ts  # Generador de plantillas Excel de prueba con acentos y eñes
     ├── app/
     │   ├── globals.css               # Estilos globales y capas Tailwind
     │   ├── layout.tsx                # Layout principal en español con metadatos
@@ -99,40 +105,6 @@ El esquema de base de datos está normalizado y cubre la totalidad de operacione
 - `MetodoPago`: `EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`, `CONSIGNACION`
 - `EstadoTurno`: `ABIERTO`, `CERRADO`
 - `TipoCierre`: `DIARIO`, `CONSOLIDADO_MENSUAL`
-
-### Modelos y Tablas
-1. **`User` (`usuarios`):**
-   - Campos: `id`, `username` (único), `nombre`, `passwordHash` (bcrypt), `rol` (ADMIN, CAJERO), `activo` (Boolean), `fechaCreacion`, `updatedAt`.
-   - Relaciones: facturas, abonos de pago, turnos, cierres de caja y auditorías de sesión.
-
-2. **`AuditoriaSesion` (`auditorias_sesion`):**
-   - Registra eventos de `LOGIN`, `LOGOUT` e `INTENTO_FALLIDO`.
-   - Almacena dirección IP del terminal, agente de usuario (navegador/dispositivo) y marca temporal exacta.
-
-3. **`ConfiguracionEmpresa` (`configuracion_empresa`):**
-   - Campos fiscales y de tirilla: `nit` (único), `nombreTienda`, `nombreComercial`, `direccion`, `telefono`, `logoUrl`, `politicasFactura`.
-   - Parámetros operativos: `formatoImpresionDefault` (`TIRILLA`), `rutaCarpetaRespaldo` (`C:\POS_LLANOMIO_BACKUPS`).
-
-4. **`Cliente` (`clientes`):**
-   - Identificación única por documento (cédula/NIT), nombres, contacto y notas.
-
-5. **`Producto` (`productos`):**
-   - Prendas para venta y alquiler, código de barras/código único, talla, color, stock, estado físico (`DISPONIBLE`, `ALQUILADO`, `SEPARADO`, `EN_ARREGLO`), precio base y tarifas de mora por día/hora.
-
-6. **`Factura` (`facturas`):**
-   - Numeración consecutiva única, tipos de operación (`VENTA`, `ALQUILER`, `SEPARE`, `ARREGLO`), ciclo de vida (`EN_PROCESO`, `ACTIVA_ALQUILADA`, `EN_MORA`, `CERRADA`), fechas pactadas y reales de devolución, subtotales, mora acumulada y saldos.
-
-7. **`ItemFactura` (`items_factura`):**
-   - Vinculación híbrida de prendas del catálogo o servicios libres de arreglo/confección sin inventario.
-
-8. **`AbonoPago` (`abonos_pago`):**
-   - Pagos parciales o totales vinculados a una factura con medios de pago locales (`EFECTIVO`, `NEQUI`, `DAVIPLATA`, `TRANSFERENCIA`, `CONSIGNACION`).
-
-9. **`TurnoCaja` (`turnos_caja`):**
-   - Apertura de caja con base inicial en efectivo, desglose por método de pago y arqueo de diferencias.
-
-10. **`CierreCaja` (`cierres_caja`):**
-    - Cierres diarios y consolidados mensuales con agregación de ventas, alquileres, arreglos y moras.
 
 ---
 
@@ -181,13 +153,35 @@ Para garantizar la integridad física de los datos sin interrumpir el servicio:
 
 ---
 
-## 7. Resultados del Control de Calidad (QA - Agente 5)
+## 7. Módulo de Migración de Datos Excel (`/migracion_excel`)
 
-Las pruebas automatizadas ejecutadas arrojaron una calificación de **100% de éxito**:
-- `[QA 1]` Verificación de Usuarios: `admin` (ADMIN) y `cajero` (CAJERO) verificados y activos.
-- `[QA 2]` Autenticación: Contraseñas encriptadas con bcrypt validadas correctamente.
-- `[QA 3]` Tokens JWT: Firmas válidas y roles reconocidos.
-- `[QA 4]` Restricción RBAC: Verificada la denegación de acceso para el rol `CAJERO` a rutas administrativas.
-- `[QA 5]` Motor `VACUUM INTO`: Respaldo en caliente ejecutado con éxito (tamaño generado: 176 KB).
-- `[QA 6]` Integridad Física: Archivo `C:\POS_LLANOMIO_BACKUPS\llanomio_ULTIMO.db` validado físicamente con firma de cabecera `SQLite format 3`.
-- `[QA 7]` QR Desactivado: Verificada la ausencia total de códigos QR en facturación.
+El sistema cuenta con un motor especializado para importar el inventario histórico y la cartera de clientes desde hojas de cálculo (`.xlsx`, `.xls`, `.csv`):
+
+### Componentes de Migración:
+1. **[src/migracion/utils-limpieza.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/migracion/utils-limpieza.ts):**
+   - `sanitizarDocumento`: Limpia puntos, espacios y caracteres extraños de cédulas y NITs.
+   - `normalizarNombre`: Convierte a mayúsculas limpias respetando rigurosamente acentos y la letra eñe (`Ñ`, `Á`, `É`, `Í`, `Ó`, `Ú`).
+   - `normalizarTelefonoColombia`: Estandariza a formato celular colombiano de 10 dígitos (elimina prefijos `+57`, espacios y paréntesis).
+   - `parsearNumeroPositivo`: Convierte cadenas con signos de pesos o separadores a flotantes válidos. Si encuentra texto inválido (ej. `"N/A"`) asigna `0` para evitar fallas de base de datos.
+   - `desduplicarPorClave`: Elimina duplicados conservando el registro más reciente e informando el número de omisiones.
+2. **[src/migracion/migrar-datos.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/migracion/migrar-datos.ts):**
+   - Orquesta la lectura de archivos en `/migracion_excel/origen/`.
+   - Mapea dinámicamente nombres de columnas heterogéneas.
+   - Aplica inyección atómica en bloque mediante `prisma.$transaction`: si alguna fila llegase a fallar, la transacción hace un rollback total e imprime el detalle exacto de la fila causante.
+3. **Comandos de Ejecución:**
+   ```bash
+   npx ts-node src/migracion/migrar-datos.ts
+   # o alternativamente:
+   npm run db:migrar-excel
+   ```
+
+---
+
+## 8. Resultados del Control de Calidad (QA - Agente 5)
+
+Las pruebas automatizadas de migración arrojaron una calificación de **100% de éxito**:
+- `[QA Migración 1]` **Clientes procesados:** 7 filas leídas -> **5 clientes únicos insertados/actualizados**. **2 duplicados omitidos** correctamente conservando la información más reciente.
+- `[QA Migración 2]` **Prendas procesadas:** 8 filas leídas -> **7 prendas únicas migradas**. **1 duplicado omitido** correctamente.
+- `[QA Migración 3]` **Integridad de Caracteres:** Cédulas y nombres verificados en SQLite con acentos y eñes visibles (`MARÍA CAMILA PEÑA RODRÍGUEZ`, `JOSÉ OMAR ÑÁÑEZ CAICEDO`, `ESPERANZA GÓMEZ DE MUÑOZ`, `JUAN SEBASTIÁN CAÑÓN`, `Edición Especial`, `Auténtico`).
+- `[QA Migración 4]` **Sanitización de Precios:** Registro con precio `"N/A"` transformado automáticamente a `0` sin arrojar error.
+- `[QA Migración 5]` **Transaccionalidad:** Confirmación atómica (`COMMIT`) en SQLite a través de Prisma ORM.
