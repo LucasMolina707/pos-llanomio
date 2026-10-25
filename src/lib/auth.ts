@@ -10,6 +10,20 @@ export interface TokenPayload {
 }
 
 export const NOMBRE_COOKIE_SESION = "llanomio_session";
+
+/**
+ * Opciones para la cookie HttpOnly de sesión del POS LLANOMIO.
+ * NOTA CRÍTICA LAN: 'secure' se mantiene en false para permitir conexiones HTTP
+ * desde celulares, tablets y computadores conectados a la red Wi-Fi local sin HTTPS.
+ */
+export const OPCIONES_COOKIE_SESION = {
+  httpOnly: true,
+  secure: false, // Soporte estricto para HTTP en LAN (Android / iOS / PC)
+  sameSite: "lax" as const,
+  path: "/",
+  maxAge: 60 * 60 * 12, // 12 horas de duración
+};
+
 const SECRET_JWT = new TextEncoder().encode(
   process.env.JWT_SECRET || "llanomio_jwt_secret_token_seguro_2026_local_pos_key"
 );

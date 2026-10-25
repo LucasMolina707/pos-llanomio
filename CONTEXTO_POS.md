@@ -146,38 +146,46 @@ pos-llanomio/
 
 ---
 
-## 3. Módulo de Conexión Rápida LAN y QR Offline para Dispositivos de Tienda
+## 3. Módulo de Conexión Rápida LAN, QR Offline y Desbloqueo de Red Tienda
 
-1. **Detección Dinámica de Red Local (`src/app/api/red-local/route.ts`):**
-   - Utiliza la API nativa `os.networkInterfaces()` y `os.hostname()` para listar las interfaces de red IPv4 activas sin necesidad de conexión a internet externa.
-   - Detecta automáticamente adaptadores Wi-Fi y Ethernet locales (ej: `192.168.1.243` y `192.168.56.10`).
-   - Retorna las URLs formateadas para acceso por puerto 80 (limpio, sin puerto) y por puerto 3000 (directo a Next.js).
+1. **Escucha en Todas las Interfaces de Red (`0.0.0.0`):**
+   - Configuración en [package.json](file:///d:/Proyectos%20IA/pos-llanomio/package.json), [start-pos.js](file:///d:/Proyectos%20IA/pos-llanomio/start-pos.js) y [ecosystem.config.js](file:///d:/Proyectos%20IA/pos-llanomio/ecosystem.config.js) con `-H 0.0.0.0 -p 3000` y `HOSTNAME=0.0.0.0`.
+   - Garantiza que el socket de Next.js acepte peticiones entrantes desde cualquier dispositivo en el mismo Wi-Fi y no solo desde `127.0.0.1`.
 
-2. **Componente Visual Interactivo (`TarjetaConexionLAN.tsx`):**
-   - Renderiza un código QR de alta resolución **100% offline** empleando la librería `qrcode` con renderizado local en base64 DataURL (cero llamadas a APIs de Google Charts o servidores externos).
-   - **Selector de Modo:**
-     - **Modo mDNS (`http://llanomio.local`):** Ideal para iPhones, iPads, Macs y PCs con resolución Bonjour.
-     - **Modo IP LAN Directa (`http://192.168.X.X`):** Ideal para teléfonos Android o equipos donde la resolución de nombres `.local` tarde en responder.
-   - **Selector de Puerto:** Alterna entre puerto 80 (predeterminado) y puerto 3000.
-   - **Herramientas de Mostrador:** Botón de copiado con confirmación interactiva y guía visual de conexión en 3 pasos.
+2. **Detección Dinámica y Filtrado Inteligente de Red (`src/app/api/red-local/route.ts`):**
+   - Utiliza `os.networkInterfaces()` y `os.hostname()` descartando adaptadores virtuales (WSL, Hyper-V, VirtualBox, VMware, Docker, Tailscale).
+   - Prioriza la IP física real del Wi-Fi de la tienda (`192.168.1.X` o `192.168.0.X`).
+   - Comprueba de forma no bloqueante mediante socket TCP si el puerto 80 y el puerto 3000 están respondiendo activamente. Si el puerto 80 no responde, la URL sugerida incluye obligatoriamente `:3000` para evitar errores de conexión.
 
-3. **Ubicaciones del Módulo en el Sistema:**
-   - **Panel de Configuración General ([/admin/configuracion](file:///d:/Proyectos%20IA/pos-llanomio/src/app/admin/configuracion/page.tsx)):** Embebido como primera sección de infraestructura para administración del sistema.
-   - **Menú Principal de Bienvenida ([/](file:///d:/Proyectos%20IA/pos-llanomio/src/app/page.tsx)):** Botón en el banner "Conectar Celular / PC en Red" con modal interactivo y tarjeta completa al final del dashboard.
+3. **Componente Visual Interactivo (`TarjetaConexionLAN.tsx`):**
+   - **Opción Predeterminada:** Modo IP Directa (`http://192.168.X.X:3000` o `:80`), garantizando compatibilidad inmediata con teléfonos Android, iPhones, iPads y computadores.
+   - **Opción Alternativa mDNS:** `http://llanomio.local` (y `:3000`) para dispositivos Apple o PCs con soporte Bonjour.
+   - **Panel de Diagnóstico LAN:** Botón interactivo que verifica en tiempo real el binding `0.0.0.0`, el estado de los puertos y los adaptadores virtuales descartados.
+   - **Renderizado QR 100% Offline:** Generado mediante `qrcode` en base64 DataURL sin internet.
 
-4. **Preservación Estricta de Privacidad en Impresión:**
-   - El componente de generación QR es exclusivo para la interfaz de pantalla de empleados.
-   - Las facturas y comprobantes para clientes en [PlantillaImpresion.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/components/impresion/PlantillaImpresion.tsx) mantienen rigurosamente **CERO códigos QR**.
+4. **Compatibilidad de Sesión en Red Local HTTP (`src/lib/auth.ts`):**
+   - Estandarización de `OPCIONES_COOKIE_SESION` con `httpOnly: true`, `secure: false` y `sameSite: 'lax'`.
+   - Resuelve el bloqueo en navegadores móviles (Chrome/Safari) que descartaban la cookie JWT al conectarse sobre HTTP en LAN.
+
+5. **Apertura Automatizada del Firewall de Windows:**
+   - **Script Batch ([instalador_tienda/5_ABRIR_FIREWALL_LAN.bat](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/5_ABRIR_FIREWALL_LAN.bat)):** Auto-elevación a Administrador (UAC), abriendo reglas entrantes TCP 80, 3000 y UDP 5353 (mDNS) para perfiles Privado y Público, además de autorizar el binario `node.exe`.
+   - **Script PowerShell ([scripts/desbloquear-red-lan.ps1](file:///d:/Proyectos%20IA/pos-llanomio/scripts/desbloquear-red-lan.ps1)):** Diagnóstico de perfiles de red de Windows y configuración de reglas.
+
+6. **Preservación Estricta de Privacidad en Impresión:**
+   - El código QR de conexión es exclusivo para uso interno de empleados en pantallas de administración.
+   - Los formatos de facturación a clientes en [PlantillaImpresion.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/components/impresion/PlantillaImpresion.tsx) mantienen rigurosamente **CERO códigos QR**.
 
 ---
 
 ## 4. Control de Calidad Integral (QA Final - Agente 5)
 
-1. **QA Endpoint `/api/red-local`:**
-   - Respuesta **200 OK** con interfaces Wi-Fi (`192.168.1.243`) y Ethernet (`192.168.56.10`), hostname de la máquina y URLs mDNS sin internet.
-2. **QA Renderizado y Reactividad del QR:**
-   - El código QR se genera y actualiza de inmediato al alternar entre `llanomio.local` y las distintas IPs de red.
-3. **QA Formatos de Impresión Sin QR:**
-   - Ejecución exitosa de [scripts/test-caja-impresion-qa.ts](file:///d:/Proyectos%20IA/pos-llanomio/scripts/test-caja-impresion-qa.ts) validando cero etiquetas de código QR en los documentos de clientes.
-4. **QA Compilación de Producción:**
-   - Next.js 15 compiló **24 rutas** (`npm run build`) con código 0 y tipado estricto en TypeScript.
+1. **QA Enrutamiento y Binding `0.0.0.0:3000`:**
+   - Verificado mediante `netstat -ano | findstr :3000`, confirmando escucha en `0.0.0.0:3000`.
+2. **QA Endpoint `/api/red-local`:**
+   - Respuesta **200 OK** con IP Wi-Fi real (`192.168.1.243`), adaptador VirtualBox descartado (`192.168.56.10`), y puertos 80/3000 verificados como activos.
+3. **QA Acceso LAN Directo:**
+   - Verificación de peticiones HTTP exitosas a `http://192.168.1.243:3000` (Status 200) y `http://192.168.1.243` (Status 200).
+4. **QA Formatos de Impresión Sin QR:**
+   - Ejecución de [scripts/test-caja-impresion-qa.ts](file:///d:/Proyectos%20IA/pos-llanomio/scripts/test-caja-impresion-qa.ts) aprobada al 100% con cero códigos QR en facturas y control de caja balanceado ($0 discrepancia).
+5. **QA Compilación de Producción:**
+   - Next.js 15 compiló **24 rutas** (`npm run build`) con código de salida 0 y tipado estricto en TypeScript.

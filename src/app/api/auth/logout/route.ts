@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { obtenerSesionDesdeRequest, NOMBRE_COOKIE_SESION } from "@/lib/auth";
+import { obtenerSesionDesdeRequest, NOMBRE_COOKIE_SESION, OPCIONES_COOKIE_SESION } from "@/lib/auth";
 import { ejecutarRespaldoEnCaliente, ResultadoRespaldo } from "@/lib/backup";
 
 export async function POST(req: NextRequest) {
@@ -49,10 +49,7 @@ export async function POST(req: NextRequest) {
     respuesta.cookies.set({
       name: NOMBRE_COOKIE_SESION,
       value: "",
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
+      ...OPCIONES_COOKIE_SESION,
       maxAge: 0,
     });
 
@@ -76,10 +73,7 @@ export async function POST(req: NextRequest) {
     respuestaEmergencia.cookies.set({
       name: NOMBRE_COOKIE_SESION,
       value: "",
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
+      ...OPCIONES_COOKIE_SESION,
       maxAge: 0,
     });
 
