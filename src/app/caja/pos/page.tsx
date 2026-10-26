@@ -608,8 +608,8 @@ export default function PosPage() {
       }
 
       const url = forzarSincronizacion
-        ? "/api/facturas/monitoreo?sync=true"
-        : "/api/facturas/monitoreo";
+        ? "/api/facturas/monitoreo?sync=true&tipo=VENTA_ARREGLO"
+        : "/api/facturas/monitoreo?tipo=VENTA_ARREGLO";
 
       const res = await fetch(url);
       const data = await res.json();
@@ -640,7 +640,7 @@ export default function PosPage() {
   const clientesFiltrados = useMemo(() => {
     return filtrarPorRelevancia(todosLosClientes, busquedaCliente, (item) => ({
       primarios: [item.documento, item.nombre],
-      secundarios: [item.telefono, item.direccion, item.notas],
+      secundarios: [item.telefono, item.telefonoSecundario, item.direccion, item.notas],
     }));
   }, [todosLosClientes, busquedaCliente]);
 
@@ -1392,6 +1392,17 @@ export default function PosPage() {
             <span className="hidden sm:inline">Nueva Factura</span>
           </button>
 
+          {/* Botón: Acceso al Sistema de Alquileres */}
+          <Link
+            href="/caja/alquileres"
+            target="_blank"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm shadow-emerald-500/20"
+            title="Abrir terminal independiente de Alquileres en ventana dedicada"
+          >
+            <Clock className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Sistema de Alquileres</span>
+          </Link>
+
           {/* Acceso rápido para Salir al Panel Administrativo */}
           <Link
             href="/admin/dashboard"
@@ -1993,7 +2004,7 @@ export default function PosPage() {
                               )}
                               {cli.telefono && (
                                 <span className="px-2 py-0.5 rounded-md bg-slate-100 font-mono text-xs">
-                                  Tel: {cli.telefono}
+                                  Tel: {cli.telefono}{cli.telefonoSecundario ? ` / 2°: ${cli.telefonoSecundario}` : ""}
                                 </span>
                               )}
                               <button
@@ -2035,20 +2046,7 @@ export default function PosPage() {
                           }`}
                         >
                           <Tag className="w-4 h-4" />
-                          <span>Venta</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setModuloActivo("ALQUILER")}
-                          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition min-h-[38px] ${
-                            moduloActivo === "ALQUILER"
-                              ? "bg-emerald-600 text-white shadow-xs"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                        >
-                          <Clock className="w-4 h-4" />
-                          <span>Alquiler</span>
+                          <span>1. Productos (Venta)</span>
                         </button>
 
                         <button
@@ -2061,7 +2059,7 @@ export default function PosPage() {
                           }`}
                         >
                           <Scissors className="w-4 h-4" />
-                          <span>Sastrería / Arreglo</span>
+                          <span>2. Arreglos / Sastrería</span>
                         </button>
                       </div>
 
@@ -2069,7 +2067,7 @@ export default function PosPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setTipoModalProducto(moduloActivo);
+                            setTipoModalProducto("VENTA");
                             setMostrarModalProducto(true);
                           }}
                           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition min-h-[38px]"
@@ -2078,6 +2076,24 @@ export default function PosPage() {
                           <span>Crear Producto</span>
                         </button>
                       )}
+                    </div>
+
+                    {/* Banner informativo hacia terminal de alquileres */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-emerald-700 shrink-0" />
+                        <span className="text-emerald-900 font-semibold">
+                          ¿El cliente necesita un alquiler de prendas? Utiliza la terminal independiente dedicada.
+                        </span>
+                      </div>
+                      <Link
+                        href="/caja/alquileres"
+                        target="_blank"
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs shrink-0 self-start sm:self-auto"
+                      >
+                        <span>Ir al Sistema de Alquileres</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
                     </div>
 
                     {/* Filtros específicos por módulo */}
@@ -2091,42 +2107,6 @@ export default function PosPage() {
                           onChange={(e) => setBusquedaVenta(e.target.value)}
                           className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
                         />
-                      </div>
-                    )}
-
-                    {moduloActivo === "ALQUILER" && (
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2 p-2.5 bg-emerald-50/60 rounded-xl border border-emerald-200 text-xs">
-                          <div>
-                            <label className="font-bold text-emerald-800 block mb-1">Salida:</label>
-                            <input
-                              type="date"
-                              value={fechaSalidaAlquiler}
-                              onChange={(e) => setFechaSalidaAlquiler(e.target.value)}
-                              className="w-full px-2.5 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs sm:text-sm font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="font-bold text-emerald-800 block mb-1">Retorno Pactado:</label>
-                            <input
-                              type="datetime-local"
-                              value={fechaDevolucionAlquiler}
-                              onChange={(e) => setFechaDevolucionAlquiler(e.target.value)}
-                              className="w-full px-2.5 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs sm:text-sm font-mono font-bold text-emerald-900"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="relative">
-                          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                          <input
-                            type="text"
-                            placeholder="Fuzzy: traje, disfraz, código, talla..."
-                            value={busquedaAlquiler}
-                            onChange={(e) => setBusquedaAlquiler(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                          />
-                        </div>
                       </div>
                     )}
 
@@ -2205,49 +2185,6 @@ export default function PosPage() {
                             </div>
                           </button>
                         ))}
-                      </div>
-                    )}
-
-                    {moduloActivo === "ALQUILER" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 content-start">
-                        {productosAlquiler.map((p) => {
-                          const estaDisponible = p.estado === "DISPONIBLE";
-
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => agregarItemAlquiler(p)}
-                              className="text-left p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 transition flex flex-col justify-between gap-1.5 group shadow-xs"
-                            >
-                              <div className="flex items-center justify-between gap-1 w-full">
-                                <span className="font-mono text-xs font-bold text-slate-500">
-                                  {p.codigo}
-                                </span>
-                                <span
-                                  className={`text-xs px-2 py-0.5 rounded font-bold uppercase ${
-                                    estaDisponible
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : "bg-amber-100 text-amber-800"
-                                  }`}
-                                >
-                                  {p.estado}
-                                </span>
-                              </div>
-                              <strong className="text-sm md:text-base font-bold text-slate-900 group-hover:text-emerald-700 truncate block">
-                                {p.nombre}
-                              </strong>
-                              <div className="flex items-center justify-between gap-1 mt-0.5">
-                                <span className="text-xs text-slate-500 font-medium">
-                                  Talla {p.talla || "U"}
-                                </span>
-                                <strong className="text-sm md:text-base font-mono font-black text-emerald-600">
-                                  ${(p.precioAlquilerBase || p.precioBase || 0).toLocaleString("es-CO")}
-                                </strong>
-                              </div>
-                            </button>
-                          );
-                        })}
                       </div>
                     )}
 

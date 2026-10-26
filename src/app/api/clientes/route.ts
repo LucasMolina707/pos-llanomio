@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
             { nombre: { contains: tokens[0] } },
             { razonSocial: { contains: tokens[0] } },
             { telefono: { contains: tokens[0] } },
+            { telefonoSecundario: { contains: tokens[0] } },
             { email: { contains: tokens[0] } },
             { direccion: { contains: tokens[0] } },
             { notas: { contains: tokens[0] } },
@@ -38,6 +39,7 @@ export async function GET(req: NextRequest) {
               { nombre: { contains: token } },
               { razonSocial: { contains: token } },
               { telefono: { contains: token } },
+              { telefonoSecundario: { contains: token } },
               { email: { contains: token } },
               { direccion: { contains: token } },
               { notas: { contains: token } },
@@ -60,6 +62,7 @@ export async function GET(req: NextRequest) {
         documento: true,
         nombre: true,
         telefono: true,
+        telefonoSecundario: true,
         email: true,
         direccion: true,
         notas: true,
@@ -103,6 +106,7 @@ export async function POST(req: NextRequest) {
       documento,
       nombre,
       telefono,
+      telefonoSecundario,
       email,
       direccion,
       notas,
@@ -129,9 +133,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!telefono || !telefono.trim()) {
+      return NextResponse.json(
+        { success: false, error: "El teléfono primario del cliente es obligatorio" },
+        { status: 400 }
+      );
+    }
+
     const docSanitizado = documento.trim().toUpperCase();
     const nombreSanitizado = nombre.trim().toUpperCase();
-    const telSanitizado = telefono ? telefono.trim().replace(/[^\d+]/g, "") : null;
+    const telSanitizado = telefono.trim().replace(/[^\d+]/g, "");
+    if (telSanitizado.length < 7) {
+      return NextResponse.json(
+        { success: false, error: "El teléfono primario debe tener al menos 7 dígitos" },
+        { status: 400 }
+      );
+    }
+    const telSecSanitizado = telefonoSecundario && telefonoSecundario.trim()
+      ? telefonoSecundario.trim().replace(/[^\d+]/g, "")
+      : null;
     const emailSanitizado = email ? email.trim().toLowerCase() : null;
     const dirSanitizada = direccion ? direccion.trim() : null;
     const notasSanitizadas = notas ? notas.trim() : null;
@@ -202,6 +222,7 @@ export async function POST(req: NextRequest) {
         documento: true,
         nombre: true,
         telefono: true,
+        telefonoSecundario: true,
         email: true,
         direccion: true,
         notas: true,
@@ -234,6 +255,7 @@ export async function POST(req: NextRequest) {
         documento: docSanitizado,
         nombre: nombreSanitizado,
         telefono: telSanitizado,
+        telefonoSecundario: telSecSanitizado,
         email: emailSanitizado,
         direccion: dirSanitizada,
         notas: notasSanitizadas,
@@ -250,6 +272,7 @@ export async function POST(req: NextRequest) {
         documento: true,
         nombre: true,
         telefono: true,
+        telefonoSecundario: true,
         email: true,
         direccion: true,
         notas: true,

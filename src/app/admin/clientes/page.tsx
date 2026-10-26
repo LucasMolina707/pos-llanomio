@@ -31,6 +31,7 @@ interface ClienteDirectorio {
   documento: string;
   nombre: string;
   telefono?: string | null;
+  telefonoSecundario?: string | null;
   email?: string | null;
   direccion?: string | null;
   notas?: string | null;
@@ -84,7 +85,7 @@ export default function DirectorioClientesPage() {
   const clientesFiltrados = useMemo(() => {
     return filtrarPorRelevancia(clientes, busqueda, (item) => ({
       primarios: [item.documento, item.nombre, item.razonSocial || ""],
-      secundarios: [item.telefono, item.email, item.direccion, item.notas],
+      secundarios: [item.telefono, item.telefonoSecundario, item.email, item.direccion, item.notas],
     }));
   }, [clientes, busqueda]);
 
@@ -249,14 +250,28 @@ export default function DirectorioClientesPage() {
 
                     {/* 3. Contacto / Correo */}
                     <td className="px-4 py-3.5">
-                      <div className="space-y-0.5 text-xs sm:text-sm">
+                      <div className="space-y-1 text-xs sm:text-sm">
                         {c.telefono ? (
                           <div className="flex items-center gap-1.5 font-mono font-bold text-slate-800">
                             <Phone className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                             <span>{c.telefono}</span>
+                            {c.telefonoSecundario && (
+                              <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded font-sans font-medium">
+                                1°
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <span className="text-slate-400 text-xs block">Sin teléfono</span>
+                        )}
+                        {c.telefonoSecundario && (
+                          <div className="flex items-center gap-1.5 font-mono text-slate-600 text-xs">
+                            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{c.telefonoSecundario}</span>
+                            <span className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded font-sans font-medium">
+                              2°
+                            </span>
+                          </div>
                         )}
                         {c.email && (
                           <div className="flex items-center gap-1 text-slate-600 text-xs">

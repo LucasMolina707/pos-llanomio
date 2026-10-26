@@ -31,6 +31,7 @@ export interface ClienteCreado {
   documento: string;
   nombre: string;
   telefono?: string | null;
+  telefonoSecundario?: string | null;
   email?: string | null;
   direccion?: string | null;
   notas?: string | null;
@@ -64,6 +65,7 @@ export default function ModalCrearClienteRapido({
   const [documento, setDocumento] = useState(documentoInicial);
   const [nombre, setNombre] = useState(nombreInicial);
   const [telefono, setTelefono] = useState("");
+  const [telefonoSecundario, setTelefonoSecundario] = useState("");
   const [email, setEmail] = useState("");
   const [direccion, setDireccion] = useState("");
   const [notas, setNotas] = useState("");
@@ -88,6 +90,7 @@ export default function ModalCrearClienteRapido({
         setDocumento(clienteAEditar.documento || "");
         setNombre(clienteAEditar.nombre || "");
         setTelefono(clienteAEditar.telefono || "");
+        setTelefonoSecundario(clienteAEditar.telefonoSecundario || "");
         setEmail(clienteAEditar.email || "");
         setDireccion(clienteAEditar.direccion || "");
         setNotas(clienteAEditar.notas || "");
@@ -104,6 +107,7 @@ export default function ModalCrearClienteRapido({
         setDocumento(documentoInicial);
         setNombre(nombreInicial);
         setTelefono("");
+        setTelefonoSecundario("");
         setEmail("");
         setDireccion("");
         setNotas("");
@@ -193,6 +197,14 @@ export default function ModalCrearClienteRapido({
       return;
     }
 
+    const telLimpio = telefono.trim().replace(/[^\d+]/g, "");
+    if (!telLimpio || telLimpio.length < 7) {
+      setError("El Teléfono Primario es obligatorio y debe tener al menos 7 dígitos.");
+      return;
+    }
+
+    const telSecLimpio = telefonoSecundario.trim().replace(/[^\d+]/g, "");
+
     // Validaciones estrictas si es responsable de IVA / factura electrónica
     if (esResponsableIVA) {
       if (!emailLimpio || !validarEmail(emailLimpio)) {
@@ -226,7 +238,8 @@ export default function ModalCrearClienteRapido({
       const payload = {
         documento: docLimpio,
         nombre: nomLimpio,
-        telefono: telefono.trim() || null,
+        telefono: telLimpio,
+        telefonoSecundario: telSecLimpio || null,
         email: emailLimpio || null,
         direccion: dirLimpia || null,
         notas: notas.trim() || null,
@@ -564,11 +577,11 @@ export default function ModalCrearClienteRapido({
             </div>
           </div>
 
-          {/* Teléfono y Dirección */}
+          {/* Teléfonos Primario y Secundario */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
-                Teléfono / WhatsApp {esResponsableIVA ? "(Opcional)" : "*"}
+                Teléfono Primario (Obligatorio) *
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -576,31 +589,57 @@ export default function ModalCrearClienteRapido({
                 </div>
                 <input
                   type="text"
+                  required
                   placeholder="Ej. 3101234567"
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
                 />
               </div>
+              <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                Contacto principal para ventas, WhatsApp y facturas.
+              </p>
             </div>
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
-                Dirección Fiscal {esResponsableIVA ? "*" : "(Opcional)"}
+                Teléfono Secundario / Respaldo (Opcional)
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <MapPin className="w-4 h-4" />
+                  <Phone className="w-4 h-4 text-emerald-600" />
                 </div>
                 <input
                   type="text"
-                  required={esResponsableIVA}
-                  placeholder="Ej. Calle 15 # 22-30, Barrio Siete de Agosto"
-                  value={direccion}
-                  onChange={(e) => setDireccion(e.target.value)}
+                  placeholder="Ej. 3209876543 (Familiar o respaldo)"
+                  value={telefonoSecundario}
+                  onChange={(e) => setTelefonoSecundario(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
                 />
               </div>
+              <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                Número alternativo para seguimiento y cobros de alquiler.
+              </p>
+            </div>
+          </div>
+
+          {/* Dirección */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+              Dirección Fiscal {esResponsableIVA ? "*" : "(Opcional)"}
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                required={esResponsableIVA}
+                placeholder="Ej. Calle 15 # 22-30, Barrio Siete de Agosto"
+                value={direccion}
+                onChange={(e) => setDireccion(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+              />
             </div>
           </div>
 

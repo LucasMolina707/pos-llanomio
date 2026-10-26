@@ -7,6 +7,7 @@ import {
   ShoppingBag,
   Vault,
   CalendarClock,
+  Clock,
   Package,
   BarChart3,
   Settings,
@@ -50,10 +51,16 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
       title: "OPERACIÓN",
       items: [
         {
-          name: "Terminal POS",
+          name: "Terminal POS (Ventas)",
           href: "/caja/pos",
           icon: ShoppingBag,
           badge: "Mostrador",
+        },
+        {
+          name: "Sistema de Alquileres",
+          href: "/caja/alquileres",
+          icon: Clock,
+          badge: "Alquiler",
         },
         {
           name: "Control de Caja",

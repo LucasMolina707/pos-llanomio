@@ -105,6 +105,7 @@ interface DatosPerfilCliente {
   documento: string;
   nombre: string;
   telefono?: string | null;
+  telefonoSecundario?: string | null;
   direccion?: string | null;
   notas?: string | null;
   fechaCreacion: string;
@@ -279,8 +280,8 @@ export default function PerfilClientePage() {
           </div>
 
           {/* Contacto Directo WhatsApp */}
-          {cliente.telefono && (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {cliente.telefono && (
               <BotonWhatsApp
                 telefono={cliente.telefono}
                 nombreCliente={cliente.nombre}
@@ -289,24 +290,39 @@ export default function PerfilClientePage() {
                 tipoMensaje={(metricas?.saldoTotalPendiente || 0) > 0 ? "RECORDATORIO" : "RECORDATORIO"}
                 mostrarTexto={true}
               />
-            </div>
-          )}
+            )}
+            {cliente.telefonoSecundario && (
+              <BotonWhatsApp
+                telefono={cliente.telefonoSecundario}
+                nombreCliente={`${cliente.nombre} (2° Tel)`}
+                nombrePrenda="Servicio de Alquiler / Compra"
+                saldoPendiente={metricas?.saldoTotalPendiente || 0}
+                tipoMensaje={(metricas?.saldoTotalPendiente || 0) > 0 ? "RECORDATORIO" : "RECORDATORIO"}
+                mostrarTexto={true}
+              />
+            )}
+          </div>
         </div>
 
         {/* Fila de Datos Secundarios */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 text-xs sm:text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-4 text-xs sm:text-sm">
           <div className="flex items-center gap-2 text-slate-700">
-            <Phone className="w-4 h-4 text-cyan-600 shrink-0" />
-            <span className="font-semibold">Teléfono:</span>
-            <span className="font-mono">{cliente.telefono || "No registrado"}</span>
+            <Phone className="w-4 h-4 text-blue-600 shrink-0" />
+            <span className="font-semibold">Tel. Primario:</span>
+            <span className="font-mono font-bold">{cliente.telefono || "No registrado"}</span>
           </div>
           <div className="flex items-center gap-2 text-slate-700">
-            <MapPin className="w-4 h-4 text-cyan-600 shrink-0" />
+            <Phone className="w-4 h-4 text-slate-500 shrink-0" />
+            <span className="font-semibold">Tel. Secundario:</span>
+            <span className="font-mono">{cliente.telefonoSecundario || "No registrado"}</span>
+          </div>
+          <div className="flex items-center gap-2 text-slate-700">
+            <MapPin className="w-4 h-4 text-blue-600 shrink-0" />
             <span className="font-semibold">Dirección:</span>
             <span>{cliente.direccion || "No registrada"}</span>
           </div>
           <div className="flex items-center gap-2 text-slate-700">
-            <FileText className="w-4 h-4 text-cyan-600 shrink-0" />
+            <FileText className="w-4 h-4 text-blue-600 shrink-0" />
             <span className="font-semibold">Notas:</span>
             <span className="truncate" title={cliente.notas || "Sin observaciones"}>
               {cliente.notas || "Sin observaciones"}

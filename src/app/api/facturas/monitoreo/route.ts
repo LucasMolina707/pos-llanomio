@@ -25,12 +25,20 @@ export async function GET(req: NextRequest) {
     const clienteId = searchParams.get("clienteId")?.trim() || "";
     const sincronizar = searchParams.get("sync") === "true";
 
+    const tipoParam = searchParams.get("tipo") || searchParams.get("tipoOperacion");
+
     // Si se solicita sincronización forzada en BD
     if (sincronizar) {
       await sincronizarMorasEnBaseDeDatos();
     }
 
     const where: Record<string, unknown> = {};
+
+    if (tipoParam === "ALQUILER") {
+      where.tipoOperacion = "ALQUILER";
+    } else if (tipoParam === "VENTA" || tipoParam === "POS" || tipoParam === "VENTA_ARREGLO") {
+      where.tipoOperacion = { not: "ALQUILER" };
+    }
 
     if (clienteId) {
       where.clienteId = clienteId;
@@ -42,6 +50,7 @@ export async function GET(req: NextRequest) {
         { cliente: { nombre: { contains: q } } },
         { cliente: { documento: { contains: q } } },
         { cliente: { telefono: { contains: q } } },
+        { cliente: { telefonoSecundario: { contains: q } } },
       ];
     }
 

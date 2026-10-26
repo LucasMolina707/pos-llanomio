@@ -1247,8 +1247,85 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
 ### 5. Control de Calidad y Verificación (QA - Agente 5)
 - **Pruebas de Conflicto y Detección:** Verificada la identificación de procesos en ejecución (`node.exe` en puertos 3000 y 80) y la reasignación interactiva a puertos alternativos (`3005`, `8081`).
 - **Estado Limpio de Fábrica:** Ejecutado `npm run db:reset-fabrica` con éxito garantizando 0 clientes, 0 productos, 0 facturas, 0 abonos, 0 turnos/cierres de caja, 1 administrador inicial y 1 registro neutro de empresa.
-- **Compilación de Producción:** `npm run build` ejecutado exitosamente con **0 errores de TypeScript**, generando las 22 rutas del sistema.
-- **Procesos PM2:** Servicios `pos-llanomio` y `pos-mdns-proxy` activos y estables en estado `online`.
+---
+
+## 27. Separación Total del Sistema de Alquileres vs Terminal POS (Ventas y Arreglos)
+
+Se completó la separación arquitectónica y operativa del negocio de **Alquileres de Prendas** respecto a la terminal de **Ventas de Productos y Arreglos/Sastrería**, desplegando una terminal independiente de mostrador con ciclo de vida completo de depósitos en garantía, calendario de llegadas, control de moras y formato documental contractual.
+
+### 1. Pilar 1: Depuración y Enfoque de la Terminal POS (`/caja/pos`)
+- **Exclusividad para Ventas y Servicios:** Se retiró por completo la pestaña y catálogo de Alquileres del Paso 2 del POS. La terminal `/caja/pos` queda dedicada exclusivamente a:
+  1. **Venta de Productos (`VENTA`):** Selección de inventario precargado y alta rápida de productos.
+  2. **Arreglos y Servicios (`ARREGLO`):** Sastrería libre con descripción y costo.
+- **Filtrado en Monitoreo:** El historial/monitoreo de `/caja/pos` filtra estrictamente por `tipo=VENTA_ARREGLO`.
+- **Navegación Rápida:** Botón superior prominente *"Ir al Sistema de Alquileres"* (`/caja/alquileres`) con apertura en ventana independiente (`target="_blank"`).
+
+### 2. Pilar 2: Base de Datos de Clientes con Teléfono Primario y Secundario
+- **Modelo Relacional Prisma/SQLite:**
+  - Campo `telefonoSecundario String?` agregado al modelo `Cliente` en `prisma/schema.prisma` y `database/schema.prisma`.
+  - Migración ejecutada con `npx prisma db push` y cliente sincronizado con `npx prisma generate`.
+- **Validación en Formularios y APIs:**
+  - `src/app/api/clientes/route.ts` y `src/app/api/clientes/[id]/route.ts`: Validación de `telefono` primario obligatorio (mínimo 7 caracteres) y `telefonoSecundario` opcional. Búsqueda multi-token en ambos números telefónicos.
+  - `ModalCrearClienteRapido.tsx`, `/admin/clientes` y `/admin/clientes/[id]`: Formularios con inputs alineados *"Teléfono Primario (Obligatorio) \*"* y *"Teléfono Secundario / Respaldo (Opcional)"*, visualización en chips con insignias `1°` y `2°`, y botones dedicados de WhatsApp para ambos teléfonos.
+
+### 3. Pilar 3: Nueva Terminal Independiente Exclusiva de Alquileres (`/caja/alquileres`)
+- **Arquitectura Visual:** Diseñada bajo la *Paleta Clara Antifatiga Visual de Alto Contraste*, layout de pantalla completa sin scroll global en PC (`lg:h-screen lg:overflow-hidden flex flex-col`), CERO emojis en código y UI (estrictamente iconografía vectorial `lucide-react`) y español nativo en toda la interfaz.
+- **Vista A — Flujo Secuencial Progresivo de Nuevo Alquiler (4 Pasos):**
+  - **Paso 1 (Cliente):** Buscador difuso multi-campo + chips rápidos con ambos teléfonos (`1°` y `2°`), botón para crear nuevo cliente al vuelo y validación estricta de teléfono antes de continuar.
+  - **Paso 2 (Prendas y Fechas):** Catálogo filtrado exclusivamente por `tipo === 'ALQUILER'`, chips de categorías, botón `+ Crear Prenda de Alquiler`, selector de **Fecha de Salida (Inicio)** y **Fecha y Hora Exacta de Llegada/Devolución** (`datetime-local`).
+  - **Paso 3 (Cobro + Depósito en Garantía + Calculadora):**
+    - Modalidad de pago del alquiler: Completo (100%), Abono Parcial o Pendiente ($0 hoy).
+    - Campo de **Depósito en Garantía (`montoDeposito`)** con botones rápidos sugeridos (`$0`, `$20.000`, `$50.000`, `$100.000` o valor libre), selector de método de pago del depósito y nota explicativa de reembolso/retención.
+    - Calculadora en vivo de efectivo recibido y vuelto en caja sobre el total `(Abono de Alquiler + Depósito)`.
+  - **Paso 4 (Expedición de Factura / Contrato):** Previsualización documental integrada con visor de `PlantillaImpresion` e inicio de nuevo alquiler en 1 clic.
+- **Vista B — Centro Integrado de Historial de Alquileres, Fechas de Llegada, Moras y Liquidación:**
+  - 4 Pestañas operativas:
+    1. **En Alquiler Activo / Calendario de Llegadas:** Ordenadas por fecha/hora de llegada, resaltando entregas de hoy y mañana, valores pagados, saldo faltante y monto del depósito en custodia.
+    2. **En Mora de Entrega (Vencidos):** Días/horas de retraso, recargo automático por mora y contacto WhatsApp directo tanto a Teléfono Primario como a Teléfono Secundario.
+    3. **Por Cobrar Saldo de Alquiler:** Alquileres con saldo pendiente de pago.
+    4. **Historial de Alquileres Cerrados / Paz y Salvos:** Registro histórico con estado de depósito y botón de reimpresión.
+  - **Modal de Recepción de Prendas y Liquidación del Depósito:**
+    - Al recibir la prenda, permite cobrar saldo pendiente o mora y resolver el depósito en 3 escenarios:
+      - **`DEVUELTO_COMPLETO`:** Prendas en óptimo estado; reintegro del 100% del depósito al cliente y prendas liberadas a `DISPONIBLE`.
+      - **`RETENIDO_PARCIAL`:** Daño menor o pérdida parcial; captura monto a retener (`montoRetenidoDeposito`), calcula automáticamente lo devuelto al cliente (`montoDevueltoDeposito`), exige descripción del daño y envía prendas a `EN_ARREGLO`.
+      - **`RETENIDO_TOTAL`:** Daño grave o pérdida total; retiene el 100% del depósito con justificación obligatoria y prendas enviadas a `EN_ARREGLO`.
+    - Genera automáticamente el comprobante de **Paz y Salvo de Alquiler**.
+
+### 4. Pilar 4: Formato Documental Exclusivo para Alquileres (`PlantillaImpresion.tsx` y `pdf-media-carta.ts`)
+- Cuando `factura.tipoOperacion === 'ALQUILER'`, el documento se titula **"CONTRATO / FACTURA DE ALQUILER"** (o **"PAZ Y SALVO DE ALQUILER"** al liquidarse).
+- Disponible en 3 formatos sin hojas en blanco y con **CERO códigos QR**:
+  - **`TIRILLA` (80mm)** para impresora térmica.
+  - **`MEDIA_CARTA`** (215.9mm x 139.7mm landscape) en 1 sola hoja exacta.
+  - **`CARTA`** (Letter portrait con max-height 258mm) en 1 sola hoja exacta.
+- Incluye:
+  - Encabezado con datos corporativos y logo en Base64.
+  - Cliente Arrendatario con **Teléfono Primario y Teléfono Secundario**.
+  - **Fecha de Salida y Fecha y Hora Límite de Devolución/Llegada**.
+  - Detalle de prendas con código, talla, color y precio.
+  - Historial detallado de abonos y métodos de pago (`EFECTIVO`, `NEQUI`, `BANCOLOMBIA`, `LLAVE`, etc.).
+  - Total Alquiler, Total Abonado y **Saldo Faltante por Pagar**.
+  - **Recuadro de Depósito en Garantía:** Monto recibido, estado actual (*En Custodia*, *Devuelto 100%*, *Retenido Parcial* o *Retenido 100% por Daño*) con desglose de retención y devolución.
+  - Políticas de alquiler y firmas de aceptación.
+
+### 5. Archivos Creados o Modificados
+1. `database/schema.prisma` y `prisma/schema.prisma`: Campos de teléfono secundario en `Cliente` y campos de depósito en garantía en `Factura`.
+2. `src/app/api/clientes/route.ts` y `src/app/api/clientes/[id]/route.ts`: Soporte de doble teléfono con validación y búsqueda difusa.
+3. `src/components/pos/ModalCrearClienteRapido.tsx`: Inputs alineados para Teléfono Primario y Secundario.
+4. `src/app/admin/clientes/page.tsx` y `src/app/admin/clientes/[id]/page.tsx`: Visualización de insignias `1°` y `2°` y botones WhatsApp duales.
+5. `src/app/caja/pos/page.tsx`: Depuración de alquileres, límite a Ventas/Arreglos y enlace directo al Sistema de Alquileres.
+6. `src/app/caja/alquileres/page.tsx`: **Nueva terminal integral de alquileres** (flujo de 4 pasos, depósito en garantía, calculadora de vueltas y centro de historial/llegadas/moras/liquidación).
+7. `src/app/api/facturas/route.ts`: Registro de `montoDeposito`, `metodoPagoDeposito`, discriminación por tipo de operación (`ALQUILER` vs `VENTA_ARREGLO`).
+8. `src/app/api/facturas/[id]/route.ts`: Liquidación de contratos de alquiler, actualización de estados de depósito y actualización de inventario (`DISPONIBLE` o `EN_ARREGLO`).
+9. `src/app/api/facturas/monitoreo/route.ts`: Filtrado de monitoreo por tipo de operación y búsqueda en teléfonos primario y secundario.
+10. `src/app/api/impresion/[id]/route.ts`: Inclusión de `telefonoSecundario` en la consulta de facturación.
+11. `src/components/impresion/PlantillaImpresion.tsx`: Diseño documental de Contrato y Paz y Salvo de Alquiler para 80mm, Media Carta y Carta sin QR.
+12. `src/lib/pdf-media-carta.ts`: Soporte vectorial de Contrato de Alquiler, doble teléfono y depósito en garantía para jsPDF en los 3 formatos.
+13. `src/components/layout/Sidebar.tsx` y `Navbar.tsx`: Enlace al "Sistema de Alquileres" con apertura en ventana dedicada.
+14. `src/app/page.tsx`: Tarjeta de acceso al Sistema de Alquileres en el panel principal.
+
+### 6. Control de Calidad y Validación
+- `npm run build` ejecutado exitosamente con **0 errores de TypeScript y 0 errores de ESLint**, generando las 23 rutas del sistema incluyendo `/caja/alquileres`.
+
 
 
 

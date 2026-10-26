@@ -42,13 +42,22 @@ export default function HomePage() {
 
   const modulos = [
     {
-      titulo: "Terminal de Facturación",
-      descripcion: "Emisión ágil de facturas para ventas directas, alquileres, separes y servicios libres de arreglo.",
+      titulo: "Terminal POS (Ventas y Arreglos)",
+      descripcion: "Emisión ágil de facturas para productos en venta directa y servicios libres de sastrería / costura.",
       icono: ShoppingBag,
       colorIcono: "bg-blue-50 text-blue-600 border-blue-200",
-      etiqueta: "Mostrador POS",
+      etiqueta: "Venta y Servicios",
       colorBadge: "bg-blue-50 text-blue-700 border-blue-200",
       href: "/caja/pos",
+    },
+    {
+      titulo: "Sistema de Alquileres",
+      descripcion: "Terminal exclusiva para alquiler de trajes y prendas, cronograma de llegadas, depósitos en garantía y control de moras.",
+      icono: CalendarCheck,
+      colorIcono: "bg-emerald-50 text-emerald-600 border-emerald-200",
+      etiqueta: "Alquiler Exclusivo",
+      colorBadge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      href: "/caja/alquileres",
     },
     {
       titulo: "Control de Caja & Arqueos",

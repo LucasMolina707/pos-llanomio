@@ -35,6 +35,7 @@ export async function GET(req: NextRequest, { params }: Params) {
             documento: true,
             nombre: true,
             telefono: true,
+            telefonoSecundario: true,
             email: true,
             direccion: true,
             esResponsableIVA: true,

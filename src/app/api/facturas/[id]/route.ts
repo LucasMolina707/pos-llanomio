@@ -90,6 +90,11 @@ export async function POST(req: NextRequest, { params }: Params) {
       notas,
       recargoMora = 0,
       confirmarDevolucionPrendas = false,
+      estadoDeposito,
+      montoRetenidoDeposito,
+      montoDevueltoDeposito,
+      motivoRetencionDeposito,
+      estadoPrendasDevueltas,
     } = body;
 
     // 1. Validar el monto del abono
@@ -252,10 +257,46 @@ export async function POST(req: NextRequest, { params }: Params) {
         }
       }
 
-      // C. Liberar prendas alquiladas si se confirmó la devolución
+      // C. Liberar prendas alquiladas y liquidar depósito si aplica
       let fechaDevReal = facturaExistente.fechaDevolucionReal;
-      if (confirmarDevolucionPrendas) {
-        fechaDevReal = new Date();
+      let nuevoEstadoDeposito = facturaExistente.estadoDeposito;
+      let nuevoMontoRetenido = facturaExistente.montoRetenidoDeposito;
+      let nuevoMontoDevuelto = facturaExistente.montoDevueltoDeposito;
+      let nuevoMotivoRetencion = facturaExistente.motivoRetencionDeposito;
+
+      const procesarDevolucion = Boolean(confirmarDevolucionPrendas || estadoDeposito);
+
+      if (procesarDevolucion) {
+        if (!fechaDevReal) {
+          fechaDevReal = new Date();
+        }
+
+        if (estadoDeposito === "DEVUELTO_COMPLETO") {
+          nuevoEstadoDeposito = "DEVUELTO_COMPLETO";
+          nuevoMontoDevuelto = facturaExistente.montoDeposito;
+          nuevoMontoRetenido = 0;
+          nuevoMotivoRetencion = null;
+        } else if (estadoDeposito === "RETENIDO_PARCIAL") {
+          nuevoEstadoDeposito = "RETENIDO_PARCIAL";
+          const ret = Math.min(facturaExistente.montoDeposito, Math.max(0, Number(montoRetenidoDeposito) || 0));
+          nuevoMontoRetenido = ret;
+          nuevoMontoDevuelto = Math.max(0, facturaExistente.montoDeposito - ret);
+          nuevoMotivoRetencion = motivoRetencionDeposito?.trim() || "Daño o pérdida parcial";
+        } else if (estadoDeposito === "RETENIDO_TOTAL") {
+          nuevoEstadoDeposito = "RETENIDO_TOTAL";
+          nuevoMontoRetenido = facturaExistente.montoDeposito;
+          nuevoMontoDevuelto = 0;
+          nuevoMotivoRetencion = motivoRetencionDeposito?.trim() || "Daño total o pérdida definitiva";
+        } else if (facturaExistente.montoDeposito === 0) {
+          nuevoEstadoDeposito = "SIN_DEPOSITO";
+        }
+
+        // Si sufrieron daño o se eligió EN_ARREGLO, actualizar estado a EN_ARREGLO; de lo contrario DISPONIBLE
+        const esDaniado =
+          estadoPrendasDevueltas === "EN_ARREGLO" ||
+          nuevoEstadoDeposito === "RETENIDO_PARCIAL" ||
+          nuevoEstadoDeposito === "RETENIDO_TOTAL";
+        const estadoDestino = esDaniado ? EstadoPrenda.EN_ARREGLO : EstadoPrenda.DISPONIBLE;
 
         const productosAlquilerIds = facturaExistente.detalles
           .filter((d) => d.productoId && (d.producto?.tipo === TipoProducto.ALQUILER || !d.esServicioLibre))
@@ -265,8 +306,8 @@ export async function POST(req: NextRequest, { params }: Params) {
           await tx.producto.updateMany({
             where: { id: { in: productosAlquilerIds } },
             data: {
-              estado: EstadoPrenda.DISPONIBLE,
-              estadoPrenda: EstadoPrenda.DISPONIBLE,
+              estado: estadoDestino,
+              estadoPrenda: estadoDestino,
             },
           });
         }
@@ -312,6 +353,10 @@ export async function POST(req: NextRequest, { params }: Params) {
           saldoPendiente: nuevoSaldoPendiente,
           estado: nuevoEstado,
           fechaDevolucionReal: fechaDevReal,
+          estadoDeposito: nuevoEstadoDeposito,
+          montoRetenidoDeposito: nuevoMontoRetenido,
+          montoDevueltoDeposito: nuevoMontoDevuelto,
+          motivoRetencionDeposito: nuevoMotivoRetencion,
         },
         include: {
           cliente: true,

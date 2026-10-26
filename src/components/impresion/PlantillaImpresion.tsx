@@ -26,11 +26,18 @@ export interface DatosImpresionFactura {
     totalFactura: number;
     totalAbonado: number;
     saldoPendiente: number;
+    montoDeposito?: number;
+    estadoDeposito?: string;
+    montoRetenidoDeposito?: number;
+    montoDevueltoDeposito?: number;
+    motivoRetencionDeposito?: string | null;
+    metodoPagoDeposito?: string | null;
     notas?: string | null;
     cliente: {
       nombre: string;
       documento: string;
       telefono?: string | null;
+      telefonoSecundario?: string | null;
       email?: string | null;
       direccion?: string | null;
       esResponsableIVA?: boolean;
@@ -305,11 +312,15 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
           {/* Datos Factura */}
           <div className="py-2 border-b border-dashed border-black space-y-0.5 text-[10px]">
             <div className="flex justify-between font-bold">
-              <span>FACTURA:</span>
+              <span>
+                {factura.tipoOperacion === "ALQUILER"
+                  ? (esPazYSalvo ? "PAZ Y SALVO ALQUILER:" : "CONTRATO ALQUILER:")
+                  : "FACTURA:"}
+              </span>
               <span>{factura.numeroFactura}</span>
             </div>
             <div className="flex justify-between">
-              <span>FECHA:</span>
+              <span>FECHA EMISIÓN:</span>
               <span>{new Date(factura.fechaCreacion).toLocaleDateString("es-CO")}</span>
             </div>
             <div className="flex justify-between">
@@ -344,28 +355,49 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                     {factura.cliente.municipio ? ` — ${factura.cliente.municipio}` : ""}
                   </p>
                 )}
-                {factura.cliente.telefono && <p>TEL: {factura.cliente.telefono}</p>}
+                {factura.cliente.telefono && <p>TEL. 1°: {factura.cliente.telefono}</p>}
+                {factura.cliente.telefonoSecundario && <p>TEL. 2°: {factura.cliente.telefonoSecundario}</p>}
               </>
             ) : (
               <>
                 <p className="font-bold text-[11px] font-sans">{factura.cliente.nombre.toUpperCase()}</p>
                 <p>DOC: {factura.cliente.documento}</p>
-                {factura.cliente.telefono && <p>TEL: {factura.cliente.telefono}</p>}
+                {factura.cliente.telefono && <p>TEL. 1°: {factura.cliente.telefono}</p>}
+                {factura.cliente.telefonoSecundario && <p>TEL. 2°: {factura.cliente.telefonoSecundario}</p>}
                 {factura.cliente.direccion && <p>DIR: {factura.cliente.direccion}</p>}
               </>
             )}
           </div>
 
           {/* Fechas de Alquiler */}
-          {factura.fechaDevolucionPactada && (
-            <div className="py-1.5 border-b border-dashed border-black text-[9.5px]">
-              <span className="font-bold">DEVOLUCIÓN PACTADA:</span>
-              <p className="font-bold text-rose-800">
-                {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", {
-                  dateStyle: "short",
-                  timeStyle: "short",
-                })}
-              </p>
+          {factura.tipoOperacion === "ALQUILER" && (
+            <div className="py-1.5 border-b border-dashed border-black text-[9.5px] space-y-0.5">
+              <div className="flex justify-between">
+                <span className="font-bold">FECHA SALIDA:</span>
+                <span>{new Date(factura.fechaEntregaAlquiler || factura.fechaCreacion).toLocaleDateString("es-CO")}</span>
+              </div>
+              {factura.fechaDevolucionPactada && (
+                <div className="flex justify-between font-bold text-rose-800">
+                  <span>LÍMITE DEVOLUCIÓN:</span>
+                  <span>
+                    {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                  </span>
+                </div>
+              )}
+              {factura.fechaDevolucionReal && (
+                <div className="flex justify-between text-emerald-800 font-bold">
+                  <span>DEVUELTO EL:</span>
+                  <span>
+                    {new Date(factura.fechaDevolucionReal).toLocaleString("es-CO", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -428,6 +460,28 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
               </span>
             </div>
           </div>
+
+          {/* Depósito en Garantía en Tirilla */}
+          {(factura.tipoOperacion === "ALQUILER" || (factura.montoDeposito !== undefined && factura.montoDeposito > 0)) && (
+            <div className="py-2 border-b border-black space-y-0.5 text-[9.5px]">
+              <div className="flex justify-between font-bold">
+                <span>DEPÓSITO EN GARANTÍA:</span>
+                <span>${(factura.montoDeposito || 0).toLocaleString("es-CO")}</span>
+              </div>
+              <p className="text-[8.5px] text-slate-800">
+                Estado:{" "}
+                <strong>
+                  {factura.estadoDeposito === "DEVUELTO_COMPLETO"
+                    ? `Devuelto 100% al cliente ($${(factura.montoDevueltoDeposito || factura.montoDeposito || 0).toLocaleString("es-CO")})`
+                    : factura.estadoDeposito === "RETENIDO_PARCIAL"
+                    ? `Retenido por daño: $${(factura.montoRetenidoDeposito || 0).toLocaleString("es-CO")} | Devuelto: $${(factura.montoDevueltoDeposito || 0).toLocaleString("es-CO")}${factura.motivoRetencionDeposito ? ` (${factura.motivoRetencionDeposito})` : ""}`
+                    : factura.estadoDeposito === "RETENIDO_TOTAL"
+                    ? `Retenido 100% por daño total / reposición${factura.motivoRetencionDeposito ? ` (${factura.motivoRetencionDeposito})` : ""}`
+                    : "En custodia — Reembolsable al devolver sin novedades"}
+                </strong>
+              </p>
+            </div>
+          )}
 
           {/* Desglose de Abonos */}
           {factura.abonos && factura.abonos.length > 0 && (
@@ -519,9 +573,13 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                       esPazYSalvo ? "text-emerald-700 font-black" : "text-slate-500"
                     }`}
                   >
-                    {esPazYSalvo
-                      ? "COMPROBANTE DE PAGO FINAL (PAZ Y SALVO)"
-                      : "FACTURA COMERCIAL"}
+                    {factura.tipoOperacion === "ALQUILER"
+                      ? (esPazYSalvo
+                          ? "PAZ Y SALVO DE ALQUILER"
+                          : "CONTRATO / FACTURA DE ALQUILER")
+                      : (esPazYSalvo
+                          ? "COMPROBANTE DE PAGO FINAL (PAZ Y SALVO)"
+                          : "FACTURA COMERCIAL")}
                   </span>
                   <span className="text-base font-black font-mono block text-slate-900">
                     {factura.numeroFactura}
@@ -536,18 +594,22 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
               </div>
             </div>
 
-              <div className="mb-2 px-3 py-1 rounded-lg bg-emerald-600 text-white flex items-center justify-between text-xs font-black shadow-xs">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
-                  <span>PAZ Y SALVO — FACTURA Y PRENDAS AL DÍA (SALDO $0)</span>
-                </div>
-                <span className="bg-emerald-700 px-2 py-0.5 rounded text-[10px] font-mono">
-                  SALDO: $0
+            <div className="mb-2 px-3 py-1 rounded-lg bg-emerald-600 text-white flex items-center justify-between text-xs font-black shadow-xs">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                <span>
+                  {factura.tipoOperacion === "ALQUILER"
+                    ? "COMPROBANTE OFICIAL DE ALQUILER — LLANOMIO"
+                    : "PAZ Y SALVO — FACTURA Y PRENDAS AL DÍA (SALDO $0)"}
                 </span>
               </div>
+              <span className="bg-emerald-700 px-2 py-0.5 rounded text-[10px] font-mono">
+                {esPazYSalvo ? "SALDO: $0" : `SALDO: $${factura.saldoPendiente.toLocaleString("es-CO")}`}
+              </span>
+            </div>
 
             {/* Ficha Cliente & Operación */}
-            <div className="grid grid-cols-2 gap-3 mb-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+            <div className="grid grid-cols-2 gap-3 mb-2 p-2 bg-slate-50 rounded-xl border border-slate-200 text-xs">
               <div>
                 <p className="font-bold uppercase text-slate-500 text-[9.5px]">CLIENTE:</p>
                 {factura.cliente.esResponsableIVA ? (
@@ -578,7 +640,10 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                       </p>
                     )}
                     {factura.cliente.telefono && (
-                      <p className="text-[10.5px]">Tel: {factura.cliente.telefono}</p>
+                      <p className="text-[10.5px]">Tel. 1°: <span className="font-mono">{factura.cliente.telefono}</span></p>
+                    )}
+                    {factura.cliente.telefonoSecundario && (
+                      <p className="text-[10.5px]">Tel. 2°: <span className="font-mono">{factura.cliente.telefonoSecundario}</span></p>
                     )}
                   </>
                 ) : (
@@ -587,7 +652,8 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                     <p className="text-[11px]">
                       Cédula / NIT: <span className="font-mono">{factura.cliente.documento}</span>
                     </p>
-                    {factura.cliente.telefono && <p className="text-[11px]">Tel: {factura.cliente.telefono}</p>}
+                    {factura.cliente.telefono && <p className="text-[11px]">Tel. 1°: <span className="font-mono">{factura.cliente.telefono}</span></p>}
+                    {factura.cliente.telefonoSecundario && <p className="text-[11px]">Tel. 2°: <span className="font-mono">{factura.cliente.telefonoSecundario}</span></p>}
                     {factura.cliente.direccion && <p className="text-[10.5px]">Dir: {factura.cliente.direccion}</p>}
                   </>
                 )}
@@ -603,13 +669,47 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                     Cajero: <strong>{factura.usuarioCajero?.nombre}</strong>
                   </p>
                 )}
-                {factura.fechaDevolucionPactada && (
-                  <p className="font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded inline-block text-[10.5px] mt-0.5">
-                    Devolución Pactada: {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
-                  </p>
+                {factura.tipoOperacion === "ALQUILER" && (
+                  <div className="mt-1 pt-1 border-t border-slate-200 text-[10.5px] space-y-0.5">
+                    <p>
+                      Fecha Salida: <strong>{new Date(factura.fechaEntregaAlquiler || factura.fechaCreacion).toLocaleDateString("es-CO")}</strong>
+                    </p>
+                    {factura.fechaDevolucionPactada && (
+                      <p className="font-bold text-rose-700 bg-rose-50 px-1 py-0.5 rounded">
+                        Límite Devolución: {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                      </p>
+                    )}
+                    {factura.fechaDevolucionReal && (
+                      <p className="font-bold text-emerald-700">
+                        Devuelto el: {new Date(factura.fechaDevolucionReal).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
+
+            {/* Recuadro Depósito en Garantía para Media Carta */}
+            {(factura.tipoOperacion === "ALQUILER" || (factura.montoDeposito !== undefined && factura.montoDeposito > 0)) && (
+              <div className="p-2 mb-2 bg-amber-50/80 rounded-xl border border-amber-300 text-xs">
+                <div className="flex justify-between items-center font-bold text-amber-950">
+                  <span>DEPÓSITO EN GARANTÍA (POR DAÑOS / PÉRDIDAS):</span>
+                  <span className="font-mono text-sm">${(factura.montoDeposito || 0).toLocaleString("es-CO")}</span>
+                </div>
+                <div className="text-[10px] text-amber-900 mt-0.5">
+                  <span>Estado: </span>
+                  <strong>
+                    {factura.estadoDeposito === "DEVUELTO_COMPLETO"
+                      ? `DEVUELTO 100% AL CLIENTE ($${(factura.montoDevueltoDeposito || factura.montoDeposito || 0).toLocaleString("es-CO")})`
+                      : factura.estadoDeposito === "RETENIDO_PARCIAL"
+                      ? `RETENCIÓN PARCIAL: $${(factura.montoRetenidoDeposito || 0).toLocaleString("es-CO")} retenido por daño / $${(factura.montoDevueltoDeposito || 0).toLocaleString("es-CO")} devuelto${factura.motivoRetencionDeposito ? ` — Motivo: ${factura.motivoRetencionDeposito}` : ""}`
+                      : factura.estadoDeposito === "RETENIDO_TOTAL"
+                      ? `RETENCIÓN TOTAL POR DAÑO / PÉRDIDA${factura.motivoRetencionDeposito ? ` — Motivo: ${factura.motivoRetencionDeposito}` : ""}`
+                      : "EN CUSTODIA (Reembolsable al devolver prendas sin novedades)"}
+                  </strong>
+                </div>
+              </div>
+            )}
 
             {/* Tabla de Ítems */}
             <table className="w-full text-xs mb-2">
@@ -762,9 +862,13 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                     esPazYSalvo ? "text-emerald-700 font-black" : "text-slate-500"
                   }`}
                 >
-                  {esPazYSalvo
-                    ? "COMPROBANTE DE PAGO FINAL (PAZ Y SALVO)"
-                    : "FACTURA COMERCIAL"}
+                  {factura.tipoOperacion === "ALQUILER"
+                    ? (esPazYSalvo
+                        ? "PAZ Y SALVO DE ALQUILER"
+                        : "CONTRATO / FACTURA DE ALQUILER")
+                    : (esPazYSalvo
+                        ? "COMPROBANTE DE PAGO FINAL (PAZ Y SALVO)"
+                        : "FACTURA COMERCIAL")}
                 </span>
                 <span className="text-lg font-black font-mono block text-slate-900">
                   {factura.numeroFactura}
@@ -821,7 +925,8 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                       (Código DANE: {factura.cliente.codigoDaneMunicipio || "50001"})
                     </p>
                   )}
-                  {factura.cliente.telefono && <p>Teléfono: {factura.cliente.telefono}</p>}
+                  {factura.cliente.telefono && <p>Tel. 1°: {factura.cliente.telefono}</p>}
+                  {factura.cliente.telefonoSecundario && <p>Tel. 2°: {factura.cliente.telefonoSecundario}</p>}
                 </>
               ) : (
                 <>
@@ -829,7 +934,8 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                   <p>
                     Cédula / NIT: <span className="font-mono">{factura.cliente.documento}</span>
                   </p>
-                  {factura.cliente.telefono && <p>Teléfono: {factura.cliente.telefono}</p>}
+                  {factura.cliente.telefono && <p>Tel. 1°: {factura.cliente.telefono}</p>}
+                  {factura.cliente.telefonoSecundario && <p>Tel. 2°: {factura.cliente.telefonoSecundario}</p>}
                   {factura.cliente.direccion && <p>Dirección: {factura.cliente.direccion}</p>}
                 </>
               )}
@@ -850,13 +956,47 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                   Atendido por Cajero: <strong>{factura.usuarioCajero?.nombre}</strong>
                 </p>
               )}
-              {factura.fechaDevolucionPactada && (
-                <p className="font-bold text-rose-700 bg-rose-50 p-1 rounded inline-block text-xs mt-0.5">
-                  Devolución Pactada: {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
-                </p>
+              {factura.tipoOperacion === "ALQUILER" && (
+                <div className="mt-1 pt-1 border-t border-slate-200 text-xs space-y-0.5">
+                  <p>
+                    Fecha Salida: <strong>{new Date(factura.fechaEntregaAlquiler || factura.fechaCreacion).toLocaleDateString("es-CO")}</strong>
+                  </p>
+                  {factura.fechaDevolucionPactada && (
+                    <p className="font-bold text-rose-700 bg-rose-50 p-1 rounded inline-block text-xs">
+                      Límite Devolución: {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                    </p>
+                  )}
+                  {factura.fechaDevolucionReal && (
+                    <p className="font-bold text-emerald-700 ml-2 inline-block">
+                      Devuelto el: {new Date(factura.fechaDevolucionReal).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
+
+          {/* Recuadro Depósito en Garantía para Carta */}
+          {(factura.tipoOperacion === "ALQUILER" || (factura.montoDeposito !== undefined && factura.montoDeposito > 0)) && (
+            <div className="mb-3 p-2.5 bg-amber-50/80 rounded-xl border border-amber-300 text-xs">
+              <div className="flex justify-between items-center font-bold text-amber-950">
+                <span>DEPÓSITO EN GARANTÍA (RESPALDO POR DAÑOS O PÉRDIDA DE PRENDAS):</span>
+                <span className="font-mono text-base">${(factura.montoDeposito || 0).toLocaleString("es-CO")}</span>
+              </div>
+              <div className="text-[11px] text-amber-900 mt-1">
+                <span>Estado Actual del Depósito: </span>
+                <strong>
+                  {factura.estadoDeposito === "DEVUELTO_COMPLETO"
+                    ? `DEVUELTO 100% AL CLIENTE ($${(factura.montoDevueltoDeposito || factura.montoDeposito || 0).toLocaleString("es-CO")}) — Prendas devueltas en perfecto estado.`
+                    : factura.estadoDeposito === "RETENIDO_PARCIAL"
+                    ? `RETENCIÓN PARCIAL: $${(factura.montoRetenidoDeposito || 0).toLocaleString("es-CO")} retenido por daños / $${(factura.montoDevueltoDeposito || 0).toLocaleString("es-CO")} devuelto${factura.motivoRetencionDeposito ? ` — Justificación: ${factura.motivoRetencionDeposito}` : ""}`
+                    : factura.estadoDeposito === "RETENIDO_TOTAL"
+                    ? `RETENCIÓN TOTAL: $${(factura.montoRetenidoDeposito || factura.montoDeposito || 0).toLocaleString("es-CO")} retenido por pérdida o daño irreparable${factura.motivoRetencionDeposito ? ` — Justificación: ${factura.motivoRetencionDeposito}` : ""}`
+                    : "EN CUSTODIA (Reembolsable al 100% al devolver las prendas sin novedades ni averías)"}
+                </strong>
+              </div>
+            </div>
+          )}
 
           {/* Tabla de Ítems */}
           <table className="w-full text-xs mb-3">

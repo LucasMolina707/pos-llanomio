@@ -37,7 +37,10 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
   // Mapeo de rutas a títulos e íconos para la cabecera
   const obtenerDetallesRuta = () => {
     if (pathname === "/caja/pos") {
-      return { titulo: "Terminal de Facturación POS", seccion: "Mostrador", icono: ShoppingBag };
+      return { titulo: "Terminal de Facturación POS (Ventas y Arreglos)", seccion: "Mostrador", icono: ShoppingBag };
+    }
+    if (pathname === "/caja/alquileres") {
+      return { titulo: "Sistema de Alquileres de Prendas", seccion: "Alquileres", icono: CalendarClock };
     }
     if (pathname === "/admin/dashboard") {
       return { titulo: "Dashboard Gerencial & Métricas", seccion: "Gerencia", icono: BarChart3 };

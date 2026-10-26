@@ -152,6 +152,8 @@ export async function GET(req: NextRequest, { params }: Params) {
         documento: cliente.documento,
         nombre: cliente.nombre,
         telefono: cliente.telefono,
+        telefonoSecundario: cliente.telefonoSecundario,
+        email: cliente.email,
         direccion: cliente.direccion,
         notas: cliente.notas,
         fechaCreacion: cliente.fechaCreacion,
@@ -188,6 +190,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const {
       nombre,
       telefono,
+      telefonoSecundario,
       email,
       direccion,
       notas,
@@ -211,6 +214,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
         { success: false, error: "Cliente no encontrado para actualizar" },
         { status: 404 }
       );
+    }
+
+    if (telefono !== undefined) {
+      if (!telefono || !telefono.trim()) {
+        return NextResponse.json(
+          { success: false, error: "El teléfono primario no puede estar vacío" },
+          { status: 400 }
+        );
+      }
+      const telSan = telefono.trim().replace(/[^\d+]/g, "");
+      if (telSan.length < 7) {
+        return NextResponse.json(
+          { success: false, error: "El teléfono primario debe tener al menos 7 dígitos" },
+          { status: 400 }
+        );
+      }
     }
 
     const esRespIVA = esResponsableIVA !== undefined ? Boolean(esResponsableIVA) : clienteExistente.esResponsableIVA;
@@ -264,6 +283,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
       data: {
         ...(nombre !== undefined ? { nombre: nombreSanitizado } : {}),
         ...(telefono !== undefined ? { telefono: telefono ? telefono.trim().replace(/[^\d+]/g, "") : null } : {}),
+        ...(telefonoSecundario !== undefined
+          ? { telefonoSecundario: telefonoSecundario ? telefonoSecundario.trim().replace(/[^\d+]/g, "") : null }
+          : {}),
         ...(email !== undefined ? { email: emailSanitizado } : {}),
         ...(direccion !== undefined ? { direccion: dirSanitizada } : {}),
         ...(notas !== undefined ? { notas: notas ? notas.trim() : null } : {}),

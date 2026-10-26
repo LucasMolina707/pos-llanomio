@@ -33,10 +33,18 @@ export async function GET(req: NextRequest) {
     const limiteParam = searchParams.get("limite");
     const limite = limiteParam ? parseInt(limiteParam, 10) : pendientes ? 500 : 50;
 
+    const tipoParam = searchParams.get("tipo") || searchParams.get("tipoOperacion");
+
     const where: Record<string, unknown> = {};
 
     if (estado) {
       where.estado = estado;
+    }
+
+    if (tipoParam === "ALQUILER") {
+      where.tipoOperacion = "ALQUILER";
+    } else if (tipoParam === "VENTA" || tipoParam === "POS" || tipoParam === "VENTA_ARREGLO") {
+      where.tipoOperacion = { not: "ALQUILER" };
     }
 
     if (pendientes) {
@@ -52,6 +60,8 @@ export async function GET(req: NextRequest) {
         { numeroFactura: { contains: q } },
         { cliente: { nombre: { contains: q } } },
         { cliente: { documento: { contains: q } } },
+        { cliente: { telefono: { contains: q } } },
+        { cliente: { telefonoSecundario: { contains: q } } },
       ];
     }
 
@@ -66,6 +76,7 @@ export async function GET(req: NextRequest) {
             documento: true,
             nombre: true,
             telefono: true,
+            telefonoSecundario: true,
             direccion: true,
           },
         },
@@ -202,6 +213,8 @@ export async function POST(req: NextRequest) {
       fechaEntregaAlquiler,
       fechaDevolucionPactada,
       notas,
+      montoDeposito = 0,
+      metodoPagoDeposito,
     } = body;
 
     // 1. Determinar y validar el cajero autenticado obligatoriamente
@@ -465,6 +478,11 @@ export async function POST(req: NextRequest) {
           totalFactura,
           totalAbonado,
           saldoPendiente,
+          montoDeposito: Math.max(0, Number(montoDeposito) || 0),
+          estadoDeposito: Number(montoDeposito) > 0 ? "RECIBIDO_EN_GARANTIA" : "SIN_DEPOSITO",
+          montoRetenidoDeposito: 0,
+          montoDevueltoDeposito: 0,
+          metodoPagoDeposito: Number(montoDeposito) > 0 ? (metodoPagoDeposito || "EFECTIVO") : null,
           notas: notas?.trim() || null,
           fechaEntregaAlquiler: fechaEntregaCalculada,
           fechaDevolucionPactada: fechaDevolucionCalculada,

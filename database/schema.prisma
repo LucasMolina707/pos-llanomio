@@ -159,6 +159,7 @@ model Cliente {
   documento             String    @unique
   nombre                String
   telefono              String?
+  telefonoSecundario    String?
   email                 String?
   direccion             String?
   notas                 String?
@@ -237,6 +238,15 @@ model Factura {
   totalFactura           Float          @default(0)
   totalAbonado           Float          @default(0)
   saldoPendiente         Float          @default(0)
+  
+  // Gestión de Depósito en Garantía para Alquileres
+  montoDeposito           Float          @default(0)
+  estadoDeposito          String         @default("SIN_DEPOSITO") // SIN_DEPOSITO | RECIBIDO_EN_GARANTIA | DEVUELTO_COMPLETO | RETENIDO_PARCIAL | RETENIDO_TOTAL
+  montoRetenidoDeposito   Float          @default(0)
+  montoDevueltoDeposito   Float          @default(0)
+  motivoRetencionDeposito String?
+  metodoPagoDeposito      String?
+
   notas                  String?
   updatedAt              DateTime       @updatedAt
 
