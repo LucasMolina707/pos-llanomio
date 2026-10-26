@@ -279,6 +279,48 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
     const tieneAbono = factura.totalAbonado > 0;
     const mostrarCajero = empresa.mostrarVendedorFactura !== false && factura.usuarioCajero?.nombre;
 
+    // 1. Estado General de la Orden / Petición
+    const estaCerrada =
+      factura.estado === "FINALIZADA" ||
+      factura.estado === "CERRADA" ||
+      Boolean(factura.fechaDevolucionReal);
+    const textoEstadoOrden = estaCerrada
+      ? "CERRADA (FINALIZADA / PAZ Y SALVO)"
+      : "ABIERTA (EN CURSO / PENDIENTE)";
+
+    // 2. Estado Financiero Claro
+    const textoEstadoFinanciero = esPazYSalvo
+      ? "PAGÓ COMPLETAMENTE ($0 Pendiente)"
+      : `QUEDÓ FALTANDO PLATA (Saldo Pendiente por Pagar: $${factura.saldoPendiente.toLocaleString("es-CO")})`;
+
+    // 3. Estado de Tiempo y Devolución de Prendas
+    let textoTiempoYDevolucion = "ESTÁ EN PLAZO / AL DÍA";
+    let estaEnMora = false;
+    let diasRetraso = 0;
+    let horasRetraso = 0;
+
+    if (factura.fechaDevolucionReal) {
+      textoTiempoYDevolucion = "PRENDAS DEVUELTAS A CONFORMIDAD";
+    } else if (factura.fechaDevolucionPactada) {
+      const ahora = new Date();
+      const limite = new Date(factura.fechaDevolucionPactada);
+      if (ahora > limite) {
+        estaEnMora = true;
+        const diffMs = ahora.getTime() - limite.getTime();
+        diasRetraso = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        horasRetraso = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const detalleMora = diasRetraso > 0 ? `${diasRetraso} día(s) y ${horasRetraso} hora(s)` : `${horasRetraso} hora(s)`;
+        const recargoTexto = factura.recargoMoraAcumulado > 0 ? ` | Recargo mora: $${factura.recargoMoraAcumulado.toLocaleString("es-CO")}` : "";
+        textoTiempoYDevolucion = `YA SE PASÓ DE LA FECHA DE ENTREGA (EN MORA — ${detalleMora} de retraso${recargoTexto})`;
+      } else {
+        if (!esPazYSalvo) {
+          textoTiempoYDevolucion = "ESTÁ EN PLAZO / AL DÍA (Prendas en posesión del cliente — Saldo pendiente por pagar)";
+        } else {
+          textoTiempoYDevolucion = "ESTÁ EN PLAZO / AL DÍA (Prendas en posesión del cliente — Pago completo)";
+        }
+      }
+    }
+
     // Estado del Pago del Alquiler (Badge visible)
     const estadoPagoBadge = esPazYSalvo
       ? { texto: "PAGO COMPLETO", bg: "bg-emerald-600", text: "text-white", border: "border-emerald-700" }
@@ -435,6 +477,30 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                   </span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ESTADO GENERAL DE LA PETICIÓN / TRANSACCIÓN (TIRILLA 80mm) */}
+          {esAlquiler && (
+            <div className="py-1.5 px-2 my-1 border-2 border-black bg-slate-50 text-[9.5px] space-y-1">
+              <div className="flex justify-between items-center border-b border-black pb-0.5 font-bold">
+                <span>ESTADO ORDEN:</span>
+                <span className={`px-1 py-0.2 rounded text-[8px] font-black uppercase ${estaCerrada ? "bg-emerald-100 text-emerald-900 border border-emerald-300" : "bg-amber-100 text-amber-900 border border-amber-300"}`}>
+                  {textoEstadoOrden}
+                </span>
+              </div>
+              <div className="flex justify-between items-center border-b border-black pb-0.5 font-bold">
+                <span>ESTADO FINANCIERO:</span>
+                <span className={`text-[8.5px] font-black ${esPazYSalvo ? "text-emerald-800" : "text-rose-800"}`}>
+                  {textoEstadoFinanciero}
+                </span>
+              </div>
+              <div className="pt-0.5">
+                <span className="font-bold block text-[8px] text-slate-700">PLAZO Y ENTREGA:</span>
+                <span className={`text-[8.5px] font-bold leading-tight block ${estaEnMora ? "text-rose-800" : "text-slate-900"}`}>
+                  {textoTiempoYDevolucion}
+                </span>
+              </div>
             </div>
           )}
 
@@ -678,22 +744,50 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
               </div>
             </div>
 
-            {/* Sello Estado Pago */}
-            <div className={`mb-2 px-3 py-1 rounded-lg text-white flex items-center justify-between text-xs font-black shadow-xs ${estadoPagoBadge.bg}`}>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-white/90" />
-                <span>
-                  {esAlquiler
-                    ? `ESTADO DEL ALQUILER: ${estadoPagoBadge.texto}`
-                    : esPazYSalvo
-                    ? "FACTURA AL DÍA (SALDO $0)"
-                    : "FACTURA CON SALDO PENDIENTE"}
+            {/* Panel de Estado General de la Petición / Transacción (Media Carta) */}
+            {esAlquiler ? (
+              <div className="mb-2 p-2 bg-slate-50 rounded-xl border-2 border-slate-900 text-xs shadow-xs space-y-1">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-black uppercase text-slate-600">1. Estado Orden:</span>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${estaCerrada ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}>
+                      {textoEstadoOrden}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-black uppercase text-slate-600">2. Estado Financiero:</span>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${esPazYSalvo ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}`}>
+                      {textoEstadoFinanciero}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-[10px] pt-0.5">
+                  <span className="font-bold text-slate-700">
+                    <strong className="text-slate-900">3. Estado de Tiempo y Llegada:</strong>{" "}
+                    <span className={estaEnMora ? "text-rose-700 font-black" : "text-emerald-700 font-bold"}>
+                      {textoTiempoYDevolucion}
+                    </span>
+                  </span>
+                  <span className="font-mono text-[9.5px] font-bold text-slate-500">
+                    Total: ${factura.totalFactura.toLocaleString("es-CO")} | Pagado: ${factura.totalAbonado.toLocaleString("es-CO")} | Saldo: ${factura.saldoPendiente.toLocaleString("es-CO")}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className={`mb-2 px-3 py-1 rounded-lg text-white flex items-center justify-between text-xs font-black shadow-xs ${estadoPagoBadge.bg}`}>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-white/90" />
+                  <span>
+                    {esPazYSalvo
+                      ? "FACTURA AL DÍA (SALDO $0)"
+                      : "FACTURA CON SALDO PENDIENTE"}
+                  </span>
+                </div>
+                <span className="bg-black/20 px-2 py-0.5 rounded text-[10px] font-mono">
+                  {esPazYSalvo ? "SALDO: $0" : `SALDO: $${factura.saldoPendiente.toLocaleString("es-CO")}`}
                 </span>
               </div>
-              <span className="bg-black/20 px-2 py-0.5 rounded text-[10px] font-mono">
-                {esPazYSalvo ? "SALDO: $0" : `SALDO: $${factura.saldoPendiente.toLocaleString("es-CO")}`}
-              </span>
-            </div>
+            )}
 
             {/* Ficha Cliente & Operación */}
             <div className="grid grid-cols-2 gap-3 mb-2 p-2 bg-slate-50 rounded-xl border border-slate-200 text-xs">
@@ -978,22 +1072,50 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
             </div>
           </div>
 
-          {/* Sello Estado Pago Carta */}
-          <div className={`mb-3 px-3 py-1.5 rounded-lg text-white flex items-center justify-between text-xs font-black shadow-xs ${estadoPagoBadge.bg}`}>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-white/90" />
-              <span>
-                {esAlquiler
-                  ? `ESTADO DE PAGO DEL ALQUILER: ${estadoPagoBadge.texto}`
-                  : esPazYSalvo
-                  ? "FACTURA PAGADA AL 100% — PAZ Y SALVO DE OBLIGACIÓN"
-                  : "FACTURA CON SALDO PENDIENTE POR COBRAR"}
+          {/* Panel de Estado General de la Petición / Transacción (Carta Completa) */}
+          {esAlquiler ? (
+            <div className="mb-3 p-3 bg-slate-50 rounded-xl border-2 border-slate-900 text-xs shadow-xs space-y-2">
+              <div className="grid grid-cols-2 gap-3 pb-2 border-b border-slate-200">
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-500 block mb-0.5">1. Estado de la Orden / Petición:</span>
+                  <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider ${estaCerrada ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}>
+                    {textoEstadoOrden}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-500 block mb-0.5">2. Estado Financiero de la Petición:</span>
+                  <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider ${esPazYSalvo ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}`}>
+                    {textoEstadoFinanciero}
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-0.5">
+                <div>
+                  <strong className="text-slate-700">3. Estado de Tiempo y Llegada:</strong>{" "}
+                  <span className={estaEnMora ? "text-rose-700 font-black" : "text-emerald-700 font-bold"}>
+                    {textoTiempoYDevolucion}
+                  </span>
+                </div>
+                <div className="font-mono text-xs font-bold text-slate-600 bg-white px-2.5 py-0.5 rounded border border-slate-200">
+                  Canon: ${factura.totalFactura.toLocaleString("es-CO")} | Pagado: ${factura.totalAbonado.toLocaleString("es-CO")} | Saldo: ${factura.saldoPendiente.toLocaleString("es-CO")}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className={`mb-3 px-3 py-1.5 rounded-lg text-white flex items-center justify-between text-xs font-black shadow-xs ${estadoPagoBadge.bg}`}>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-white/90" />
+                <span>
+                  {esPazYSalvo
+                    ? "FACTURA PAGADA AL 100% — PAZ Y SALVO DE OBLIGACIÓN"
+                    : "FACTURA CON SALDO PENDIENTE POR COBRAR"}
+                </span>
+              </div>
+              <span className="bg-black/20 px-2 py-0.5 rounded text-[11px] font-mono">
+                {esPazYSalvo ? "SALDO: $0" : `SALDO: $${factura.saldoPendiente.toLocaleString("es-CO")}`}
               </span>
             </div>
-            <span className="bg-black/20 px-2 py-0.5 rounded text-[11px] font-mono">
-              {esPazYSalvo ? "SALDO: $0" : `SALDO: $${factura.saldoPendiente.toLocaleString("es-CO")}`}
-            </span>
-          </div>
+          )}
 
           {/* Ficha Cliente y Operación */}
           <div className="grid grid-cols-2 gap-4 mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">

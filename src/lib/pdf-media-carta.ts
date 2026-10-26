@@ -41,6 +41,59 @@ function insertarLogoSeguro(
 }
 
 /**
+ * Calcula con rigor técnico el estado general de orden, estado financiero y estado de tiempo/entrega
+ */
+export function obtenerInfoEstadosAlquiler(factura: DatosImpresionFactura["factura"]) {
+  const estaCerrada =
+    factura.estado === "FINALIZADA" ||
+    factura.estado === "CERRADA" ||
+    Boolean(factura.fechaDevolucionReal);
+  const textoEstadoOrden = estaCerrada
+    ? "CERRADA (FINALIZADA / PAZ Y SALVO)"
+    : "ABIERTA (EN CURSO / PENDIENTE)";
+
+  const esPazYSalvo = factura.saldoPendiente <= 0;
+  const textoEstadoFinanciero = esPazYSalvo
+    ? "PAGÓ COMPLETAMENTE ($0 Pendiente)"
+    : `QUEDÓ FALTANDO PLATA (Saldo: $${factura.saldoPendiente.toLocaleString("es-CO")})`;
+
+  let textoTiempoYDevolucion = "ESTÁ EN PLAZO / AL DÍA";
+  let estaEnMora = false;
+  let diasRetraso = 0;
+  let horasRetraso = 0;
+
+  if (factura.fechaDevolucionReal) {
+    textoTiempoYDevolucion = "PRENDAS DEVUELTAS A CONFORMIDAD";
+  } else if (factura.fechaDevolucionPactada) {
+    const ahora = new Date();
+    const limite = new Date(factura.fechaDevolucionPactada);
+    if (ahora > limite) {
+      estaEnMora = true;
+      const diffMs = ahora.getTime() - limite.getTime();
+      diasRetraso = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      horasRetraso = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const detalle = diasRetraso > 0 ? `${diasRetraso}d ${horasRetraso}h` : `${horasRetraso}h`;
+      textoTiempoYDevolucion = `YA SE PASÓ (EN MORA — ${detalle})`;
+    } else {
+      textoTiempoYDevolucion = esPazYSalvo
+        ? "ESTÁ EN PLAZO / AL DÍA (Pago completo)"
+        : "ESTÁ EN PLAZO / AL DÍA (Saldo pendiente)";
+    }
+  }
+
+  return {
+    estaCerrada,
+    textoEstadoOrden,
+    esPazYSalvo,
+    textoEstadoFinanciero,
+    textoTiempoYDevolucion,
+    estaEnMora,
+    diasRetraso,
+    horasRetraso,
+  };
+}
+
+/**
  * Dibuja un ejemplar completo de factura en formato Media Carta (Horizontal)
  */
 function dibujarPaginaMediaCarta(
@@ -99,15 +152,16 @@ function dibujarPaginaMediaCarta(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.5);
   if (esAlquiler) {
-    if (factura.estado === "CERRADA") {
+    const infoEst = obtenerInfoEstadosAlquiler(factura);
+    if (infoEst.estaCerrada) {
       doc.setTextColor(5, 150, 105);
       doc.text("PAZ Y SALVO ALQUILER Y DEPÓSITO", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
-    } else if (factura.saldoPendiente <= 0) {
+    } else if (infoEst.esPazYSalvo) {
       doc.setTextColor(15, 23, 42);
       doc.text("FACTURA ALQUILER (PAGO COMPLETO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
     } else {
-      doc.setTextColor(100, 116, 139);
-      doc.text("COMPROBANTE ALQUILER (CON SALDO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
+      doc.setTextColor(225, 29, 72);
+      doc.text(`ALQUILER - FALTANDO: $${factura.saldoPendiente.toLocaleString("es-CO")}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
     }
   } else if (esPazYSalvo) {
     doc.setTextColor(5, 150, 105);
@@ -188,14 +242,16 @@ function dibujarPaginaMediaCarta(
       : "Caja Principal LLANOMIO";
   doc.text(cajeroTexto, xColOp, cursorY + 11.2);
 
-  if (esAlquiler && factura.fechaDevolucionPactada) {
-    const fDev = new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
+  if (esAlquiler) {
+    const infoEstados = obtenerInfoEstadosAlquiler(factura);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(180, 83, 9);
-    doc.text(`Límite Devolución: ${fDev}`, xColOp, cursorY + 14.8);
+    if (infoEstados.estaEnMora) {
+      doc.setTextColor(225, 29, 72);
+    } else {
+      doc.setTextColor(5, 150, 105);
+    }
+    const textoEntrega = infoEstados.textoTiempoYDevolucion;
+    doc.text(textoEntrega.substring(0, 48), xColOp, cursorY + 14.8);
   }
 
   cursorY += altoFichaCliente + 2;
@@ -481,14 +537,29 @@ function dibujarPaginaCarta(
 
   cursorY = Math.max(yDet + 3, yCajaFactura + altoCajaFactura + 3);
 
-  // 2. BANNER DE PAZ Y SALVO SI APLICA
-  if (esPazYSalvo) {
+  // 2. BANNER DE ESTADO GENERAL DE LA OPERACIÓN (CARTA)
+  if (esAlquiler) {
+    const infoCarta = obtenerInfoEstadosAlquiler(factura);
+    if (infoCarta.estaCerrada) {
+      doc.setFillColor(5, 150, 105);
+    } else {
+      doc.setFillColor(15, 23, 42);
+    }
+    doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 9.5, 1.5, 1.5, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`ORDEN: ${infoCarta.textoEstadoOrden}   |   FINANCIERO: ${infoCarta.textoEstadoFinanciero}`, anchoCartaMm / 2, cursorY + 4, { align: "center" });
+    doc.setFontSize(6.8);
+    doc.text(`PLAZO Y ENTREGA: ${infoCarta.textoTiempoYDevolucion}`, anchoCartaMm / 2, cursorY + 7.8, { align: "center" });
+    cursorY += 12.5;
+  } else if (esPazYSalvo) {
     doc.setFillColor(5, 150, 105);
     doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 7, 1.5, 1.5, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(255, 255, 255);
-    doc.text(esAlquiler ? "CONTRATO LIQUIDADO AL 100% — PAZ Y SALVO DE ALQUILER — SALDO $0" : "FACTURA PAGADA AL 100% — PAZ Y SALVO DE OBLIGACIÓN — SALDO TOTAL: $0", anchoCartaMm / 2, cursorY + 4.8, { align: "center" });
+    doc.text("FACTURA PAGADA AL 100% — PAZ Y SALVO DE OBLIGACIÓN — SALDO TOTAL: $0", anchoCartaMm / 2, cursorY + 4.8, { align: "center" });
     cursorY += 10;
   }
 
@@ -858,16 +929,25 @@ function dibujarContenidoTirilla(
     doc.text(`Tel: ${factura.cliente.telefono}${telSecTirilla}`, margen, cursorY);
   }
 
-  // Fechas de Alquiler en Tirilla
+  // Fechas y Estados de Alquiler en Tirilla
   if (esAlquiler) {
+    const infoTir = obtenerInfoEstadosAlquiler(factura);
     cursorY += 2.8;
+    doc.setFont("helvetica", "bold");
+    doc.text(`ORDEN: ${infoTir.textoEstadoOrden}`, margen, cursorY);
+    cursorY += 2.8;
+    doc.text(`FINANCIERO: ${infoTir.textoEstadoFinanciero}`, margen, cursorY);
+    cursorY += 2.8;
+    doc.setFont("helvetica", "normal");
     doc.text(`Salida: ${new Date(factura.fechaEntregaAlquiler || factura.fechaCreacion).toLocaleDateString("es-CO")}`, margen, cursorY);
-    if (factura.fechaDevolucionPactada) {
-      cursorY += 2.8;
-      doc.setFont("helvetica", "bold");
-      doc.text(`Devolución: ${new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}`, margen, cursorY);
-      doc.setFont("helvetica", "normal");
+    cursorY += 2.8;
+    doc.setFont("helvetica", "bold");
+    if (infoTir.estaEnMora) {
+      doc.setTextColor(225, 29, 72);
     }
+    doc.text(`Llegada: ${infoTir.textoTiempoYDevolucion.substring(0, 38)}`, margen, cursorY);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "normal");
   }
 
   cursorY += 3.2;

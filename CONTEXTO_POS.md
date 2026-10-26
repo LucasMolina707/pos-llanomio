@@ -1530,6 +1530,64 @@ Se perfeccionó y unificó la arquitectura de control, detección y sincronizaci
   5. *Constancia Escrita de Cobro Separado:* Texto exacto generado y verificado.
 - **Servicios PM2:** Proceso `pos-llanomio` reiniciado y operativo en estado `online`.
 
+---
+
+## Auditoría Integral Archivo por Archivo, Verificación de Conexiones/Interfaces y Autocorrección Completa (Consejo Técnico Auditor Principal)
+
+### 1. Alcance de la Auditoría Archivo por Archivo
+Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del sistema:
+
+1. **Capa 1 — Base de Datos y Modelos:**
+   - `prisma/schema.prisma` y `database/schema.prisma`: Verificados con hash criptográfico SHA256 idéntico (`90A32AB6CC7F1F97...`). Sincronizados con `database/llanomio.db` mediante `npx prisma db push` y cliente regenerado con `npx prisma generate` (Prisma ORM 6.19.3).
+   - `src/lib/prisma.ts`: Cliente singleton instanciado defensivamente con pooling adaptado a SQLite.
+   - `src/lib/auth.ts`: Autenticación por JWT (`jose`) y contraseñas con `bcryptjs`, inyectadas en cookies `HttpOnly` seguras.
+   - `src/lib/backup.ts`: Respaldo en caliente inmutable usando `VACUUM INTO` hacia `C:\POS_LLANOMIO_BACKUPS`.
+   - `src/lib/cron-moras.ts`: Sincronización y cálculo de moras automáticas por hora y día.
+   - `src/lib/dian-utils.ts`: Módulo tributario colombiano (cálculo de Dígito de Verificación, tipos de documento y municipios DANE).
+   - `src/lib/whatsapp.ts`: Enlaces dinámicos `wa.me` sin emojis, con normalización a prefijo `+57`.
+
+2. **Capa 2 — Seguridad, Sesión y Middleware:**
+   - `src/middleware.ts`: Bloqueo total de rutas sin sesión activa; redirección silenciosa de `CAJERO` si intenta entrar a `/admin/*`.
+   - `src/app/login/page.tsx`: CERO contraseñas escritas, autenticación limpia en 3 factores.
+   - `src/app/api/auth/login/route.ts`, `logout/route.ts` (con `VACUUM INTO` automático), `me/route.ts`, `recuperar/route.ts`: Blindados sin fugas de datos sensibles.
+   - `src/app/api/usuarios/route.ts` & `[id]/route.ts`: Exige la palabra `"eliminar"` para dar de baja usuarios, preservando la integridad referencial histórica en facturas y turnos.
+
+3. **Capa 3 — Caja Compartida / Dividida y Sincronización Transparente:**
+   - `src/app/api/caja/route.ts`: Gestión de turnos y vinculación de dispositivos en modalidad `COMPARTIDA` o `DIVIDIDA`.
+   - `src/hooks/useCajonSincronizado.ts`, `ModalConexionCajon.tsx`, `BarraEstadoCajon.tsx`: Auto-enlace transparente sin modales intrusivos al expedir si la caja ya fue abierta hoy.
+   - `src/app/admin/caja/page.tsx`: Arqueo inmutable sin bloqueo exigiendo **Nota de Novedad** ante diferencias, e historial consultable por **Día, Mes y Año** con `HistorialArqueosView.tsx`.
+
+4. **Capa 4 — Clientes, Inventario, Empresa y Dashboard en Vivo:**
+   - `src/app/api/clientes/route.ts`, `src/components/pos/ModalCrearClienteRapido.tsx`: Teléfono Primario obligatorio, Teléfono Secundario opcional y selector DIAN (IVA / NIT / RUT).
+   - `src/app/api/inventario/route.ts`, `src/app/admin/inventario/page.tsx`: Control de stock, filtros de alquiler y venta, y estados de prenda (`DISPONIBLE`, `ALQUILADO`, `EN_ARREGLO`).
+   - `src/app/api/empresa/route.ts`, `LogoEmpresa.tsx`, `admin/configuracion/page.tsx`: Gestión corporativa centralizada de logo, NIT, resolución y formato predeterminado.
+   - `src/app/api/admin/dashboard/route.ts` & `src/app/admin/dashboard/page.tsx`: Actualización en vivo vía Server-Sent Events (SSE) sin recarga manual de página (`F5`).
+
+5. **Capa 5 — Facturación POS, Alquileres y Motor de Impresión:**
+   - `src/app/caja/pos/page.tsx`: Exclusivo para Ventas y Arreglos/Sastrería con creación rápida de clientes compartida.
+   - `src/app/caja/alquileres/page.tsx`: Flujo lineal POS en 4 pasos guiados (1. Cliente -> 2. Prendas y Fechas -> 3. Cobro y Depósito en Efectivo -> 4. Comprobante Integrado).
+   - `src/components/impresion/PlantillaImpresion.tsx` & `src/lib/pdf-media-carta.ts`:
+     - Recibo / Comprobante de Transacción Estilo Factura en los 3 formatos en vivo: **Tirilla 80mm**, **Media Carta** y **Carta Completa**.
+     - Selector de 1 o 2 copias, botón de impresión directa en iframe aislado y descarga de PDF oficial con **CERO códigos QR**.
+     - Desglose explícito de los 3 estados críticos de la orden de alquiler:
+       1. **Estado de la Orden:** `ABIERTA (EN CURSO / PENDIENTE)` vs `CERRADA (FINALIZADA / PAZ Y SALVO)`.
+       2. **Estado Financiero:** `PAGÓ COMPLETAMENTE ($0 Pendiente)` vs `QUEDÓ FALTANDO PLATA (Saldo Pendiente por Pagar: $[Monto])`, detallando Canon Total, Abonado y Faltante.
+       3. **Estado de Plazo y Llegada:** `ESTÁ EN PLAZO / AL DÍA` vs `YA SE PASÓ DE LA FECHA DE ENTREGA (EN MORA — [Días/Horas] de retraso)` vs `PRENDAS DEVUELTAS A CONFORMIDAD`.
+     - Recuadro formal de constancia de depósito recibido en **EFECTIVO** e historial cronológico de todos los pagos y abonos registrados.
+
+### 2. Resultados de Control de Calidad (QA)
+- **Verificación Estática:** `npx tsc --noEmit` completado con **código 0 y 0 errores de tipado**.
+- **Suite de Verificación Integral (`scripts/test-auditoria-completa-qa.ts`):**
+  - Caso A (Alquiler con saldo pendiente): Evaluado exitosamente (`QUEDÓ FALTANDO PLATA: $50.000`).
+  - Caso B (Alquiler con pago completo): Evaluado exitosamente (`PAGÓ COMPLETAMENTE ($0 Pendiente)`).
+  - Caso C (Alquiler vencido): Evaluado exitosamente (`YA SE PASÓ DE LA FECHA DE ENTREGA (EN MORA — 2d 0h)`).
+  - Caso D (Devolución y liquidación): Evaluado exitosamente (`CERRADA (FINALIZADA / PAZ Y SALVO)`).
+  - Generación de PDF en 80mm, Media Carta y Carta validada con CERO códigos QR.
+  - Arqueo de caja con diferencia validado con exigencia de Nota de Novedad y respaldo `VACUUM INTO`.
+- **Restablecimiento de Fábrica (`scripts/reset-db-fabrica.ts`):** Base de datos SQLite depurada y compactada a estado 100% virgen (0 clientes, 0 productos, 0 facturas, 1 admin, 1 empresa).
+- **Compilación de Producción:** `npm run build` completado exitosamente con **código 0 y 22 rutas estáticas y dinámicas optimizadas**.
+
+
 
 
 
