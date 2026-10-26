@@ -169,12 +169,14 @@ Presione cualquier tecla para cerrar la ventana.
 
 
 ================================================================================
-5. PUESTA EN MARCHA DEL SISTEMA EN SEGUNDO PLANO (SERVICIO PERSISTENTE)
+5. PUESTA EN MARCHA DEL SERVIDOR LOCAL Y SERVICIOS EN SEGUNDO PLANO
 ================================================================================
 
 Para que el sistema se mantenga funcionando siempre en segundo plano (sin tener
 ventanas negras abiertas) y arranque automaticamente al encender el computador:
 
+METODO 1: MEDIANTE SCRIPT AUTOMATICO (RECOMENDADO)
+--------------------------------------------------------------------------------
 1. Ingrese a la carpeta:
    C:\Proyectos\pos-llanomio\instalador_tienda
 
@@ -182,11 +184,28 @@ ventanas negras abiertas) y arranque automaticamente al encender el computador:
    2_iniciar_sistema_pm2.bat
 
 3. Que hace este script:
-   - Inicia la aplicacion web POS en segundo plano con PM2.
-   - Inicia el servicio mDNS (Bonjour) para anunciar "llanomio.local" en el Wi-Fi.
+   - Inicia la aplicacion web POS en segundo plano con PM2 (puerto 3000).
+   - Inicia el servicio mDNS (Bonjour) y Proxy HTTP (puerto 80).
+   - Si tiene configurado el token de Cloudflare, inicia tambien el tunel seguro
+     para acceso remoto desde internet (pos-tunnel-cloudflare).
    - Crea un acceso directo en la carpeta "Inicio" de Windows
      (Shell:startup / Iniciar_LLANOMIO_Auto.bat) para que el sistema se inicie
      solo cada vez que prenda el computador de la tienda.
+
+METODO 2: MEDIANTE COMANDOS DIRECTOS DE CONSOLA (TERMINAL)
+--------------------------------------------------------------------------------
+Si prefiere activar el servidor directamente desde PowerShell o CMD:
+   cd C:\Proyectos\pos-llanomio
+   npx pm2 start ecosystem.config.js
+   npx pm2 save
+
+Para verificar el estado de los procesos en cualquier momento:
+   npx pm2 status
+Debe mostrar los procesos con estado "online".
+
+Para reiniciar o detener el servidor:
+   npx pm2 restart all       (Reiniciar todos los servicios)
+   npx pm2 stop all          (Detener todos los servicios)
 
 
 ================================================================================
@@ -208,10 +227,10 @@ mediante la red Wi-Fi de la tienda sin que el Firewall de Windows los bloquee:
 
 
 ================================================================================
-7. COMO ACCEDER AL SISTEMA (DIRECCIONES DE ACCESO)
+7. COMO ACCEDER AL SISTEMA (DIRECCIONES DE ACCESO LOCAL Y REMOTO)
 ================================================================================
 
-7.1. DESDE EL COMPUTADOR PRINCIPAL DE LA TIENDA
+7.1. DESDE EL COMPUTADOR PRINCIPAL DE LA TIENDA (LOCAL)
 --------------------------------------------------------------------------------
 Abra Google Chrome, Microsoft Edge o su navegador favorito e ingrese a cualquiera
 de estas dos direcciones:
@@ -222,7 +241,7 @@ de estas dos direcciones:
 (Nota: Si configuro un puerto HTTP diferente, por ejemplo 8080, ingrese a:
  http://localhost:8080 o http://llanomio.local:8080).
 
-7.2. DESDE CELULARES Y TABLETS CONECTADOS AL WI-FI DE LA TIENDA
+7.2. DESDE CELULARES Y TABLETS CONECTADOS AL WI-FI DE LA TIENDA (LAN LOCAL)
 --------------------------------------------------------------------------------
 Conecte el celular a la misma red Wi-Fi de la tienda y abra el navegador (Chrome o Safari).
 Ingrese a:
@@ -231,9 +250,70 @@ Ingrese a:
 Tambien puede escanear directamente con la camara del celular el Codigo QR que
 aparece en pantalla en la barra superior o en el menu de "Configuracion de Red Local".
 
+7.3. DESDE CUALQUIER LUGAR DEL MUNDO POR INTERNET (ACCESO REMOTO SEGURO)
+--------------------------------------------------------------------------------
+Gracias al tunel cifrado de Cloudflare activo, puede ingresar desde cualquier
+computador, portatil, celular o tablet fuera de la tienda ingresando a:
+  https://llanomio.inglucas.top
+
+Ventajas:
+  - Funciona con conexion de datos moviles (4G/5G) o cualquier red Wi-Fi externa.
+  - Conexión cifrada de extremo a extremo con certificado SSL/TLS de alta seguridad.
+  - Cero necesidad de abrir puertos en el router ni contratar IP publica fija.
+
 
 ================================================================================
-8. CREDENCIALES MAESTRAS DE ACCESO INICIAL
+8. GUIA DE CONFIGURACION DE CLOUDFLARE TUNNEL (ACCESO REMOTO)
+================================================================================
+
+Cloudflare Tunnel conecta de manera segura el servidor local de la tienda con su
+dominio en internet (https://llanomio.inglucas.top) sin exponer la IP del negocio.
+
+8.1. POR QUE APARECE EL ERROR "ACCESO DENEGADO" EN SERVICE INSTALL
+--------------------------------------------------------------------------------
+Si ejecuta en la consola el comando:
+  cloudflared.exe service install [TOKEN]
+y recibe el error:
+  "Cannot establish a connection to the service control manager: Acceso denegado."
+
+CAUSA:
+En Windows, instalar un servicio en el sistema operativo (Service Control Manager)
+requiere obligatoriamente privilegios elevados de Administrador. Si la consola no
+fue abierta con "Ejecutar como administrador", Windows bloquea la accion.
+
+8.2. SOLUCIONES Y FORMAS DE EJECUCION:
+
+OPCION A: EJECUCION AUTOMATICA CON PM2 (SIN PRIVILEGIOS DE ADMINISTRADOR)
+------------------------------------------------------------------------
+El archivo "ecosystem.config.js" ya incluye la configuracion del tunel.
+Al iniciar el servidor con PM2, el tunel arranca de inmediato en segundo plano
+con auto-reinicio sin pedir permisos de Administrador:
+  cd C:\Proyectos\pos-llanomio
+  npx pm2 start ecosystem.config.js
+  npx pm2 save
+
+OPCION B: EJECUCION CON EL SCRIPT DEDICADO
+------------------------------------------------------------------------
+En la carpeta "instalador_tienda" haga doble clic en:
+  7_INICIAR_TUNEL_CLOUDFLARE.bat
+El tunel iniciara inmediatamente conectando "llanomio.inglucas.top" con su POS.
+
+OPCION C: INSTALACION COMO SERVICIO DE WINDOWS (COMO ADMINISTRADOR)
+------------------------------------------------------------------------
+Si desea que Cloudflare quede instalado como servicio permanente en Windows:
+1. Vaya a "instalador_tienda" y haga clic derecho en:
+   8_INSTALAR_SERVICIO_CLOUDFLARE_ADMIN.bat
+   y elija "Ejecutar como administrador".
+2. O desde la consola CMD de Windows:
+   - Abra el menu Inicio de Windows, escriba "cmd".
+   - Haga clic derecho en "Simbolo del sistema" y seleccione "Ejecutar como administrador".
+   - Ejecute el comando con el token asignado:
+     "C:\Program Files (x86)\cloudflared\cloudflared.exe" service install [TOKEN]
+     net start cloudflared
+
+
+================================================================================
+9. CREDENCIALES MAESTRAS DE ACCESO INICIAL
 ================================================================================
 
 Al ingresar por primera vez a la pantalla de Login, use las siguientes credenciales:
@@ -260,7 +340,7 @@ PRIMERAS ACCIONES RECOMENDADAS DESPUES DE ENTRAR:
 
 
 ================================================================================
-9. RECONFIGURACION DE PUERTOS DE RED EN EL FUTURO
+10. RECONFIGURACION DE PUERTOS DE RED EN EL FUTURO
 ================================================================================
 
 Si en el futuro instala otro programa en el computador que cause conflicto de puertos:
@@ -274,10 +354,10 @@ Si en el futuro instala otro programa en el computador que cause conflicto de pu
 
 
 ================================================================================
-10. COPIAS DE SEGURIDAD (RESPALDOS) Y MANTENIMIENTO
+11. COPIAS DE SEGURIDAD (RESPALDOS) Y MANTENIMIENTO
 ================================================================================
 
-10.1. REALIZAR UN RESPALDO MANUAL
+11.1. REALIZAR UN RESPALDO MANUAL
 --------------------------------------------------------------------------------
 - Opcion 1: Desde el navegador, ingrese a "/admin/configuracion" y presione el
   boton "Generar Copia de Seguridad Ahora".
@@ -289,7 +369,7 @@ Donde se guardan los respaldos:
   y en:
   C:\Proyectos\pos-llanomio\database\backups_locales
 
-10.2. RESTAURAR UNA COPIA DE SEGURIDAD ANTERIOR
+11.2. RESTAURAR UNA COPIA DE SEGURIDAD ANTERIOR
 --------------------------------------------------------------------------------
 Si necesita volver a un punto anterior:
 1. Ejecute el archivo:
@@ -298,7 +378,7 @@ Si necesita volver a un punto anterior:
 
 
 ================================================================================
-11. RESUMEN RAPIDO DE COMANDOS MANUALES (SOLO PARA DESARROLLADORES O CONSOLA)
+12. RESUMEN RAPIDO DE COMANDOS MANUALES (SOLO PARA DESARROLLADORES O CONSOLA)
 ================================================================================
 
 Si en lugar de usar los archivos .bat prefiere usar la consola de comandos (CMD):
@@ -312,6 +392,7 @@ Si en lugar de usar los archivos .bat prefiere usar la consola de comandos (CMD)
   npm run start                   (Arranca en modo produccion manual)
   node scripts/verificar-puertos.js (Verifica puertos de red)
   npx pm2 start ecosystem.config.js (Inicia servicios en segundo plano)
+  npx pm2 status                  (Consulta estado de servicios)
 
 ================================================================================
                      FIN DEL MANUAL DE INSTALACION

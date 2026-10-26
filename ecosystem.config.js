@@ -29,37 +29,67 @@ const puertoProxy =
   envConfig.PORT_PROXY ||
   "80";
 
-module.exports = {
-  apps: [
-    {
-      name: "pos-llanomio",
-      script: path.join(__dirname, "start-pos.js"),
-      cwd: __dirname,
-      exec_mode: "fork",
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: "800M",
-      env: {
-        NODE_ENV: "production",
-        PORT: String(puertoNext),
-        HOSTNAME: "0.0.0.0",
-      },
+const tunnelToken = process.env.CLOUDFLARE_TUNNEL_TOKEN || envConfig.CLOUDFLARE_TUNNEL_TOKEN;
+
+// Localizar ejecutable cloudflared si está instalado
+let cloudflaredBin = null;
+const posiblesRutasCloudflared = [
+  "C:\\Program Files (x86)\\cloudflared\\cloudflared.exe",
+  "C:\\Program Files\\cloudflared\\cloudflared.exe",
+  path.join(__dirname, "cloudflared.exe"),
+];
+for (const ruta of posiblesRutasCloudflared) {
+  if (fs.existsSync(ruta)) {
+    cloudflaredBin = ruta;
+    break;
+  }
+}
+
+const apps = [
+  {
+    name: "pos-llanomio",
+    script: path.join(__dirname, "start-pos.js"),
+    cwd: __dirname,
+    exec_mode: "fork",
+    instances: 1,
+    autorestart: true,
+    watch: false,
+    max_memory_restart: "800M",
+    env: {
+      NODE_ENV: "production",
+      PORT: String(puertoNext),
+      HOSTNAME: "0.0.0.0",
     },
-    {
-      name: "pos-mdns-proxy",
-      script: path.join(__dirname, "server-mdns.js"),
-      cwd: __dirname,
-      exec_mode: "fork",
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: "200M",
-      env: {
-        NODE_ENV: "production",
-        PORT_PROXY: String(puertoProxy),
-        PORT_NEXT: String(puertoNext),
-      },
+  },
+  {
+    name: "pos-mdns-proxy",
+    script: path.join(__dirname, "server-mdns.js"),
+    cwd: __dirname,
+    exec_mode: "fork",
+    instances: 1,
+    autorestart: true,
+    watch: false,
+    max_memory_restart: "200M",
+    env: {
+      NODE_ENV: "production",
+      PORT_PROXY: String(puertoProxy),
+      PORT_NEXT: String(puertoNext),
     },
-  ],
-};
+  },
+];
+
+if (tunnelToken && cloudflaredBin) {
+  apps.push({
+    name: "pos-tunnel-cloudflare",
+    script: cloudflaredBin,
+    args: `tunnel run --token ${tunnelToken}`,
+    cwd: __dirname,
+    exec_mode: "fork",
+    instances: 1,
+    autorestart: true,
+    watch: false,
+    max_memory_restart: "300M",
+  });
+}
+
+module.exports = { apps };
