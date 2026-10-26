@@ -1142,4 +1142,63 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
 - **Compilación de Producción:** `npx tsc --noEmit` y `npm run build` completados con **0 errores**, compilando las 22 rutas estáticas y dinámicas.
 - **Servicios:** PM2 `pos-llanomio` y `pos-mdns-proxy` en ejecución continua en estado `online`.
 
+---
+
+## 25. Protocolo y Script de Restablecimiento Total de Fábrica (Factory Reset / Clean Slate) para Distribución Limpia del Repositorio
+
+### 1. Script Ejecutable de Purga Relacional y Compactación (`scripts/reset-db-fabrica.ts`)
+- **Vaciado Relacional Defensivo:** Purga en orden estricto de restricciones foráneas todas las tablas transaccionales y de catálogo en SQLite (`database/llanomio.db`):
+  1. `Abono` (Abonos a facturas y pagos)
+  2. `DetalleFactura` (Líneas de productos y servicios libres)
+  3. `Factura` (Facturas de venta y alquiler)
+  4. `TurnoCaja` (Turnos de gabinetes abiertos o cerrados)
+  5. `CierreCaja` (Cierres consolidados de caja)
+  6. `AuditoriaSesion` (Logs de accesos de usuarios)
+  7. `Producto` (Catálogo de prendas e inventario)
+  8. `Cliente` (Directorio de clientes y cartera)
+  9. `User` (Usuarios y cajeros secundarios)
+  10. `ConfiguracionEmpresa` (Configuración previa de la tienda)
+- **Reinicio de Secuencias Autoincrementales:** Ejecuta `DELETE FROM sqlite_sequence;` para reiniciar todos los contadores de ID autoincrementales a 0.
+- **Compactación y Desfragmentación Física:** Ejecuta `VACUUM;` en SQLite, liberando espacio en disco y reduciendo el archivo físico `database/llanomio.db` a su tamaño estructural virgen.
+
+### 2. Sembrado Neutro de Fábrica (`database/seed.ts`)
+- Inserta exclusivamente:
+  - **1 Administrador General Base:**
+    - `username: "admin"`
+    - `nombre: "Administrador Principal"`
+    - Rol: `ADMIN`
+    - Contraseña inicial en hash `bcrypt`: `admin123`
+    - Factores de recuperación iniciales documentados en `USUARIOS_Y_CREDENCIALES_MAESTRAS.md` (Documento: `0000000000`, PIN: `000000`, Respuesta: `llanomio`).
+  - **1 Registro Neutro de Empresa (`ConfiguracionEmpresa`):**
+    - `nombreTienda: "MI EMPRESA POS"`
+    - `nombreComercial: "MI EMPRESA POS"`
+    - `nit: "000000000-0"`
+    - `logoUrl: null`
+    - Dirección, teléfono y políticas genéricas listas para ser personalizadas por cualquier negocio desde `/admin/configuracion`.
+  - **CERO clientes, CERO productos, CERO facturas, CERO abonos, CERO cierres y CERO cajeros secundarios.**
+- Sincroniza automáticamente el archivo maestro `USUARIOS_Y_CREDENCIALES_MAESTRAS.md` reflejando con exactitud la única cuenta inicial activa.
+
+### 3. Limpieza de Archivos Privados en Repositorio
+- Directorios `database/backups_locales/` y `migracion_excel/origen/` purgados de archivos binarios `.db` y hojas de cálculo `.xlsx` con datos de clientes o inventarios de tiendas anteriores, conservando únicamente los archivos de control `.gitkeep`.
+- `.gitignore` configurado para impedir el rastreo de archivos `*.xlsx`, backups `*.db` y directorios temporales.
+- Scripts en `package.json`:
+  - `"db:reset-fabrica": "tsx scripts/reset-db-fabrica.ts"`
+  - `"db:seed": "tsx database/seed.ts"`
+  - `"prisma": { "schema": "database/schema.prisma", "seed": "tsx database/seed.ts" }`
+
+### 4. Control de Calidad y Verificación (QA - Agente 5)
+- Ejecución verificada de `npx tsx scripts/reset-db-fabrica.ts`:
+  - Clientes: `0`
+  - Productos / Prendas: `0`
+  - Facturas: `0`
+  - Detalles de Factura: `0`
+  - Abonos: `0`
+  - Turnos de Caja: `0`
+  - Cierres de Caja: `0`
+  - Usuarios (Admin): `1`
+  - Configuración Empresa: `1`
+- Compilación de producción con `npm run build` completada con **0 errores**, generando las 22 rutas del sistema.
+- Procesos PM2 `pos-llanomio` y `pos-mdns-proxy` activos en producción.
+
+
 
