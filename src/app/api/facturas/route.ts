@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
+import { verificarEstadoCajaParaFacturacion } from "@/lib/caja-control";
 import { EstadoFactura, MetodoPago, TipoOperacion, TipoProducto } from "@prisma/client";
 
 interface ItemDetalleInput {
@@ -202,6 +203,22 @@ export async function POST(req: NextRequest) {
       fechaDevolucionPactada,
       notas,
     } = body;
+
+    // 0. Control Estricto de Seguridad Financiera POS (Apertura Obligatoria y Bloqueo Día Anterior)
+    const controlCaja = await verificarEstadoCajaParaFacturacion(prisma);
+    if (controlCaja.bloqueadoParaFacturar) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: controlCaja.motivoBloqueo,
+          codigoSeguridad: controlCaja.estado,
+          requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
+          requiereAperturaHoy: controlCaja.estado === "SIN_TURNO",
+          turnoAbierto: controlCaja.turnoAbierto,
+        },
+        { status: 409 }
+      );
+    }
 
     // 1. Determinar y validar el cajero autenticado obligatoriamente
     let cajeroId = sesion?.userId || cajeroIdBody;

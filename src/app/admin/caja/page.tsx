@@ -61,9 +61,29 @@ interface TurnoCerradoItem {
   };
 }
 
+export interface VerificacionSeguridadAdmin {
+  estado: "ABIERTO_HOY" | "BLOQUEADO_DIA_ANTERIOR" | "SIN_TURNO";
+  bloqueadoParaFacturar: boolean;
+  motivoBloqueo: string | null;
+  fechaHoy: string;
+  turnoAbierto?: {
+    id: string;
+    fechaApertura: string;
+    fechaAperturaLocal: string;
+    baseInicialEfectivo: number;
+    diasAbierto: number;
+    usuarioCajero: {
+      id: string;
+      nombre: string;
+      username: string;
+    };
+  } | null;
+}
+
 export default function ControlCajaAdminPage() {
   const [hayTurnoAbierto, setHayTurnoAbierto] = useState(false);
   const [turnoAbierto, setTurnoAbierto] = useState<TurnoActivo | null>(null);
+  const [verificacionSeguridad, setVerificacionSeguridad] = useState<VerificacionSeguridadAdmin | null>(null);
   const [arqueoActual, setArqueoActual] = useState<ArqueoActual | null>(null);
   const [historialTurnos, setHistorialTurnos] = useState<TurnoCerradoItem[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -89,6 +109,9 @@ export default function ControlCajaAdminPage() {
         setTurnoAbierto(data.turnoAbierto);
         setArqueoActual(data.arqueoActual);
         setHistorialTurnos(data.historialTurnos || []);
+        if (data.verificacionSeguridad) {
+          setVerificacionSeguridad(data.verificacionSeguridad);
+        }
       }
     } catch (err) {
       console.error("Error al consultar caja:", err);
@@ -239,6 +262,37 @@ export default function ControlCajaAdminPage() {
         </div>
       </header>
 
+        {/* Banner Crítico de Turno Anterior Abierto Sin Cerrar */}
+        {verificacionSeguridad?.estado === "BLOQUEADO_DIA_ANTERIOR" && (
+          <div className="p-5 rounded-2xl border-2 border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-100 shadow-md space-y-3 animate-in fade-in">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-rose-600 text-white shrink-0 mt-0.5 shadow-xs">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-rose-200 dark:bg-rose-900 text-rose-800 dark:text-rose-200">
+                    Alerta de Control Financiero POS
+                  </span>
+                  <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                    Terminal POS Bloqueada
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-black tracking-tight text-rose-900 dark:text-rose-100">
+                  Turno de Caja Anterior Pendiente de Arqueo y Cierre
+                </h3>
+                <p className="text-xs sm:text-sm text-rose-800/90 dark:text-rose-200/90 leading-relaxed">
+                  Existe un turno de caja abierto el{" "}
+                  <strong>{verificacionSeguridad.turnoAbierto?.fechaAperturaLocal}</strong>{" "}
+                  ({verificacionSeguridad.turnoAbierto?.diasAbierto} día(s) sin cerrar) a cargo del cajero{" "}
+                  <strong>{verificacionSeguridad.turnoAbierto?.usuarioCajero.nombre}</strong>.
+                  Por política estricta de control, ningún cajero puede facturar hoy hasta que realice el arqueo y cierre formal de esta jornada anterior.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Mensaje de Alerta */}
         {mensaje && (
           <div
@@ -351,18 +405,44 @@ export default function ControlCajaAdminPage() {
           /* ========================================================= */
           <div className="space-y-6">
             {/* Ficha Informativa del Turno en Curso */}
-            <div className="bg-amber-500/10 border border-amber-300/60 dark:border-amber-900/60 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div
+              className={`rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border ${
+                verificacionSeguridad?.estado === "BLOQUEADO_DIA_ANTERIOR"
+                  ? "bg-rose-50/80 border-rose-300 dark:bg-rose-950/40 dark:border-rose-900"
+                  : "bg-amber-500/10 border-amber-300/60 dark:border-amber-900/60"
+              }`}
+            >
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-amber-500 text-white shrink-0">
-                  <Clock className="w-5 h-5" />
+                <div
+                  className={`p-2.5 rounded-xl text-white shrink-0 ${
+                    verificacionSeguridad?.estado === "BLOQUEADO_DIA_ANTERIOR"
+                      ? "bg-rose-600 shadow-sm"
+                      : "bg-amber-500"
+                  }`}
+                >
+                  {verificacionSeguridad?.estado === "BLOQUEADO_DIA_ANTERIOR" ? (
+                    <AlertTriangle className="w-5 h-5" />
+                  ) : (
+                    <Clock className="w-5 h-5" />
+                  )}
                 </div>
                 <div>
-                  <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                    Turno Activo — Abierto el{" "}
-                    {turnoAbierto?.fechaApertura
-                      ? new Date(turnoAbierto.fechaApertura).toLocaleString("es-CO")
-                      : ""}
-                  </h2>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                      {verificacionSeguridad?.estado === "BLOQUEADO_DIA_ANTERIOR"
+                        ? "Turno Pendiente del Día Anterior"
+                        : "Turno Activo al Día"}
+                      {" — "}
+                      {turnoAbierto?.fechaApertura
+                        ? new Date(turnoAbierto.fechaApertura).toLocaleString("es-CO")
+                        : ""}
+                    </h2>
+                    {verificacionSeguridad?.estado === "BLOQUEADO_DIA_ANTERIOR" && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-rose-600 text-white animate-pulse">
+                        Requiere Cierre Urgente
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-600 dark:text-slate-400">
                     Cajero Responsable:{" "}
                     <strong className="text-slate-900 dark:text-white">
@@ -577,17 +657,25 @@ export default function ControlCajaAdminPage() {
                   <button
                     type="submit"
                     disabled={procesando || efectivoContadoInput === ""}
-                    className="w-full py-3 rounded-xl font-bold text-white bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                    className={`w-full py-3.5 rounded-xl font-black text-sm md:text-base text-white transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 ${
+                      verificacionSeguridad?.estado === "BLOQUEADO_DIA_ANTERIOR"
+                        ? "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"
+                        : "bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800"
+                    }`}
                   >
                     {procesando ? (
                       <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <RefreshCw className="w-5 h-5 animate-spin" />
                         <span>Consolidando Cierre...</span>
                       </>
                     ) : (
                       <>
-                        <Lock className="w-4 h-4" />
-                        <span>Ejecutar Cierre Definitivo de Caja</span>
+                        <Lock className="w-5 h-5" />
+                        <span>
+                          {verificacionSeguridad?.estado === "BLOQUEADO_DIA_ANTERIOR"
+                            ? "Cerrar Turno Anterior y Habilitar Apertura de Hoy"
+                            : "Ejecutar Cierre Definitivo de Caja"}
+                        </span>
                       </>
                     )}
                   </button>

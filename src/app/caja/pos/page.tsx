@@ -35,6 +35,10 @@ import {
   RotateCcw,
   Coins,
   ShieldCheck,
+  ShieldAlert,
+  Lock,
+  Unlock,
+  Vault,
   History,
   PhoneCall,
   Download,
@@ -160,6 +164,34 @@ export type PestanaHistorial =
   | "SOLO_MORA"
   | "PAZ_Y_SALVOS";
 
+export interface EstadoSeguridadPos {
+  estado: "CARGANDO" | "ABIERTO_HOY" | "BLOQUEADO_DIA_ANTERIOR" | "SIN_TURNO";
+  bloqueadoParaFacturar: boolean;
+  motivoBloqueo: string | null;
+  fechaHoy?: string;
+  turnoAbierto?: {
+    id: string;
+    fechaApertura: string;
+    fechaAperturaLocal: string;
+    baseInicialEfectivo: number;
+    diasAbierto: number;
+    usuarioCajero: {
+      id: string;
+      nombre: string;
+      username: string;
+    };
+  } | null;
+  arqueoTurno?: {
+    baseInicialEfectivo: number;
+    totalEfectivo: number;
+    totalDigital: number;
+    totalRecaudado: number;
+    esperadoEnGaveta: number;
+    cantidadAbonos: number;
+    cantidadFacturas: number;
+  } | null;
+}
+
 const BILLETES_COLOMBIANOS = [2000, 5000, 10000, 20000, 50000, 100000];
 
 const SUGERENCIAS_ARREGLOS = [
@@ -206,7 +238,18 @@ export default function PosPage() {
   const [pestanaHistorial, setPestanaHistorial] = useState<PestanaHistorial>("PENDIENTES_AL_DIA");
   const [busquedaHistorial, setBusquedaHistorial] = useState("");
 
-  // Información de Turno de Caja y Usuario Activo
+  // Información de Turno de Caja y Regla Estricta de Seguridad Financiera
+  const [seguridadCaja, setSeguridadCaja] = useState<EstadoSeguridadPos>({
+    estado: "CARGANDO",
+    bloqueadoParaFacturar: false,
+    motivoBloqueo: null,
+  });
+  const [cargandoSeguridadCaja, setCargandoSeguridadCaja] = useState(true);
+  const [baseAperturaRapida, setBaseAperturaRapida] = useState<string>("100000");
+  const [obsAperturaRapida, setObsAperturaRapida] = useState<string>("");
+  const [procesandoAperturaRapida, setProcesandoAperturaRapida] = useState(false);
+  const [errorAperturaRapida, setErrorAperturaRapida] = useState<string | null>(null);
+
   const [turnoAbierto, setTurnoAbierto] = useState<{
     id: string;
     estado: string;
@@ -326,9 +369,10 @@ export default function PosPage() {
   // =========================================================
   const cargarSesionYTurno = useCallback(async () => {
     try {
+      setCargandoSeguridadCaja(true);
       const [resAuth, resCaja, resEmp] = await Promise.all([
         fetch("/api/auth/me"),
-        fetch("/api/caja"),
+        fetch("/api/caja/estado", { cache: "no-store" }),
         fetch("/api/empresa", { cache: "no-store" }),
       ]);
 
@@ -338,10 +382,25 @@ export default function PosPage() {
       }
 
       const dataCaja = await resCaja.json();
-      if (dataCaja.ok && dataCaja.turnoAbierto) {
-        setTurnoAbierto(dataCaja.turnoAbierto);
-      } else {
-        setTurnoAbierto(null);
+      if (dataCaja.success) {
+        setSeguridadCaja({
+          estado: dataCaja.estado,
+          bloqueadoParaFacturar: Boolean(dataCaja.bloqueadoParaFacturar),
+          motivoBloqueo: dataCaja.motivoBloqueo || null,
+          fechaHoy: dataCaja.fechaHoy,
+          turnoAbierto: dataCaja.turnoAbierto || null,
+          arqueoTurno: dataCaja.arqueoTurno || null,
+        });
+
+        if (dataCaja.estado === "ABIERTO_HOY" && dataCaja.turnoAbierto) {
+          setTurnoAbierto({
+            id: dataCaja.turnoAbierto.id,
+            estado: "ABIERTO",
+            usuarioCajero: dataCaja.turnoAbierto.usuarioCajero,
+          });
+        } else {
+          setTurnoAbierto(null);
+        }
       }
 
       const dataEmp = await resEmp.json();
@@ -351,8 +410,46 @@ export default function PosPage() {
       }
     } catch (err) {
       console.warn("Error cargando sesión/caja/empresa:", err);
+    } finally {
+      setCargandoSeguridadCaja(false);
     }
   }, []);
+
+  const handleAperturaRapidaCaja = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setErrorAperturaRapida(null);
+
+    const base = parseFloat(baseAperturaRapida);
+    if (isNaN(base) || base < 0) {
+      setErrorAperturaRapida("Ingrese un monto válido para la base inicial en efectivo.");
+      return;
+    }
+
+    try {
+      setProcesandoAperturaRapida(true);
+      const res = await fetch("/api/caja", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accion: "APERTURA",
+          baseInicialEfectivo: base,
+          observaciones: obsAperturaRapida.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "No fue posible abrir el turno de caja.");
+      }
+
+      setObsAperturaRapida("");
+      await cargarSesionYTurno();
+    } catch (err: unknown) {
+      setErrorAperturaRapida(err instanceof Error ? err.message : "Error al abrir turno");
+    } finally {
+      setProcesandoAperturaRapida(false);
+    }
+  };
 
   const cargarClientes = useCallback(async () => {
     try {
@@ -674,6 +771,15 @@ export default function PosPage() {
   // FINALIZAR TRANSACCIÓN Y GENERAR FACTURA
   // =========================================================
   const finalizarTransaccion = async () => {
+    // Control Estricto de Caja: Apertura Obligatoria y Bloqueo Día Anterior
+    if (seguridadCaja.bloqueadoParaFacturar) {
+      setMensajeError(
+        seguridadCaja.motivoBloqueo ||
+          "La terminal POS está bloqueada para facturación. Verifique el estado de la caja."
+      );
+      return;
+    }
+
     if (!clienteSeleccionado) {
       setMensajeError("Debes seleccionar un cliente en el Paso 1.");
       setPasoActual(1);
@@ -747,6 +853,9 @@ export default function PosPage() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
+        if (res.status === 409) {
+          await cargarSesionYTurno();
+        }
         throw new Error(data.error || "No se pudo registrar la factura.");
       }
 
@@ -924,16 +1033,39 @@ export default function PosPage() {
             </div>
             <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-300 font-medium">
               <div className="flex items-center gap-1">
-                {turnoAbierto ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-400 font-bold">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    Caja Abierta
-                  </span>
+                {seguridadCaja.estado === "ABIERTO_HOY" ? (
+                  <Link
+                    href="/admin/caja"
+                    target="_blank"
+                    title="Caja al día. Clic para ver arqueo en tiempo real"
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 font-bold transition text-xs"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Caja Abierta Hoy</span>
+                    {seguridadCaja.turnoAbierto?.baseInicialEfectivo ? (
+                      <span className="font-mono text-emerald-200">
+                        (${seguridadCaja.turnoAbierto.baseInicialEfectivo.toLocaleString("es-CO")})
+                      </span>
+                    ) : null}
+                  </Link>
+                ) : seguridadCaja.estado === "BLOQUEADO_DIA_ANTERIOR" ? (
+                  <Link
+                    href="/admin/caja"
+                    target="_blank"
+                    title="Alerta Crítica: Turno anterior sin cerrar. Clic para cerrar caja"
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-600/30 border border-rose-500 text-rose-300 hover:bg-rose-600/40 font-bold transition text-xs animate-pulse"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Bloqueada (Día Anterior)</span>
+                  </Link>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-amber-400 font-bold">
-                    <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    Sin Turno
-                  </span>
+                  <div
+                    title="Turno de caja no iniciado hoy. Apertura obligatoria requerida"
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold text-xs"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Sin Turno Abierto</span>
+                  </div>
                 )}
               </div>
               <span className="text-slate-500">|</span>
@@ -2520,6 +2652,238 @@ export default function PosPage() {
                 }}
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* CASO B: INTERCEPTOR DE BLOQUEO CRÍTICO POR CAJA DEL DÍA ANTERIOR SIN CERRAR */}
+      {/* ========================================================================= */}
+      {seguridadCaja.estado === "BLOQUEADO_DIA_ANTERIOR" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-rose-500 shadow-2xl w-full max-w-xl p-6 sm:p-8 flex flex-col space-y-6 text-slate-800 dark:text-slate-100">
+            {/* Cabecera y Alerta Crítica */}
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900 flex items-center justify-center shadow-xs">
+                <AlertTriangle className="w-9 h-9" />
+              </div>
+              <div>
+                <span className="text-xs font-mono font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 block mb-1">
+                  Control Estricto de Seguridad Financiera POS
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                  Alerta Crítica: Cierre de Caja Pendiente
+                </h2>
+              </div>
+            </div>
+
+            {/* Mensaje Informativo de la Política Contable */}
+            <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-xs sm:text-sm text-rose-900 dark:text-rose-200 leading-relaxed">
+              <p className="font-semibold mb-1">
+                Existe un turno de caja anterior abierto correspondiente al{" "}
+                <span className="underline font-black text-rose-700 dark:text-rose-300">
+                  {seguridadCaja.turnoAbierto?.fechaAperturaLocal || "fecha anterior"}
+                </span>
+                {seguridadCaja.turnoAbierto?.diasAbierto ? (
+                  <span> ({seguridadCaja.turnoAbierto.diasAbierto} día(s) sin cerrar)</span>
+                ) : null}{" "}
+                que no fue cerrado al finalizar la jornada.
+              </p>
+              <p className="text-rose-800/90 dark:text-rose-300/90">
+                Por política de control contable y auditoría financiera, debe realizar primero el arqueo y cierre formal de esa caja anterior antes de poder aperturar el turno del día de hoy y emitir nuevas facturas.
+              </p>
+            </div>
+
+            {/* Ficha Resumen del Turno Atrasado */}
+            <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 text-xs sm:text-sm">
+              <div>
+                <span className="text-xs font-semibold text-slate-500 block">Cajero Responsable:</span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  {seguridadCaja.turnoAbierto?.usuarioCajero.nombre || "No especificado"}
+                </span>
+                <span className="text-xs text-slate-400 block font-mono">
+                  @{seguridadCaja.turnoAbierto?.usuarioCajero.username}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-slate-500 block">Base Inicial en Caja:</span>
+                <span className="font-bold font-mono text-slate-900 dark:text-white">
+                  ${(seguridadCaja.turnoAbierto?.baseInicialEfectivo || 0).toLocaleString("es-CO")}
+                </span>
+              </div>
+              {seguridadCaja.arqueoTurno && (
+                <>
+                  <div>
+                    <span className="text-xs font-semibold text-slate-500 block">Efectivo en Gaveta:</span>
+                    <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                      ${seguridadCaja.arqueoTurno.esperadoEnGaveta.toLocaleString("es-CO")}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-slate-500 block">Total Recaudado:</span>
+                    <span className="font-bold font-mono text-blue-600 dark:text-blue-400">
+                      ${seguridadCaja.arqueoTurno.totalRecaudado.toLocaleString("es-CO")}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Botones de Acción */}
+            <div className="space-y-3 pt-1">
+              <Link
+                href="/admin/caja"
+                target="_blank"
+                className="w-full py-3.5 px-4 rounded-xl font-black text-sm text-white bg-rose-600 hover:bg-rose-700 transition shadow-md shadow-rose-600/20 flex items-center justify-center gap-2 min-h-[46px]"
+              >
+                <Vault className="w-5 h-5" />
+                <span>Ir al Panel de Arqueo y Cierre de Caja</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => cargarSesionYTurno()}
+                  disabled={cargandoSeguridadCaja}
+                  className="flex-1 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 min-h-[44px]"
+                >
+                  <RefreshCw className={`w-4 h-4 text-blue-600 ${cargandoSeguridadCaja ? "animate-spin" : ""}`} />
+                  <span>Reverificar Estado de Caja</span>
+                </button>
+
+                <Link
+                  href="/"
+                  className="px-4 py-3 rounded-xl font-bold text-xs sm:text-sm text-slate-500 hover:text-slate-800 dark:hover:text-white transition"
+                >
+                  Volver al Menú
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* CASO A: MODAL OBLIGATORIO DE APERTURA POR TURNO NO INICIADO HOY           */}
+      {/* ========================================================================= */}
+      {seguridadCaja.estado === "SIN_TURNO" && !cargandoSeguridadCaja && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 sm:p-8 flex flex-col space-y-5 text-slate-800 dark:text-slate-100">
+            {/* Cabecera */}
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200/80 dark:border-amber-900/60 flex items-center justify-center shadow-xs">
+                <Unlock className="w-7 h-7" />
+              </div>
+              <div>
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1">
+                  Apertura de Caja Obligatoria
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                  Turno de Caja No Iniciado
+                </h2>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                Debe registrar la base de efectivo inicial para abrir la caja antes de emitir facturas en la terminal POS.
+              </p>
+            </div>
+
+            {/* Error si ocurre en la apertura */}
+            {errorAperturaRapida && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{errorAperturaRapida}</span>
+              </div>
+            )}
+
+            {/* Formulario de Apertura Rápida */}
+            <form onSubmit={handleAperturaRapidaCaja} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Base Inicial en Efectivo ($ COP) *
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-extrabold text-base">
+                    $
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="500"
+                    required
+                    placeholder="100000"
+                    value={baseAperturaRapida}
+                    onChange={(e) => setBaseAperturaRapida(e.target.value)}
+                    className="w-full pl-8 pr-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-lg font-extrabold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    autoFocus
+                  />
+                </div>
+                {/* Botones de sugerencia rápida */}
+                <div className="flex gap-2 mt-2">
+                  {[50000, 100000, 150000, 200000].map((monto) => (
+                    <button
+                      key={monto}
+                      type="button"
+                      onClick={() => setBaseAperturaRapida(String(monto))}
+                      className="flex-1 py-1 px-1 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
+                    >
+                      ${monto.toLocaleString("es-CO")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Observaciones de Apertura (Opcional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej. Billetes de 10k y 20k para vueltas de la mañana"
+                  value={obsAperturaRapida}
+                  onChange={(e) => setObsAperturaRapida(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={procesandoAperturaRapida}
+                  className="w-full py-3.5 px-4 rounded-xl font-black text-sm text-white bg-amber-600 hover:bg-amber-700 transition shadow-md shadow-amber-600/20 flex items-center justify-center gap-2 min-h-[46px] disabled:opacity-50"
+                >
+                  {procesandoAperturaRapida ? (
+                    <>
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                      <span>Iniciando Turno de Caja...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-5 h-5" />
+                      <span>Abrir Turno de Caja e Iniciar Facturación</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <Link
+                    href="/admin/caja"
+                    target="_blank"
+                    className="text-blue-600 hover:text-blue-700 font-semibold underline flex items-center gap-1"
+                  >
+                    <Vault className="w-3.5 h-3.5" />
+                    <span>Panel Avanzado de Caja</span>
+                  </Link>
+
+                  <Link
+                    href="/"
+                    className="text-slate-500 hover:text-slate-800 font-medium"
+                  >
+                    Volver al Menú Principal
+                  </Link>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}

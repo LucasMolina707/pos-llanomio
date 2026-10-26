@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
+import { verificarEstadoCajaParaFacturacion, obtenerFechaColombiaStr } from "@/lib/caja-control";
 import { EstadoTurno, MetodoPago, TipoCierre } from "@prisma/client";
 
 /**
  * GET /api/caja
- * Retorna el turno de caja abierto actual con su arqueo en tiempo real
- * y el historial de turnos recientes.
+ * Retorna el turno de caja abierto actual con su arqueo en tiempo real,
+ * la verificación de seguridad estricta de fecha y el historial de turnos recientes.
  */
 export async function GET(req: NextRequest) {
   try {
+    const verificacionSeguridad = await verificarEstadoCajaParaFacturacion(prisma);
+
     const turnoAbierto = await prisma.turnoCaja.findFirst({
       where: { estado: EstadoTurno.ABIERTO },
       include: {
@@ -98,6 +101,7 @@ export async function GET(req: NextRequest) {
       hayTurnoAbierto: !!turnoAbierto,
       turnoAbierto,
       arqueoActual,
+      verificacionSeguridad,
       historialTurnos,
     });
   } catch (error: unknown) {
@@ -145,10 +149,19 @@ export async function POST(req: NextRequest) {
       });
 
       if (turnoExistente) {
+        const fechaAperturaTurno = obtenerFechaColombiaStr(turnoExistente.fechaApertura);
+        const fechaHoy = obtenerFechaColombiaStr();
+        const esDiaAnterior = fechaAperturaTurno < fechaHoy;
+
+        const mensajeError = esDiaAnterior
+          ? `ALERTA DE SEGURIDAD FINANCIERA: Existe un turno de caja del día anterior (${fechaAperturaTurno}) que no fue cerrado. Por política de control estricto, debe realizar primero el arqueo y cierre formal de esa caja antes de aperturar el día de hoy.`
+          : "Ya existe un turno de caja actualmente ABIERTO para el día de hoy. No puede abrir otro turno simultáneo.";
+
         return NextResponse.json(
           {
             success: false,
-            error: "Ya existe un turno de caja actualmente ABIERTO. Debe cerrarlo antes de iniciar uno nuevo.",
+            error: mensajeError,
+            esDiaAnterior,
             turno: turnoExistente,
           },
           { status: 409 }

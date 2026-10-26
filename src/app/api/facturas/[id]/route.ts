@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
+import { verificarEstadoCajaParaFacturacion } from "@/lib/caja-control";
 import { EstadoFactura, MetodoPago, TipoProducto, EstadoPrenda } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -100,6 +101,23 @@ export async function POST(req: NextRequest, { params }: Params) {
         { success: false, error: "El monto a registrar debe ser un valor numérico válido." },
         { status: 400 }
       );
+    }
+
+    // Control de Caja: Si ingresa dinero, la caja no puede estar bloqueada o sin turno
+    if (montoNumerico > 0) {
+      const controlCaja = await verificarEstadoCajaParaFacturacion(prisma);
+      if (controlCaja.bloqueadoParaFacturar) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: controlCaja.motivoBloqueo,
+            codigoSeguridad: controlCaja.estado,
+            requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
+            requiereAperturaHoy: controlCaja.estado === "SIN_TURNO",
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // 2. Determinar y validar el cajero autenticado

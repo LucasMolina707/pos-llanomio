@@ -624,3 +624,45 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
   - Endpoint `PUT` para actualización de datos de contacto del cliente.
   - Sincronizado `src/app/api/facturas/monitoreo/route.ts` para aceptar filtrado por `clienteId`.
 
+---
+
+## 15. Regla de Negocio de Control Estricto de Caja (Apertura Obligatoria y Bloqueo por Caja Abierta del Día Anterior)
+
+### 1. Regla de Negocio y Seguridad Financiera
+- **Facturación Condicionada a Turno Activo:** Ningún usuario o cajero puede emitir facturas en la terminal POS (`/caja/pos`) ni a través del backend (`/api/facturas`) si no existe un turno de caja formalmente abierto para la fecha calendario actual de Colombia (`America/Bogota`, UTC-5).
+- **Bloqueo Crítico por Turno Pendiente del Día Anterior:** Si al iniciar sesión o cargar la terminal POS el sistema detecta que existe un turno abierto con fecha anterior a hoy (`estado === 'ABIERTO'` con fecha `< hoy`), la facturación queda **estrictamente bloqueada a nivel visual y de servidor**, mostrando una alerta crítica que exige al cajero o administrador realizar primero el arqueo físico y cierre formal de esa caja antes de permitir la apertura de la nueva jornada.
+
+### 2. Arquitectura de Módulos y Archivos del Sistema
+- **`src/lib/caja-control.ts` (Módulo Central de Seguridad Financiera):**
+  - `obtenerFechaColombiaStr(date)`: Formateador inmutable de fecha local en formato `YYYY-MM-DD` bajo zona horaria `America/Bogota`, previniendo desfases de huso horario y garantizando comparaciones lexicográficas precisas de calendario.
+  - `verificarEstadoCajaParaFacturacion(prisma)`: Servicio atómico que evalúa la existencia y vigencia de turnos de caja abiertos en SQLite, retornando:
+    - `"ABIERTO_HOY"`: Turno abierto en la fecha actual; facturación autorizada (`bloqueadoParaFacturar: false`).
+    - `"BLOQUEADO_DIA_ANTERIOR"`: Turno abierto de una fecha anterior sin cerrar; facturación bloqueada (`bloqueadoParaFacturar: true`), calculando días transcurridos y generando la alerta de auditoría.
+    - `"SIN_TURNO"`: No hay turno abierto; facturación bloqueada (`bloqueadoParaFacturar: true`), requiriendo registro de base inicial.
+- **`src/app/api/caja/estado/route.ts` (API de Verificación en Tiempo Real):**
+  - Endpoint `GET` dinámico (`force-dynamic`, encabezados `no-store` / `no-cache`) que entrega al frontend el estado de seguridad y un arqueo financiero en vivo (base inicial, efectivo, transferencias digitales, total esperado en gaveta y conteo de transacciones).
+- **`src/app/api/caja/route.ts` (Apertura y Cierre con Validación de Fechas):**
+  - Integración de `verificacionSeguridad` en la consulta `GET`.
+  - Validación previa en el `POST` (`accion === "APERTURA"`): Rechazo con código HTTP `409 Conflict` si se intenta abrir un turno existiendo una caja previa de fecha anterior sin cerrar.
+- **`src/app/api/facturas/route.ts` y `src/app/api/facturas/[id]/route.ts` (Protección de Servidor):**
+  - Interceptor en `POST /api/facturas`: Detiene la creación de la factura si `bloqueadoParaFacturar === true`, devolviendo error 409 con el detalle contable.
+  - Interceptor en `POST /api/facturas/[id]`: Protege el ingreso de pagos y abonos monetarios (`montoNumerico > 0`), asegurando que todo dinero que ingrese a caja esté amparado por un turno vigente del día.
+- **`src/app/caja/pos/page.tsx` (Terminal POS con Modales de Bloqueo):**
+  - **Interceptor Caso B (Caja del Día Anterior Sin Cerrar):** Pantalla bloqueante modal a pantalla completa con diseño carmesí de alerta crítica, detalle del turno atrasado (cajero, fecha, base, efectivo en gaveta), enlace directo a `/admin/caja` para efectuar el arqueo y botón de reverificación instantánea sin recargar la página.
+  - **Interceptor Caso A (Sin Turno Abierto Hoy):** Modal bloqueante de apertura obligatoria con selector rápido de base inicial ($50.000, $100.000, $150.000, $200.000), observaciones y botón de apertura que desbloquea la terminal inmediatamente.
+  - **Caso C (Caja Abierta Hoy):** Operación fluida en pantalla fija `100vh`, con badge interactivo en la cabecera indicando la base en gaveta y enlace directo al arqueo.
+- **`src/app/admin/caja/page.tsx` (Panel Administrativo de Control y Cierre):**
+  - Banner superior de alerta financiera cuando existe un turno atrasado pendiente.
+  - Ficha de turno activo con badge visual de urgencia.
+  - Botón de cierre dinámico adaptado: *"Cerrar Turno Anterior y Habilitar Apertura de Hoy"*.
+
+### 3. Control de Calidad (QA - Agente 5) y Verificación en Vivo
+- **Prueba Automatizada de Ciclo de Seguridad:**
+  1. *Test Sin Turno:* Confirmado retorno de `SIN_TURNO` y bloqueo de emisión.
+  2. *Test Simulación Día Anterior (`2026-10-24`):* Confirmado retorno de `BLOQUEADO_DIA_ANTERIOR`, `diasAbierto: 1` y mensaje de alerta de seguridad financiera.
+  3. *Test Cierre Formal de Caja Anterior:* Transición atómica a `CERRADO` y habilitación para nueva apertura.
+  4. *Test Apertura Hoy:* Confirmado retorno de `ABIERTO_HOY` y facturación completamente operativa.
+- **Compilación de Producción:** Ejecutado `npm run build` con **0 errores de TypeScript y empaquetado exitoso de las 23 rutas del sistema**.
+- **Servicios Locales:** Reinicio exitoso de PM2 (`pos-llanomio` y `pos-mdns-proxy`) operando en estado `online`.
+
+
