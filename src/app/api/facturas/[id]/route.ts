@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
 import { verificarEstadoCajaParaFacturacion, parsearCajerosParticipantes } from "@/lib/caja-control";
-import { EstadoFactura, MetodoPago, TipoProducto, EstadoPrenda } from "@prisma/client";
+import { EstadoFactura, MetodoPago, TipoProducto, EstadoPrenda, EstadoTurno } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -127,23 +127,30 @@ export async function POST(req: NextRequest, { params }: Params) {
       );
     }
 
-    // Control de Caja: Si ingresa dinero, la caja no puede estar bloqueada o sin turno
+    // Control de Caja: Si ingresa dinero, la caja no puede estar bloqueada por día anterior ni sin turno
     if (montoNumerico > 0) {
       const controlCaja = await verificarEstadoCajaParaFacturacion(prisma, cajeroId);
       if (controlCaja.bloqueadoParaFacturar) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: controlCaja.motivoBloqueo,
-            codigoSeguridad: controlCaja.estado,
-            requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
-            requiereAperturaHoy: controlCaja.estado === "SIN_TURNO",
-            requiereDecisionModalidad: controlCaja.estado === "REQUIERE_DECISION_MODALIDAD",
-            turnoAbierto: controlCaja.turnoAbierto,
-            turnoParaCompartir: controlCaja.turnoParaCompartir,
-          },
-          { status: 409 }
-        );
+        const turnoAbiertoHoy = await prisma.turnoCaja.findFirst({
+          where: { estado: EstadoTurno.ABIERTO },
+          orderBy: { fechaApertura: "desc" },
+        });
+
+        if (!turnoAbiertoHoy || controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
+          return NextResponse.json(
+            {
+              success: false,
+              error: controlCaja.motivoBloqueo || "No existe un turno de caja iniciado para la jornada de hoy.",
+              codigoSeguridad: controlCaja.estado,
+              requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
+              requiereAperturaHoy: controlCaja.estado === "SIN_TURNO" && !turnoAbiertoHoy,
+              requiereDecisionModalidad: false,
+              turnoAbierto: controlCaja.turnoAbierto || (turnoAbiertoHoy ? { id: turnoAbiertoHoy.id, nombreGabinete: turnoAbiertoHoy.nombreGabinete } : null),
+              turnoParaCompartir: controlCaja.turnoParaCompartir,
+            },
+            { status: 409 }
+          );
+        }
       }
     }
 

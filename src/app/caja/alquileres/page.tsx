@@ -211,15 +211,18 @@ export default function TerminalAlquileresPage() {
     return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}T18:00`;
   });
 
-  // Pago de alquiler y depósito en garantía
+  // Bloque 1: Cobro Obligatorio de Abono / Depósito de Respaldo (EXCLUSIVO EN EFECTIVO)
+  const [montoDeposito, setMontoDeposito] = useState<number>(50000);
+  const [montoDepositoPersonalizado, setMontoDepositoPersonalizado] = useState<string>("50000");
+  const [efectivoDepositoRecibido, setEfectivoDepositoRecibido] = useState<string>("50000");
+  const [abonoEfectivoConfirmado, setAbonoEfectivoConfirmado] = useState<boolean>(true);
+
+  // Bloque 2: Valor del Canon de Alquiler y Saldo
   const [modalidadPago, setModalidadPago] = useState<ModalidadPagoAlquiler>("COMPLETO");
   const [montoAbonoManual, setMontoAbonoManual] = useState<string>("");
   const [metodoPagoPrincipal, setMetodoPagoPrincipal] = useState<MetodoPagoAlquiler>("EFECTIVO");
+  const [efectivoCanonRecibido, setEfectivoCanonRecibido] = useState<string>("");
   const [referenciaPago, setReferenciaPago] = useState("");
-  const [montoDeposito, setMontoDeposito] = useState<number>(50000);
-  const [montoDepositoPersonalizado, setMontoDepositoPersonalizado] = useState<string>("50000");
-  const [metodoPagoDeposito, setMetodoPagoDeposito] = useState<MetodoPagoAlquiler>("EFECTIVO");
-  const [efectivoRecibido, setEfectivoRecibido] = useState<string>("");
   const [notasAlquiler, setNotasAlquiler] = useState("");
   const [guardandoAlquiler, setGuardandoAlquiler] = useState(false);
 
@@ -272,7 +275,7 @@ export default function TerminalAlquileresPage() {
       setCargandoComprobante(true);
       const id = typeof facturaOId === "string" ? facturaOId : facturaOId?.id;
       if (id) {
-        const res = await fetch(`/api/impresion/${id}`);
+        const res = await fetch(`/api/impresion/${id}`, { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.factura) {
@@ -387,7 +390,7 @@ export default function TerminalAlquileresPage() {
   const cargarClientes = async () => {
     try {
       setCargandoClientes(true);
-      const res = await fetch("/api/clientes");
+      const res = await fetch("/api/clientes", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setClientes(data.clientes || []);
@@ -440,7 +443,20 @@ export default function TerminalAlquileresPage() {
     }
   }, [mensajeError, mensajeExito]);
 
-  // Cálculos financieros del alquiler
+  // Cálculos financieros del alquiler y liquidación por bloques
+  const montoRecibidoEfectivoDeposito = useMemo(() => {
+    return parseFloat(efectivoDepositoRecibido) || 0;
+  }, [efectivoDepositoRecibido]);
+
+  const vueltasDepositoCalculadas = useMemo(() => {
+    return Math.max(0, montoRecibidoEfectivoDeposito - montoDeposito);
+  }, [montoRecibidoEfectivoDeposito, montoDeposito]);
+
+  const depositoEfectivoValido = useMemo(() => {
+    if (montoDeposito <= 0) return true;
+    return abonoEfectivoConfirmado && montoRecibidoEfectivoDeposito >= montoDeposito;
+  }, [montoDeposito, abonoEfectivoConfirmado, montoRecibidoEfectivoDeposito]);
+
   const subtotalPrendas = useMemo(() => {
     return itemsCarrito.reduce((acc, it) => acc + it.subtotal, 0);
   }, [itemsCarrito]);
@@ -453,27 +469,52 @@ export default function TerminalAlquileresPage() {
       const val = parseFloat(montoAbonoManual) || 0;
       return Math.min(subtotalPrendas, Math.max(0, val));
     }
-    return 0; // PENDIENTE
+    return 0; // PENDIENTE ($0 hoy)
   }, [modalidadPago, subtotalPrendas, montoAbonoManual]);
 
   const saldoFaltanteAlquiler = useMemo(() => {
     return Math.max(0, subtotalPrendas - valorAbonoAlquilerHoy);
   }, [subtotalPrendas, valorAbonoAlquilerHoy]);
 
-  const totalRecibirHoyEnMano = useMemo(() => {
-    return valorAbonoAlquilerHoy + montoDeposito;
-  }, [valorAbonoAlquilerHoy, montoDeposito]);
-
-  const efectivoRecibidoNum = useMemo(() => {
-    return parseFloat(efectivoRecibido) || 0;
-  }, [efectivoRecibido]);
-
-  const vueltasCalculadas = useMemo(() => {
-    if (metodoPagoPrincipal !== "EFECTIVO" && metodoPagoDeposito !== "EFECTIVO") {
-      return 0;
+  const efectivoCanonRecibidoNum = useMemo(() => {
+    if (efectivoCanonRecibido !== "") {
+      return parseFloat(efectivoCanonRecibido) || 0;
     }
-    return Math.max(0, efectivoRecibidoNum - totalRecibirHoyEnMano);
-  }, [metodoPagoPrincipal, metodoPagoDeposito, efectivoRecibidoNum, totalRecibirHoyEnMano]);
+    return valorAbonoAlquilerHoy;
+  }, [efectivoCanonRecibido, valorAbonoAlquilerHoy]);
+
+  const vueltasCanonCalculadas = useMemo(() => {
+    if (valorAbonoAlquilerHoy <= 0) return 0;
+    return Math.max(0, efectivoCanonRecibidoNum - valorAbonoAlquilerHoy);
+  }, [efectivoCanonRecibidoNum, valorAbonoAlquilerHoy]);
+
+  const totalEfectivoEnGavetaHoy = useMemo(() => {
+    return montoDeposito + valorAbonoAlquilerHoy;
+  }, [montoDeposito, valorAbonoAlquilerHoy]);
+
+  const totalVueltasEntregar = useMemo(() => {
+    return vueltasDepositoCalculadas + (valorAbonoAlquilerHoy > 0 ? vueltasCanonCalculadas : 0);
+  }, [vueltasDepositoCalculadas, vueltasCanonCalculadas, valorAbonoAlquilerHoy]);
+
+  const puedeExpedirAlquiler = useMemo(() => {
+    if (!clienteSeleccionado || !clienteSeleccionado.telefono || clienteSeleccionado.telefono.trim().length < 7) {
+      return false;
+    }
+    if (itemsCarrito.length === 0) return false;
+    if (!fechaDevolucion) return false;
+    if (!depositoEfectivoValido) return false;
+    if (valorAbonoAlquilerHoy > 0 && efectivoCanonRecibidoNum < valorAbonoAlquilerHoy) {
+      return false;
+    }
+    return true;
+  }, [
+    clienteSeleccionado,
+    itemsCarrito.length,
+    fechaDevolucion,
+    depositoEfectivoValido,
+    valorAbonoAlquilerHoy,
+    efectivoCanonRecibidoNum,
+  ]);
 
   // Filtrado de clientes para Selección Paso 1
   const clientesFiltrados = useMemo(() => {
@@ -575,8 +616,14 @@ export default function TerminalAlquileresPage() {
 
   // Crear o Registrar Factura de Alquiler (Paso 3 -> Paso 4)
   const registrarNuevoAlquiler = async () => {
-    if (cajon.bloqueadoParaFacturar) {
-      setMensajeError(cajon.motivoBloqueo || "Debe conectar o inicializar el cajón antes de procesar el alquiler.");
+    // 1. Verificación de seguridad de caja: Solo bloquear si existe turno anterior sin cerrar o si no hay turno iniciado hoy
+    if (cajon.seguridadCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
+      setMensajeError(cajon.motivoBloqueo || "Existe un turno de caja del día anterior sin cerrar. Debe realizar el cierre formal antes de operar.");
+      cajon.abrirModal();
+      return;
+    }
+    if (cajon.seguridadCaja.estado === "SIN_TURNO" && !cajon.cajonConectado && !cajon.turnoAbierto) {
+      setMensajeError("No existe un turno de caja iniciado para la jornada de hoy. Debe registrar la base de efectivo inicial.");
       cajon.abrirModal();
       return;
     }
@@ -602,19 +649,31 @@ export default function TerminalAlquileresPage() {
       return;
     }
 
+    // Regla Estricta: El depósito/abono establecido en el documento debe cobrarse en EFECTIVO y estar confirmado
+    if (!depositoEfectivoValido) {
+      setMensajeError("Para generar el comprobante de alquiler, primero debe confirmarse el cobro en EFECTIVO del abono/depósito establecido en el documento.");
+      return;
+    }
+
+    // Validación de cobro de canon de alquiler si se cobra hoy
+    if (valorAbonoAlquilerHoy > 0 && efectivoCanonRecibidoNum < valorAbonoAlquilerHoy) {
+      setMensajeError("El efectivo recibido para el canon de alquiler debe ser igual o superior al valor a abonar hoy.");
+      return;
+    }
+
     try {
       setGuardandoAlquiler(true);
       setMensajeError(null);
 
       const payload = {
         clienteId: clienteSeleccionado.id,
-        turnoCajaId: cajon.cajonConectado?.id || undefined,
+        turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
         tipoOperacion: "ALQUILER",
         fechaEntregaAlquiler: fechaSalida,
         fechaDevolucionPactada: new Date(fechaDevolucion).toISOString(),
         notas: notasAlquiler.trim() || undefined,
         montoDeposito: montoDeposito,
-        metodoPagoDeposito: montoDeposito > 0 ? metodoPagoDeposito : undefined,
+        metodoPagoDeposito: "EFECTIVO", // Fijado estrictamente en EFECTIVO en gaveta
         detalles: itemsCarrito.map((it) => ({
           productoId: it.productoId,
           cantidad: it.cantidad,
@@ -626,14 +685,14 @@ export default function TerminalAlquileresPage() {
           valorAbonoAlquilerHoy > 0
             ? {
                 monto: valorAbonoAlquilerHoy,
-                metodoPago: metodoPagoPrincipal,
-                montoRecibido: metodoPagoPrincipal === "EFECTIVO" ? efectivoRecibidoNum : undefined,
-                vueltasEntregadas: metodoPagoPrincipal === "EFECTIVO" ? vueltasCalculadas : undefined,
+                metodoPago: "EFECTIVO",
+                montoRecibido: efectivoCanonRecibidoNum,
+                vueltasEntregadas: vueltasCanonCalculadas,
                 referenciaComprobante: referenciaPago.trim() || undefined,
                 notas:
                   modalidadPago === "COMPLETO"
-                    ? "Pago completo del alquiler"
-                    : "Abono / Anticipo de alquiler",
+                    ? "Pago completo del canon de alquiler (Efectivo)"
+                    : "Abono / Anticipo de canon de alquiler (Efectivo)",
               }
             : undefined,
       };
@@ -646,7 +705,7 @@ export default function TerminalAlquileresPage() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        if (res.status === 409) {
+        if (res.status === 409 && (data.requiereAperturaHoy || data.requiereCierreAnterior)) {
           await cajon.actualizarCajon(false);
           cajon.abrirModal();
         }
@@ -742,8 +801,9 @@ export default function TerminalAlquileresPage() {
     setReferenciaPago("");
     setMontoDeposito(50000);
     setMontoDepositoPersonalizado("50000");
-    setMetodoPagoDeposito("EFECTIVO");
-    setEfectivoRecibido("");
+    setEfectivoDepositoRecibido("50000");
+    setAbonoEfectivoConfirmado(true);
+    setEfectivoCanonRecibido("");
     setNotasAlquiler("");
     setDatosImpresion(null);
     setPasoActual(1);
@@ -1943,149 +2003,60 @@ export default function TerminalAlquileresPage() {
               </div>
             )}
 
-            {/* PASO 3: COBRO DE ALQUILER + DEPÓSITO EN GARANTÍA + CALCULADORA */}
+            {/* PASO 3: COBRO Y CONDICIONES DEL ALQUILER (BLOQUE 1: DEPÓSITO EFECTIVO + BLOQUE 2: CANON) */}
             {pasoActual === 3 && (
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-4xl mx-auto w-full">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-5xl mx-auto w-full">
                 <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                  <div className="pb-4 border-b border-slate-100">
-                    <span className="text-xs font-bold text-amber-600 uppercase tracking-wider block">
-                      Paso 3 de 4
-                    </span>
-                    <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                      <DollarSign className="w-5 h-5 text-amber-600" />
-                      Cobro de Alquiler y Depósito en Garantía
-                    </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Registre el pago del alquiler (completo o abono) y capture el depósito en garantía para respaldo de las prendas.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-5">
-                    {/* COLUMNA IZQUIERDA: PAGO DEL ALQUILER */}
+                  {/* Encabezado del Paso 3 */}
+                  <div className="pb-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
-                        1. Modalidad de Pago del Alquiler
-                      </h3>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setModalidadPago("COMPLETO")}
-                          className={`p-2.5 rounded-xl border text-center transition-all ${
-                            modalidadPago === "COMPLETO"
-                              ? "bg-amber-500 text-white border-amber-600 shadow-sm"
-                              : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                          }`}
-                        >
-                          <span className="font-black text-xs block">100% Hoy</span>
-                          <span className="text-[10px] opacity-90">Contado</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setModalidadPago("ADELANTO");
-                            if (!montoAbonoManual) {
-                              setMontoAbonoManual(String(Math.round(subtotalPrendas / 2)));
-                            }
-                          }}
-                          className={`p-2.5 rounded-xl border text-center transition-all ${
-                            modalidadPago === "ADELANTO"
-                              ? "bg-amber-500 text-white border-amber-600 shadow-sm"
-                              : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                          }`}
-                        >
-                          <span className="font-black text-xs block">Abono</span>
-                          <span className="text-[10px] opacity-90">Anticipo</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setModalidadPago("PENDIENTE")}
-                          className={`p-2.5 rounded-xl border text-center transition-all ${
-                            modalidadPago === "PENDIENTE"
-                              ? "bg-amber-500 text-white border-amber-600 shadow-sm"
-                              : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                          }`}
-                        >
-                          <span className="font-black text-xs block">Pendiente</span>
-                          <span className="text-[10px] opacity-90">$0 Hoy</span>
-                        </button>
-                      </div>
-
-                      {/* Campo manual si es Adelanto */}
-                      {modalidadPago === "ADELANTO" && (
-                        <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
-                          <label className="text-xs font-bold text-amber-900 block mb-1">
-                            Monto a Abonar Hoy ($)
-                          </label>
-                          <input
-                            type="number"
-                            value={montoAbonoManual}
-                            onChange={(e) => setMontoAbonoManual(e.target.value)}
-                            className="w-full px-3 py-1.5 text-sm font-black bg-white border border-amber-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                            placeholder="Ej: 30000"
-                          />
-                          <div className="flex justify-between items-center text-[11px] text-amber-800 mt-1.5 font-semibold">
-                            <span>Abona hoy: ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}</span>
-                            <span>Resta: ${saldoFaltanteAlquiler.toLocaleString("es-CO")}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Método de pago de alquiler */}
-                      {modalidadPago !== "PENDIENTE" && (
-                        <div className="mt-4">
-                          <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                            Método de Pago del Alquiler
-                          </label>
-                          <select
-                            value={metodoPagoPrincipal}
-                            onChange={(e) => setMetodoPagoPrincipal(e.target.value as MetodoPagoAlquiler)}
-                            className="w-full px-3 py-2 text-xs font-bold bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-slate-800"
-                          >
-                            <option value="EFECTIVO">Efectivo en Caja</option>
-                            <option value="NEQUI">Nequi</option>
-                            <option value="BANCOLOMBIA">Bancolombia</option>
-                            <option value="LLAVE">Llave</option>
-                            <option value="DAVIPLATA">Daviplata</option>
-                            <option value="TRANSFERENCIA">Transferencia Bancaria</option>
-                            <option value="CONSIGNACION">Consignación</option>
-                          </select>
-                        </div>
-                      )}
-
-                      {/* Notas de alquiler */}
-                      <div className="mt-4">
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
-                          Notas / Observaciones del Alquiler (Opcional)
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={notasAlquiler}
-                          onChange={(e) => setNotasAlquiler(e.target.value)}
-                          placeholder="Ej: Evento de gala el sábado. Prenda ajustada de mangas."
-                          className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-                        />
-                      </div>
+                      <span className="text-xs font-bold text-amber-600 uppercase tracking-wider block">
+                        Paso 3 de 4 — Liquidación y Condiciones
+                      </span>
+                      <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                        <Banknote className="w-5 h-5 text-amber-600" />
+                        Cobro y Liquidación de Contrato de Alquiler
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        El depósito de respaldo debe cobrarse obligatoriamente en efectivo físico para custodia en gaveta.
+                      </p>
                     </div>
 
-                    {/* COLUMNA DERECHA: DEPÓSITO EN GARANTÍA + CALCULADORA */}
-                    <div>
-                      {/* Cuadro destacado de Depósito en Garantía */}
-                      <div className="p-4 rounded-2xl bg-amber-50/80 border-2 border-amber-300">
-                        <div className="flex items-center gap-2 mb-2">
-                          <ShieldCheck className="w-5 h-5 text-amber-700" />
-                          <h3 className="text-xs font-black text-amber-900 uppercase tracking-wider">
-                            2. Depósito en Garantía (Daño o Pérdida)
-                          </h3>
+                    <div className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 flex items-center gap-2">
+                      <User className="w-4 h-4 text-slate-500" />
+                      <span>{clienteSeleccionado?.nombre}</span>
+                      <span className="text-slate-400">|</span>
+                      <span>Tel: {clienteSeleccionado?.telefono}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    {/* ========================================================================= */}
+                    {/* BLOQUE 1: COBRO OBLIGATORIO DE ABONO / DEPÓSITO DE RESPALDO (EFECTIVO)   */}
+                    {/* ========================================================================= */}
+                    <div className="p-5 rounded-2xl bg-amber-50/70 border-2 border-amber-300 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-5 h-5 text-amber-700" />
+                            <h3 className="text-xs font-black text-amber-950 uppercase tracking-wider">
+                              BLOQUE 1 — Depósito / Abono de Respaldo
+                            </h3>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900 border border-amber-300">
+                            OBLIGATORIO EN EFECTIVO
+                          </span>
                         </div>
 
-                        <p className="text-[11px] text-amber-800 leading-tight mb-3">
-                          Este monto queda bajo custodia y respalda daños o pérdida de piezas. Se reembolsará al 100% al devolver las prendas en perfecto estado.
+                        <p className="text-[11px] text-amber-900/90 leading-relaxed mb-4">
+                          Custodia en efectivo para respaldo contra pérdida, manchas o deterioro de prendas. Se emite como <strong className="font-black text-amber-950">cobro separado</strong> y se reintegra al devolver las prendas en óptimas condiciones.
                         </p>
 
-                        <div className="flex flex-wrap gap-1.5 mb-2.5">
+                        {/* Montos sugeridos de depósito */}
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          Monto de Depósito Establecido en Documento:
+                        </label>
+                        <div className="flex flex-wrap gap-1.5 mb-3">
                           {DEPOSITOS_SUGERIDOS.map((sug) => (
                             <button
                               key={sug}
@@ -2093,6 +2064,9 @@ export default function TerminalAlquileresPage() {
                               onClick={() => {
                                 setMontoDeposito(sug);
                                 setMontoDepositoPersonalizado(String(sug));
+                                if (parseFloat(efectivoDepositoRecibido) < sug || efectivoDepositoRecibido === "") {
+                                  setEfectivoDepositoRecibido(String(sug));
+                                }
                               }}
                               className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                                 montoDeposito === sug
@@ -2105,128 +2079,338 @@ export default function TerminalAlquileresPage() {
                           ))}
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1">
-                            <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
-                              Valor del Depósito ($)
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                              Monto Acordado ($)
                             </label>
                             <input
                               type="number"
                               value={montoDepositoPersonalizado}
                               onChange={(e) => {
-                                setMontoDepositoPersonalizado(e.target.value);
-                                setMontoDeposito(parseFloat(e.target.value) || 0);
+                                const valStr = e.target.value;
+                                setMontoDepositoPersonalizado(valStr);
+                                const num = parseFloat(valStr) || 0;
+                                setMontoDeposito(num);
+                                if (parseFloat(efectivoDepositoRecibido) < num || efectivoDepositoRecibido === "") {
+                                  setEfectivoDepositoRecibido(String(num));
+                                }
                               }}
-                              className="w-full px-3 py-1.5 text-sm font-black bg-white border border-amber-400 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              className="w-full px-3 py-2 text-sm font-black bg-white border border-amber-400 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                             />
                           </div>
 
-                          <div className="w-36">
-                            <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
-                              Recibido En
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                              Método de Cobro (Fijado)
                             </label>
-                            <select
-                              value={metodoPagoDeposito}
-                              onChange={(e) => setMetodoPagoDeposito(e.target.value as MetodoPagoAlquiler)}
-                              className="w-full px-2 py-1.5 text-xs font-bold bg-white border border-amber-300 rounded-lg text-slate-800"
-                            >
-                              <option value="EFECTIVO">Efectivo</option>
-                              <option value="NEQUI">Nequi</option>
-                              <option value="BANCOLOMBIA">Bancolombia</option>
-                              <option value="LLAVE">Llave</option>
-                            </select>
+                            <div className="px-3 py-2 rounded-xl bg-amber-100/80 border border-amber-300 text-xs font-black text-amber-950 flex items-center gap-1.5">
+                              <Lock className="w-3.5 h-3.5 text-amber-700" />
+                              <span>EFECTIVO — Dinero Físico</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* 3. Calculadora de Caja y Vueltas en Efectivo */}
-                      <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                        <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
-                          <span>Abono Alquiler Hoy:</span>
-                          <span className="font-bold text-slate-900">
-                            ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-slate-600 mb-2">
-                          <span>Depósito en Garantía:</span>
-                          <span className="font-bold text-amber-700">
-                            +${montoDeposito.toLocaleString("es-CO")}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-200 mb-3">
-                          <span>Total a Recibir en Mano Hoy:</span>
-                          <span className="text-base text-emerald-700">
-                            ${totalRecibirHoyEnMano.toLocaleString("es-CO")}
-                          </span>
-                        </div>
-
-                        {(metodoPagoPrincipal === "EFECTIVO" || metodoPagoDeposito === "EFECTIVO") && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <label className="text-xs font-bold text-slate-700 shrink-0">
-                                Efectivo Entregado:
+                        {/* Calculadora de efectivo recibido para el depósito */}
+                        {montoDeposito > 0 && (
+                          <div className="p-3 rounded-xl bg-white/90 border border-amber-200 mb-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[11px] font-bold text-slate-700">
+                                Efectivo Recibido para Depósito:
                               </label>
-                              <input
-                                type="number"
-                                value={efectivoRecibido}
-                                onChange={(e) => setEfectivoRecibido(e.target.value)}
-                                placeholder="Monto entregado por cliente"
-                                className="w-full px-3 py-1.5 text-sm font-black bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                              />
+                              <button
+                                type="button"
+                                onClick={() => setEfectivoDepositoRecibido(String(montoDeposito))}
+                                className="text-[10px] font-bold text-amber-700 hover:underline"
+                              >
+                                Monto Exacto (${montoDeposito.toLocaleString("es-CO")})
+                              </button>
                             </div>
 
-                            <div className="flex flex-wrap gap-1 mb-2">
-                              {BILLETES_COLOMBIANOS.map((b) => (
+                            <input
+                              type="number"
+                              value={efectivoDepositoRecibido}
+                              onChange={(e) => setEfectivoDepositoRecibido(e.target.value)}
+                              placeholder="Efectivo en billetes recibido"
+                              className="w-full px-3 py-1.5 text-sm font-black bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-amber-500"
+                            />
+
+                            <div className="flex gap-1.5 pt-0.5">
+                              {BILLETES_COLOMBIANOS.map((den) => (
                                 <button
-                                  key={b}
+                                  key={den}
                                   type="button"
-                                  onClick={() => setEfectivoRecibido(String(b))}
-                                  className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 hover:bg-slate-300"
+                                  onClick={() => setEfectivoDepositoRecibido(String(den))}
+                                  className="flex-1 py-1 px-1 rounded-md bg-slate-100 hover:bg-amber-100 border border-slate-200 text-slate-700 text-[10px] font-bold transition-all"
                                 >
-                                  ${b.toLocaleString("es-CO")}
+                                  ${(den / 1000).toFixed(0)}k
                                 </button>
                               ))}
                             </div>
 
-                            <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between">
-                              <span className="text-xs font-bold text-emerald-900">
-                                Vueltas / Cambio a Entregar:
-                              </span>
-                              <span className="text-sm font-black text-emerald-700">
-                                ${vueltasCalculadas.toLocaleString("es-CO")}
+                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
+                              <span>Vueltas de Depósito:</span>
+                              <span className="font-black text-emerald-700 text-sm">
+                                ${vueltasDepositoCalculadas.toLocaleString("es-CO")}
                               </span>
                             </div>
                           </div>
                         )}
                       </div>
+
+                      {/* Confirmación explícita de recepción en efectivo */}
+                      <div className="pt-3 border-t border-amber-200">
+                        <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={abonoEfectivoConfirmado}
+                            onChange={(e) => setAbonoEfectivoConfirmado(e.target.checked)}
+                            className="mt-0.5 w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-amber-300"
+                          />
+                          <span className="text-[11px] font-bold text-amber-950 leading-tight">
+                            Confirmo haber recibido físicamente en <span className="underline">EFECTIVO</span> la suma de ${montoDeposito.toLocaleString("es-CO")} en gaveta para este contrato.
+                          </span>
+                        </label>
+
+                        {!depositoEfectivoValido && (
+                          <div className="mt-2 p-2 rounded-lg bg-rose-50 border border-rose-200 flex items-center gap-1.5 text-[11px] font-bold text-rose-700">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>El monto recibido debe ser mayor o igual a ${montoDeposito.toLocaleString("es-CO")} y estar confirmado.</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ========================================================================= */}
+                    {/* BLOQUE 2: VALOR DEL CANON DE ALQUILER Y SALDO                            */}
+                    {/* ========================================================================= */}
+                    <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Receipt className="w-5 h-5 text-blue-600" />
+                            <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                              BLOQUE 2 — Liquidación del Canon de Alquiler
+                            </h3>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-200">
+                            SUBTOTAL: ${subtotalPrendas.toLocaleString("es-CO")}
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-slate-500 mb-3">
+                          Total correspondiente al servicio de las {itemsCarrito.length} prendas seleccionadas. Puede cobrarse de contado, con abono o dejarse pendiente.
+                        </p>
+
+                        {/* Modalidad de Pago del Canon */}
+                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                          Modalidad de Cobro del Canon Hoy:
+                        </label>
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalidadPago("COMPLETO");
+                              setEfectivoCanonRecibido(String(subtotalPrendas));
+                            }}
+                            className={`p-2.5 rounded-xl border text-center transition-all ${
+                              modalidadPago === "COMPLETO"
+                                ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            <span className="font-black text-xs block">100% Contado</span>
+                            <span className="text-[10px] opacity-90">${subtotalPrendas.toLocaleString("es-CO")}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalidadPago("ADELANTO");
+                              const mitad = Math.round(subtotalPrendas / 2);
+                              setMontoAbonoManual(String(mitad));
+                              setEfectivoCanonRecibido(String(mitad));
+                            }}
+                            className={`p-2.5 rounded-xl border text-center transition-all ${
+                              modalidadPago === "ADELANTO"
+                                ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            <span className="font-black text-xs block">Abono Inicial</span>
+                            <span className="text-[10px] opacity-90">Anticipo</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalidadPago("PENDIENTE");
+                              setEfectivoCanonRecibido("0");
+                            }}
+                            className={`p-2.5 rounded-xl border text-center transition-all ${
+                              modalidadPago === "PENDIENTE"
+                                ? "bg-blue-600 text-white border-blue-700 shadow-sm"
+                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            <span className="font-black text-xs block">Pendiente</span>
+                            <span className="text-[10px] opacity-90">$0 Hoy</span>
+                          </button>
+                        </div>
+
+                        {/* Campo para Abono Parcial */}
+                        {modalidadPago === "ADELANTO" && (
+                          <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 mb-3">
+                            <label className="text-[11px] font-bold text-blue-900 block mb-1">
+                              Monto de Abono al Canon Hoy ($):
+                            </label>
+                            <input
+                              type="number"
+                              value={montoAbonoManual}
+                              onChange={(e) => {
+                                setMontoAbonoManual(e.target.value);
+                                setEfectivoCanonRecibido(e.target.value);
+                              }}
+                              className="w-full px-3 py-1.5 text-sm font-black bg-white border border-blue-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Ej: 30000"
+                            />
+                            <div className="flex justify-between items-center text-[11px] text-blue-900 mt-1.5 font-bold">
+                              <span>Abona: ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}</span>
+                              <span>Resta por cobrar: ${saldoFaltanteAlquiler.toLocaleString("es-CO")}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Calculadora de Efectivo de Canon si se cobra algo hoy */}
+                        {valorAbonoAlquilerHoy > 0 && (
+                          <div className="p-3 rounded-xl bg-white border border-slate-200 mb-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[11px] font-bold text-slate-700">
+                                Efectivo Recibido para Canon ($):
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setEfectivoCanonRecibido(String(valorAbonoAlquilerHoy))}
+                                className="text-[10px] font-bold text-blue-600 hover:underline"
+                              >
+                                Monto Exacto (${valorAbonoAlquilerHoy.toLocaleString("es-CO")})
+                              </button>
+                            </div>
+
+                            <input
+                              type="number"
+                              value={efectivoCanonRecibido}
+                              onChange={(e) => setEfectivoCanonRecibido(e.target.value)}
+                              placeholder={String(valorAbonoAlquilerHoy)}
+                              className="w-full px-3 py-1.5 text-sm font-black bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500"
+                            />
+
+                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
+                              <span>Vueltas de Canon:</span>
+                              <span className="font-black text-emerald-700 text-sm">
+                                ${vueltasCanonCalculadas.toLocaleString("es-CO")}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Notas del contrato */}
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                            Notas u Observaciones del Alquiler (Opcional):
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={notasAlquiler}
+                            onChange={(e) => setNotasAlquiler(e.target.value)}
+                            placeholder="Ej: Evento de gala el sábado. Prenda entallada de hombros."
+                            className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Resumen de Canon */}
+                      <div className="pt-3 border-t border-slate-200 mt-3 flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-600">Saldo Pendiente a Cobrar Posterior:</span>
+                        <span className={`font-black ${saldoFaltanteAlquiler > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                          ${saldoFaltanteAlquiler.toLocaleString("es-CO")}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Botones de Finalización del Paso 3 */}
-                  <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between">
+                  {/* ========================================================================= */}
+                  {/* RESUMEN CONSOLIDADO DE CAJA Y LIQUIDACIÓN EN VIVO                         */}
+                  {/* ========================================================================= */}
+                  <div className="mt-6 p-4 rounded-2xl bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block uppercase">1. Depósito en Efectivo</span>
+                        <span className="text-base font-black text-amber-400">
+                          ${montoDeposito.toLocaleString("es-CO")}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block uppercase">2. Abono Canon Hoy</span>
+                        <span className="text-base font-black text-blue-400">
+                          ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block uppercase">Total Efectivo a Gaveta</span>
+                        <span className="text-lg font-black text-emerald-400">
+                          ${totalEfectivoEnGavetaHoy.toLocaleString("es-CO")}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block uppercase">Total Vueltas a Cliente</span>
+                        <span className="text-base font-black text-slate-200">
+                          ${totalVueltasEntregar.toLocaleString("es-CO")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ========================================================================= */}
+                  {/* BLOQUEO DE SEGURIDAD Y AVISO DEFENSIVO                                    */}
+                  {/* ========================================================================= */}
+                  {!puedeExpedirAlquiler && (
+                    <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-300 flex items-center gap-2 text-xs font-bold text-amber-900">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>
+                        Para generar el comprobante de alquiler, primero debe confirmarse el cobro en EFECTIVO del abono/depósito establecido en el documento.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* ========================================================================= */}
+                  {/* BOTONES DE FINALIZACIÓN Y EXPEDICIÓN DIRECTA                              */}
+                  {/* ========================================================================= */}
+                  <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between gap-3">
                     <button
+                      type="button"
                       onClick={() => setPasoActual(2)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 flex items-center gap-1.5"
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 flex items-center gap-1.5 transition-all"
                     >
                       <ArrowLeft className="w-4 h-4" />
-                      <span>Volver al Catálogo</span>
+                      <span>Volver al Catálogo de Prendas</span>
                     </button>
 
                     <button
-                      disabled={guardandoAlquiler}
+                      type="button"
+                      disabled={guardandoAlquiler || !puedeExpedirAlquiler}
                       onClick={registrarNuevoAlquiler}
-                      className="px-6 py-2.5 rounded-xl text-sm font-black text-white bg-amber-500 hover:bg-amber-600 shadow-md flex items-center gap-2 transition-all disabled:opacity-50"
+                      className="px-6 py-3 rounded-xl text-sm font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-md flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {guardandoAlquiler ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Registrando Alquiler...</span>
+                          <span>Guardando y Generando Comprobante...</span>
                         </>
                       ) : (
                         <>
                           <Receipt className="w-4 h-4" />
-                          <span>Registrar y Expedir Alquiler</span>
+                          <span>Confirmar Cobro y Generar Comprobante de Alquiler</span>
                         </>
                       )}
                     </button>

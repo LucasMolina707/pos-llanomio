@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
 import { verificarEstadoCajaParaFacturacion, parsearCajerosParticipantes } from "@/lib/caja-control";
-import { EstadoFactura, MetodoPago, TipoOperacion, TipoProducto } from "@prisma/client";
+import { EstadoFactura, MetodoPago, TipoOperacion, TipoProducto, EstadoTurno } from "@prisma/client";
 
 interface ItemDetalleInput {
   productoId?: string | null;
@@ -236,22 +236,30 @@ export async function POST(req: NextRequest) {
       cajeroId = usuarioActivo.id;
     }
 
-    // 0. Control Estricto de Seguridad Financiera POS (Apertura Obligatoria, Bloqueo Día Anterior y Asignación de Turno)
+    // 0. Control de Seguridad Financiera POS (Apertura Obligatoria y Bloqueo por Día Anterior)
     const controlCaja = await verificarEstadoCajaParaFacturacion(prisma, cajeroId);
     if (controlCaja.bloqueadoParaFacturar) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: controlCaja.motivoBloqueo,
-          codigoSeguridad: controlCaja.estado,
-          requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
-          requiereAperturaHoy: controlCaja.estado === "SIN_TURNO",
-          requiereDecisionModalidad: controlCaja.estado === "REQUIERE_DECISION_MODALIDAD",
-          turnoAbierto: controlCaja.turnoAbierto,
-          turnoParaCompartir: controlCaja.turnoParaCompartir,
-        },
-        { status: 409 }
-      );
+      // Si está bloqueado pero existe un turno abierto de hoy en SQLite, NO bloquear la facturación
+      const turnoAbiertoHoy = await prisma.turnoCaja.findFirst({
+        where: { estado: EstadoTurno.ABIERTO },
+        orderBy: { fechaApertura: "desc" },
+      });
+
+      if (!turnoAbiertoHoy || controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: controlCaja.motivoBloqueo || "No existe un turno de caja iniciado para la jornada de hoy.",
+            codigoSeguridad: controlCaja.estado,
+            requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
+            requiereAperturaHoy: controlCaja.estado === "SIN_TURNO" && !turnoAbiertoHoy,
+            requiereDecisionModalidad: false,
+            turnoAbierto: controlCaja.turnoAbierto || (turnoAbiertoHoy ? { id: turnoAbiertoHoy.id, nombreGabinete: turnoAbiertoHoy.nombreGabinete } : null),
+            turnoParaCompartir: controlCaja.turnoParaCompartir,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // 2. Validar cliente existente
@@ -485,7 +493,7 @@ export async function POST(req: NextRequest) {
           estadoDeposito: Number(montoDeposito) > 0 ? "RECIBIDO_EN_GARANTIA" : "SIN_DEPOSITO",
           montoRetenidoDeposito: 0,
           montoDevueltoDeposito: 0,
-          metodoPagoDeposito: Number(montoDeposito) > 0 ? (metodoPagoDeposito || "EFECTIVO") : null,
+          metodoPagoDeposito: Number(montoDeposito) > 0 ? (tipoOpFinal === TipoOperacion.ALQUILER ? "EFECTIVO" : (metodoPagoDeposito || "EFECTIVO")) : null,
           notas: notas?.trim() || null,
           fechaEntregaAlquiler: fechaEntregaCalculada,
           fechaDevolucionPactada: fechaDevolucionCalculada,

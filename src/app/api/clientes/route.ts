@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calcularDigitoVerificacionDIAN, validarEmail } from "@/lib/dian-utils";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 /**
  * GET /api/clientes
  * Carga completa de clientes ordenados por más recientes / frecuentes
@@ -81,11 +90,14 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      clientes,
-      total: clientes.length,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        clientes,
+        total: clientes.length,
+      },
+      { headers: NO_CACHE_HEADERS }
+    );
   } catch (error: unknown) {
     console.error("Error al consultar clientes:", error);
     return NextResponse.json(

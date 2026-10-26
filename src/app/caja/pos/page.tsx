@@ -373,7 +373,7 @@ export default function PosPage() {
   const cargarClientes = useCallback(async () => {
     try {
       setCargandoClientesInicial(true);
-      const res = await fetch("/api/clientes");
+      const res = await fetch("/api/clientes", { cache: "no-store" });
       const data = await res.json();
       if (data.success) {
         setTodosLosClientes(data.clientes || []);

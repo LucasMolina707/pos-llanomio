@@ -532,25 +532,47 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
             </div>
           )}
 
-          {/* Sección 2: Comprobante de Depósito en Garantía */}
+          {/* CONSTANCIA DE COBRO SEPARADO (EFECTIVO) */}
           {(esAlquiler || montoDepositoVal > 0) && (
-            <div className="py-2 border-b border-black space-y-1 text-[9.5px] bg-slate-50 p-1.5 rounded border border-dashed border-slate-400">
-              <div className="flex justify-between items-center font-bold text-[10px]">
-                <span>COMPROBANTE DE DEPÓSITO EN GARANTÍA:</span>
-                <span className="font-mono font-black">${montoDepositoVal.toLocaleString("es-CO")}</span>
+            <div className="py-2 border-y-2 border-black space-y-1 text-[9.5px] bg-slate-50 p-2 rounded my-1">
+              <div className="font-black text-[9.5px] text-black border-b border-black pb-0.5 uppercase tracking-tight">
+                CONSTANCIA DE COBRO SEPARADO (EFECTIVO)
               </div>
-              <p className="text-[8.5px] text-slate-700">
-                Método Depósito: <strong>{factura.metodoPagoDeposito || "EFECTIVO"}</strong>
+              <p className="text-[9px] text-black font-semibold leading-tight pt-0.5">
+                Se recibió en EFECTIVO la suma de <span className="font-mono font-black">${montoDepositoVal.toLocaleString("es-CO")}</span> por concepto de Abono / Depósito establecido en este documento.
               </p>
-              <p className="text-[8.5px] text-slate-800 leading-tight">
-                Estado: <strong>{textoEstadoDeposito}</strong>
-              </p>
-              {totalEnManoHoy > 0 && (
-                <div className="pt-1 mt-1 border-t border-slate-300 flex justify-between font-bold text-[9px] text-slate-900">
-                  <span>Total Recibido en Mano:</span>
-                  <span>${totalEnManoHoy.toLocaleString("es-CO")}</span>
+              <div className="pt-1 mt-1 border-t border-dashed border-black/40 space-y-0.5 text-[8.5px]">
+                <div className="flex justify-between">
+                  <span>Estado Depósito:</span>
+                  <span className="font-bold">{textoEstadoDeposito}</span>
                 </div>
-              )}
+                <div className="flex justify-between">
+                  <span>Valor Canon Alquiler:</span>
+                  <span className="font-mono font-bold">${factura.totalFactura.toLocaleString("es-CO")}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Monto Abonado al Canon:</span>
+                  <span className="font-mono font-bold text-emerald-800">${factura.totalAbonado.toLocaleString("es-CO")}</span>
+                </div>
+                <div className="flex justify-between font-bold">
+                  <span>Saldo Pendiente por Cobrar:</span>
+                  <span className={`font-mono ${esPazYSalvo ? "text-emerald-700" : "text-rose-700"}`}>
+                    {esPazYSalvo ? "$0 (PAZ Y SALVO)" : `$${factura.saldoPendiente.toLocaleString("es-CO")}`}
+                  </span>
+                </div>
+                {factura.fechaDevolucionPactada && (
+                  <div className="flex justify-between text-rose-800 font-bold">
+                    <span>Límite Devolución:</span>
+                    <span>{new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}</span>
+                  </div>
+                )}
+                {totalEnManoHoy > 0 && (
+                  <div className="pt-1 mt-1 border-t border-black flex justify-between font-bold text-[9px] text-black">
+                    <span>Total Efectivo en Gaveta:</span>
+                    <span className="font-mono font-black">${totalEnManoHoy.toLocaleString("es-CO")}</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -741,20 +763,38 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
               </div>
             </div>
 
-            {/* Sección 2: Comprobante de Depósito en Garantía para Media Carta */}
+            {/* CONSTANCIA DE COBRO SEPARADO (EFECTIVO) — MEDIA CARTA */}
             {(esAlquiler || montoDepositoVal > 0) && (
-              <div className="p-2 mb-2 bg-amber-50/90 rounded-xl border border-amber-300 text-xs">
+              <div className="p-2 mb-2 bg-amber-50/90 rounded-xl border-2 border-amber-400 text-xs shadow-xs">
                 <div className="flex justify-between items-center font-bold text-amber-950">
-                  <span className="text-[10px] tracking-wide uppercase">COMPROBANTE DE DEPÓSITO EN GARANTÍA (POR DAÑOS / PÉRDIDAS):</span>
-                  <span className="font-mono text-sm">${montoDepositoVal.toLocaleString("es-CO")}</span>
-                </div>
-                <div className="text-[10px] text-amber-900 mt-0.5 flex flex-wrap justify-between gap-1">
-                  <span>
-                    Método: <strong>{factura.metodoPagoDeposito || "EFECTIVO"}</strong> | Estado: <strong>{textoEstadoDeposito}</strong>
+                  <span className="text-[10px] font-black tracking-wide uppercase">
+                    CONSTANCIA DE COBRO SEPARADO (EFECTIVO):
                   </span>
+                  <span className="font-mono font-black text-sm text-emerald-800">
+                    Depósito en Custodia: ${montoDepositoVal.toLocaleString("es-CO")}
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-amber-950 font-bold mt-1 leading-snug">
+                  Se recibió en EFECTIVO la suma de <span className="font-mono font-black">${montoDepositoVal.toLocaleString("es-CO")}</span> por concepto de Abono / Depósito establecido en este documento.
+                </p>
+                <div className="text-[9.5px] text-slate-700 mt-1 pt-1 border-t border-amber-300/80 flex flex-wrap justify-between items-center gap-2">
+                  <span><strong>Estado Depósito:</strong> {textoEstadoDeposito}</span>
+                  <span><strong>Valor Alquiler:</strong> ${factura.totalFactura.toLocaleString("es-CO")}</span>
+                  <span><strong>Abonado al Canon:</strong> ${factura.totalAbonado.toLocaleString("es-CO")}</span>
+                  <span className="font-bold text-slate-900">
+                    <strong>Saldo Pendiente:</strong>{" "}
+                    <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
+                      {esPazYSalvo ? "$0 (PAZ Y SALVO)" : `$${factura.saldoPendiente.toLocaleString("es-CO")}`}
+                    </span>
+                  </span>
+                  {factura.fechaDevolucionPactada && (
+                    <span className="text-rose-800 font-bold">
+                      <strong>Límite Devolución:</strong> {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                    </span>
+                  )}
                   {totalEnManoHoy > 0 && (
-                    <span className="font-bold text-slate-900 bg-amber-100 px-1.5 py-0.2 rounded border border-amber-300">
-                      Recibido en Mano (Alquiler + Depósito): ${totalEnManoHoy.toLocaleString("es-CO")}
+                    <span className="font-black text-slate-950 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                      Total Recibido en Gaveta: ${totalEnManoHoy.toLocaleString("es-CO")}
                     </span>
                   )}
                 </div>
@@ -1034,25 +1074,39 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
             </div>
           </div>
 
-          {/* Sección 2: Comprobante de Depósito en Garantía para Carta */}
+          {/* CONSTANCIA DE COBRO SEPARADO (EFECTIVO) — CARTA COMPLETA */}
           {(esAlquiler || montoDepositoVal > 0) && (
-            <div className="mb-3 p-3 bg-amber-50/90 rounded-xl border border-amber-300 text-xs shadow-xs">
+            <div className="mb-3 p-3 bg-amber-50/90 rounded-xl border-2 border-amber-400 text-xs shadow-xs">
               <div className="flex justify-between items-center font-bold text-amber-950">
-                <span className="text-xs tracking-wider uppercase">COMPROBANTE DE DEPÓSITO EN GARANTÍA (RESPALDO POR DAÑOS O PÉRDIDA):</span>
-                <span className="font-mono text-base font-black">${montoDepositoVal.toLocaleString("es-CO")}</span>
+                <span className="text-xs font-black tracking-wider uppercase">
+                  CONSTANCIA DE COBRO SEPARADO (EFECTIVO):
+                </span>
+                <span className="font-mono text-base font-black text-emerald-800">
+                  Depósito en Custodia: ${montoDepositoVal.toLocaleString("es-CO")}
+                </span>
               </div>
-              <div className="text-[11px] text-amber-900 mt-1.5 space-y-1">
-                <p>
-                  Método de Pago del Depósito: <strong>{factura.metodoPagoDeposito || "EFECTIVO"}</strong>
-                </p>
-                <p>
-                  Estado Actual del Depósito: <strong>{textoEstadoDeposito}</strong>
-                </p>
+              <p className="text-xs text-amber-950 font-bold mt-1.5 leading-relaxed">
+                Se recibió en EFECTIVO la suma de <span className="font-mono font-black">${montoDepositoVal.toLocaleString("es-CO")}</span> por concepto de Abono / Depósito establecido en este documento.
+              </p>
+              <div className="text-[11px] text-slate-700 mt-2 pt-2 border-t border-amber-300 flex flex-wrap justify-between items-center gap-2">
+                <span><strong>Estado del Depósito:</strong> {textoEstadoDeposito}</span>
+                <span><strong>Valor Total Alquiler:</strong> ${factura.totalFactura.toLocaleString("es-CO")}</span>
+                <span><strong>Monto Abonado:</strong> ${factura.totalAbonado.toLocaleString("es-CO")}</span>
+                <span>
+                  <strong>Saldo Pendiente:</strong>{" "}
+                  <span className={esPazYSalvo ? "text-emerald-700 font-black" : "text-rose-700 font-black"}>
+                    {esPazYSalvo ? "$0 (PAZ Y SALVO)" : `$${factura.saldoPendiente.toLocaleString("es-CO")}`}
+                  </span>
+                </span>
+                {factura.fechaDevolucionPactada && (
+                  <span className="text-rose-800 font-bold">
+                    <strong>Fecha Límite Devolución:</strong> {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                  </span>
+                )}
                 {totalEnManoHoy > 0 && (
-                  <div className="pt-1.5 mt-1.5 border-t border-amber-200 flex justify-between font-bold text-slate-900">
-                    <span>Resumen de Caja Recibido en Mano (Abono Alquiler + Depósito en Garantía):</span>
-                    <span className="font-mono text-xs">${totalEnManoHoy.toLocaleString("es-CO")}</span>
-                  </div>
+                  <span className="font-black text-slate-950 bg-amber-100 px-2.5 py-1 rounded border border-amber-300">
+                    Total Efectivo Recibido en Gaveta Hoy: ${totalEnManoHoy.toLocaleString("es-CO")}
+                  </span>
                 )}
               </div>
             </div>

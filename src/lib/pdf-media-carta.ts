@@ -254,7 +254,7 @@ function dibujarPaginaMediaCarta(
   // 4. RECUADRO DE DEPÓSITO EN GARANTÍA (SI APLICA)
   if (esAlquiler || (factura.montoDeposito && factura.montoDeposito > 0)) {
     cursorY += 1.5;
-    const altoDep = 7.5;
+    const altoDep = 10;
     doc.setFillColor(254, 243, 199); // Amber 100
     doc.setDrawColor(217, 119, 6); // Amber 600
     doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDep, 1, 1, "FD");
@@ -262,19 +262,26 @@ function dibujarPaginaMediaCarta(
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.setTextColor(146, 64, 14); // Amber 800
-    doc.text("COMPROBANTE DE DEPÓSITO EN GARANTÍA:", margenIzquierdo + 3, cursorY + 3.5);
-    doc.text(`$${(factura.montoDeposito || 0).toLocaleString("es-CO")}`, margenDerecho - 3, cursorY + 3.5, { align: "right" });
+    doc.text("CONSTANCIA DE COBRO SEPARADO (EFECTIVO):", margenIzquierdo + 3, cursorY + 3.2);
+    doc.text(`$${(factura.montoDeposito || 0).toLocaleString("es-CO")}`, margenDerecho - 3, cursorY + 3.2, { align: "right" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(5.8);
+    doc.setTextColor(15, 23, 42);
+    const constanciaTxt = `Se recibió en EFECTIVO la suma de $${(factura.montoDeposito || 0).toLocaleString("es-CO")} por concepto de Abono / Depósito establecido en este documento.`;
+    doc.text(constanciaTxt, margenIzquierdo + 3, cursorY + 5.8);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6);
+    doc.setFontSize(5.5);
+    doc.setTextColor(71, 85, 105);
     const estadoDepTxt = factura.estadoDeposito === "DEVUELTO_COMPLETO"
-      ? `DEPÓSITO DEVUELTO 100% AL CLIENTE ($${(factura.montoDevueltoDeposito || factura.montoDeposito || 0).toLocaleString("es-CO")})`
+      ? `Estado: DEPÓSITO DEVUELTO 100% AL CLIENTE ($${(factura.montoDevueltoDeposito || factura.montoDeposito || 0).toLocaleString("es-CO")})`
       : factura.estadoDeposito === "RETENIDO_PARCIAL"
-      ? `RETENCIÓN POR DAÑO: $${(factura.montoRetenidoDeposito || 0).toLocaleString("es-CO")} | DEVUELTO: $${(factura.montoDevueltoDeposito || 0).toLocaleString("es-CO")}${factura.motivoRetencionDeposito ? ` — ${factura.motivoRetencionDeposito}` : ""}`
+      ? `Estado: RETENCIÓN POR DAÑO: $${(factura.montoRetenidoDeposito || 0).toLocaleString("es-CO")} | DEVUELTO: $${(factura.montoDevueltoDeposito || 0).toLocaleString("es-CO")}`
       : factura.estadoDeposito === "RETENIDO_TOTAL"
-      ? `RETENCIÓN TOTAL POR DAÑO / PÉRDIDA${factura.motivoRetencionDeposito ? ` — ${factura.motivoRetencionDeposito}` : ""}`
-      : "RECIBIDO EN CUSTODIA (Reembolsable al devolver las prendas completas y sin daños)";
-    doc.text(estadoDepTxt.substring(0, 95), margenIzquierdo + 3, cursorY + 6.2);
+      ? "Estado: RETENCIÓN TOTAL POR DAÑO / PÉRDIDA"
+      : "Estado: RECIBIDO EN CUSTODIA (Reembolsable al devolver las prendas completas y sin daños)";
+    doc.text(estadoDepTxt.substring(0, 95), margenIzquierdo + 3, cursorY + 8.4);
 
     cursorY += altoDep;
   }
@@ -599,7 +606,7 @@ function dibujarPaginaCarta(
   // 5. RECUADRO DE DEPÓSITO EN GARANTÍA (SI APLICA)
   if (esAlquiler || (factura.montoDeposito && factura.montoDeposito > 0)) {
     cursorY += 2.5;
-    const altoDepCarta = 11;
+    const altoDepCarta = 14;
     doc.setFillColor(254, 243, 199);
     doc.setDrawColor(217, 119, 6);
     doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDepCarta, 1.5, 1.5, "FD");
@@ -607,19 +614,26 @@ function dibujarPaginaCarta(
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(146, 64, 14);
-    doc.text("COMPROBANTE DE DEPÓSITO EN GARANTÍA (RESPALDO POR DAÑOS O PÉRDIDA):", margenIzquierdo + 4, cursorY + 4.5);
-    doc.text(`$${(factura.montoDeposito || 0).toLocaleString("es-CO")}`, margenDerecho - 4, cursorY + 4.5, { align: "right" });
+    doc.text("CONSTANCIA DE COBRO SEPARADO (EFECTIVO):", margenIzquierdo + 4, cursorY + 4);
+    doc.text(`$${(factura.montoDeposito || 0).toLocaleString("es-CO")}`, margenDerecho - 4, cursorY + 4, { align: "right" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.8);
+    doc.setTextColor(15, 23, 42);
+    const constanciaTxt = `Se recibió en EFECTIVO la suma de $${(factura.montoDeposito || 0).toLocaleString("es-CO")} por concepto de Abono / Depósito establecido en este documento.`;
+    doc.text(constanciaTxt, margenIzquierdo + 4, cursorY + 7.5);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
+    doc.setTextColor(71, 85, 105);
     const estadoDepTxt = factura.estadoDeposito === "DEVUELTO_COMPLETO"
-      ? `DEPÓSITO DEVUELTO 100% AL CLIENTE ($${(factura.montoDevueltoDeposito || factura.montoDeposito || 0).toLocaleString("es-CO")}) — Prendas recibidas a conformidad`
+      ? `Estado: DEPÓSITO DEVUELTO 100% AL CLIENTE ($${(factura.montoDevueltoDeposito || factura.montoDeposito || 0).toLocaleString("es-CO")}) — Prendas recibidas a conformidad`
       : factura.estadoDeposito === "RETENIDO_PARCIAL"
-      ? `DEPÓSITO RETENIDO ($${(factura.montoRetenidoDeposito || 0).toLocaleString("es-CO")} Retenido / $${(factura.montoDevueltoDeposito || 0).toLocaleString("es-CO")} Devuelto)${factura.motivoRetencionDeposito ? ` — Motivo: ${factura.motivoRetencionDeposito}` : ""}`
+      ? `Estado: DEPÓSITO RETENIDO ($${(factura.montoRetenidoDeposito || 0).toLocaleString("es-CO")} Retenido / $${(factura.montoDevueltoDeposito || 0).toLocaleString("es-CO")} Devuelto)`
       : factura.estadoDeposito === "RETENIDO_TOTAL"
-      ? `DEPÓSITO RETENIDO 100% POR DAÑO O PÉRDIDA${factura.motivoRetencionDeposito ? ` — Motivo: ${factura.motivoRetencionDeposito}` : ""}`
-      : "RECIBIDO EN CUSTODIA (Reembolsable al devolver las prendas completas y en perfecto estado)";
-    doc.text(estadoDepTxt.substring(0, 115), margenIzquierdo + 4, cursorY + 8.5);
+      ? "Estado: DEPÓSITO RETENIDO 100% POR DAÑO O PÉRDIDA"
+      : "Estado: RECIBIDO EN CUSTODIA (Reembolsable al devolver las prendas completas y en perfecto estado)";
+    doc.text(estadoDepTxt.substring(0, 115), margenIzquierdo + 4, cursorY + 11.2);
 
     cursorY += altoDepCarta;
   }
@@ -901,24 +915,27 @@ function dibujarContenidoTirilla(
     doc.text(`$${factura.saldoPendiente.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
   }
 
-  // Depósito en Garantía
+  // Constancia de Cobro Separado de Depósito (Efectivo)
   if (esAlquiler || (factura.montoDeposito && factura.montoDeposito > 0)) {
     cursorY += 3.2;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.8);
-    doc.text("DEPÓSITO GARANTÍA:", margen, cursorY);
-    doc.text(`$${(factura.montoDeposito || 0).toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
+    doc.text("CONSTANCIA COBRO SEPARADO (EFECTIVO):", margen, cursorY);
+    cursorY += 2.8;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.text(`Depósito en Efectivo: $${(factura.montoDeposito || 0).toLocaleString("es-CO")}`, margen, cursorY);
 
     cursorY += 2.6;
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6);
+    doc.setFontSize(5.5);
     const estadoDepTir = factura.estadoDeposito === "DEVUELTO_COMPLETO"
-      ? "(Devuelto 100%)"
+      ? "(Devuelto 100% al cliente)"
       : factura.estadoDeposito === "RETENIDO_PARCIAL"
-      ? "(Ret. Parcial por daño)"
+      ? "(Retención parcial por daño)"
       : factura.estadoDeposito === "RETENIDO_TOTAL"
-      ? "(Retenido por pérdida/daño)"
-      : "(En custodia — Reembolsable)";
+      ? "(Retenido por reposición)"
+      : "(En custodia — Reembolsable al devolver)";
     doc.text(estadoDepTir, margen, cursorY);
   }
 

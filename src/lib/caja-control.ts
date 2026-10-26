@@ -216,18 +216,32 @@ export async function verificarEstadoCajaParaFacturacion(
     };
   }
 
-  // Si hay turnos abiertos pero ni este usuario ni deviceId están vinculados
+  // Si hay turnos abiertos hoy y la modalidad es COMPARTIDA o hay un solo turno, conectar automáticamente sin bloquear
   const turnoCompartible =
     turnosHoyMapeados.find((t) => t.modalidad === "COMPARTIDA") || turnosHoyMapeados[0];
 
+  if (turnoCompartible && (turnoCompartible.modalidad === "COMPARTIDA" || turnosHoyMapeados.length === 1)) {
+    return {
+      estado: "ABIERTO_HOY",
+      bloqueadoParaFacturar: false,
+      motivoBloqueo: null,
+      fechaHoy,
+      turnoAbierto: turnoCompartible,
+      turnosAbiertosHoy: turnosHoyMapeados,
+      turnoParaCompartir: null,
+      yaConectado: true,
+    };
+  }
+
+  // Si existen múltiples turnos en modalidad dividida y no se ha asignado este usuario/dispositivo
   return {
     estado: "REQUIERE_DECISION_MODALIDAD",
-    bloqueadoParaFacturar: true,
-    motivoBloqueo: `Ya existe una caja abierta hoy (${turnoCompartible.nombreGabinete} a cargo de ${turnoCompartible.usuarioCajero.nombre}). Seleccione si desea unirse a esta caja compartida o abrir un gabinete independiente.`,
+    bloqueadoParaFacturar: false, // Permitir facturación asociando al turno principal
+    motivoBloqueo: null,
     fechaHoy,
-    turnoAbierto: null,
+    turnoAbierto: turnoCompartible,
     turnosAbiertosHoy: turnosHoyMapeados,
     turnoParaCompartir: turnoCompartible,
-    yaConectado: false,
+    yaConectado: true,
   };
 }

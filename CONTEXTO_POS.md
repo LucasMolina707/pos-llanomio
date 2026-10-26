@@ -1480,7 +1480,56 @@ Se perfeccionó y unificó la arquitectura de control, detección y sincronizaci
   - Detección de Dispositivo B y oferta de selección de gabinete compartido vs dividido.
   - Vinculación exitosa de Dispositivo B.
   - Contabilidad exacta de depósito en garantía de alquiler ($40.000) y devolución parcial ($15.000), resultando en saldo neto exacto de $235.000 sobre base de $150.000 y abono de $60.000.
-- **Servicios PM2:** Recargados y operativos en `online`.
+---
+
+## Actualización Crítica: Sincronización Integral POS y Módulo de Alquileres (Caja Única, Clientes con 2 Teléfonos, Depósito Obligatorio en Efectivo y Previsualización 3 Formatos)
+
+### 1. Diagnóstico y Corrección de Desincronización
+- **Cero Bloqueos Falsos al Finalizar Alquiler:**
+  - Se erradicó el disparo intempestivo del modal de apertura de caja al presionar el botón final de expedir en `/caja/alquileres`.
+  - La verificación de caja en `src/lib/caja-control.ts` fue refactorizada para auto-conectar sin fricciones a cualquier turno `ABIERTO` del día actual en modalidad `COMPARTIDA` (`bloqueadoParaFacturar: false`, `yaConectado: true`).
+  - Tanto en `POST /api/facturas` como en `POST /api/facturas/[id]`, el servidor local busca directamente el turno `ABIERTO` activo de hoy en SQLite (`database/llanomio.db`) si la petición llega sin `turnoCajaId` o con identificador desactualizado, eliminando falsos rechazos 409 cuando ya hay una caja abierta en la tienda.
+- **Base de Datos Única de Clientes con 2 Teléfonos:**
+  - Tanto `/caja/pos` como `/caja/alquileres` consultan y alimentan en tiempo real exactamente la misma tabla `Cliente` en `database/llanomio.db` a través de `/api/clientes` con directivas estrictas de `cache: "no-store"` (`export const dynamic = "force-dynamic"` y `export const revalidate = 0`).
+  - El modelo `Cliente` y el modal unificado `<ModalCrearClienteRapido />` gestionan el **Teléfono Primario (`telefono` - Obligatorio, mínimo 7 dígitos)** y el **Teléfono Secundario (`telefonoSecundario` - Opcional)**. Cualquier cliente creado o editado en un módulo queda disponible de inmediato en el otro.
+- **Regla Estricta de Depósito/Abono de Respaldo en EFECTIVO Separado:**
+  - En el Paso 3 de `/caja/alquileres`, la liquidación se dividió en dos bloques independientes y claramente identificados:
+    1. **BLOQUE 1 — Depósito / Abono de Respaldo:** Fijado obligatoriamente en `EFECTIVO` (dinero físico en gaveta con icono `Lock`), con calculadora de vueltas y casilla de confirmación física obligatoria (`abonoEfectivoConfirmado`).
+    2. **BLOQUE 2 — Canon de Alquiler y Saldo:** Desglose del valor del alquiler de las prendas (100% Contado, Abono o Pendiente), efectivo recibido para el canon y cálculo automático de vueltas.
+  - **Bloqueo Defensivo:** El botón final permanece deshabilitado hasta confirmar la recepción del efectivo acordado en el documento.
+  - En el comprobante impreso y PDF (`PlantillaImpresion.tsx` y `pdf-media-carta.ts`), se incluye la constancia explícita:
+    `"CONSTANCIA DE COBRO SEPARADO (EFECTIVO): Se recibió en EFECTIVO la suma de $[Monto] por concepto de Abono / Depósito establecido en este documento."`
+- **Apertura Directa del Visor de Impresión y Previsualización en los 3 Formatos:**
+  - Al presionar **"Confirmar Cobro y Generar Comprobante de Alquiler"**, la aplicación guarda la factura y transiciona de forma inmediata y automática al componente `<PlantillaImpresion />`.
+  - El previsualizador permite alternar en vivo entre **Tirilla 80mm (`TIRILLA`)**, **Media Carta (`MEDIA_CARTA`)** y **Carta Completa (`CARTA`)**, con opción de 1 o 2 copias, impresión directa en iframe aislado y descarga de archivo PDF oficial con CERO códigos QR.
+  - Este mismo visor en 3 formatos se abre automáticamente desde el Historial de Alquileres al registrar abonos, liquidar devoluciones o presionar "Ver / Imprimir Comprobante".
+
+### 2. Archivos Modificados y Sincronizados
+1. `prisma/schema.prisma` & `database/schema.prisma`: Esquema Prisma verificado con `Cliente.telefonoSecundario`, campos de depósito/abono y relaciones con `TurnoCaja`. `prisma generate` y `prisma db push` ejecutados.
+2. `src/lib/caja-control.ts`: Eliminado falso bloqueo de decision de modalidad si existe caja compartida abierta hoy.
+3. `src/hooks/useCajonSincronizado.ts`: Auto-enlace defensivo y eliminación de modales intrusivos en expedición de facturas.
+4. `src/app/api/clientes/route.ts`: Configurado con `dynamic = "force-dynamic"`, `revalidate = 0` y encabezados `no-store`.
+5. `src/app/api/facturas/route.ts` & `src/app/api/facturas/[id]/route.ts`: Resolución automática de turno activo de hoy y fijación de `metodoPagoDeposito = "EFECTIVO"` para alquileres.
+6. `src/app/caja/alquileres/page.tsx`:
+   - Rediseño integral del Paso 3 en 2 bloques independientes (Depósito en efectivo y Canon de alquiler).
+   - Bloqueo de seguridad condicional y botón final "Confirmar Cobro y Generar Comprobante de Alquiler".
+   - Integración automática del visor `<PlantillaImpresion />` en Paso 4 y modal flotante con `cache: "no-store"`.
+7. `src/components/impresion/PlantillaImpresion.tsx`:
+   - Constancia explícita de cobro separado en efectivo en los 3 formatos (Tirilla 80mm, Media Carta, Carta Completa).
+   - Selector en tiempo real de formato y copias, impresión limpia y descarga PDF.
+8. `src/lib/pdf-media-carta.ts`: Generación de PDFs en los 3 formatos incluyendo la constancia de cobro en efectivo del depósito y detalle del canon.
+9. `scripts/test-qa-sincronizacion-alquileres.ts`: Script de prueba integral QA automatizado para validar la sincronización completa.
+
+### 3. Validación y Control de Calidad (QA)
+- **Compilación de Producción:** `npm run build` ejecutado exitosamente con **código 0 y 0 errores de TypeScript**.
+- **Pruebas Integrales de QA:** Ejecutadas con `npx tsx scripts/test-qa-sincronizacion-alquileres.ts`, validando:
+  1. *Caja Única:* Turno abierto detectado y desbloqueado para expedir de inmediato.
+  2. *Clientes con 2 Teléfonos:* Cliente creado y recuperado instantáneamente con teléfono primario y secundario.
+  3. *Venta y Alquiler Compartidos:* Ambas transacciones registradas e imputadas al mismo turno de caja.
+  4. *Arqueo Consolidado:* Suma exacta de base inicial ($100k) + abonos en efectivo ($145k) + depósito en efectivo ($100k) = $345k en gaveta.
+  5. *Constancia Escrita de Cobro Separado:* Texto exacto generado y verificado.
+- **Servicios PM2:** Proceso `pos-llanomio` reiniciado y operativo en estado `online`.
+
 
 
 

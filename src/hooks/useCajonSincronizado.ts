@@ -176,8 +176,8 @@ export function useCajonSincronizado() {
           }
         }
 
-        // CASO 1: YA CONECTADO HOY (por usuario creador, participante o vinculación previa)
-        if (data.yaConectado && data.turnoAbierto) {
+        // CASO 1: CONECTADO HOY (por usuario creador, participante o vinculación automática de caja compartida)
+        if ((data.yaConectado || data.hayTurnoAbierto) && data.turnoAbierto) {
           const turno = data.turnoAbierto as InfoTurnoGabinete;
           setCajonConectado(turno);
           const saldo = data.saldoActualEnCajon ?? (turno.arqueo?.saldoActualEnCajon || turno.baseInicialEfectivo || 0);
@@ -193,7 +193,7 @@ export function useCajonSincronizado() {
             );
           }
 
-          // CERO PREGUNTAS
+          // CERO PREGUNTAS NI MODALES FALSOS
           setDebeMostrarModal(false);
           setTipoModalRequerido(null);
           return;
