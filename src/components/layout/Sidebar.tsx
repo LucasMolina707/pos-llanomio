@@ -89,6 +89,11 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
           icon: BarChart3,
         },
         {
+          name: "Usuarios y Permisos",
+          href: "/admin/usuarios",
+          icon: Shield,
+        },
+        {
           name: "Configuración Empresa",
           href: "/admin/configuracion",
           icon: Settings,

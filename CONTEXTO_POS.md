@@ -919,4 +919,65 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
   4. Bloqueo estricto por turno de día anterior sin cerrar.
 - Compilación `npx tsc --noEmit` y build de producción `npm run build` con **0 errores**.
 
+---
+
+## 21. Centro Integral de Gestión de Usuarios, Roles (RBAC), Permisos Granulares, Archivo Maestro y Restauración de Contraseñas desde el Navegador
+
+### 1. Archivo Maestro en la Raíz del Proyecto (`USUARIOS_Y_CREDENCIALES_MAESTRAS.md`)
+- Creado en la raíz del repositorio (`C:\Proyectos\pos-llanomio\USUARIOS_Y_CREDENCIALES_MAESTRAS.md`) como documento de referencia y contingencia para el propietario y personal técnico:
+  - **Sección 1 — Credenciales Iniciales y Llave Maestra de Emergencia:** Registro claro del Administrador General (`admin`), Cajero Principal (`cajero`), contraseñas por defecto y documentación de la **Llave Maestra Local de Restauración en Navegador (`MASTER_RECOVERY_KEY: LLANOMIO-ADMIN-2026`)**.
+  - **Sección 2 — Matriz Oficial de Roles y Permisos (RBAC):** Detalle exhaustivo de capacidades entre `ADMIN` (acceso irrestricto) y `CAJERO` (enfoque operativo con permisos granulares: `pos_facturar`, `pos_cobrar_cartera`, `caja_abrir_cerrar`, `inventario_crear_rapido`, `pos_editar_precios`).
+  - **Sección 3 — Directorio Auto-Sincronizado de Usuarios en SQLite (`llanomio.db`):** Tabla viva que se regenera automáticamente cada vez que un usuario se crea, edita, activa/inactiva o restaura contraseña, mostrando nombre, username, rol, estado, permisos asignados, transacciones acumuladas y fecha del último cambio de clave.
+
+### 2. Variables de Entorno y Llave Maestra (`.env` y `.env.example`)
+- Incorporación de `MASTER_RECOVERY_KEY="LLANOMIO-ADMIN-2026"` en `.env` y `.env.example`.
+- Permite restaurar cualquier contraseña olvidada directamente desde el navegador en la pantalla de inicio de sesión sin depender de consolas ni herramientas de base de datos.
+
+### 3. Modelo de Datos Prisma y SQLite (`prisma/schema.prisma` y `database/schema.prisma`)
+- Campos agregados en el modelo `User` (`users`):
+  - `permisos String?`: Serialización JSON de los permisos granulares asignados.
+  - `ultimaRestauracion DateTime?`: Timestamp de auditoría del último restablecimiento de contraseña.
+- Aplicado mediante `npx prisma db push` y regeneración con `npx prisma generate` sin pérdida de datos en `database/llanomio.db`.
+
+### 4. Módulo de Sincronización Automática (`src/lib/usuarios-sync.ts`)
+- Define la interfaz tipada `PermisosUsuario`, los objetos por defecto `PERMISOS_DEFAULT_CAJERO` y `PERMISOS_DEFAULT_ADMIN`, y el helper `parsearPermisos()`.
+- Función `sincronizarArchivoCredencialesMaestras(prisma)`: Lee los usuarios en base de datos, calcula sus transacciones firmadas (`facturas` y `abonos`), formatea la fecha en zona horaria Colombia (UTC-5) y sobreescribe de forma atómica y segura la Sección 3 del archivo `USUARIOS_Y_CREDENCIALES_MAESTRAS.md`.
+
+### 5. API REST de Gestión de Usuarios y Restauración (`/api/usuarios` y `/api/auth/recuperar`)
+- **`GET /api/usuarios`:** Lista todos los usuarios con sus roles, permisos parseados, estado activo y conteos de transacciones (`ADMIN` requerido).
+- **`POST /api/usuarios`:** Creación de usuarios con hash `bcryptjs` (`saltRounds: 10`), asignación de permisos según el rol y disparo automático de la sincronización del archivo maestro.
+- **`PUT /api/usuarios/[id]`:** Edición de nombre, rol, estado (`activo`) y permisos granulares. Incluye protección defensiva que impide degradar o desactivar al único Administrador activo del sistema.
+- **`PATCH /api/usuarios/[id]`:** Restauración directa de contraseña en 1 clic por el Administrador (sin requerir la contraseña anterior).
+- **`DELETE /api/usuarios/[id]`:** Eliminación física si el usuario no tiene movimientos contables, o soft-delete defensivo (`activo: false`) si posee facturas, abonos o turnos vinculados para preservar la integridad referencial de SQLite.
+- **`POST /api/auth/recuperar` y `GET /api/auth/recuperar`:**
+  - `GET`: Retorna los usuarios registrados para el selector del modal en el navegador.
+  - `POST`: Valida la `MASTER_RECOVERY_KEY`, actualiza el `passwordHash` con `bcryptjs`, registra `ultimaRestauracion` y re-sincroniza `USUARIOS_Y_CREDENCIALES_MAESTRAS.md`.
+
+### 6. Panel Visual Ergonómico de Gestión (`src/app/admin/usuarios/page.tsx`)
+- Diseñado bajo la **Paleta Clara Antifatiga Visual de Alto Contraste (WCAG AAA)**:
+  - Tarjetas de métricas: Total de cuentas, Administradores activos, Cajeros activos y recordatorio de recuperación.
+  - Buscador en vivo por nombre y usuario, con filtro por rol (`TODOS`, `ADMIN`, `CAJERO`).
+  - Botón principal **"+ Crear Nuevo Usuario (Cajero o Admin)"** con modal guiado: Nombre completo, usuario, contraseña con toggle de visibilidad y sugeridor de contraseñas, selector de rol y checkboxes de permisos granulares.
+  - Grilla de tarjetas de usuario con badges de rol (`ADMIN` en azul intenso, `CAJERO` en esmeralda), badge de estado (`ACTIVO` / `INACTIVO`), permisos activos y contador de facturas y abonos firmados.
+  - Modal de **"Restaurar / Cambiar Contraseña"** en 1 clic desde la fila de cada usuario.
+  - Modal de **"Editar Rol y Permisos"** y switch de activación/desactivación inmediata.
+
+### 7. Restauración de Emergencia en Pantalla de Login (`src/app/login/page.tsx`)
+- Enlace interactivo en la pantalla de inicio de sesión: **"¿Olvidaste tu contraseña? Restaurar acceso aquí"** con icono `KeyRound`.
+- Modal interactivo de recuperación en la misma pestaña del navegador:
+  - Selector con los usuarios disponibles en el sistema (`@username — Nombre (ROL)`).
+  - Input para la Llave Maestra Local de Recuperación (`MASTER_RECOVERY_KEY`).
+  - Input para la nueva contraseña con botones de visibilidad y generador de contraseña sugerida.
+  - Al completar la restauración exitosa, autocompleta el formulario principal de inicio de sesión para ingresar al instante.
+
+### 8. Integración en Navegación Global
+- **Menú Lateral (`src/components/layout/Sidebar.tsx`):** Añadido el enlace **"Usuarios y Permisos"** (`/admin/usuarios`) en la sección `GERENCIA` con icono `Shield`.
+- **Configuración Corporativa (`src/app/admin/configuracion/page.tsx`):** Añadido botón directo de navegación **"Usuarios y Permisos"** junto al botón de respaldo manual.
+
+### 9. Aseguramiento de Calidad (QA - Agente 5)
+- **Suite Automatizada de RBAC (`scripts/test_qa_usuarios_rbac.ts`):** 100% exitosa validando existencia del archivo maestro, auto-sincronización, creación con permisos, cambio de clave con `bcryptjs`, validación y rechazo de llave maestra, y protección del único admin.
+- **Suite End-to-End HTTP en Vivo (`scripts/test_http_e2e_usuarios.js`):** 100% exitosa contra el servidor local en `http://localhost:3000` ejecutando el ciclo completo de autenticación, autorización `ADMIN`, creación de cajero, cambio de clave, login con credenciales restauradas, recuperación de emergencia con llave maestra y eliminación limpia.
+- **Compilación de Producción:** `npx tsc --noEmit` y `npm run build` completados con **0 errores**, generando las 22 rutas estáticas y dinámicas.
+
+
 

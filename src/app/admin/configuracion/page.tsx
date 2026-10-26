@@ -319,12 +319,21 @@ export default function ConfiguracionAdminPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
+          <button
+            type="button"
+            onClick={() => router.push("/admin/usuarios")}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100/80 text-blue-800 text-xs font-bold shadow-xs transition cursor-pointer"
+          >
+            <UserCheck className="h-4 w-4 text-blue-700" />
+            <span>Usuarios y Permisos</span>
+          </button>
+
           <button
             type="button"
             onClick={handleForzarRespaldo}
             disabled={respaldando}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-xs transition disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
           >
             <Database className="h-4 w-4 text-blue-600" />
             <span>{respaldando ? "Respaldando..." : "Respaldo SQLite"}</span>

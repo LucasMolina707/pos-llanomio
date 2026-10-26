@@ -91,9 +91,11 @@ model User {
   nombre        String
   passwordHash  String
   rol           RolUsuario       @default(CAJERO)
-  activo        Boolean          @default(true)
-  fechaCreacion DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  activo             Boolean          @default(true)
+  permisos           String?          // JSON serializado con array de permisos granulares
+  ultimaRestauracion DateTime?        // Fecha del último cambio o restauración de contraseña
+  fechaCreacion      DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   facturas      Factura[]
   abonos        Abono[]
