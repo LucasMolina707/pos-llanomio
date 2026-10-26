@@ -1411,6 +1411,78 @@ Se blindó de punta a punta el circuito completo del **Sistema de Alquileres (`/
 - **Compilación de Producción:** `npm run build` ejecutado exitosamente con **0 errores de TypeScript y 0 errores de empaquetado**.
 - **Servicios Locales:** PM2 recargado exitosamente (`pos-llanomio` y `pos-mdns-proxy` en estado `online`).
 
+---
+
+## 12. Bitácora de Sincronización Inteligente de Cajón por Dispositivo, Multi-Gabinete y Contabilidad de Alquileres
+
+### 1. Resumen y Objetivo de la Implementación
+Se perfeccionó y unificó la arquitectura de control, detección y sincronización en tiempo real del **Cajón de Dinero (Gabinete Físico)** en la **Terminal POS de Ventas y Arreglos (`/caja/pos`)** y la **Terminal de Alquileres (`/caja/alquileres`)**, erradicando preguntas redundantes cuando el dispositivo ya está vinculado, y blindando la contabilidad física ante depósitos de alquiler:
+
+1. **Cero Preguntas Redundantes por Dispositivo:**
+   - Cada dispositivo navegador genera y conserva un identificador persistente `deviceId` (`llanomio_device_id` UUID en `localStorage`).
+   - Al consultar `/api/caja?deviceId=...`, si el dispositivo o usuario ya pertenece al turno activo (como cajero titular o participante registrado en `cajerosParticipantes`), el sistema responde con `yaConectado: true` y `bloqueadoParaFacturar: false`.
+   - **Resultado:** Cero modales, cero ventanas emergentes ni demoras operativas al recargar la página o al navegar entre la terminal de ventas y la terminal de alquileres.
+
+2. **Detección Inteligente en Dispositivos Nuevos o Sin Turno Asignado:**
+   - **Caso A (Sin turno abierto hoy):** Despliega el modal de bienvenida para registrar la base inicial en efectivo y abrir el cajón del día.
+   - **Caso B (Turno abierto hoy en otro dispositivo):** Despliega un modal único de decisión inteligente permitiendo:
+     - **Opción 1: "Conectarme al Cajón Compartido":** Muestra en vivo el nombre del gabinete y el saldo real actual en gaveta para operar en equipo. Al hacer clic, se vincula el `deviceId` a `cajerosParticipantes` de forma permanente para el día.
+     - **Opción 2: "Inicializar un Nuevo Cajón Independiente":** Permite abrir un nuevo turno con gabinete propio (modalidad Dividida).
+   - **Caso C (Turno anterior sin cerrar):** Bloqueo estricto e inquebrantable que exige el arqueo y cierre del día anterior en `/admin/caja`.
+
+3. **Hook React Modular `useCajonSincronizado` (`src/hooks/useCajonSincronizado.ts`):**
+   - Centraliza la lógica de control, recuperación de `deviceId`, consulta no-cacheada a `/api/caja`, y emisión de eventos locales (`llanomio_caja_actualizada`).
+   - Polling suave automático cada 20 segundos para reflejar cobros realizados desde otros dispositivos en tiempo real.
+   - Métodos integrados: `actualizarCajon(silencioso)`, `conectarCajaCompartida(turnoCajaId)`, `abrirNuevoCajon(params)`, `desvincularCajonLocal()`, `notificarCajaActualizada()`.
+
+4. **Componentes Visuales Estandarizados:**
+   - `<BarraEstadoCajon />` (`src/components/caja/BarraEstadoCajon.tsx`): Cabecera compacta con tema claro antifatiga, punto indicador verde pulsante, nombre del gabinete, saldo físico en efectivo calculado en vivo, saldo digital consolidado y botón de conmutación/auditoría rápida.
+   - `<ModalConexionCajon />` (`src/components/caja/ModalConexionCajon.tsx`): Interfaz asistida con tarjetas de selección ergonómicas, bases de efectivo sugeridas ($50k, $100k, $150k, $200k), alerta de día anterior y visualización de dinero compartido en tiempo real. Cero emojis, uso exclusivo de `lucide-react`.
+
+5. **Paridad Total en Terminal de Alquileres (`/caja/alquileres`):**
+   - Integración completa de `<BarraEstadoCajon />` en la cabecera del módulo.
+   - Verificación de cajón antes de confirmar contratos de alquiler (Paso 3), registro de abonos posteriores en historial y liquidación de depósitos en garantía.
+   - Paso del `turnoCajaId` explícito en todas las operaciones transaccionales para que los ingresos y egresos queden imputados al gabinete conectado.
+
+6. **Fórmula Contable Exacta para Alquileres y Depósitos en Efectivo:**
+   - `saldoActualEnCajon = baseInicialEfectivo + totalEfectivoAbonos + (depositosEfectivoRecibidos - depositosEfectivoDevueltos)`.
+   - Tanto `/api/caja` como `/api/caja/estado` y `calcularArqueoTurno` computan los depósitos en garantía cobrados en efectivo como custodia activa en gaveta, y descuentan automáticamente las devoluciones en efectivo realizadas a los clientes al devolver las prendas.
+
+### 2. Archivos Creados o Modificados
+1. `src/lib/caja-control.ts`:
+   - Extensión de `CajeroParticipante` con propiedad opcional `deviceId`.
+   - Extensión de `ResultadoVerificacionCaja` con `yaConectado`.
+   - Lógica de reconocimiento de dispositivo en `verificarEstadoCajaParaFacturacion`.
+2. `src/hooks/useCajonSincronizado.ts`:
+   - Creación del hook unificado de control de cajón por dispositivo y eventos en vivo.
+3. `src/components/caja/BarraEstadoCajon.tsx`:
+   - Creación del componente visual de estado en tiempo real para mostrador.
+4. `src/components/caja/ModalConexionCajon.tsx`:
+   - Creación del modal de apertura y selección inteligente de modalidad.
+5. `src/app/api/caja/route.ts` & `src/app/api/caja/estado/route.ts`:
+   - Incorporación de `deviceId` en parámetros de consulta.
+   - Acción `VINCULAR_DISPOSITIVO` en `POST /api/caja`.
+   - Integración de facturas de alquiler y depósitos en efectivo dentro de `calcularArqueoTurno`.
+6. `src/app/api/facturas/route.ts` & `src/app/api/facturas/[id]/route.ts`:
+   - Recepción e imputación de `turnoCajaId` del cliente al crear facturas o registrar abonos/liquidaciones.
+7. `src/app/caja/alquileres/page.tsx`:
+   - Integración de `useCajonSincronizado`, `<BarraEstadoCajon />` y `<ModalConexionCajon />`.
+   - Validación de bloqueo de caja y propagación de `turnoCajaId` en los 3 flujos de pago.
+8. `src/app/caja/pos/page.tsx`:
+   - Integración de `useCajonSincronizado`, `<BarraEstadoCajon />` y `<ModalConexionCajon />`.
+   - Unificación de tipos con `EstadoSeguridadCajaInfo`.
+
+### 3. Validación y Control de Calidad (QA)
+- **Compilación de Producción:** `npm run build` ejecutado exitosamente con **código 0 y 0 errores de TypeScript**.
+- **Pruebas de Sincronización y Arqueo:** Suite de prueba automatizada completada con éxito validando:
+  - Detección de `SIN_TURNO` inicial.
+  - Apertura y auto-conexión del Dispositivo A (`yaConectado = true`, 0 modales).
+  - Detección de Dispositivo B y oferta de selección de gabinete compartido vs dividido.
+  - Vinculación exitosa de Dispositivo B.
+  - Contabilidad exacta de depósito en garantía de alquiler ($40.000) y devolución parcial ($15.000), resultando en saldo neto exacto de $235.000 sobre base de $150.000 y abono de $60.000.
+- **Servicios PM2:** Recargados y operativos en `online`.
+
+
 
 
 

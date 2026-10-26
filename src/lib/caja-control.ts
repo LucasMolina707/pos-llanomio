@@ -30,6 +30,7 @@ export interface CajeroParticipante {
   nombre: string;
   username: string;
   fechaUnion: string;
+  deviceId?: string;
 }
 
 export function parsearCajerosParticipantes(jsonStr: string | null | undefined): CajeroParticipante[] {
@@ -72,21 +73,22 @@ export interface ResultadoVerificacionCaja {
   turnoAbierto: InfoTurnoAbierto | null;
   turnosAbiertosHoy: InfoTurnoAbierto[];
   turnoParaCompartir: InfoTurnoAbierto | null;
+  yaConectado?: boolean;
 }
 
 /**
  * Verifica el estado del turno de caja activo contra la fecha calendario actual de Colombia.
- * Implementa las reglas estrictas de control financiero y multi-cajero:
+ * Implementa las reglas estrictas de control financiero y multi-cajero por dispositivo:
  * 1. Si existe CUALQUIER turno abierto de un día anterior => BLOQUEADO_DIA_ANTERIOR (exige arqueo previo).
  * 2. Si no hay turnos abiertos hoy => SIN_TURNO (exige apertura con base inicial).
  * 3. Si hay turnos abiertos hoy:
- *    a. Si el usuario ya está asignado a un turno (como creador o participante) => ABIERTO_HOY.
- *    b. Si el usuario no está asignado y se pasó usuarioId => REQUIERE_DECISION_MODALIDAD (permite elegir Compartida o Dividida).
- *    c. Si no se especificó usuarioId => ABIERTO_HOY con el turno principal.
+ *    a. Si el usuario O dispositivo ya está asignado a un turno (creador o participante) => ABIERTO_HOY (yaConectado = true).
+ *    b. Si el usuario/dispositivo no está asignado => REQUIERE_DECISION_MODALIDAD (permite elegir Compartida o Dividida).
  */
 export async function verificarEstadoCajaParaFacturacion(
   prisma: PrismaClient,
-  usuarioId?: string
+  usuarioId?: string,
+  deviceId?: string
 ): Promise<ResultadoVerificacionCaja> {
   const fechaHoy = obtenerFechaColombiaStr();
 
@@ -111,6 +113,7 @@ export async function verificarEstadoCajaParaFacturacion(
       turnoAbierto: null,
       turnosAbiertosHoy: [],
       turnoParaCompartir: null,
+      yaConectado: false,
     };
   }
 
@@ -146,6 +149,7 @@ export async function verificarEstadoCajaParaFacturacion(
       },
       turnosAbiertosHoy: [],
       turnoParaCompartir: null,
+      yaConectado: false,
     };
   }
 
@@ -176,52 +180,54 @@ export async function verificarEstadoCajaParaFacturacion(
       turnoAbierto: null,
       turnosAbiertosHoy: [],
       turnoParaCompartir: null,
+      yaConectado: false,
     };
   }
 
-  // 4. Si se especificó usuarioId, verificar si ya está asignado a alguno de los gabinetes abiertos
-  if (usuarioId) {
-    const turnoAsignado = turnosHoyMapeados.find(
+  // 4. Verificar vinculación por deviceId o usuarioId
+  let turnoAsignado: InfoTurnoAbierto | undefined = undefined;
+
+  // Primero verificar por deviceId si se suministró
+  if (deviceId) {
+    turnoAsignado = turnosHoyMapeados.find(
+      (t) => t.cajerosParticipantes.some((c) => c.deviceId === deviceId)
+    );
+  }
+
+  // Si no se encontró por deviceId, verificar por usuarioId
+  if (!turnoAsignado && usuarioId) {
+    turnoAsignado = turnosHoyMapeados.find(
       (t) =>
         t.usuarioCajero.id === usuarioId ||
         t.cajerosParticipantes.some((c) => c.id === usuarioId)
     );
+  }
 
-    if (turnoAsignado) {
-      return {
-        estado: "ABIERTO_HOY",
-        bloqueadoParaFacturar: false,
-        motivoBloqueo: null,
-        fechaHoy,
-        turnoAbierto: turnoAsignado,
-        turnosAbiertosHoy: turnosHoyMapeados,
-        turnoParaCompartir: null,
-      };
-    }
-
-    // El usuario no está asignado a ningún gabinete de hoy => Requiere decisión
-    const turnoCompartible =
-      turnosHoyMapeados.find((t) => t.modalidad === "COMPARTIDA") || turnosHoyMapeados[0];
-
+  if (turnoAsignado) {
     return {
-      estado: "REQUIERE_DECISION_MODALIDAD",
-      bloqueadoParaFacturar: true,
-      motivoBloqueo: `Ya existe una caja abierta hoy (${turnoCompartible.nombreGabinete} a cargo de ${turnoCompartible.usuarioCajero.nombre}). Seleccione si desea unirse a esta caja compartida o abrir un gabinete independiente.`,
+      estado: "ABIERTO_HOY",
+      bloqueadoParaFacturar: false,
+      motivoBloqueo: null,
       fechaHoy,
-      turnoAbierto: null,
+      turnoAbierto: turnoAsignado,
       turnosAbiertosHoy: turnosHoyMapeados,
-      turnoParaCompartir: turnoCompartible,
+      turnoParaCompartir: null,
+      yaConectado: true,
     };
   }
 
-  // Si no se proporcionó usuarioId (consulta genérica de administración)
+  // Si hay turnos abiertos pero ni este usuario ni deviceId están vinculados
+  const turnoCompartible =
+    turnosHoyMapeados.find((t) => t.modalidad === "COMPARTIDA") || turnosHoyMapeados[0];
+
   return {
-    estado: "ABIERTO_HOY",
-    bloqueadoParaFacturar: false,
-    motivoBloqueo: null,
+    estado: "REQUIERE_DECISION_MODALIDAD",
+    bloqueadoParaFacturar: true,
+    motivoBloqueo: `Ya existe una caja abierta hoy (${turnoCompartible.nombreGabinete} a cargo de ${turnoCompartible.usuarioCajero.nombre}). Seleccione si desea unirse a esta caja compartida o abrir un gabinete independiente.`,
     fechaHoy,
-    turnoAbierto: turnosHoyMapeados[0],
+    turnoAbierto: null,
     turnosAbiertosHoy: turnosHoyMapeados,
-    turnoParaCompartir: turnosHoyMapeados[0],
+    turnoParaCompartir: turnoCompartible,
+    yaConectado: false,
   };
 }

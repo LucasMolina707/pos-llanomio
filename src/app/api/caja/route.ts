@@ -93,11 +93,55 @@ async function calcularArqueoTurno(turnoId: string, fechaApertura: Date, baseIni
     }
   }
 
+  // Consultar facturas de alquiler vinculadas al turno para depósitos en garantía
+  const facturasAlquiler = await prisma.factura.findMany({
+    where: {
+      OR: [
+        { turnoCajaId: turnoId },
+        { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
+      ],
+      tipoOperacion: "ALQUILER",
+    },
+    select: {
+      id: true,
+      montoDeposito: true,
+      metodoPagoDeposito: true,
+      montoDevueltoDeposito: true,
+      montoRetenidoDeposito: true,
+      estadoDeposito: true,
+    },
+  });
+
+  let depositosEfectivoRecibidos = 0;
+  let depositosEfectivoDevueltos = 0;
+  let depositosDigitalesRecibidos = 0;
+
+  for (const f of facturasAlquiler) {
+    const dep = Number(f.montoDeposito) || 0;
+    const dev = Number(f.montoDevueltoDeposito) || 0;
+
+    if (dep > 0) {
+      if (f.metodoPagoDeposito === "EFECTIVO" || !f.metodoPagoDeposito) {
+        depositosEfectivoRecibidos += dep;
+      } else {
+        depositosDigitalesRecibidos += dep;
+      }
+    }
+
+    if (dev > 0) {
+      depositosEfectivoDevueltos += dev;
+    }
+  }
+
+  const netoDepositosEfectivo = depositosEfectivoRecibidos - depositosEfectivoDevueltos;
+  const saldoActualEnCajon = Math.round((baseInicial + totalEfectivo + netoDepositosEfectivo) * 100) / 100;
+  const totalDigitalConDepositos = Math.round((totalDigital + depositosDigitalesRecibidos) * 100) / 100;
+
   const totalRecaudado =
     Math.round(
-      (totalEfectivo + totalNequi + totalDaviplata + totalTransferencia + totalConsignacion) * 100
+      (totalEfectivo + netoDepositosEfectivo + totalDigitalConDepositos) * 100
     ) / 100;
-  const esperadoEnGavetaEfectivo = Math.round((baseInicial + totalEfectivo) * 100) / 100;
+  const esperadoEnGavetaEfectivo = saldoActualEnCajon;
 
   const cantidadFacturas = await prisma.factura.count({
     where: {
@@ -111,11 +155,15 @@ async function calcularArqueoTurno(turnoId: string, fechaApertura: Date, baseIni
   return {
     baseInicialEfectivo: baseInicial,
     totalEfectivo: Math.round(totalEfectivo * 100) / 100,
-    totalDigital: Math.round(totalDigital * 100) / 100,
+    totalDigital: totalDigitalConDepositos,
     totalNequi: Math.round(totalNequi * 100) / 100,
     totalDaviplata: Math.round(totalDaviplata * 100) / 100,
     totalTransferencia: Math.round(totalTransferencia * 100) / 100,
     totalConsignacion: Math.round(totalConsignacion * 100) / 100,
+    depositosEfectivoRecibidos: Math.round(depositosEfectivoRecibidos * 100) / 100,
+    depositosEfectivoDevueltos: Math.round(depositosEfectivoDevueltos * 100) / 100,
+    netoDepositosEfectivo: Math.round(netoDepositosEfectivo * 100) / 100,
+    saldoActualEnCajon,
     totalRecaudado,
     esperadoEnGavetaEfectivo,
     cantidadAbonos: abonos.length,
@@ -138,8 +186,9 @@ export async function GET(req: NextRequest) {
   try {
     const sesion = await obtenerSesionDesdeRequest(req);
     const usuarioId = sesion?.userId;
+    const deviceId = req.nextUrl.searchParams.get("deviceId") || undefined;
 
-    const verificacionSeguridad = await verificarEstadoCajaParaFacturacion(prisma, usuarioId);
+    const verificacionSeguridad = await verificarEstadoCajaParaFacturacion(prisma, usuarioId, deviceId);
 
     // Obtener todos los turnos abiertos
     const turnosAbiertosDb = await prisma.turnoCaja.findMany({
@@ -170,21 +219,30 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    // Determinar el turno activo para el usuario actual o el primero
+    // Determinar el turno activo para el usuario/dispositivo actual o el primero
     let turnoActivo = null;
     let arqueoActual = null;
 
     if (turnosAbiertosConArqueo.length > 0) {
-      if (usuarioId) {
+      if (deviceId) {
+        turnoActivo = turnosAbiertosConArqueo.find((t) =>
+          t.cajerosParticipantes.some((c) => c.deviceId === deviceId)
+        ) || null;
+      }
+
+      if (!turnoActivo && usuarioId) {
         turnoActivo =
           turnosAbiertosConArqueo.find(
             (t) =>
               t.usuarioCajero.id === usuarioId ||
               t.cajerosParticipantes.some((c) => c.id === usuarioId)
-          ) || turnosAbiertosConArqueo[0];
-      } else {
+          ) || null;
+      }
+
+      if (!turnoActivo) {
         turnoActivo = turnosAbiertosConArqueo[0];
       }
+
       arqueoActual = turnoActivo.arqueo;
     }
 
@@ -200,9 +258,16 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    const yaConectado = Boolean(verificacionSeguridad.yaConectado);
+    const saldoActualEnCajon = arqueoActual?.saldoActualEnCajon ?? (turnoActivo?.baseInicialEfectivo || 0);
+    const totalDigital = arqueoActual?.totalDigital || 0;
+
     return NextResponse.json({
       success: true,
       hayTurnoAbierto: turnosAbiertosConArqueo.length > 0,
+      yaConectado,
+      saldoActualEnCajon,
+      totalDigital,
       turnoAbierto: turnoActivo,
       turnosAbiertos: turnosAbiertosConArqueo,
       arqueoActual,
@@ -240,6 +305,7 @@ export async function POST(req: NextRequest) {
       notaNovedad,
       observaciones,
       tipoCierre = "DIARIO",
+      deviceId,
     } = body;
 
     // Identificar cajero o administrador responsable
@@ -307,7 +373,7 @@ export async function POST(req: NextRequest) {
         if (obtenerFechaColombiaStr(t.fechaApertura) !== fechaHoy) return false;
         if (t.usuarioCajeroId === usuarioResponsableId) return true;
         const participantes = parsearCajerosParticipantes(t.cajerosParticipantes);
-        return participantes.some((p) => p.id === usuarioResponsableId);
+        return participantes.some((p) => p.id === usuarioResponsableId || (deviceId && p.deviceId === deviceId));
       });
 
       if (turnoHoyDelUsuario) {
@@ -343,6 +409,7 @@ export async function POST(req: NextRequest) {
           nombre: usuarioObj.nombre,
           username: usuarioObj.username,
           fechaUnion: new Date().toISOString(),
+          deviceId: deviceId || undefined,
         },
       ];
 
@@ -373,6 +440,7 @@ export async function POST(req: NextRequest) {
             ...nuevoTurno,
             cajerosParticipantes: participantesIniciales,
           },
+          yaConectado: true,
         },
         { status: 201 }
       );
@@ -420,22 +488,29 @@ export async function POST(req: NextRequest) {
 
       // Validar si ya está participando
       const participantes = parsearCajerosParticipantes(turnoDestino.cajerosParticipantes);
-      const yaParticipa =
-        turnoDestino.usuarioCajeroId === usuarioResponsableId ||
-        participantes.some((p) => p.id === usuarioResponsableId);
+      let pExistente = participantes.find((p) => p.id === usuarioResponsableId);
 
-      if (!yaParticipa) {
+      if (!pExistente) {
         participantes.push({
           id: usuarioObj.id,
           nombre: usuarioObj.nombre,
           username: usuarioObj.username,
           fechaUnion: new Date().toISOString(),
+          deviceId: deviceId || undefined,
         });
 
         await prisma.turnoCaja.update({
           where: { id: turnoDestino.id },
           data: {
             modalidad: "COMPARTIDA",
+            cajerosParticipantes: JSON.stringify(participantes),
+          },
+        });
+      } else if (deviceId && pExistente.deviceId !== deviceId) {
+        pExistente.deviceId = deviceId;
+        await prisma.turnoCaja.update({
+          where: { id: turnoDestino.id },
+          data: {
             cajerosParticipantes: JSON.stringify(participantes),
           },
         });
@@ -446,6 +521,59 @@ export async function POST(req: NextRequest) {
         mensaje: `Te has vinculado exitosamente a ${turnoDestino.nombreGabinete} en modalidad Caja Compartida.`,
         turnoId: turnoDestino.id,
         nombreGabinete: turnoDestino.nombreGabinete,
+        yaConectado: true,
+      });
+    }
+
+    // ==========================================
+    // ACCIÓN: VINCULAR DISPOSITIVO A TURNO ACTIVO
+    // ==========================================
+    if (accion === "VINCULAR_DISPOSITIVO") {
+      const targetId =
+        turnoCajaId ||
+        turnosAbiertos.find((t) => obtenerFechaColombiaStr(t.fechaApertura) === fechaHoy)?.id;
+
+      if (!targetId) {
+        return NextResponse.json(
+          { success: false, error: "No hay ningún turno de caja abierto para vincular." },
+          { status: 404 }
+        );
+      }
+
+      const turno = await prisma.turnoCaja.findUnique({ where: { id: targetId } });
+      if (!turno || turno.estado !== EstadoTurno.ABIERTO) {
+        return NextResponse.json(
+          { success: false, error: "El turno seleccionado no está disponible o ya fue cerrado." },
+          { status: 404 }
+        );
+      }
+
+      const participantes = parsearCajerosParticipantes(turno.cajerosParticipantes);
+      let p = participantes.find((part) => part.id === usuarioResponsableId);
+
+      if (!p) {
+        participantes.push({
+          id: usuarioObj.id,
+          nombre: usuarioObj.nombre,
+          username: usuarioObj.username,
+          fechaUnion: new Date().toISOString(),
+          deviceId: deviceId || undefined,
+        });
+      } else if (deviceId) {
+        p.deviceId = deviceId;
+      }
+
+      await prisma.turnoCaja.update({
+        where: { id: turno.id },
+        data: { cajerosParticipantes: JSON.stringify(participantes) },
+      });
+
+      return NextResponse.json({
+        success: true,
+        mensaje: `Dispositivo vinculado a ${turno.nombreGabinete}`,
+        turnoId: turno.id,
+        nombreGabinete: turno.nombreGabinete,
+        yaConectado: true,
       });
     }
 

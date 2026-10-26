@@ -95,6 +95,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       montoDevueltoDeposito,
       motivoRetencionDeposito,
       estadoPrendasDevueltas,
+      turnoCajaId,
     } = body;
 
     // 1. Validar el monto del abono o cobro de saldo
@@ -183,7 +184,10 @@ export async function POST(req: NextRequest, { params }: Params) {
       });
 
       let turnoAbierto = null;
-      if (turnosAbiertos.length > 0) {
+      if (turnoCajaId) {
+        turnoAbierto = turnosAbiertos.find((t) => t.id === turnoCajaId) || null;
+      }
+      if (!turnoAbierto && turnosAbiertos.length > 0) {
         turnoAbierto =
           turnosAbiertos.find((t) => {
             if (t.usuarioCajeroId === cajeroId) return true;

@@ -24,8 +24,9 @@ export async function GET(req: NextRequest) {
   try {
     const sesion = await obtenerSesionDesdeRequest(req);
     const usuarioId = sesion?.userId;
+    const deviceId = req.nextUrl.searchParams.get("deviceId") || undefined;
 
-    const verificacion = await verificarEstadoCajaParaFacturacion(prisma, usuarioId);
+    const verificacion = await verificarEstadoCajaParaFacturacion(prisma, usuarioId, deviceId);
 
     let arqueoTurno = null;
 
@@ -106,9 +107,50 @@ export async function GET(req: NextRequest) {
         }
       }
 
+      // Consultar depósitos de alquiler vinculados al turno
+      const facturasAlquiler = await prisma.factura.findMany({
+        where: {
+          OR: [
+            { turnoCajaId: turnoId },
+            { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
+          ],
+          tipoOperacion: "ALQUILER",
+        },
+        select: {
+          id: true,
+          montoDeposito: true,
+          metodoPagoDeposito: true,
+          montoDevueltoDeposito: true,
+        },
+      });
+
+      let depositosEfectivoRecibidos = 0;
+      let depositosEfectivoDevueltos = 0;
+      let depositosDigitalesRecibidos = 0;
+
+      for (const f of facturasAlquiler) {
+        const dep = Number(f.montoDeposito) || 0;
+        const dev = Number(f.montoDevueltoDeposito) || 0;
+
+        if (dep > 0) {
+          if (f.metodoPagoDeposito === "EFECTIVO" || !f.metodoPagoDeposito) {
+            depositosEfectivoRecibidos += dep;
+          } else {
+            depositosDigitalesRecibidos += dep;
+          }
+        }
+
+        if (dev > 0) {
+          depositosEfectivoDevueltos += dev;
+        }
+      }
+
+      const netoDepositosEfectivo = depositosEfectivoRecibidos - depositosEfectivoDevueltos;
       const base = Number(verificacion.turnoAbierto.baseInicialEfectivo) || 0;
-      const totalRecaudado = Math.round((totalEfectivo + totalDigital) * 100) / 100;
-      const esperadoEnGaveta = Math.round((base + totalEfectivo) * 100) / 100;
+      const saldoActualEnCajon = Math.round((base + totalEfectivo + netoDepositosEfectivo) * 100) / 100;
+      const totalDigitalConDepositos = Math.round((totalDigital + depositosDigitalesRecibidos) * 100) / 100;
+      const totalRecaudado = Math.round((totalEfectivo + netoDepositosEfectivo + totalDigitalConDepositos) * 100) / 100;
+      const esperadoEnGaveta = saldoActualEnCajon;
 
       const cantidadFacturas = await prisma.factura.count({
         where: {
@@ -122,11 +164,15 @@ export async function GET(req: NextRequest) {
       arqueoTurno = {
         baseInicialEfectivo: base,
         totalEfectivo: Math.round(totalEfectivo * 100) / 100,
-        totalDigital: Math.round(totalDigital * 100) / 100,
+        totalDigital: totalDigitalConDepositos,
         totalNequi: Math.round(totalNequi * 100) / 100,
         totalDaviplata: Math.round(totalDaviplata * 100) / 100,
         totalTransferencia: Math.round(totalTransferencia * 100) / 100,
         totalConsignacion: Math.round(totalConsignacion * 100) / 100,
+        depositosEfectivoRecibidos: Math.round(depositosEfectivoRecibidos * 100) / 100,
+        depositosEfectivoDevueltos: Math.round(depositosEfectivoDevueltos * 100) / 100,
+        netoDepositosEfectivo: Math.round(netoDepositosEfectivo * 100) / 100,
+        saldoActualEnCajon,
         totalRecaudado,
         esperadoEnGaveta,
         cantidadAbonos: abonos.length,

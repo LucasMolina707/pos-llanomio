@@ -450,7 +450,10 @@ export async function POST(req: NextRequest) {
       });
 
       let turnoAbierto = null;
-      if (turnosAbiertos.length > 0) {
+      if (body.turnoCajaId) {
+        turnoAbierto = turnosAbiertos.find((t) => t.id === body.turnoCajaId) || null;
+      }
+      if (!turnoAbierto && turnosAbiertos.length > 0) {
         turnoAbierto =
           turnosAbiertos.find((t) => {
             if (t.usuarioCajeroId === cajeroId) return true;

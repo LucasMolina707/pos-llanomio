@@ -47,6 +47,9 @@ import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresio
 import BotonWhatsApp from "@/components/crm/BotonWhatsApp";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
+import { useCajonSincronizado } from "@/hooks/useCajonSincronizado";
+import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
+import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
 
 export interface ClienteAlquiler {
   id: string;
@@ -174,6 +177,9 @@ const BILLETES_COLOMBIANOS = [20000, 50000, 100000];
 
 export default function TerminalAlquileresPage() {
   // Navegación principal y pasos
+  // Control Inteligente de Cajón y Sincronización en Tiempo Real por Dispositivo
+  const cajon = useCajonSincronizado();
+
   const [vistaPrincipal, setVistaPrincipal] = useState<VistaPrincipalAlquiler>("NUEVO_ALQUILER");
   const [pasoActual, setPasoActual] = useState<1 | 2 | 3 | 4>(1);
 
@@ -569,6 +575,12 @@ export default function TerminalAlquileresPage() {
 
   // Crear o Registrar Factura de Alquiler (Paso 3 -> Paso 4)
   const registrarNuevoAlquiler = async () => {
+    if (cajon.bloqueadoParaFacturar) {
+      setMensajeError(cajon.motivoBloqueo || "Debe conectar o inicializar el cajón antes de procesar el alquiler.");
+      cajon.abrirModal();
+      return;
+    }
+
     if (!clienteSeleccionado) {
       setMensajeError("Debe seleccionar un cliente con teléfono primario obligatorio.");
       setPasoActual(1);
@@ -596,6 +608,7 @@ export default function TerminalAlquileresPage() {
 
       const payload = {
         clienteId: clienteSeleccionado.id,
+        turnoCajaId: cajon.cajonConectado?.id || undefined,
         tipoOperacion: "ALQUILER",
         fechaEntregaAlquiler: fechaSalida,
         fechaDevolucionPactada: new Date(fechaDevolucion).toISOString(),
@@ -633,8 +646,16 @@ export default function TerminalAlquileresPage() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
+        if (res.status === 409) {
+          await cajon.actualizarCajon(false);
+          cajon.abrirModal();
+        }
         throw new Error(data.error || "No se pudo registrar el alquiler.");
       }
+
+      // Sincronizar en vivo el cajón
+      cajon.actualizarCajon(true);
+      cajon.notificarCajaActualizada();
 
       const facturaFinal = data.factura;
       setDatosImpresion({
@@ -744,6 +765,12 @@ export default function TerminalAlquileresPage() {
 
   // Registrar un Abono Parcial o Cancelación de Saldo Pendiente
   const procesarRegistroAbono = async () => {
+    if (cajon.bloqueadoParaFacturar) {
+      setMensajeError(cajon.motivoBloqueo || "Debe conectar o inicializar el cajón antes de registrar abonos.");
+      cajon.abrirModal();
+      return;
+    }
+
     if (!alquilerAbonar) return;
     const montoNum = parseFloat(montoAbonar) || 0;
     if (montoNum <= 0) {
@@ -764,6 +791,7 @@ export default function TerminalAlquileresPage() {
 
       const payload = {
         monto: montoNum,
+        turnoCajaId: cajon.cajonConectado?.id || undefined,
         metodoPago: metodoPagoAbonar,
         montoRecibido: metodoPagoAbonar === "EFECTIVO" ? efectivoNum : undefined,
         vueltasEntregadas: vueltas,
@@ -779,8 +807,16 @@ export default function TerminalAlquileresPage() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
+        if (res.status === 409) {
+          await cajon.actualizarCajon(false);
+          cajon.abrirModal();
+        }
         throw new Error(data.error || "No se pudo registrar el abono en el sistema.");
       }
+
+      // Sincronizar en vivo el saldo de cajón
+      cajon.actualizarCajon(true);
+      cajon.notificarCajaActualizada();
 
       setMensajeExito(`¡Abono de $${montoNum.toLocaleString("es-CO")} registrado correctamente!`);
       setModalAbonarAbierto(false);
@@ -815,6 +851,12 @@ export default function TerminalAlquileresPage() {
 
   // Confirmar y Procesar Liquidación de Depósito y Recepción de Prendas
   const procesarLiquidacionYDevolucion = async () => {
+    if (cajon.bloqueadoParaFacturar) {
+      setMensajeError(cajon.motivoBloqueo || "Debe conectar o inicializar el cajón antes de liquidar depósitos.");
+      cajon.abrirModal();
+      return;
+    }
+
     if (!alquilerLiquidar) return;
 
     if (resolucionDeposito === "RETENIDO_PARCIAL") {
@@ -848,6 +890,7 @@ export default function TerminalAlquileresPage() {
 
       const payload = {
         tipoAccion: "LIQUIDAR_CONTRATO",
+        turnoCajaId: cajon.cajonConectado?.id || undefined,
         cobroSaldo: cobrarSaldoPendiente && alquilerLiquidar.saldoPendiente > 0 ? alquilerLiquidar.saldoPendiente : 0,
         metodoPago: metodoPagoSaldo,
         estadoDeposito: resolucionDeposito,
@@ -865,8 +908,16 @@ export default function TerminalAlquileresPage() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
+        if (res.status === 409) {
+          await cajon.actualizarCajon(false);
+          cajon.abrirModal();
+        }
         throw new Error(data.error || "No se pudo liquidar el contrato de alquiler.");
       }
+
+      // Sincronizar en vivo el saldo de gaveta
+      cajon.actualizarCajon(true);
+      cajon.notificarCajaActualizada();
 
       setMensajeExito(`¡Contrato N° ${alquilerLiquidar.numeroFactura} liquidado con éxito! Prendas recibidas y depósito gestionado.`);
       setModalLiquidarAbierto(false);
@@ -1003,6 +1054,11 @@ export default function TerminalAlquileresPage() {
 
             <button
               onClick={() => {
+                if (cajon.bloqueadoParaFacturar) {
+                  setMensajeError(cajon.motivoBloqueo || "Debe conectar o inicializar el cajón antes de procesar cobros.");
+                  cajon.abrirModal();
+                  return;
+                }
                 if (clienteSeleccionado && itemsCarrito.length > 0) setPasoActual(3);
                 else setMensajeError("Debe seleccionar cliente y prendas antes de cobrar.");
               }}
@@ -1043,6 +1099,18 @@ export default function TerminalAlquileresPage() {
 
         {/* Acciones de Cabecera */}
         <div className="flex items-center gap-2">
+          {/* Indicador de Cajón Sincronizado en Vivo */}
+          <BarraEstadoCajon
+            cargando={cajon.cargando}
+            cajonConectado={cajon.cajonConectado}
+            seguridadCaja={cajon.seguridadCaja}
+            saldoActualEnCajon={cajon.saldoActualEnCajon}
+            totalDigital={cajon.totalDigital}
+            estado={cajon.estado}
+            motivoBloqueo={cajon.motivoBloqueo}
+            onRefrescar={() => cajon.actualizarCajon(true)}
+            onAbrirModal={cajon.abrirModal}
+          />
           {/* Botón Centro de Historial y Llegadas */}
           <button
             onClick={() => {
@@ -2766,6 +2834,22 @@ export default function TerminalAlquileresPage() {
         </div>
       )}
 
+      {/* Modal Unificado de Verificación y Selección de Cajón */}
+      <ModalConexionCajon
+        abierto={cajon.modalAbierto}
+        estado={cajon.estado}
+        cargando={cajon.cargando}
+        motivoBloqueo={cajon.motivoBloqueo}
+        turnoAbierto={cajon.turnoAbierto}
+        turnoParaCompartir={cajon.turnoParaCompartir}
+        turnosAbiertosHoy={cajon.turnosAbiertosHoy}
+        arqueoTurno={cajon.arqueoTurno}
+        saldoActualEnCajon={cajon.saldoActualEnCajon}
+        cajonConectado={cajon.cajonConectado}
+        onConectarCompartida={cajon.conectarCajaCompartida}
+        onAbrirNuevoCajon={cajon.abrirNuevoCajon}
+        onCerrarModal={cajon.cerrarModal}
+      />
     </div>
   );
 }
