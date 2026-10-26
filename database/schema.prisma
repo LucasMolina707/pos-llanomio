@@ -293,6 +293,11 @@ model TurnoCaja {
   estado              EstadoTurno @default(ABIERTO)
   baseInicialEfectivo Float       @default(0)
 
+  // Operación Multi-Cajero (Modo Compartida vs Modo Dividida)
+  nombreGabinete      String      @default("Gabinete #1 - Principal")
+  modalidad           String      @default("COMPARTIDA") // "COMPARTIDA" | "DIVIDIDA"
+  cajerosParticipantes String?    // JSON string con array de usuarios que se unieron en modo compartido
+
   // Desglose consolidado del turno por método de pago
   totalEfectivo       Float       @default(0)
   totalNequi          Float       @default(0)
@@ -315,6 +320,7 @@ model TurnoCaja {
   @@index([cierreCajaId])
   @@index([estado])
   @@index([fechaApertura])
+  @@index([modalidad])
   @@map("turnos_caja")
 }
 

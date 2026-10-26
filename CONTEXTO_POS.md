@@ -852,3 +852,71 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
   - Si `esResponsableIVA === false`: Despliega formato conciso de Consumidor Final (Nombre, CC, Teléfono y Dirección).
   - CERO códigos QR de clientes en todos los formatos.
 
+---
+
+## 20. Operación Multi-Cajero Simultánea en Tienda (Caja Compartida vs Cajas Divididas) y Control Financiero Avanzado
+
+### 1. Modelo de Datos y Esquema Relacional (`prisma/schema.prisma` y `database/schema.prisma`)
+- **Campos Agregados en `TurnoCaja` (`turnos_caja`):**
+  - `nombreGabinete String @default("Gabinete #1 - Principal")`: Identificador descriptivo del gabinete físico o cuenta de caja (ej: *"Gabinete #1 - Principal"*, *"Gabinete #2 - Carlos"*).
+  - `modalidad String @default("COMPARTIDA")`: Modalidad de operación (`"COMPARTIDA"` | `"DIVIDIDA"`).
+  - `cajerosParticipantes String?`: Serialización JSON de los cajeros vinculados al gabinete en modo compartido (`Array<{ id: string, nombre: string, username: string, fechaUnion: string }>`).
+  - Índice relacional optimizado en `@@index([modalidad])`.
+- **Asociación en `Factura` y `Abono`:**
+  - `turnoCajaId String?` en `Factura` y `Abono`, vinculando cada billete y pago digital exactamente al gabinete en el que está facturando el cajero autenticado.
+- **Sincronización:** Esquema empujado con `npx prisma db push` y cliente regenerado con `npx prisma generate` sin pérdida de registros históricos en `database/llanomio.db`.
+
+### 2. Motor de Validación de Estado y Lógica de Decisión (`src/lib/caja-control.ts`)
+- **Regla Inquebrantable de Seguridad Financiera (Día Anterior):**
+  - Si existe cualquier caja abierta (`estado === 'ABIERTO'`) cuya fecha sea anterior al día actual en Colombia (UTC-5), el sistema bloquea inmediatamente la facturación devolviendo `BLOQUEADO_DIA_ANTERIOR`, exigiendo el arqueo y cierre previo de esa jornada.
+- **Detección Multi-Cajero en Tienda:**
+  - `SIN_TURNO`: No hay gabinetes abiertos hoy; exige apertura inicial con base de efectivo.
+  - `ABIERTO_HOY`: El cajero ya tiene asignado un turno abierto hoy (sea como creador primario o como participante en `cajerosParticipantes`).
+  - `REQUIERE_DECISION_MODALIDAD`: Ya existe una caja abierta hoy pero el usuario autenticado aún no pertenece a ningún turno activo. El sistema no lo bloquea ni lo asigna a ciegas: despliega el selector de modalidad.
+
+### 3. Las Dos Modalidades de Operación en Tienda
+- **Modo A — Caja Compartida (Un Solo Gabinete Físico):**
+  - El nuevo cajero se vincula al turno principal ya abierto (`accion: "UNIRSE_COMPARTIDA"`).
+  - No exige segunda base inicial de efectivo.
+  - Agiliza la atención simultánea en mostrador mientras todo el efectivo va a la misma gaveta.
+  - Mantiene trazabilidad granular de cada transacción vía `cajeroId` en `Factura` y `Abono`.
+- **Modo B — Caja Dividida / Independiente (Dos o Más Gabinetes Físicos):**
+  - El cajero abre su propio gabinete independiente (`accion: "APERTURA"`, `modalidad: "DIVIDIDA"`).
+  - Registra su propia base inicial de efectivo y nombre de gabinete (ej: *"Gabinete #2"*).
+  - Las facturas y abonos se enrutan exclusivamente al `turnoCajaId` de su gabinete.
+  - Permite arqueos, balances y cierres de caja 100% independientes con cuadre al centavo y respaldo automático `VACUUM INTO`.
+
+### 4. Enrutamiento de Ingresos en APIs (`src/app/api/facturas/route.ts` y `src/app/api/facturas/[id]/route.ts`)
+- Al crear una factura o registrar un abono:
+  - El backend resuelve el gabinete activo correspondiente al cajero (`usuarioCajeroId === cajeroId` o presente en `cajerosParticipantes`).
+  - Asigna `turnoCajaId` del gabinete exacto tanto en la `Factura` como en cada `Abono`.
+  - Incrementa los totales de método de pago exclusivamente en ese `TurnoCaja`.
+
+### 5. Experiencia de Usuario en la Terminal POS (`src/app/caja/pos/page.tsx`)
+- **Modal de Decisión Multi-Cajero:**
+  - Desplegado automáticamente ante el estado `REQUIERE_DECISION_MODALIDAD`.
+  - Tarjeta 1: *"1. Iniciar con CAJA COMPARTIDA (Mismo Gabinete de Dinero)"*, explicando la base inicial activa y la unificación de gaveta.
+  - Tarjeta 2: *"2. Iniciar con CAJA DIVIDIDA (Segundo Gabinete Independiente)"*, con inputs de nombre de gabinete y base inicial con botones rápidos ($50.000, $100.000, etc.).
+- **Barra Superior de Terminal POS:**
+  - Badge visual dinámico indicando el modo de operación:
+    - `Caja Compartida (Gabinete #1 • Principal)` con icono `Users`.
+    - `Caja Dividida (Gabinete #2 • Independiente)` con icono `Layers`.
+
+### 6. Panel de Control de Caja Gerencial (`src/app/admin/caja/page.tsx`)
+- Paleta clara antifatiga visual de alto contraste (WCAG AAA).
+- Pestañas dinámicas de selección de gabinetes si hay múltiples cajas divididas activas.
+- Ficha de turno con visualización de cajero responsable y chips de cajeros participantes en modo compartido.
+- Cuadrícula de métricas en vivo: Esperado en gaveta física, recaudo digital, total recaudado y transferencias.
+- **Desglose de Recaudos por Cajero:** Tabla detallando el efectivo, pagos digitales y total recaudado por cada usuario en el gabinete.
+- Formulario de arqueo y cierre definitivo independiente por gabinete con cálculo de diferencia en tiempo real y respaldo `VACUUM INTO`.
+- Botón rápido en cabecera: **"+ Abrir Otra Caja Dividida (Nuevo Gabinete)"**.
+
+### 7. Aseguramiento de Calidad (QA - Agente 5)
+- Suite automatizada `scripts/test_qa_multi_cajero.ts` ejecutada con éxito validando:
+  1. Apertura inicial de Gabinete #1 con $100.000 de base.
+  2. Unión a Caja Compartida por segundo cajero sin base adicional, recaudos simultáneos y consolidación de arqueo con trazabilidad.
+  3. Apertura de Caja Dividida (Gabinete #2) con base propia de $50.000, aislamiento financiero total y cierre independiente manteniendo Gabinete #1 abierto.
+  4. Bloqueo estricto por turno de día anterior sin cerrar.
+- Compilación `npx tsc --noEmit` y build de producción `npm run build` con **0 errores**.
+
+

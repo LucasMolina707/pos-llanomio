@@ -42,6 +42,9 @@ import {
   History,
   PhoneCall,
   Download,
+  Users,
+  Layers,
+  Split,
 } from "lucide-react";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import ModalProducto, { ProductoData } from "@/components/inventario/ModalProducto";
@@ -166,12 +169,19 @@ export type PestanaHistorial =
   | "PAZ_Y_SALVOS";
 
 export interface EstadoSeguridadPos {
-  estado: "CARGANDO" | "ABIERTO_HOY" | "BLOQUEADO_DIA_ANTERIOR" | "SIN_TURNO";
+  estado:
+    | "CARGANDO"
+    | "ABIERTO_HOY"
+    | "BLOQUEADO_DIA_ANTERIOR"
+    | "SIN_TURNO"
+    | "REQUIERE_DECISION_MODALIDAD";
   bloqueadoParaFacturar: boolean;
   motivoBloqueo: string | null;
   fechaHoy?: string;
   turnoAbierto?: {
     id: string;
+    nombreGabinete?: string;
+    modalidad?: "COMPARTIDA" | "DIVIDIDA";
     fechaApertura: string;
     fechaAperturaLocal: string;
     baseInicialEfectivo: number;
@@ -181,7 +191,30 @@ export interface EstadoSeguridadPos {
       nombre: string;
       username: string;
     };
+    cajerosParticipantes?: Array<{
+      id: string;
+      nombre: string;
+      username: string;
+      fechaUnion?: string;
+    }>;
   } | null;
+  turnoParaCompartir?: {
+    id: string;
+    nombreGabinete: string;
+    modalidad: "COMPARTIDA" | "DIVIDIDA";
+    baseInicialEfectivo: number;
+    usuarioCajero: {
+      id: string;
+      nombre: string;
+      username: string;
+    };
+    cajerosParticipantes?: Array<{
+      id: string;
+      nombre: string;
+      username: string;
+    }>;
+  } | null;
+  turnosAbiertosHoy?: any[];
   arqueoTurno?: {
     baseInicialEfectivo: number;
     totalEfectivo: number;
@@ -190,6 +223,15 @@ export interface EstadoSeguridadPos {
     esperadoEnGaveta: number;
     cantidadAbonos: number;
     cantidadFacturas: number;
+    desgloseCajeros?: Array<{
+      cajeroId: string;
+      nombre: string;
+      username: string;
+      efectivo: number;
+      digital: number;
+      total: number;
+      cantidadAbonos: number;
+    }>;
   } | null;
 }
 
@@ -254,9 +296,18 @@ export default function PosPage() {
   const [turnoAbierto, setTurnoAbierto] = useState<{
     id: string;
     estado: string;
+    nombreGabinete?: string;
+    modalidad?: "COMPARTIDA" | "DIVIDIDA";
     usuarioCajero?: { nombre: string; username: string };
+    cajerosParticipantes?: Array<{ id: string; nombre: string; username: string }>;
   } | null>(null);
   const [usuarioSesion, setUsuarioSesion] = useState<{ nombre: string; username: string } | null>(null);
+
+  // Estados para decisión de modalidad multi-cajero
+  const [nombreGabineteDividido, setNombreGabineteDividido] = useState<string>("");
+  const [baseGabineteDividido, setBaseGabineteDividido] = useState<string>("50000");
+  const [procesandoDecisionModalidad, setProcesandoDecisionModalidad] = useState(false);
+  const [errorDecisionModalidad, setErrorDecisionModalidad] = useState<string | null>(null);
 
   // Configuración de la Empresa
   const [empresaConfig, setEmpresaConfig] = useState<any>({
@@ -391,6 +442,8 @@ export default function PosPage() {
           motivoBloqueo: dataCaja.motivoBloqueo || null,
           fechaHoy: dataCaja.fechaHoy,
           turnoAbierto: dataCaja.turnoAbierto || null,
+          turnoParaCompartir: dataCaja.turnoParaCompartir || null,
+          turnosAbiertosHoy: dataCaja.turnosAbiertosHoy || [],
           arqueoTurno: dataCaja.arqueoTurno || null,
         });
 
@@ -398,7 +451,10 @@ export default function PosPage() {
           setTurnoAbierto({
             id: dataCaja.turnoAbierto.id,
             estado: "ABIERTO",
+            nombreGabinete: dataCaja.turnoAbierto.nombreGabinete,
+            modalidad: dataCaja.turnoAbierto.modalidad,
             usuarioCajero: dataCaja.turnoAbierto.usuarioCajero,
+            cajerosParticipantes: dataCaja.turnoAbierto.cajerosParticipantes,
           });
         } else {
           setTurnoAbierto(null);
@@ -450,6 +506,66 @@ export default function PosPage() {
       setErrorAperturaRapida(err instanceof Error ? err.message : "Error al abrir turno");
     } finally {
       setProcesandoAperturaRapida(false);
+    }
+  };
+
+  const handleUnirseCajaCompartida = async () => {
+    try {
+      setProcesandoDecisionModalidad(true);
+      setErrorDecisionModalidad(null);
+      const res = await fetch("/api/caja", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accion: "UNIRSE_COMPARTIDA",
+          turnoCajaId: seguridadCaja.turnoParaCompartir?.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "No fue posible unirse a la caja compartida.");
+      }
+      await cargarSesionYTurno();
+    } catch (err: unknown) {
+      setErrorDecisionModalidad(
+        err instanceof Error ? err.message : "Error al unirse a la caja compartida"
+      );
+    } finally {
+      setProcesandoDecisionModalidad(false);
+    }
+  };
+
+  const handleAbrirCajaDividida = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    try {
+      setProcesandoDecisionModalidad(true);
+      setErrorDecisionModalidad(null);
+      const base = parseFloat(baseGabineteDividido);
+      if (isNaN(base) || base < 0) {
+        setErrorDecisionModalidad("Ingrese un monto válido para la base inicial en efectivo.");
+        return;
+      }
+      const res = await fetch("/api/caja", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accion: "APERTURA",
+          modalidad: "DIVIDIDA",
+          nombreGabinete: nombreGabineteDividido.trim() || undefined,
+          baseInicialEfectivo: base,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "No fue posible abrir la caja dividida.");
+      }
+      await cargarSesionYTurno();
+    } catch (err: unknown) {
+      setErrorDecisionModalidad(
+        err instanceof Error ? err.message : "Error al abrir la caja dividida"
+      );
+    } finally {
+      setProcesandoDecisionModalidad(false);
     }
   };
 
@@ -1058,16 +1174,32 @@ export default function PosPage() {
                     href="/admin/caja"
                     target="_blank"
                     title="Caja al día. Clic para ver arqueo en tiempo real"
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 font-bold transition text-xs"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 font-bold transition text-xs shadow-2xs"
                   >
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Caja Abierta Hoy</span>
+                    {seguridadCaja.turnoAbierto?.modalidad === "DIVIDIDA" ? (
+                      <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                    ) : (
+                      <Users className="w-3.5 h-3.5 text-emerald-600" />
+                    )}
+                    <span>
+                      {seguridadCaja.turnoAbierto?.modalidad === "DIVIDIDA"
+                        ? `Caja Dividida (${seguridadCaja.turnoAbierto?.nombreGabinete || "Gabinete #2"})`
+                        : `Caja Compartida (${seguridadCaja.turnoAbierto?.nombreGabinete || "Gabinete Principal"})`}
+                    </span>
                     {seguridadCaja.turnoAbierto?.baseInicialEfectivo ? (
-                      <span className="font-mono text-emerald-900">
+                      <span className="font-mono text-emerald-950 font-black">
                         (${seguridadCaja.turnoAbierto.baseInicialEfectivo.toLocaleString("es-CO")})
                       </span>
                     ) : null}
                   </Link>
+                ) : seguridadCaja.estado === "REQUIERE_DECISION_MODALIDAD" ? (
+                  <div
+                    title="Debe seleccionar modalidad de caja (Compartida o Dividida)"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-blue-50 border border-blue-300 text-blue-900 font-bold text-xs"
+                  >
+                    <Users className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Selección de Modalidad Requerida</span>
+                  </div>
                 ) : seguridadCaja.estado === "BLOQUEADO_DIA_ANTERIOR" ? (
                   <Link
                     href="/admin/caja"
@@ -2946,6 +3078,178 @@ export default function PosPage() {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* CASO C: MODAL DE DECISIÓN DE MODALIDAD PARA SEGUNDO CAJERO EN TIENDA      */}
+      {/* ========================================================================= */}
+      {seguridadCaja.estado === "REQUIERE_DECISION_MODALIDAD" && !cargandoSeguridadCaja && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in overflow-y-auto">
+          <div className="bg-[#FCFDFE] rounded-3xl border border-blue-200 shadow-2xl w-full max-w-3xl p-6 sm:p-8 flex flex-col space-y-6 text-slate-800 my-8">
+            {/* Cabecera */}
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shadow-xs">
+                <Users className="w-7 h-7" />
+              </div>
+              <div>
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-blue-700 block mb-1">
+                  Operación Multi-Cajero en Tienda
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
+                  Asignación de Turno de Caja
+                </h2>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto font-medium">
+                Ya existe una caja abierta para la jornada de hoy. Selecciona si deseas compartir el mismo gabinete físico o habilitar un gabinete independiente con su propia base.
+              </p>
+            </div>
+
+            {/* Error si ocurre */}
+            {errorDecisionModalidad && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs sm:text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span className="font-semibold">{errorDecisionModalidad}</span>
+              </div>
+            )}
+
+            {/* Selector de 2 Opciones Claras */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* OPCIÓN 1: CAJA COMPARTIDA */}
+              <div className="rounded-2xl border-2 border-emerald-300 bg-white p-5 flex flex-col justify-between space-y-4 hover:border-emerald-500 hover:shadow-md transition">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                      Modo Recomendado
+                    </span>
+                    <Users className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                    1. Iniciar con CAJA COMPARTIDA
+                  </h3>
+                  <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                    Usarás el mismo gabinete de efectivo que ya abrió{" "}
+                    <strong className="text-slate-950">
+                      {seguridadCaja.turnoParaCompartir?.usuarioCajero.nombre || "tu compañero"}
+                    </strong>{" "}
+                    (Base inicial:{" "}
+                    <span className="font-mono font-bold text-emerald-800">
+                      ${(seguridadCaja.turnoParaCompartir?.baseInicialEfectivo || 0).toLocaleString("es-CO")}
+                    </span>{" "}
+                    en {seguridadCaja.turnoParaCompartir?.nombreGabinete || "Gabinete Principal"}).
+                  </p>
+                  <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-950 font-medium">
+                    Todo el dinero entrará a una sola cuenta/gaveta física para agilizar la fila de tienda. El sistema conservará la trazabilidad exacta de tus cobros bajo tu nombre.
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={procesandoDecisionModalidad}
+                  onClick={handleUnirseCajaCompartida}
+                  className="w-full py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-sm shadow-emerald-600/20 flex items-center justify-center gap-2 min-h-[44px] cursor-pointer disabled:opacity-50"
+                >
+                  {procesandoDecisionModalidad ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4" />
+                  )}
+                  <span>Unirme a Caja Compartida</span>
+                </button>
+              </div>
+
+              {/* OPCIÓN 2: CAJA DIVIDIDA */}
+              <div className="rounded-2xl border-2 border-indigo-300 bg-white p-5 flex flex-col justify-between space-y-4 hover:border-indigo-500 hover:shadow-md transition">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-100 text-indigo-800">
+                      Gabinete Separado
+                    </span>
+                    <Layers className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 leading-snug">
+                    2. Iniciar con CAJA DIVIDIDA
+                  </h3>
+                  <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                    Tendrás tu propio gabinete de dinero separado. Tus ventas, efectivo en gaveta y cierre de caja se llevarán en una cuenta 100% independiente.
+                  </p>
+
+                  <div className="space-y-2 pt-1">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                        Nombre del Gabinete:
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={`Gabinete #2 - ${usuarioSesion?.nombre || "Cajero"}`}
+                        value={nombreGabineteDividido}
+                        onChange={(e) => setNombreGabineteDividido(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                        Base Inicial en Efectivo ($):
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1000"
+                        value={baseGabineteDividido}
+                        onChange={(e) => setBaseGabineteDividido(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                      />
+                      <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                        {[0, 50000, 100000, 150000].map((monto) => (
+                          <button
+                            key={monto}
+                            type="button"
+                            onClick={() => setBaseGabineteDividido(String(monto))}
+                            className="py-1 px-2 rounded-md text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 cursor-pointer"
+                          >
+                            ${monto.toLocaleString("es-CO")}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={procesandoDecisionModalidad}
+                  onClick={handleAbrirCajaDividida}
+                  className="w-full py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm shadow-indigo-600/20 flex items-center justify-center gap-2 min-h-[44px] cursor-pointer disabled:opacity-50"
+                >
+                  {procesandoDecisionModalidad ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Vault className="w-4 h-4" />
+                  )}
+                  <span>Abrir Caja Dividida</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Pie y Navegación */}
+            <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-200">
+              <Link
+                href="/admin/caja"
+                target="_blank"
+                className="text-blue-700 hover:text-blue-800 font-bold underline flex items-center gap-1"
+              >
+                <Vault className="w-3.5 h-3.5" />
+                <span>Panel de Control de Caja</span>
+              </Link>
+
+              <Link
+                href="/"
+                className="text-slate-600 hover:text-slate-900 font-semibold"
+              >
+                Volver al Menú Principal
+              </Link>
+            </div>
           </div>
         </div>
       )}

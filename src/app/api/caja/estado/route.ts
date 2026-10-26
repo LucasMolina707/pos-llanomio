@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verificarEstadoCajaParaFacturacion } from "@/lib/caja-control";
+import { obtenerSesionDesdeRequest } from "@/lib/auth";
 import { MetodoPago } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -13,31 +14,41 @@ const NO_CACHE_HEADERS = {
 
 /**
  * GET /api/caja/estado
- * Verifica el estado del turno de caja en tiempo real y valida la regla estricta de seguridad:
+ * Verifica el estado del turno de caja en tiempo real y valida la regla estricta de seguridad y multi-cajero:
  * - Caso A: Sin turno abierto hoy => Bloqueo con modal de apertura y base inicial.
  * - Caso B: Turno abierto de un día anterior => Bloqueo crítico financiero con obligación de cierre y arqueo previo.
- * - Caso C: Turno abierto hoy => Habilitado para facturación normal.
+ * - Caso C: Turno abierto hoy y usuario asignado => Habilitado para facturación normal en su gabinete.
+ * - Caso D: Turno abierto hoy pero usuario no asignado => REQUIERE_DECISION_MODALIDAD (Caja Compartida vs Caja Dividida).
  */
 export async function GET(req: NextRequest) {
   try {
-    const verificacion = await verificarEstadoCajaParaFacturacion(prisma);
+    const sesion = await obtenerSesionDesdeRequest(req);
+    const usuarioId = sesion?.userId;
+
+    const verificacion = await verificarEstadoCajaParaFacturacion(prisma, usuarioId);
 
     let arqueoTurno = null;
 
     if (verificacion.turnoAbierto) {
+      const turnoId = verificacion.turnoAbierto.id;
       const fechaApertura = new Date(verificacion.turnoAbierto.fechaApertura);
 
-      // Calcular abonos recibidos en este turno
+      // Calcular abonos recibidos en este turno de gabinete
       const abonos = await prisma.abono.findMany({
         where: {
-          fecha: {
-            gte: fechaApertura,
-          },
+          OR: [
+            { turnoCajaId: turnoId },
+            { turnoCajaId: null, fecha: { gte: fechaApertura } },
+          ],
         },
         select: {
           id: true,
           monto: true,
           metodoPago: true,
+          cajeroId: true,
+          cajero: {
+            select: { id: true, nombre: true, username: true },
+          },
         },
       });
 
@@ -48,12 +59,46 @@ export async function GET(req: NextRequest) {
       let totalTransferencia = 0;
       let totalConsignacion = 0;
 
+      const desgloseCajerosMap = new Map<
+        string,
+        {
+          cajeroId: string;
+          nombre: string;
+          username: string;
+          efectivo: number;
+          digital: number;
+          total: number;
+          cantidadAbonos: number;
+        }
+      >();
+
       for (const a of abonos) {
         const m = Number(a.monto) || 0;
+        const cId = a.cajeroId;
+        const cNombre = a.cajero?.nombre || "Cajero";
+        const cUser = a.cajero?.username || "cajero";
+
+        if (!desgloseCajerosMap.has(cId)) {
+          desgloseCajerosMap.set(cId, {
+            cajeroId: cId,
+            nombre: cNombre,
+            username: cUser,
+            efectivo: 0,
+            digital: 0,
+            total: 0,
+            cantidadAbonos: 0,
+          });
+        }
+        const cajeroStat = desgloseCajerosMap.get(cId)!;
+        cajeroStat.cantidadAbonos += 1;
+        cajeroStat.total += m;
+
         if (a.metodoPago === MetodoPago.EFECTIVO) {
           totalEfectivo += m;
+          cajeroStat.efectivo += m;
         } else {
           totalDigital += m;
+          cajeroStat.digital += m;
           if (a.metodoPago === MetodoPago.NEQUI) totalNequi += m;
           else if (a.metodoPago === MetodoPago.DAVIPLATA) totalDaviplata += m;
           else if (a.metodoPago === MetodoPago.TRANSFERENCIA) totalTransferencia += m;
@@ -67,9 +112,10 @@ export async function GET(req: NextRequest) {
 
       const cantidadFacturas = await prisma.factura.count({
         where: {
-          fechaCreacion: {
-            gte: fechaApertura,
-          },
+          OR: [
+            { turnoCajaId: turnoId },
+            { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
+          ],
         },
       });
 
@@ -85,6 +131,12 @@ export async function GET(req: NextRequest) {
         esperadoEnGaveta,
         cantidadAbonos: abonos.length,
         cantidadFacturas,
+        desgloseCajeros: Array.from(desgloseCajerosMap.values()).map((c) => ({
+          ...c,
+          efectivo: Math.round(c.efectivo * 100) / 100,
+          digital: Math.round(c.digital * 100) / 100,
+          total: Math.round(c.total * 100) / 100,
+        })),
       };
     }
 

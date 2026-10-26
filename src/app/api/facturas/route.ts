@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
-import { verificarEstadoCajaParaFacturacion } from "@/lib/caja-control";
+import { verificarEstadoCajaParaFacturacion, parsearCajerosParticipantes } from "@/lib/caja-control";
 import { EstadoFactura, MetodoPago, TipoOperacion, TipoProducto } from "@prisma/client";
 
 interface ItemDetalleInput {
@@ -204,22 +204,6 @@ export async function POST(req: NextRequest) {
       notas,
     } = body;
 
-    // 0. Control Estricto de Seguridad Financiera POS (Apertura Obligatoria y Bloqueo Día Anterior)
-    const controlCaja = await verificarEstadoCajaParaFacturacion(prisma);
-    if (controlCaja.bloqueadoParaFacturar) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: controlCaja.motivoBloqueo,
-          codigoSeguridad: controlCaja.estado,
-          requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
-          requiereAperturaHoy: controlCaja.estado === "SIN_TURNO",
-          turnoAbierto: controlCaja.turnoAbierto,
-        },
-        { status: 409 }
-      );
-    }
-
     // 1. Determinar y validar el cajero autenticado obligatoriamente
     let cajeroId = sesion?.userId || cajeroIdBody;
 
@@ -237,6 +221,24 @@ export async function POST(req: NextRequest) {
         );
       }
       cajeroId = usuarioActivo.id;
+    }
+
+    // 0. Control Estricto de Seguridad Financiera POS (Apertura Obligatoria, Bloqueo Día Anterior y Asignación de Turno)
+    const controlCaja = await verificarEstadoCajaParaFacturacion(prisma, cajeroId);
+    if (controlCaja.bloqueadoParaFacturar) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: controlCaja.motivoBloqueo,
+          codigoSeguridad: controlCaja.estado,
+          requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
+          requiereAperturaHoy: controlCaja.estado === "SIN_TURNO",
+          requiereDecisionModalidad: controlCaja.estado === "REQUIERE_DECISION_MODALIDAD",
+          turnoAbierto: controlCaja.turnoAbierto,
+          turnoParaCompartir: controlCaja.turnoParaCompartir,
+        },
+        { status: 409 }
+      );
     }
 
     // 2. Validar cliente existente
@@ -428,11 +430,21 @@ export async function POST(req: NextRequest) {
       // Reservar correlativo estrictamente numérico, secuencial e inmodificable
       const { consecutivo, numeroFactura } = await reservarSiguienteFolioFactura(tx);
 
-      // Buscar turno de caja abierto actual
-      const turnoAbierto = await tx.turnoCaja.findFirst({
+      // Buscar el turno de caja abierto correspondiente al gabinete del cajero autenticado
+      const turnosAbiertos = await tx.turnoCaja.findMany({
         where: { estado: "ABIERTO" },
         orderBy: { fechaApertura: "desc" },
       });
+
+      let turnoAbierto = null;
+      if (turnosAbiertos.length > 0) {
+        turnoAbierto =
+          turnosAbiertos.find((t) => {
+            if (t.usuarioCajeroId === cajeroId) return true;
+            const participantes = parsearCajerosParticipantes(t.cajerosParticipantes);
+            return participantes.some((p) => p.id === cajeroId);
+          }) || turnosAbiertos[0];
+      }
 
       const abonosConTurno = abonosDataCreacion.map((ab) => ({
         ...ab,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
-import { verificarEstadoCajaParaFacturacion } from "@/lib/caja-control";
+import { verificarEstadoCajaParaFacturacion, parsearCajerosParticipantes } from "@/lib/caja-control";
 import { EstadoFactura, MetodoPago, TipoProducto, EstadoPrenda } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -103,23 +103,6 @@ export async function POST(req: NextRequest, { params }: Params) {
       );
     }
 
-    // Control de Caja: Si ingresa dinero, la caja no puede estar bloqueada o sin turno
-    if (montoNumerico > 0) {
-      const controlCaja = await verificarEstadoCajaParaFacturacion(prisma);
-      if (controlCaja.bloqueadoParaFacturar) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: controlCaja.motivoBloqueo,
-            codigoSeguridad: controlCaja.estado,
-            requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
-            requiereAperturaHoy: controlCaja.estado === "SIN_TURNO",
-          },
-          { status: 409 }
-        );
-      }
-    }
-
     // 2. Determinar y validar el cajero autenticado
     let cajeroId = sesion?.userId || cajeroIdBody;
     if (!cajeroId) {
@@ -135,6 +118,26 @@ export async function POST(req: NextRequest, { params }: Params) {
         { success: false, error: "No se identificó un cajero activo para procesar el cobro" },
         { status: 401 }
       );
+    }
+
+    // Control de Caja: Si ingresa dinero, la caja no puede estar bloqueada o sin turno
+    if (montoNumerico > 0) {
+      const controlCaja = await verificarEstadoCajaParaFacturacion(prisma, cajeroId);
+      if (controlCaja.bloqueadoParaFacturar) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: controlCaja.motivoBloqueo,
+            codigoSeguridad: controlCaja.estado,
+            requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
+            requiereAperturaHoy: controlCaja.estado === "SIN_TURNO",
+            requiereDecisionModalidad: controlCaja.estado === "REQUIERE_DECISION_MODALIDAD",
+            turnoAbierto: controlCaja.turnoAbierto,
+            turnoParaCompartir: controlCaja.turnoParaCompartir,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // 3. Buscar factura existente
@@ -167,11 +170,21 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // 5. Transacción atómica en base de datos SQLite
     const resultado = await prisma.$transaction(async (tx) => {
-      // Buscar turno de caja abierto actual
-      const turnoAbierto = await tx.turnoCaja.findFirst({
+      // Buscar el turno de caja abierto asignado a este cajero
+      const turnosAbiertos = await tx.turnoCaja.findMany({
         where: { estado: "ABIERTO" },
         orderBy: { fechaApertura: "desc" },
       });
+
+      let turnoAbierto = null;
+      if (turnosAbiertos.length > 0) {
+        turnoAbierto =
+          turnosAbiertos.find((t) => {
+            if (t.usuarioCajeroId === cajeroId) return true;
+            const participantes = parsearCajerosParticipantes(t.cajerosParticipantes);
+            return participantes.some((p) => p.id === cajeroId);
+          }) || turnosAbiertos[0];
+      }
 
       let nuevoTotalFactura = facturaExistente.totalFactura;
       let nuevoRecargoMora = facturaExistente.recargoMoraAcumulado;
