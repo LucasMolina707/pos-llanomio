@@ -33,6 +33,11 @@ export async function GET() {
         rol: true,
         activo: true,
         permisos: true,
+        documentoIdentidad: true,
+        preguntaSeguridad: true,
+        pinSeguridadHash: true,
+        intentosFallidos: true,
+        bloqueadoHasta: true,
         ultimaRestauracion: true,
         fechaCreacion: true,
         _count: {
@@ -51,6 +56,11 @@ export async function GET() {
       nombre: u.nombre,
       rol: u.rol,
       activo: u.activo,
+      documentoIdentidad: u.documentoIdentidad,
+      preguntaSeguridad: u.preguntaSeguridad,
+      tienePin: Boolean(u.pinSeguridadHash),
+      intentosFallidos: u.intentosFallidos,
+      bloqueadoHasta: u.bloqueadoHasta,
       permisos: parsearPermisos(u.permisos, u.rol),
       ultimaRestauracion: u.ultimaRestauracion,
       fechaCreacion: u.fechaCreacion,
@@ -84,7 +94,15 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { nombre, username, password, rol = "CAJERO", activo = true, permisos } = body;
+    const {
+      nombre,
+      username,
+      password,
+      rol = "CAJERO",
+      activo = true,
+      permisos,
+      documentoIdentidad,
+    } = body;
 
     // 1. Validaciones de campos obligatorios
     if (!nombre?.trim()) {
@@ -151,6 +169,7 @@ export async function POST(req: NextRequest) {
         rol: rolFinal,
         activo: Boolean(activo),
         permisos: JSON.stringify(permisosFinales),
+        documentoIdentidad: documentoIdentidad ? String(documentoIdentidad).trim() : null,
         ultimaRestauracion: new Date(),
       },
       select: {

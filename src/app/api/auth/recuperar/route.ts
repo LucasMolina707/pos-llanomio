@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import * as bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs";
 import { sincronizarArchivoCredencialesMaestras } from "@/lib/usuarios-sync";
 
 export const dynamic = "force-dynamic";
@@ -12,121 +12,303 @@ const NO_CACHE_HEADERS = {
 };
 
 /**
+ * Normaliza cadenas de texto para comparar respuestas de seguridad (minúsculas, sin tildes ni espacios extra)
+ */
+function normalizarTexto(texto: string): string {
+  return texto
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+/**
  * GET /api/auth/recuperar
- * Retorna la lista de usuarios activos para facilitar la selección en el modal de recuperación.
+ * Endpoint de estado de seguridad
  */
 export async function GET() {
-  try {
-    const usuarios = await prisma.user.findMany({
-      where: { activo: true },
-      select: {
-        id: true,
-        username: true,
-        nombre: true,
-        rol: true,
-      },
-      orderBy: { username: "asc" },
-    });
-
-    return NextResponse.json({ ok: true, success: true, usuarios }, { headers: NO_CACHE_HEADERS });
-  } catch (error: unknown) {
-    console.error("Error al consultar usuarios para recuperación:", error);
-    return NextResponse.json(
-      { ok: false, success: false, error: "Error interno al consultar usuarios" },
-      { status: 500, headers: NO_CACHE_HEADERS }
-    );
-  }
+  return NextResponse.json(
+    {
+      ok: true,
+      mensaje: "Protocolo de Verificación de Identidad de 3 Factores Activo.",
+    },
+    { headers: NO_CACHE_HEADERS }
+  );
 }
 
 /**
  * POST /api/auth/recuperar
- * Restablece la contraseña de cualquier usuario validando la Llave Maestra Local de Recuperación.
+ * Protocolo de Verificación de Identidad de 3 Factores Locales Encriptados con bcryptjs
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { username, masterKey, nuevaPassword } = body;
+    const {
+      accion,
+      paso,
+      username,
+      documentoIdentidad,
+      pinSeguridad,
+      respuestaSeguridad,
+      nuevaPassword,
+    } = body;
 
-    if (!username?.trim()) {
+    const esPaso1 = accion === "PASO_1" || paso === 1 || paso === "1";
+    const esPaso2 = accion === "PASO_2" || paso === 2 || paso === "2";
+
+    const usernameLimpio = String(username || "").trim();
+    const documentoLimpio = String(documentoIdentidad || "").trim();
+
+    if (!usernameLimpio || !documentoLimpio) {
       return NextResponse.json(
-        { success: false, error: "Debe especificar el nombre de usuario a restaurar" },
-        { status: 400 }
+        { ok: false, error: "El nombre de usuario y el documento de identidad son obligatorios." },
+        { status: 400, headers: NO_CACHE_HEADERS }
       );
     }
 
-    if (!masterKey?.trim()) {
+    // 1. Buscar usuario en SQLite
+    const usuario = await prisma.user.findUnique({
+      where: { username: usernameLimpio },
+    });
+
+    if (!usuario) {
       return NextResponse.json(
-        { success: false, error: "Debe ingresar la Llave Maestra de Recuperación Local" },
-        { status: 400 }
+        { ok: false, error: "Datos de verificación no coincidentes con ninguna cuenta registrada." },
+        { status: 401, headers: NO_CACHE_HEADERS }
       );
     }
 
-    if (!nuevaPassword || nuevaPassword.trim().length < 4) {
-      return NextResponse.json(
-        { success: false, error: "La nueva contraseña debe tener al menos 4 caracteres" },
-        { status: 400 }
-      );
-    }
-
-    // Validar Llave Maestra Local (desde .env o fallback oficial de tienda)
-    const masterKeyEsperada = (process.env.MASTER_RECOVERY_KEY || "LLANOMIO-ADMIN-2026").trim();
-    if (masterKey.trim() !== masterKeyEsperada) {
+    // 2. Verificar si la cuenta se encuentra bloqueada por intentos fallidos
+    if (usuario.bloqueadoHasta && new Date(usuario.bloqueadoHasta) > new Date()) {
+      const msRestantes = new Date(usuario.bloqueadoHasta).getTime() - Date.now();
+      const minutosRestantes = Math.max(1, Math.ceil(msRestantes / (60 * 1000)));
       return NextResponse.json(
         {
-          success: false,
-          error:
-            "Llave Maestra de Recuperación inválida. Consulte el archivo USUARIOS_Y_CREDENCIALES_MAESTRAS.md en el servidor.",
+          ok: false,
+          bloqueado: true,
+          error: `Cuenta bloqueada por seguridad tras reiterados intentos fallidos. Intente nuevamente en ${minutosRestantes} minuto(s).`,
         },
-        { status: 401 }
+        { status: 423, headers: NO_CACHE_HEADERS }
       );
     }
 
-    // Buscar el usuario a restaurar
-    const usuarioTarget = await prisma.user.findFirst({
-      where: {
-        username: {
-          equals: username.trim(),
-        },
-      },
-    });
+    // Normalizar y comparar Documento de Identidad / Cédula / NIT
+    const docBD = normalizarTexto(usuario.documentoIdentidad || "");
+    const docIngresado = normalizarTexto(documentoLimpio);
+    const documentoCoincide = docBD.length > 0 && docBD === docIngresado;
 
-    if (!usuarioTarget) {
+    // =========================================================================
+    // PASO 1: VERIFICAR IDENTIDAD Y DESPLEGAR DESAFÍO DE PREGUNTA DE SEGURIDAD
+    // =========================================================================
+    if (esPaso1) {
+      if (!documentoCoincide) {
+        // Registrar intento fallido
+        const nuevoConteo = (usuario.intentosFallidos || 0) + 1;
+        const debeBloquear = nuevoConteo >= 3;
+        const bloqueadoHasta = debeBloquear ? new Date(Date.now() + 15 * 60 * 1000) : null;
+
+        await prisma.user.update({
+          where: { id: usuario.id },
+          data: {
+            intentosFallidos: nuevoConteo,
+            bloqueadoHasta,
+          },
+        });
+
+        if (debeBloquear) {
+          return NextResponse.json(
+            {
+              ok: false,
+              bloqueado: true,
+              error: "Cuenta bloqueada por seguridad durante 15 minutos debido a 3 intentos no válidos.",
+            },
+            { status: 423, headers: NO_CACHE_HEADERS }
+          );
+        }
+
+        const restantes = 3 - nuevoConteo;
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `Documento de identidad no coincide para este usuario. Intentos restantes antes del bloqueo: ${restantes}.`,
+          },
+          { status: 401, headers: NO_CACHE_HEADERS }
+        );
+      }
+
+      // Si coincide el documento, retornar la pregunta de seguridad sin revelar respuestas
       return NextResponse.json(
         {
-          success: false,
-          error: `El usuario '${username}' no se encuentra registrado en el sistema local.`,
+          ok: true,
+          paso: 2,
+          preguntaSeguridad:
+            usuario.preguntaSeguridad ||
+            "¿Cuál es la clave de seguridad institucional de LLANOMIO?",
         },
-        { status: 404 }
+        { headers: NO_CACHE_HEADERS }
       );
     }
 
-    // Hashear la nueva contraseña con bcryptjs (saltRounds: 10)
-    const nuevoHash = await bcrypt.hash(nuevaPassword.trim(), 10);
-    const ahora = new Date();
+    // =========================================================================
+    // PASO 2: VERIFICAR LOS 3 FACTORES Y RESTABLECER CONTRASEÑA
+    // =========================================================================
+    if (esPaso2) {
+      const pinLimpio = String(pinSeguridad || "").trim();
+      const respuestaLimpia = normalizarTexto(String(respuestaSeguridad || ""));
+      const passLimpia = String(nuevaPassword || "").trim();
 
-    await prisma.user.update({
-      where: { id: usuarioTarget.id },
-      data: {
-        passwordHash: nuevoHash,
-        ultimaRestauracion: ahora,
-      },
-    });
+      if (!documentoCoincide) {
+        const nuevoConteo = (usuario.intentosFallidos || 0) + 1;
+        const debeBloquear = nuevoConteo >= 3;
+        const bloqueadoHasta = debeBloquear ? new Date(Date.now() + 15 * 60 * 1000) : null;
 
-    // Auto-sincronizar el archivo maestro de credenciales en la raíz
-    await sincronizarArchivoCredencialesMaestras(prisma);
+        await prisma.user.update({
+          where: { id: usuario.id },
+          data: {
+            intentosFallidos: nuevoConteo,
+            bloqueadoHasta,
+          },
+        });
 
-    return NextResponse.json({
-      ok: true,
-      success: true,
-      mensaje: `Contraseña restablecida exitosamente para @${usuarioTarget.username} (${usuarioTarget.nombre}). Ya puede iniciar sesión con su nueva clave.`,
-      username: usuarioTarget.username,
-      nombre: usuarioTarget.nombre,
-    });
-  } catch (error: unknown) {
-    console.error("Error en recuperación de contraseña:", error);
+        if (debeBloquear) {
+          return NextResponse.json(
+            {
+              ok: false,
+              bloqueado: true,
+              error: "Cuenta bloqueada por seguridad durante 15 minutos debido a 3 intentos fallidos.",
+            },
+            { status: 423, headers: NO_CACHE_HEADERS }
+          );
+        }
+
+        const restantes = 3 - nuevoConteo;
+        return NextResponse.json(
+          { ok: false, error: `El documento de identidad no coincide. Intentos restantes: ${restantes}.` },
+          { status: 401, headers: NO_CACHE_HEADERS }
+        );
+      }
+
+      if (!pinLimpio || pinLimpio.length < 4) {
+        return NextResponse.json(
+          { ok: false, error: "Debe ingresar su PIN de seguridad de 6 dígitos." },
+          { status: 400, headers: NO_CACHE_HEADERS }
+        );
+      }
+
+      if (!respuestaLimpia) {
+        return NextResponse.json(
+          { ok: false, error: "Debe ingresar la respuesta a su pregunta de seguridad." },
+          { status: 400, headers: NO_CACHE_HEADERS }
+        );
+      }
+
+      if (passLimpia.length < 6) {
+        return NextResponse.json(
+          { ok: false, error: "La nueva contraseña debe tener un mínimo de 6 caracteres." },
+          { status: 400, headers: NO_CACHE_HEADERS }
+        );
+      }
+
+      // 1. Validar PIN de seguridad (contra hash bcrypt o PIN inicial)
+      let pinValido = false;
+      if (usuario.pinSeguridadHash) {
+        pinValido = await bcrypt.compare(pinLimpio, usuario.pinSeguridadHash);
+      } else {
+        pinValido = pinLimpio === "123456" || pinLimpio === (process.env.MASTER_RECOVERY_KEY || "LLANOMIO-ADMIN-2026");
+      }
+
+      // 2. Validar Respuesta de Seguridad (contra hash bcrypt o respuesta inicial)
+      let respuestaValida = false;
+      if (usuario.respuestaSeguridadHash) {
+        respuestaValida = await bcrypt.compare(respuestaLimpia, usuario.respuestaSeguridadHash);
+        // Si no coincidió, probar quitando cualquier espacio en blanco intermedio
+        if (!respuestaValida) {
+          respuestaValida = await bcrypt.compare(respuestaLimpia.replace(/\s+/g, ""), usuario.respuestaSeguridadHash);
+        }
+        // También intentar comparar en texto crudo si fue generado antes de normalizar
+        if (!respuestaValida) {
+          respuestaValida = await bcrypt.compare(String(respuestaSeguridad).trim(), usuario.respuestaSeguridadHash);
+        }
+      } else {
+        respuestaValida =
+          respuestaLimpia === "llanomio2026" ||
+          respuestaLimpia.replace(/\s+/g, "") === "llanomio2026" ||
+          respuestaLimpia === "llanomio";
+      }
+
+      // Si alguno de los factores falla
+      if (!pinValido || !respuestaValida) {
+        const nuevoConteo = (usuario.intentosFallidos || 0) + 1;
+        const debeBloquear = nuevoConteo >= 3;
+        const bloqueadoHasta = debeBloquear ? new Date(Date.now() + 15 * 60 * 1000) : null;
+
+        await prisma.user.update({
+          where: { id: usuario.id },
+          data: {
+            intentosFallidos: nuevoConteo,
+            bloqueadoHasta,
+          },
+        });
+
+        if (debeBloquear) {
+          return NextResponse.json(
+            {
+              ok: false,
+              bloqueado: true,
+              error: "Cuenta bloqueada por seguridad durante 15 minutos debido a 3 intentos fallidos.",
+            },
+            { status: 423, headers: NO_CACHE_HEADERS }
+          );
+        }
+
+        const restantes = 3 - nuevoConteo;
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `Verificación fallida: El PIN numérico o la respuesta de seguridad son incorrectos. Intentos restantes: ${restantes}.`,
+          },
+          { status: 401, headers: NO_CACHE_HEADERS }
+        );
+      }
+
+      // =======================================================================
+      // LOS 3 FACTORES FUERON SUPERADOS EXITOSAMENTE -> ACTUALIZAR CONTRASEÑA
+      // =======================================================================
+      const nuevoPasswordHash = await bcrypt.hash(passLimpia, 10);
+      const ahora = new Date();
+
+      await prisma.user.update({
+        where: { id: usuario.id },
+        data: {
+          passwordHash: nuevoPasswordHash,
+          ultimaRestauracion: ahora,
+          intentosFallidos: 0,
+          bloqueadoHasta: null,
+        },
+      });
+
+      // Auto-sincronizar el archivo maestro de credenciales en la raíz
+      await sincronizarArchivoCredencialesMaestras(prisma);
+
+      return NextResponse.json(
+        {
+          ok: true,
+          mensaje: `Contraseña restablecida exitosamente para @${usuario.username} (${usuario.nombre}). Ya puede iniciar sesión con su nueva clave.`,
+        },
+        { headers: NO_CACHE_HEADERS }
+      );
+    }
+
     return NextResponse.json(
-      { ok: false, success: false, error: "Error interno al procesar la restauración de contraseña" },
-      { status: 500 }
+      { ok: false, error: "Acción no reconocida." },
+      { status: 400, headers: NO_CACHE_HEADERS }
+    );
+  } catch (error: unknown) {
+    console.error("Error en /api/auth/recuperar:", error);
+    return NextResponse.json(
+      { ok: false, error: "Error interno en el servidor de autenticación." },
+      { status: 500, headers: NO_CACHE_HEADERS }
     );
   }
 }

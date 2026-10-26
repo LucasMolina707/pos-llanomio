@@ -62,49 +62,54 @@ const RUTA_ARCHIVO_MAESTRO = path.join(process.cwd(), "USUARIOS_Y_CREDENCIALES_M
  * Genera el encabezado y contenido estático de las Secciones 1 y 2 del archivo maestro.
  */
 function generarContenidoBase(): string {
-  return `# REGISTRO MAESTRO DE USUARIOS, CREDENCIALES Y RECUPERACIÓN POS LLANOMIO
+  return `# REGISTRO MAESTRO DE USUARIOS, CREDENCIALES Y PROTOCOLO DE RECUPERACIÓN POS LLANOMIO
 
-> **AVISO DE SEGURIDAD OPERATIVA:** Este documento reside en el servidor local de la tienda (\`C:\\Proyectos\\pos-llanomio\`). Contiene las credenciales por defecto, la matriz oficial de roles y permisos (RBAC), el PIN Maestro de Emergencia y la tabla auto-sincronizada de cuentas activas en SQLite (\`database/llanomio.db\`).
+> **AVISO DE SEGURIDAD OPERATIVA:** Este documento reside en el servidor local de la tienda (\`C:\\Proyectos\\pos-llanomio\`). Contiene las credenciales base, la matriz oficial de roles y permisos (RBAC), el Protocolo Criptográfico de 3 Factores Locales contra SQLite (\`database/llanomio.db\`) y el registro auto-sincronizado de cuentas.
 
 ---
 
-## 1. Credenciales Iniciales y Llave Maestra de Recuperación
+## 1. Credenciales Iniciales y Protocolo de Recuperación de 3 Factores
 
 | Usuario (\`username\`) | Nombre Oficial | Rol | Contraseña Inicial Seed | Propósito |
 | :--- | :--- | :--- | :--- | :--- |
 | **\`admin\`** | Administrador General | \`ADMIN\` | \`admin123\` | Acceso total al sistema, auditoría, configuración y gestión de personal |
 | **\`cajero\`** | Cajero Principal | \`CAJERO\` | \`cajero123\` | Facturación ágil en mostrador, abonos y atención al cliente |
 
-### Llave Maestra de Restauración en Navegador (\`MASTER_RECOVERY_KEY\`)
-\`\`\`text
-LLANOMIO-ADMIN-2026
-\`\`\`
+### Protocolo Criptográfico de Restauración en Navegador (Anti-Hackeo 3 Factores)
 
-#### ¿Cómo restaurar una contraseña olvidada directamente desde el navegador?
-1. Dirígete a la pantalla de inicio de sesión (\`http://llanomio.local/login\` o \`http://localhost/login\`).
-2. Haz clic en el enlace inferior: **"¿Olvidaste tu contraseña? Restaurar acceso aquí"**.
-3. Selecciona o escribe el usuario que deseas restaurar (ej: \`admin\` o cualquier cajero).
-4. Ingresa la **Llave Maestra de Recuperación Local**: \`LLANOMIO-ADMIN-2026\`.
-5. Define la **Nueva Contraseña** y haz clic en **"Confirmar y Restablecer Contraseña"**.
-6. El sistema actualizará el hash de seguridad en SQLite inmediatamente y podrás iniciar sesión sin reiniciar el servidor ni usar comandos de consola.
+Para restaurar la contraseña del Administrador directamente desde la pantalla de \`/login\`, el sistema exige superar simultáneamente un desafío criptográfico de **3 factores locales validados contra hashes bcrypt** en SQLite:
+
+1. **Factor 1 - Identificación Registrada:** Cédula de Ciudadanía o NIT exacto del titular asignado a la cuenta (ej. \`900123456\`).
+2. **Factor 2 - PIN de Seguridad de 6 Dígitos:** Código numérico confidencial configurado por el Administrador (hasheado con \`bcryptjs\` en BD).
+3. **Factor 3 - Pregunta y Respuesta de Seguridad:** Pregunta personalizada con respuesta secreta normalizada (hasheada con \`bcryptjs\` en BD).
+
+> **Protección Anti-Fuerza Bruta en SQLite:** Si se introducen datos incorrectos 3 veces consecutivas, la cuenta entra en un bloqueo persistente en base de datos (\`bloqueadoHasta\`) durante **15 minutos**, impidiendo ataques por recarga de página o reinicio del navegador.
+
+#### ¿Cómo restaurar una contraseña olvidada desde el navegador?
+1. Dirígete a la pantalla de inicio de sesión (\`http://llanomio.local/login\` o \`http://localhost:3000/login\`).
+2. Haz clic en el enlace discreto: **"Restaurar contraseña mediante verificación de identidad"**.
+3. **Paso 1:** Ingresa el usuario (\`admin\`) y el Documento de Identidad (Cédula/NIT). El servidor verifica que la cuenta no esté bloqueada y retorna únicamente la pregunta secreta asignada.
+4. **Paso 2:** Ingresa la Respuesta secreta, el PIN de Seguridad de 6 dígitos y la Nueva Contraseña (mínimo 6 caracteres).
+5. Tras la validación criptográfica, el servidor actualiza la contraseña con hash \`bcrypt\` de 10 rondas, reinicia los contadores de intentos fallidos y autoriza el inicio de sesión.
+6. *Nota para Cajeros:* Los cajeros pueden ser restaurados directamente por el Administrador en \`/admin/usuarios\` o verificando su identidad registrada.
 
 ---
 
 ## 2. Matriz Oficial de Roles y Permisos (RBAC)
 
-El sistema opera bajo un modelo de control de acceso basado en roles con permisos granulares configurables por el Administrador:
+El sistema opera bajo un modelo de control de acceso basado en roles con permisos granulares y visibilidad estricta:
 
-| Permiso Operativo | Clave Interna | Administrador (\`ADMIN\`) | Cajero (\`CAJERO\`) | Descripción |
+| Permiso Operativo | Clave Interna | Administrador (\`ADMIN\`) | Cajero (\`CAJERO\`) | Visibilidad en Interfaz |
 | :--- | :--- | :---: | :---: | :--- |
-| **Facturación POS** | \`pos_facturar\` | **Activo** | **Activo** (Default) | Emitir facturas de venta, alquiler de prendas y confección/arreglos |
-| **Gestión de Cartera & Moras** | \`pos_cobrar_cartera\` | **Activo** | **Activo** (Default) | Registrar abonos, liquidar recargos de mora y emitir Paz y Salvos |
-| **Apertura & Cierre de Caja** | \`caja_abrir_cerrar\` | **Activo** | **Activo** (Default) | Abrir turno (Compartida o Dividida) y realizar arqueo de gaveta física |
-| **Creación Rápida de Inventario** | \`inventario_crear_rapido\` | **Activo** | *Configurable* | Crear prendas/servicios directamente desde el modal del mostrador |
-| **Modificación Manual de Precios** | \`pos_editar_precios\` | **Activo** | *Configurable* | Modificar el precio unitario base de una prenda o arreglo en mostrador |
-| **Catálogo & Precios Generales** | Acceso a \`/admin/inventario\` | **Total** | *Restringido* | Gestión completa del stock, precios base, tallas y prendas de alquiler |
-| **Dashboard Gerencial en Vivo** | Acceso a \`/admin/dashboard\` | **Total** | *Restringido* | Analítica de ingresos, cuentas por cobrar y rentabilidad en tiempo real |
-| **Configuración Fiscal & Logo** | Acceso a \`/admin/configuracion\`| **Total** | *Restringido* | Razón social, NIT, resolución, logo comercial y carpetas de respaldo |
-| **Gestión de Usuarios & Claves** | Acceso a \`/admin/usuarios\` | **Total** | *Restringido* | Crear cajeros, asignar permisos y cambiar claves en un clic |
+| **Facturación POS** | \`pos_facturar\` | **Activo** | **Activo** (Default) | Menú y mostrador visible |
+| **Gestión de Cartera & Moras** | \`pos_cobrar_cartera\` | **Activo** | **Activo** (Default) | Menú y módulo de facturas visible |
+| **Apertura & Cierre de Caja** | \`caja_abrir_cerrar\` | **Activo** | **Activo** (Default) | Control de turno y arqueo visible |
+| **Creación Rápida de Inventario** | \`inventario_crear_rapido\` | **Activo** | *Configurable* | Botón de creación en POS |
+| **Modificación Manual de Precios** | \`pos_editar_precios\` | **Activo** | *Configurable* | Edición de precio unitario en POS |
+| **Catálogo & Inventario General** | Acceso a \`/admin/inventario\` | **Total** | *Oculto en DOM* | No se renderiza para Cajero; redirige a \`/caja/pos\` |
+| **Dashboard Gerencial en Vivo** | Acceso a \`/admin/dashboard\` | **Total** | *Oculto en DOM* | No se renderiza para Cajero; redirige a \`/caja/pos\` |
+| **Configuración Fiscal & Logo** | Acceso a \`/admin/configuracion\`| **Total** | *Oculto en DOM* | No se renderiza para Cajero; redirige a \`/caja/pos\` |
+| **Gestión de Usuarios & Seguridad**| Acceso a \`/admin/usuarios\` | **Total** | *Oculto en DOM* | No se renderiza para Cajero; redirige a \`/caja/pos\` |
 
 ---
 
@@ -126,6 +131,11 @@ export async function sincronizarArchivoCredencialesMaestras(prisma: PrismaClien
         rol: true,
         activo: true,
         permisos: true,
+        documentoIdentidad: true,
+        pinSeguridadHash: true,
+        preguntaSeguridad: true,
+        intentosFallidos: true,
+        bloqueadoHasta: true,
         ultimaRestauracion: true,
         fechaCreacion: true,
         _count: {
@@ -137,7 +147,8 @@ export async function sincronizarArchivoCredencialesMaestras(prisma: PrismaClien
       },
     });
 
-    const ahoraStr = new Date().toLocaleString("es-CO", {
+    const ahora = new Date();
+    const ahoraStr = ahora.toLocaleString("es-CO", {
       timeZone: "America/Bogota",
       dateStyle: "medium",
       timeStyle: "short",
@@ -148,24 +159,29 @@ export async function sincronizarArchivoCredencialesMaestras(prisma: PrismaClien
 > **Última sincronización automática:** ${ahoraStr} (Hora Colombia)
 > Total de cuentas registradas: **${usuarios.length}** (${usuarios.filter((u) => u.rol === RolUsuario.ADMIN).length} Administradores, ${usuarios.filter((u) => u.rol === RolUsuario.CAJERO).length} Cajeros)
 
-| Nombre Completo | Usuario (\`username\`) | Rol | Estado | Permisos Asignados | Transacciones (Fac / Abono) | Último Cambio de Clave |
-| :--- | :--- | :---: | :---: | :--- | :---: | :--- |
+| Nombre Completo | Usuario (\`username\`) | Rol | Estado | Seguridad 3-Factores | Intentos Fallidos | Transacciones | Último Cambio de Clave |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
 `;
 
     for (const u of usuarios) {
-      const permisos = parsearPermisos(u.permisos, u.rol);
-      const resumenPermisos = formatearPermisosResumen(permisos);
-      const estadoBadge = u.activo ? "**ACTIVO**" : "*INACTIVO*";
-      const rolBadge = u.rol === RolUsuario.ADMIN ? "`ADMIN`" : "`CAJERO`";
+      const estaBloqueado = u.bloqueadoHasta && new Date(u.bloqueadoHasta) > ahora;
+      const estadoBadge = estaBloqueado
+        ? "**BLOQUEADO (15 min)**"
+        : u.activo
+        ? "**ACTIVO**"
+        : "*INACTIVO*";
+      const rolBadge = u.rol === RolUsuario.ADMIN ? "\`ADMIN\`" : "\`CAJERO\`";
+      const tiene3F = Boolean(u.documentoIdentidad && u.pinSeguridadHash && u.preguntaSeguridad);
+      const segBadge = tiene3F ? "Protegido (3F)" : "Pendiente Configurar";
       const fechaClave = u.ultimaRestauracion
         ? new Date(u.ultimaRestauracion).toLocaleDateString("es-CO")
         : "Inicial (Seed)";
       const conteo = `${u._count.facturas} / ${u._count.abonos}`;
 
-      tablaUsuarios += `| ${u.nombre} | \`${u.username}\` | ${rolBadge} | ${estadoBadge} | ${resumenPermisos} | ${conteo} | ${fechaClave} |\n`;
+      tablaUsuarios += `| ${u.nombre} | \`${u.username}\` | ${rolBadge} | ${estadoBadge} | ${segBadge} | ${u.intentosFallidos} | ${conteo} | ${fechaClave} |\n`;
     }
 
-    tablaUsuarios += `\n*Nota: Esta tabla se actualiza de forma automática cada vez que se crea, modifica o restaura una cuenta desde el panel \`/admin/usuarios\` o mediante la recuperación con Llave Maestra en \`/login\`.*\n`;
+    tablaUsuarios += `\n*Nota: Esta tabla se actualiza de forma automática cada vez que se crea, modifica o restaura una cuenta desde el panel \`/admin/usuarios\` o mediante la recuperación por 3 Factores en \`/login\`.*\n`;
 
     const contenidoCompleto = generarContenidoBase() + tablaUsuarios;
     fs.writeFileSync(RUTA_ARCHIVO_MAESTRO, contenidoCompleto, "utf-8");

@@ -37,6 +37,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Verificar si la cuenta está bloqueada temporalmente
+    if (user.bloqueadoHasta && new Date(user.bloqueadoHasta) > new Date()) {
+      const msRestantes = new Date(user.bloqueadoHasta).getTime() - Date.now();
+      const minutosRestantes = Math.ceil(msRestantes / (60 * 1000));
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Esta cuenta se encuentra bloqueada por seguridad. Intente nuevamente en ${minutosRestantes} minuto(s).`,
+        },
+        { status: 423 }
+      );
+    }
+
     // 2. Comparar contraseña con el hash bcrypt
     const passwordValida = await bcrypt.compare(String(password), user.passwordHash);
 
@@ -58,6 +71,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Si tenía intentos fallidos o bloqueo vencido, resetear a cero
+    if (user.intentosFallidos > 0 || user.bloqueadoHasta) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { intentosFallidos: 0, bloqueadoHasta: null },
+      });
+    }
+
     // 3. Registrar auditoría de inicio de sesión exitoso
     await prisma.auditoriaSesion.create({
       data: {
@@ -75,9 +96,11 @@ export async function POST(req: NextRequest) {
       username: user.username,
       nombre: user.nombre,
       rol: user.rol,
+      permisos: user.permisos,
     });
 
     // 5. Preparar respuesta con cookie HttpOnly segura
+    const destinoRedireccion = user.rol === "ADMIN" ? "/" : "/caja/pos";
     const respuesta = NextResponse.json({
       ok: true,
       mensaje: "Inicio de sesión exitoso",
@@ -87,7 +110,7 @@ export async function POST(req: NextRequest) {
         nombre: user.nombre,
         rol: user.rol,
       },
-      redirectTo: user.rol === "ADMIN" ? "/admin/configuracion" : "/",
+      redirectTo: destinoRedireccion,
     });
 
     respuesta.cookies.set({

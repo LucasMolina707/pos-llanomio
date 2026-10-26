@@ -94,6 +94,15 @@ model User {
   activo             Boolean          @default(true)
   permisos           String?          // JSON serializado con array de permisos granulares
   ultimaRestauracion DateTime?        // Fecha del último cambio o restauración de contraseña
+  
+  // Protocolo de Seguridad y Recuperación Anti-Hackeo (3 Factores)
+  documentoIdentidad     String?      // Cédula o NIT para verificación de identidad
+  pinSeguridadHash       String?      // Hash bcrypt del PIN numérico de 6 dígitos
+  preguntaSeguridad      String?      // Pregunta de seguridad personalizada
+  respuestaSeguridadHash String?      // Hash bcrypt de la respuesta en minúsculas sin acentos
+  intentosFallidos       Int          @default(0) // Contador de intentos fallidos de recuperación
+  bloqueadoHasta         DateTime?    // Bloqueo temporal por exceso de intentos fallidos
+  
   fechaCreacion      DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 

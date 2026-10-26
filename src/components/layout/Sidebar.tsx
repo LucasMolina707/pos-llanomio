@@ -42,7 +42,10 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
   const router = useRouter();
   const [cerrandoSesion, setCerrandoSesion] = React.useState(false);
 
-  const menuSections: { title: string; items: MenuItem[] }[] = [
+  const esAdmin = usuario?.rol === "ADMIN";
+
+  // Definición de las secciones base
+  const todasLasSecciones: { title: string; items: MenuItem[] }[] = [
     {
       title: "OPERACIÓN",
       items: [
@@ -106,6 +109,25 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
       ],
     },
   ];
+
+  // Filtrado estricto por rol:
+  // Si es CAJERO, NO se renderizan en el DOM módulos administrativos (Inventario, Dashboard, Usuarios, Configuración)
+  const rutasExclusivasAdmin = [
+    "/admin/inventario",
+    "/admin/dashboard",
+    "/admin/usuarios",
+    "/admin/configuracion",
+  ];
+
+  const menuSections = todasLasSecciones
+    .map((sec) => {
+      const itemsPermitidos = sec.items.filter((item) => {
+        if (esAdmin) return true;
+        return !rutasExclusivasAdmin.includes(item.href);
+      });
+      return { ...sec, items: itemsPermitidos };
+    })
+    .filter((sec) => sec.items.length > 0);
 
   const handleLogout = async () => {
     try {

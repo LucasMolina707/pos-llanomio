@@ -30,6 +30,11 @@ export async function GET(req: NextRequest, { params }: Params) {
         rol: true,
         activo: true,
         permisos: true,
+        documentoIdentidad: true,
+        preguntaSeguridad: true,
+        pinSeguridadHash: true,
+        intentosFallidos: true,
+        bloqueadoHasta: true,
         ultimaRestauracion: true,
         fechaCreacion: true,
         _count: {
@@ -46,8 +51,20 @@ export async function GET(req: NextRequest, { params }: Params) {
       ok: true,
       success: true,
       usuario: {
-        ...usuario,
+        id: usuario.id,
+        username: usuario.username,
+        nombre: usuario.nombre,
+        rol: usuario.rol,
+        activo: usuario.activo,
+        documentoIdentidad: usuario.documentoIdentidad,
+        preguntaSeguridad: usuario.preguntaSeguridad,
+        tienePin: Boolean(usuario.pinSeguridadHash),
+        intentosFallidos: usuario.intentosFallidos,
+        bloqueadoHasta: usuario.bloqueadoHasta,
         permisos: parsearPermisos(usuario.permisos, usuario.rol),
+        ultimaRestauracion: usuario.ultimaRestauracion,
+        fechaCreacion: usuario.fechaCreacion,
+        _count: usuario._count,
       },
     });
   } catch (error: unknown) {
@@ -67,7 +84,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { nombre, username, rol, activo, permisos } = body;
+    const {
+      nombre,
+      username,
+      rol,
+      activo,
+      permisos,
+      documentoIdentidad,
+      pinSeguridad,
+      preguntaSeguridad,
+      respuestaSeguridad,
+      desbloquear,
+    } = body;
 
     const usuarioExistente = await prisma.user.findUnique({
       where: { id },
@@ -137,15 +165,45 @@ export async function PUT(req: NextRequest, { params }: Params) {
       ? { ...permisosActuales, ...permisos }
       : permisosActuales;
 
+    // Construcción de actualización
+    const dataUpdate: any = {
+      nombre: nombre?.trim() || usuarioExistente.nombre,
+      username: usernameFinal,
+      rol: rolFinal,
+      activo: activo !== undefined ? Boolean(activo) : usuarioExistente.activo,
+      permisos: JSON.stringify(permisosNuevos),
+    };
+
+    if (documentoIdentidad !== undefined) {
+      dataUpdate.documentoIdentidad = String(documentoIdentidad).trim();
+    }
+
+    if (preguntaSeguridad !== undefined) {
+      dataUpdate.preguntaSeguridad = String(preguntaSeguridad).trim();
+    }
+
+    if (pinSeguridad && String(pinSeguridad).trim().length >= 4) {
+      dataUpdate.pinSeguridadHash = await bcrypt.hash(String(pinSeguridad).trim(), 10);
+    }
+
+    if (respuestaSeguridad && String(respuestaSeguridad).trim().length > 0) {
+      const norm = String(respuestaSeguridad)
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ");
+      dataUpdate.respuestaSeguridadHash = await bcrypt.hash(norm, 10);
+    }
+
+    if (desbloquear) {
+      dataUpdate.intentosFallidos = 0;
+      dataUpdate.bloqueadoHasta = null;
+    }
+
     const usuarioActualizado = await prisma.user.update({
       where: { id },
-      data: {
-        nombre: nombre?.trim() || usuarioExistente.nombre,
-        username: usernameFinal,
-        rol: rolFinal,
-        activo: activo !== undefined ? Boolean(activo) : usuarioExistente.activo,
-        permisos: JSON.stringify(permisosNuevos),
-      },
+      data: dataUpdate,
       select: {
         id: true,
         username: true,
@@ -153,6 +211,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
         rol: true,
         activo: true,
         permisos: true,
+        documentoIdentidad: true,
+        preguntaSeguridad: true,
+        intentosFallidos: true,
+        bloqueadoHasta: true,
         fechaCreacion: true,
       },
     });

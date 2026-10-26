@@ -94,6 +94,17 @@ export default function HomePage() {
       etiqueta: "Inteligencia",
       colorBadge: "bg-indigo-50 text-indigo-700 border-indigo-200",
       href: "/admin/dashboard",
+      adminOnly: true,
+    },
+    {
+      titulo: "Gestión de Usuarios & Personal",
+      descripcion: "Creación de cajeros, asignación de permisos granulares y configuración de llaves de recuperación.",
+      icono: ShieldCheck,
+      colorIcono: "bg-blue-50 text-blue-600 border-blue-200",
+      etiqueta: "Solo Administrador",
+      colorBadge: "bg-blue-50 text-blue-700 border-blue-200",
+      href: "/admin/usuarios",
+      adminOnly: true,
     },
     {
       titulo: "Configuración y Datos Fiscales",
@@ -103,8 +114,17 @@ export default function HomePage() {
       etiqueta: "Solo Administrador",
       colorBadge: "bg-purple-50 text-purple-700 border-purple-200",
       href: "/admin/configuracion",
+      adminOnly: true,
     },
   ];
+
+  const esAdmin = usuario?.rol === "ADMIN";
+  const modulosVisibles = modulos.filter((m) => {
+    if (esAdmin) return true;
+    if (m.adminOnly) return false;
+    if (m.href === "/admin/inventario") return false;
+    return true;
+  });
 
   return (
     <div className="w-full space-y-6 max-w-full overflow-x-hidden">
@@ -151,13 +171,15 @@ export default function HomePage() {
               <span>Conectar Celular / PC en Red</span>
             </button>
 
-            <Link
-              href="/admin/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs sm:text-sm font-semibold transition"
-            >
-              <BarChart3 className="h-4 w-4 text-blue-600" />
-              <span>Ver Métricas</span>
-            </Link>
+            {esAdmin && (
+              <Link
+                href="/admin/dashboard"
+                className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs sm:text-sm font-semibold transition"
+              >
+                <BarChart3 className="h-4 w-4 text-blue-600" />
+                <span>Ver Métricas</span>
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -177,7 +199,7 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
-          {modulos.map((modulo, idx) => {
+          {modulosVisibles.map((modulo, idx) => {
             const Icono = modulo.icono;
             const esPos = modulo.href === "/caja/pos";
 

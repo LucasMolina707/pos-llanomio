@@ -7,6 +7,7 @@ export interface TokenPayload {
   username: string;
   nombre: string;
   rol: "ADMIN" | "CAJERO";
+  permisos?: string | null;
 }
 
 export const NOMBRE_COOKIE_SESION = "llanomio_session";
@@ -53,6 +54,7 @@ export async function verificarTokenSesion(token: string): Promise<TokenPayload 
       username: payload.username as string,
       nombre: payload.nombre as string,
       rol: payload.rol as "ADMIN" | "CAJERO",
+      permisos: (payload.permisos as string) || null,
     };
   } catch {
     return null;

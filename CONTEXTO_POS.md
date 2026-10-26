@@ -979,5 +979,58 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
 - **Suite End-to-End HTTP en Vivo (`scripts/test_http_e2e_usuarios.js`):** 100% exitosa contra el servidor local en `http://localhost:3000` ejecutando el ciclo completo de autenticación, autorización `ADMIN`, creación de cajero, cambio de clave, login con credenciales restauradas, recuperación de emergencia con llave maestra y eliminación limpia.
 - **Compilación de Producción:** `npx tsc --noEmit` y `npm run build` completados con **0 errores**, generando las 22 rutas estáticas y dinámicas.
 
+---
 
+## 22. Blindaje Integral de Ciberseguridad, Middleware Server-Side, Login Sin Pistas, Visibilidad Estricta por Rol y Protocolo de Recuperación Criptográfica de 3 Factores
 
+### 1. Blindaje Total Server-Side y Middleware (`src/middleware.ts`)
+- **Protección Universal de Ventanas:** El middleware ahora intercepta el 100% de las rutas del sistema mediante el matcher:
+  ```ts
+  export const config = {
+    matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth/login|api/auth/recuperar|api/empresa/publico).*)"],
+  };
+  ```
+- **Sin Sesión:** Cualquier petición no autenticada a páginas (`/`, `/caja/pos`, `/admin/*`, etc.) es redirigida de inmediato a `/login` inyectando cabeceras defensivas `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate`, evitando filtraciones de pantallas por el botón "Atrás" del navegador. En peticiones `/api/*`, responde estrictamente con `401 Unauthorized`.
+- **Visibilidad y Redirección Silenciosa de Rol:** Si un usuario con rol `CAJERO` intenta entrar a cualquier ruta administrativa (`/admin/*`, `/api/admin/*`, `/api/usuarios/*`, `/api/backup/*`), el middleware lo redirige silenciosamente a `/caja/pos` sin mostrar pantallas de "No tienes acceso" ni `/acceso-denegado`.
+- **Flujo de Usuario Autenticado en `/login`:** Si un usuario con sesión activa intenta visitar `/login`, es redirigido automáticamente a su área de trabajo: `/` (si es `ADMIN`) o `/caja/pos` (si es `CAJERO`).
+
+### 2. Limpieza Radical de la Bóveda de Inicio de Sesión (`src/app/login/page.tsx`)
+- Eliminación total de credenciales de prueba, notas, placeholders como `"admin o cajero"`, llaves maestras en pantalla y botones de autocompletado rápido (`"admin / admin123"`, `"cajero / cajero123"`).
+- Formulario limpio y profesional con `autoComplete="off"`, selector de visibilidad de contraseña tipo eye toggle, `<LogoEmpresa />` y enlace discreto: *"Restaurar contraseña mediante verificación de identidad"*.
+- Layout aislado (`AppShell.tsx` / `AppLayout.tsx`): Cuando la ruta activa es `/login`, se renderiza exclusivamente la vista de login a pantalla completa sin exponer Navbar ni Sidebar.
+
+### 3. Visibilidad Estricta por Rol sin Elementos Prohibidos (`Sidebar.tsx`, `Navbar.tsx`, `src/app/page.tsx`)
+- **Filtrado Positivo en DOM:** En lugar de deshabilitar botones o mostrar candados o leyendas de "Sin permiso":
+  - `Sidebar.tsx`: Solo renderiza las rutas autorizadas para el rol activo (`Terminal POS`, `Historial de Facturas y Moras`, `Clientes`, `Control de Caja`).
+  - `src/app/page.tsx`: Las tarjetas del dashboard inicial administrativo (`Configuración`, `Usuarios`, `Inventario`, `Dashboard`) están marcadas con `adminOnly: true` y no se renderizan para el `CAJERO`.
+  - Cero estados de frustración visual para el usuario operativo.
+
+### 4. Protocolo de Recuperación de Identidad de 3 Factores Criptográficos con `bcryptjs`
+- **Modelo de Datos en SQLite (`prisma/schema.prisma` y `database/schema.prisma`):**
+  - `documentoIdentidad String?`: Número de Cédula de Ciudadanía o NIT del usuario registrado.
+  - `pinSeguridadHash String?`: Hash `bcryptjs` (10 rondas) de un PIN secreto numérico de 6 dígitos.
+  - `preguntaSeguridad String?`: Pregunta confidencial configurada por el usuario.
+  - `respuestaSeguridadHash String?`: Hash `bcryptjs` (10 rondas) de la respuesta normalizada (minúsculas, sin tildes ni espacios extra).
+  - `intentosFallidos Int @default(0)`: Contador persistido en base de datos.
+  - `bloqueadoHasta DateTime?`: Timestamp de bloqueo temporal en base de datos.
+- **Flujo en 2 Pasos desde `/login` (`src/app/api/auth/recuperar/route.ts`):**
+  - **Paso 1:** El usuario ingresa su `username` y Documento de Identidad registrado. Si coincide y la cuenta no está bloqueada, el servidor retorna únicamente la `preguntaSeguridad` (sin pistas ni respuestas).
+  - **Paso 2:** El usuario ingresa simultáneamente su Respuesta secreta, su PIN de 6 dígitos y la Nueva Contraseña. Si los 3 factores son superados criptográficamente, se hashea la nueva clave, se limpian los intentos fallidos y se autoriza el ingreso.
+- **Protección Anti-Fuerza Bruta en SQLite:** Si se introducen datos erróneos 3 veces consecutivas, la cuenta queda bloqueada en base de datos (`bloqueadoHasta`) durante **15 minutos**. Este bloqueo es indestructible por recarga de página o reinicio del navegador. Al estar bloqueado, tanto el login (`/api/auth/login`) como la recuperación devuelven `HTTP 423 Locked`.
+- **Configuración y Desbloqueo en `/admin/usuarios`:**
+  - Tarjeta destacada: *"Configurar Credenciales de Recuperación de Cuenta (Seguridad Anti-Hackeo)"* para que el Administrador defina y actualice su Cédula, PIN de 6 dígitos y Pregunta/Respuesta en cualquier momento.
+  - Badges de estado de bloqueo en la lista de usuarios y botón de **"Desbloquear Cuenta"** en 1 clic para restablecer accesos bloqueados por intentos fallidos.
+
+### 5. Control de Calidad y Verificación Automatizada (QA - Agente 5)
+- **Suite Automatizada de Seguridad (`scripts/test_qa_seguridad_rbac.ts`):**
+  - **34 de 34 pruebas superadas (100% PASS)** evaluando:
+    1. Redirección y cabeceras `no-store` en todas las rutas protegidas sin sesión.
+    2. Respuesta `401 Unauthorized` en APIs privadas.
+    3. Inspección del HTML de `/login` confirmando 0 contraseñas o pistas en pantalla.
+    4. Inicio de sesión como `CAJERO` y redirección silenciosa desde `/admin/configuracion` hacia `/caja/pos`.
+    5. Rechazo de documentos no registrados en recuperación.
+    6. Bloqueo en SQLite a los 3 intentos fallidos con retorno `HTTP 423` y comprobación de `bloqueadoHasta`.
+    7. Rechazo de login en cuentas bloqueadas.
+    8. Desbloqueo y recuperación exitosa mediante los 3 factores legítimos y verificación de inicio de sesión con la nueva clave.
+- **Compilación de Producción:** `npx tsc --noEmit` y `npm run build` completados con **0 errores**, compilando las 21 rutas y el middleware de Next.js 15.
+- **Servicios en Producción:** Procesos PM2 `pos-llanomio` y `pos-mdns-proxy` corriendo en estado `online`.
