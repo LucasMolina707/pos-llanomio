@@ -18,6 +18,10 @@ import {
   UserCheck,
   Shield,
   Layers,
+  Building2,
+  Mail,
+  MapPin,
+  Edit3,
 } from "lucide-react";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
@@ -27,8 +31,16 @@ interface ClienteDirectorio {
   documento: string;
   nombre: string;
   telefono?: string | null;
+  email?: string | null;
   direccion?: string | null;
   notas?: string | null;
+  esResponsableIVA?: boolean;
+  tipoIdentificacion?: string;
+  digitoVerificacion?: string | null;
+  razonSocial?: string | null;
+  responsabilidadFiscal?: string;
+  municipio?: string;
+  codigoDaneMunicipio?: string;
   fechaCreacion: string;
   _count?: {
     facturas: number;
@@ -41,6 +53,7 @@ export default function DirectorioClientesPage() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mostrarModalNuevo, setMostrarModalNuevo] = useState(false);
+  const [clienteAEditar, setClienteAEditar] = useState<ClienteDirectorio | null>(null);
 
   const cargarClientes = useCallback(async () => {
     try {
@@ -70,30 +83,40 @@ export default function DirectorioClientesPage() {
 
   const clientesFiltrados = useMemo(() => {
     return filtrarPorRelevancia(clientes, busqueda, (item) => ({
-      primarios: [item.documento, item.nombre],
-      secundarios: [item.telefono, item.direccion, item.notas],
+      primarios: [item.documento, item.nombre, item.razonSocial || ""],
+      secundarios: [item.telefono, item.email, item.direccion, item.notas],
     }));
   }, [clientes, busqueda]);
+
+  const abrirModalCrear = () => {
+    setClienteAEditar(null);
+    setMostrarModalNuevo(true);
+  };
+
+  const abrirModalEditar = (cliente: ClienteDirectorio) => {
+    setClienteAEditar(cliente);
+    setMostrarModalNuevo(true);
+  };
 
   return (
     <div className="w-full space-y-6">
       {/* Cabecera Principal */}
       <header className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-cyan-50 text-cyan-600 border border-cyan-200 rounded-2xl">
+          <div className="p-3 bg-blue-50 text-blue-600 border border-blue-200 rounded-2xl">
             <UserCheck className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-                Directorio de Clientes & Historial
+                Directorio de Clientes & Cumplimiento Tributario
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-100 text-cyan-800 border border-cyan-200">
-                Cartera y Perfiles
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-900 border border-blue-200">
+                Cartera & DIAN
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Gestión de clientes, historial consolidado de transacciones, prendas en alquiler y estado de cuenta individual.
+            <p className="text-xs sm:text-sm text-slate-500 font-medium">
+              Gestión de clientes, historial de transacciones, clasificación tributaria RUT / IVA y facturación electrónica.
             </p>
           </div>
         </div>
@@ -103,17 +126,17 @@ export default function DirectorioClientesPage() {
             type="button"
             onClick={cargarClientes}
             disabled={cargando}
-            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition disabled:opacity-50 cursor-pointer"
             title="Recargar listado de clientes"
           >
-            <RefreshCw className={`w-4 h-4 text-cyan-600 ${cargando ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-4 h-4 text-blue-600 ${cargando ? "animate-spin" : ""}`} />
             <span>Recargar</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setMostrarModalNuevo(true)}
-            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-white bg-cyan-600 hover:bg-cyan-700 transition shadow-sm shadow-cyan-500/20"
+            onClick={abrirModalCrear}
+            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20 cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
             <span>+ Nuevo Cliente</span>
@@ -128,16 +151,16 @@ export default function DirectorioClientesPage() {
             <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar cliente por Cédula / NIT, Nombre completo, Teléfono o Dirección..."
+              placeholder="Buscar cliente por Cédula / NIT, Razón Social, Nombre, Teléfono o Correo..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-cyan-500 font-medium"
+              className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
             />
             {busqueda && (
               <button
                 type="button"
                 onClick={() => setBusqueda("")}
-                className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -152,7 +175,7 @@ export default function DirectorioClientesPage() {
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           {cargando ? (
             <div className="p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-3">
-              <RefreshCw className="w-8 h-8 animate-spin text-cyan-600" />
+              <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
               <p className="text-sm md:text-base font-semibold">Cargando directorio de clientes...</p>
             </div>
           ) : error ? (
@@ -173,65 +196,117 @@ export default function DirectorioClientesPage() {
           ) : (
             <table className="w-full text-left text-sm md:text-base border-collapse">
               <thead>
-                <tr className="bg-slate-100/90 text-slate-700 text-xs sm:text-sm font-bold uppercase tracking-wider border-b border-slate-200">
-                  <th className="px-4 py-3.5">Cliente / Documento</th>
-                  <th className="px-4 py-3.5">Contacto Telefónico</th>
-                  <th className="px-4 py-3.5">Dirección / Ciudad</th>
+                <tr className="bg-slate-100 text-slate-800 text-xs sm:text-sm font-bold uppercase tracking-wider border-b border-slate-300">
+                  <th className="px-4 py-3.5">Cliente / Razón Social</th>
+                  <th className="px-4 py-3.5">Identificación / RUT</th>
+                  <th className="px-4 py-3.5">Contacto / Correo</th>
+                  <th className="px-4 py-3.5">Municipio / Dirección</th>
                   <th className="px-4 py-3.5 text-center">Facturas</th>
                   <th className="px-4 py-3.5 text-center">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-200 bg-white">
                 {clientesFiltrados.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/80 transition">
-                    {/* 1. Nombre y Documento */}
+                  <tr key={c.id} className="hover:bg-blue-50/40 transition">
+                    {/* 1. Nombre y Razón Social */}
                     <td className="px-4 py-3.5">
                       <Link
                         href={`/admin/clientes/${c.id}`}
-                        className="font-bold text-slate-900 hover:text-cyan-700 hover:underline block leading-snug"
+                        className="font-bold text-slate-900 hover:text-blue-700 hover:underline block leading-snug"
                         title="Ver historial completo del cliente"
                       >
-                        {c.nombre}
+                        {c.razonSocial || c.nombre}
                       </Link>
-                      <span className="text-xs font-mono font-semibold text-slate-500 block mt-0.5">
-                        C.C. / NIT: {c.documento}
-                      </span>
-                    </td>
-
-                    {/* 2. Teléfono */}
-                    <td className="px-4 py-3.5">
-                      {c.telefono ? (
-                        <div className="flex items-center gap-1.5 font-mono text-xs sm:text-sm font-bold text-slate-700">
-                          <Phone className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
-                          <span>{c.telefono}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 text-xs">Sin teléfono</span>
+                      {c.razonSocial && c.razonSocial !== c.nombre && (
+                        <span className="text-xs text-slate-500 block">
+                          Contacto: {c.nombre}
+                        </span>
                       )}
                     </td>
 
-                    {/* 3. Dirección */}
-                    <td className="px-4 py-3.5 text-xs sm:text-sm text-slate-600">
-                      {c.direccion || <span className="text-slate-400 text-xs">No registrada</span>}
+                    {/* 2. Identificación y Badge Tributario */}
+                    <td className="px-4 py-3.5">
+                      {c.esResponsableIVA ? (
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-black bg-blue-100 text-blue-900 border border-blue-300 font-mono">
+                            {c.tipoIdentificacion || "NIT"}: {c.documento}{c.digitoVerificacion ? `-${c.digitoVerificacion}` : ""}
+                          </span>
+                          <span className="block text-xs font-bold text-blue-800">
+                            RUT: {c.responsabilidadFiscal || "O-48"}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="space-y-0.5">
+                          <span className="font-mono text-xs font-bold text-slate-800 block">
+                            {c.tipoIdentificacion || "CC"}: {c.documento}
+                          </span>
+                          <span className="inline-block px-2 py-0.2 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                            Consumidor Final (O-99)
+                          </span>
+                        </div>
+                      )}
                     </td>
 
-                    {/* 4. Total de Facturas */}
+                    {/* 3. Contacto / Correo */}
+                    <td className="px-4 py-3.5">
+                      <div className="space-y-0.5 text-xs sm:text-sm">
+                        {c.telefono ? (
+                          <div className="flex items-center gap-1.5 font-mono font-bold text-slate-800">
+                            <Phone className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span>{c.telefono}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs block">Sin teléfono</span>
+                        )}
+                        {c.email && (
+                          <div className="flex items-center gap-1 text-slate-600 text-xs">
+                            <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span className="truncate max-w-[180px]">{c.email}</span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* 4. Municipio y Dirección */}
+                    <td className="px-4 py-3.5 text-xs text-slate-700">
+                      <span className="font-semibold block text-slate-800">
+                        {c.municipio || "Villavicencio - Meta"}
+                      </span>
+                      <span className="text-slate-600 block truncate max-w-[200px]">
+                        {c.direccion || "Dirección no registrada"}
+                      </span>
+                    </td>
+
+                    {/* 5. Total de Facturas */}
                     <td className="px-4 py-3.5 text-center">
-                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-100 text-slate-800 border border-slate-200">
                         {c._count?.facturas || 0}
                       </span>
                     </td>
 
-                    {/* 5. Botón Ver Historial */}
+                    {/* 6. Acciones: Editar RUT & Ver Historial */}
                     <td className="px-4 py-3.5 text-center">
-                      <Link
-                        href={`/admin/clientes/${c.id}`}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] rounded-xl text-xs sm:text-sm font-bold bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 transition shadow-xs"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>Ver Historial</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => abrirModalEditar(c)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 min-h-[36px] rounded-xl text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs transition cursor-pointer"
+                          title="Editar información tributaria DIAN o datos de contacto"
+                        >
+                          <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Editar RUT</span>
+                        </button>
+
+                        <Link
+                          href={`/admin/clientes/${c.id}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 min-h-[36px] rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 transition shadow-2xs"
+                          title="Ver historial financiero y alquileres"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Historial</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -241,13 +316,18 @@ export default function DirectorioClientesPage() {
         </div>
       </div>
 
-      {/* Modal Crear Cliente */}
+      {/* Modal Crear / Editar Cliente */}
       <ModalCrearClienteRapido
         isOpen={mostrarModalNuevo}
-        onClose={() => setMostrarModalNuevo(false)}
+        onClose={() => {
+          setMostrarModalNuevo(false);
+          setClienteAEditar(null);
+        }}
         onClienteCreado={() => {
           cargarClientes();
+          setClienteAEditar(null);
         }}
+        clienteAEditar={clienteAEditar}
       />
     </div>
   );

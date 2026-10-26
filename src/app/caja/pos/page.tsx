@@ -315,6 +315,7 @@ export default function PosPage() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteCreado | null>(null);
   const [busquedaCliente, setBusquedaCliente] = useState("");
   const [mostrarModalCliente, setMostrarModalCliente] = useState(false);
+  const [clienteAEditarModal, setClienteAEditarModal] = useState<ClienteCreado | null>(null);
   const [modalDocInicial, setModalDocInicial] = useState("");
   const [modalNomInicial, setModalNomInicial] = useState("");
   const searchInputClienteRef = useRef<HTMLInputElement | null>(null);
@@ -634,14 +635,22 @@ export default function PosPage() {
     setPasoActual(2);
   };
 
-  const handleClienteCreadoExitoso = (nuevo: ClienteCreado) => {
-    setTodosLosClientes((prev) => [nuevo, ...prev]);
-    setClientesNuevosIds((prev) => new Set(prev).add(nuevo.id));
-    seleccionarCliente(nuevo);
+  const handleClienteCreadoExitoso = (clienteGuardado: ClienteCreado) => {
+    setTodosLosClientes((prev) => {
+      const existe = prev.some((c) => c.id === clienteGuardado.id);
+      if (existe) {
+        return prev.map((c) => (c.id === clienteGuardado.id ? clienteGuardado : c));
+      }
+      return [clienteGuardado, ...prev];
+    });
+    setClientesNuevosIds((prev) => new Set(prev).add(clienteGuardado.id));
+    seleccionarCliente(clienteGuardado);
+    setClienteAEditarModal(null);
     setMostrarModalCliente(false);
   };
 
   const abrirModalCrearCliente = () => {
+    setClienteAEditarModal(null);
     const q = busquedaCliente.trim();
     if (/^\d{6,}$/.test(q)) {
       setModalDocInicial(q);
@@ -650,6 +659,12 @@ export default function PosPage() {
       setModalDocInicial("");
       setModalNomInicial(q);
     }
+    setMostrarModalCliente(true);
+  };
+
+  const abrirModalEditarCliente = (cli: ClienteCreado, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setClienteAEditarModal(cli);
     setMostrarModalCliente(true);
   };
 
@@ -1834,15 +1849,29 @@ export default function PosPage() {
                               )}
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-600">
-                              <span className="px-2 py-0.5 rounded-md bg-slate-100 font-mono font-bold text-slate-700">
-                                CC: {cli.documento}
-                              </span>
+                            <div className="flex flex-wrap items-center gap-1.5 text-xs sm:text-sm text-slate-600 w-full pt-1">
+                              {cli.esResponsableIVA ? (
+                                <span className="px-2 py-0.5 rounded-md text-[11px] font-black bg-blue-100 text-blue-900 border border-blue-300">
+                                  NIT {cli.documento}{cli.digitoVerificacion ? `-${cli.digitoVerificacion}` : ""} • IVA {cli.responsabilidadFiscal || "O-48"}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 font-mono font-bold text-slate-700 text-xs">
+                                  {cli.tipoIdentificacion || "CC"}: {cli.documento}
+                                </span>
+                              )}
                               {cli.telefono && (
-                                <span className="px-2 py-0.5 rounded-md bg-slate-100 font-mono">
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 font-mono text-xs">
                                   Tel: {cli.telefono}
                                 </span>
                               )}
+                              <button
+                                type="button"
+                                onClick={(e) => abrirModalEditarCliente(cli, e)}
+                                className="ml-auto text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md border border-blue-200 transition"
+                                title="Editar datos tributarios del cliente (RUT / DIAN)"
+                              >
+                                Editar RUT
+                              </button>
                             </div>
                           </button>
                         );
@@ -2108,21 +2137,42 @@ export default function PosPage() {
                 <div className="w-full sm:w-80 md:w-96 shrink-0 flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 p-3 overflow-hidden">
                   {/* Encabezado Cliente Asignado (shrink-0) */}
                   <div className="shrink-0 pb-2 border-b border-slate-100 flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block">
-                        Cliente Asignado:
-                      </span>
+                    <div className="min-w-0 pr-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block">
+                          Cliente Asignado:
+                        </span>
+                        {clienteSeleccionado?.esResponsableIVA ? (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-blue-100 text-blue-900 border border-blue-200">
+                            IVA • {clienteSeleccionado.responsabilidadFiscal || "O-48"}
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
+                            Consumidor Final
+                          </span>
+                        )}
+                      </div>
                       <strong className="text-sm font-black text-slate-900 truncate block max-w-[190px]">
-                        {clienteSeleccionado?.nombre}
+                        {clienteSeleccionado?.razonSocial || clienteSeleccionado?.nombre}
                       </strong>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setPasoActual(1)}
-                      className="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 transition"
-                    >
-                      Cambiar
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => clienteSeleccionado && abrirModalEditarCliente(clienteSeleccionado)}
+                        className="px-2 py-1 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition"
+                        title="Editar datos del cliente o agregar información de facturación electrónica (RUT)"
+                      >
+                        Editar RUT
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPasoActual(1)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 transition"
+                      >
+                        Cambiar
+                      </button>
+                    </div>
                   </div>
 
                   {/* Título Carrito (shrink-0) */}
@@ -2592,13 +2642,17 @@ export default function PosPage() {
       {/* MODALES COMPARTIDOS */}
       {/* ========================================================================= */}
 
-      {/* Modal Crear Cliente Rápido */}
+      {/* Modal Crear Cliente Rápido / Editar RUT */}
       <ModalCrearClienteRapido
         isOpen={mostrarModalCliente}
-        onClose={() => setMostrarModalCliente(false)}
+        onClose={() => {
+          setMostrarModalCliente(false);
+          setClienteAEditarModal(null);
+        }}
         onClienteCreado={handleClienteCreadoExitoso}
         documentoInicial={modalDocInicial}
         nombreInicial={modalNomInicial}
+        clienteAEditar={clienteAEditarModal}
       />
 
       {/* Modal Crear Producto al Vuelo */}

@@ -139,13 +139,23 @@ export function crearDocumentoPdfMediaCarta(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(factura.cliente.nombre.toUpperCase(), margenIzquierdo + 3, cursorY + 7.8);
+  const nombreCliente = (factura.cliente.esResponsableIVA && factura.cliente.razonSocial
+    ? factura.cliente.razonSocial
+    : factura.cliente.nombre).toUpperCase();
+  doc.text(nombreCliente.substring(0, 38), margenIzquierdo + 3, cursorY + 7.8);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
+  doc.setFontSize(6.8);
   doc.setTextColor(71, 85, 105);
-  doc.text(`Doc: ${factura.cliente.documento}  |  Tel: ${factura.cliente.telefono || "N/A"}`, margenIzquierdo + 3, cursorY + 11.5);
-  if (factura.cliente.direccion) {
+  const tipoDoc = factura.cliente.tipoIdentificacion || (factura.cliente.esResponsableIVA ? "NIT" : "CC");
+  const docDv = factura.cliente.digitoVerificacion ? `-${factura.cliente.digitoVerificacion}` : "";
+  const textoDocTel = `${tipoDoc}: ${factura.cliente.documento}${docDv}  |  Tel: ${factura.cliente.telefono || "N/A"}`;
+  doc.text(textoDocTel, margenIzquierdo + 3, cursorY + 11.5);
+
+  if (factura.cliente.esResponsableIVA) {
+    const infoFiscal = `Resp: ${factura.cliente.responsabilidadFiscal || "O-48"} | ${factura.cliente.email || ""}`.substring(0, 48);
+    doc.text(infoFiscal, margenIzquierdo + 3, cursorY + 14.8);
+  } else if (factura.cliente.direccion) {
     doc.text(`Dir: ${factura.cliente.direccion.substring(0, 45)}`, margenIzquierdo + 3, cursorY + 14.8);
   }
 
@@ -429,13 +439,22 @@ export function crearDocumentoPdfCarta(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(factura.cliente.nombre.toUpperCase(), margenIzquierdo + 4, cursorY + 10);
+  const nomCarta = (factura.cliente.esResponsableIVA && factura.cliente.razonSocial
+    ? factura.cliente.razonSocial
+    : factura.cliente.nombre).toUpperCase();
+  doc.text(nomCarta, margenIzquierdo + 4, cursorY + 10);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(71, 85, 105);
-  doc.text(`Cédula / NIT: ${factura.cliente.documento}`, margenIzquierdo + 4, cursorY + 14.5);
-  doc.text(`Teléfono: ${factura.cliente.telefono || "N/A"}  |  Dirección: ${factura.cliente.direccion || "N/A"}`, margenIzquierdo + 4, cursorY + 19);
+  const tipoIdCarta = factura.cliente.tipoIdentificacion || (factura.cliente.esResponsableIVA ? "NIT" : "CC");
+  const docDvCarta = factura.cliente.digitoVerificacion ? `-${factura.cliente.digitoVerificacion}` : "";
+  doc.text(`${tipoIdCarta}: ${factura.cliente.documento}${docDvCarta}  |  Resp: ${factura.cliente.responsabilidadFiscal || "O-99"}`, margenIzquierdo + 4, cursorY + 14.5);
+  if (factura.cliente.esResponsableIVA) {
+    doc.text(`Email: ${factura.cliente.email || "N/A"}  |  Dir: ${factura.cliente.direccion || "N/A"} (${factura.cliente.municipio || "Villavicencio"})`, margenIzquierdo + 4, cursorY + 19);
+  } else {
+    doc.text(`Teléfono: ${factura.cliente.telefono || "N/A"}  |  Dirección: ${factura.cliente.direccion || "N/A"}`, margenIzquierdo + 4, cursorY + 19);
+  }
 
   // Columna derecha detalles
   const colDerX = anchoCartaMm / 2 + 5;
@@ -679,9 +698,18 @@ export function crearDocumentoPdfTirilla(
   }
 
   cursorY += 3;
-  doc.text(`Cliente: ${factura.cliente.nombre.toUpperCase()}`, margen, cursorY);
+  const nomTirilla = (factura.cliente.esResponsableIVA && factura.cliente.razonSocial
+    ? factura.cliente.razonSocial
+    : factura.cliente.nombre).toUpperCase();
+  doc.text(`Cliente: ${nomTirilla.substring(0, 26)}`, margen, cursorY);
   cursorY += 3;
-  doc.text(`Doc: ${factura.cliente.documento}`, margen, cursorY);
+  const tipoTirilla = factura.cliente.tipoIdentificacion || (factura.cliente.esResponsableIVA ? "NIT" : "Doc");
+  const dvTirilla = factura.cliente.digitoVerificacion ? `-${factura.cliente.digitoVerificacion}` : "";
+  doc.text(`${tipoTirilla}: ${factura.cliente.documento}${dvTirilla}`, margen, cursorY);
+  if (factura.cliente.esResponsableIVA) {
+    cursorY += 3;
+    doc.text(`Resp: ${factura.cliente.responsabilidadFiscal || "O-48"}`, margen, cursorY);
+  }
   if (factura.cliente.telefono) {
     cursorY += 3;
     doc.text(`Tel: ${factura.cliente.telefono}`, margen, cursorY);

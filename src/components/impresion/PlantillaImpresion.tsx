@@ -31,7 +31,15 @@ export interface DatosImpresionFactura {
       nombre: string;
       documento: string;
       telefono?: string | null;
+      email?: string | null;
       direccion?: string | null;
+      esResponsableIVA?: boolean;
+      tipoIdentificacion?: string;
+      digitoVerificacion?: string | null;
+      razonSocial?: string | null;
+      responsabilidadFiscal?: string;
+      municipio?: string;
+      codigoDaneMunicipio?: string;
     };
     usuarioCajero?: {
       nombre: string;
@@ -319,10 +327,33 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
           {/* Datos Cliente */}
           <div className="py-2 border-b border-dashed border-black space-y-0.5 text-[10px]">
             <p className="font-bold uppercase text-[9px] text-slate-600">CLIENTE:</p>
-            <p className="font-bold text-[11px] font-sans">{factura.cliente.nombre.toUpperCase()}</p>
-            <p>DOC: {factura.cliente.documento}</p>
-            {factura.cliente.telefono && <p>TEL: {factura.cliente.telefono}</p>}
-            {factura.cliente.direccion && <p>DIR: {factura.cliente.direccion}</p>}
+            {factura.cliente.esResponsableIVA ? (
+              <>
+                <p className="font-bold text-[11px] font-sans">
+                  {(factura.cliente.razonSocial || factura.cliente.nombre).toUpperCase()}
+                </p>
+                <p>
+                  {factura.cliente.tipoIdentificacion || "NIT"}: {factura.cliente.documento}
+                  {factura.cliente.digitoVerificacion ? `-${factura.cliente.digitoVerificacion}` : ""}
+                </p>
+                <p>RESP. FISCAL: {factura.cliente.responsabilidadFiscal || "O-48"}</p>
+                {factura.cliente.email && <p>EMAIL: {factura.cliente.email}</p>}
+                {factura.cliente.direccion && (
+                  <p>
+                    DIR: {factura.cliente.direccion}
+                    {factura.cliente.municipio ? ` — ${factura.cliente.municipio}` : ""}
+                  </p>
+                )}
+                {factura.cliente.telefono && <p>TEL: {factura.cliente.telefono}</p>}
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-[11px] font-sans">{factura.cliente.nombre.toUpperCase()}</p>
+                <p>DOC: {factura.cliente.documento}</p>
+                {factura.cliente.telefono && <p>TEL: {factura.cliente.telefono}</p>}
+                {factura.cliente.direccion && <p>DIR: {factura.cliente.direccion}</p>}
+              </>
+            )}
           </div>
 
           {/* Fechas de Alquiler */}
@@ -519,12 +550,47 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
             <div className="grid grid-cols-2 gap-3 mb-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
               <div>
                 <p className="font-bold uppercase text-slate-500 text-[9.5px]">CLIENTE:</p>
-                <p className="font-bold text-slate-900 text-xs">{factura.cliente.nombre.toUpperCase()}</p>
-                <p className="text-[11px]">
-                  Cédula / NIT: <span className="font-mono">{factura.cliente.documento}</span>
-                </p>
-                {factura.cliente.telefono && <p className="text-[11px]">Tel: {factura.cliente.telefono}</p>}
-                {factura.cliente.direccion && <p className="text-[10.5px]">Dir: {factura.cliente.direccion}</p>}
+                {factura.cliente.esResponsableIVA ? (
+                  <>
+                    <p className="font-bold text-slate-900 text-xs">
+                      {(factura.cliente.razonSocial || factura.cliente.nombre).toUpperCase()}
+                    </p>
+                    <p className="text-[11px]">
+                      {factura.cliente.tipoIdentificacion || "NIT"}:{" "}
+                      <span className="font-mono font-bold">
+                        {factura.cliente.documento}
+                        {factura.cliente.digitoVerificacion ? `-${factura.cliente.digitoVerificacion}` : ""}
+                      </span>
+                    </p>
+                    <p className="text-[10.5px]">
+                      Resp. Fiscal:{" "}
+                      <span className="font-semibold text-slate-800">
+                        {factura.cliente.responsabilidadFiscal || "O-48"}
+                      </span>
+                    </p>
+                    {factura.cliente.email && (
+                      <p className="text-[10.5px] truncate">Email: {factura.cliente.email}</p>
+                    )}
+                    {factura.cliente.direccion && (
+                      <p className="text-[10px] truncate">
+                        Dir: {factura.cliente.direccion} — {factura.cliente.municipio || "Villavicencio"} (DANE:{" "}
+                        {factura.cliente.codigoDaneMunicipio || "50001"})
+                      </p>
+                    )}
+                    {factura.cliente.telefono && (
+                      <p className="text-[10.5px]">Tel: {factura.cliente.telefono}</p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="font-bold text-slate-900 text-xs">{factura.cliente.nombre.toUpperCase()}</p>
+                    <p className="text-[11px]">
+                      Cédula / NIT: <span className="font-mono">{factura.cliente.documento}</span>
+                    </p>
+                    {factura.cliente.telefono && <p className="text-[11px]">Tel: {factura.cliente.telefono}</p>}
+                    {factura.cliente.direccion && <p className="text-[10.5px]">Dir: {factura.cliente.direccion}</p>}
+                  </>
+                )}
               </div>
 
               <div>
@@ -732,12 +798,41 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
               <p className="font-bold uppercase text-slate-500 text-[10px] mb-1">
                 Información del Cliente / Adquiriente:
               </p>
-              <p className="font-bold text-slate-900 text-sm">{factura.cliente.nombre.toUpperCase()}</p>
-              <p>
-                Cédula / NIT: <span className="font-mono">{factura.cliente.documento}</span>
-              </p>
-              {factura.cliente.telefono && <p>Teléfono: {factura.cliente.telefono}</p>}
-              {factura.cliente.direccion && <p>Dirección: {factura.cliente.direccion}</p>}
+              {factura.cliente.esResponsableIVA ? (
+                <>
+                  <p className="font-bold text-slate-900 text-sm">
+                    {(factura.cliente.razonSocial || factura.cliente.nombre).toUpperCase()}
+                  </p>
+                  <p>
+                    {factura.cliente.tipoIdentificacion || "NIT"}:{" "}
+                    <span className="font-mono font-bold">
+                      {factura.cliente.documento}
+                      {factura.cliente.digitoVerificacion ? `-${factura.cliente.digitoVerificacion}` : ""}
+                    </span>
+                  </p>
+                  <p>
+                    Responsabilidad Fiscal:{" "}
+                    <span className="font-semibold">{factura.cliente.responsabilidadFiscal || "O-48"}</span>
+                  </p>
+                  {factura.cliente.email && <p>Correo Electrónico: {factura.cliente.email}</p>}
+                  {factura.cliente.direccion && (
+                    <p>
+                      Dirección Fiscal: {factura.cliente.direccion} — {factura.cliente.municipio || "Villavicencio - Meta"}{" "}
+                      (Código DANE: {factura.cliente.codigoDaneMunicipio || "50001"})
+                    </p>
+                  )}
+                  {factura.cliente.telefono && <p>Teléfono: {factura.cliente.telefono}</p>}
+                </>
+              ) : (
+                <>
+                  <p className="font-bold text-slate-900 text-sm">{factura.cliente.nombre.toUpperCase()}</p>
+                  <p>
+                    Cédula / NIT: <span className="font-mono">{factura.cliente.documento}</span>
+                  </p>
+                  {factura.cliente.telefono && <p>Teléfono: {factura.cliente.telefono}</p>}
+                  {factura.cliente.direccion && <p>Dirección: {factura.cliente.direccion}</p>}
+                </>
+              )}
             </div>
 
             <div className="space-y-1">

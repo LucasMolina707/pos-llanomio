@@ -801,3 +801,54 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
 - **Auditoría de Tipos:** `npx tsc --noEmit` completado con **0 errores de TypeScript**.
 - **Build de Producción:** `npm run build` completado exitosamente empaquetando las 22 rutas estáticas y dinámicas.
 - **Servicios en Ejecución:** Procesos de servidor PM2 (`pos-llanomio` y `pos-mdns-proxy`) reiniciados y activos en status `online`.
+
+---
+
+## 19. Cumplimiento Tributario DIAN, Selector Condicional de Responsable de IVA / Facturación Electrónica y Edición Integral de Clientes
+
+### 1. Modelo de Datos y Esquema Prisma (`prisma/schema.prisma` y `database/schema.prisma`)
+- **Ampliación Retrocompatible del Modelo `Cliente`:**
+  - `email String?`: Correo electrónico del cliente (obligatorio para responsables de IVA).
+  - `esResponsableIVA Boolean @default(false)`: Estado fiscal para conmutar entre Consumidor Final y Facturación Electrónica.
+  - `tipoIdentificacion String @default("CC")`: Valores `"CC"`, `"NIT"`, `"CE"`, `"PASAPORTE"`, `"TI"`, `"CONSUMIDOR_FINAL"`.
+  - `digitoVerificacion String?`: Dígito verificador oficial autocalculado con algoritmo DIAN Módulo 11 para NIT.
+  - `razonSocial String?`: Nombre legal exacto consignado en la casilla 35 del Formulario RUT.
+  - `responsabilidadFiscal String @default("O-99")`: Código fiscal DIAN (`O-99` No responsable por defecto, `O-48` IVA, `O-13` Gran Contribuyente, `O-15` Autorretenedor, `O-23` Agente Retenedor IVA, `R-99-PN` Simple).
+  - `municipio String @default("Villavicencio - Meta")`: Nombre del municipio y departamento.
+  - `codigoDaneMunicipio String @default("50001")`: Código numérico DANE oficial (Villavicencio: `50001` por defecto).
+  - Índices agregados en `[esResponsableIVA]`, `[nombre]` y `[telefono]`.
+- **Sincronización:** Ejecutado `npx prisma db push` y `npx prisma generate` manteniendo intactos todos los registros históricos en `database/llanomio.db`.
+
+### 2. Algoritmo Oficial DIAN Módulo 11 y Catálogos (`src/lib/dian-utils.ts`)
+- **`calcularDigitoVerificacionDIAN(nit)`:** Implementación del algoritmo oficial con ponderadores primos `[3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71]`. Validado al 100% con NITs institucionales (DIAN `800197268-4`, Éxito `890900608-9`, Bancolombia `890903938-8`, Ecopetrol `899999068-1`).
+- **`validarEmail(email)`:** Validador de formato de correo con expresión regular estándar.
+- **Catálogo de Responsabilidades Fiscales:** `O-48`, `O-99`, `O-13`, `O-15`, `O-23`, `R-99-PN`.
+- **Catálogo de Municipios y Códigos DANE:** Encabezado por Villavicencio (`50001`), Acacías (`50006`), Granada (`50313`), Puerto López (`50573`), Restrepo (`50606`), Cumaral (`50226`), Bogotá (`11001`), Medellín (`05001`), Cali (`76001`), etc.
+
+### 3. API REST de Clientes (`src/app/api/clientes/route.ts` y `src/app/api/clientes/[id]/route.ts`)
+- **Búsqueda Multi-campo Extendida:** Endpoint `GET` indexa y busca por Razón Social y Correo Electrónico.
+- **Validaciones Condicionales en `POST` y `PUT`:**
+  - Si `esResponsableIVA === true`: Exige correo electrónico válido, dirección fiscal obligatoria, razón social y dígito de verificación autocalculado si el documento es NIT. Asigna `O-48` por defecto.
+  - Si `esResponsableIVA === false`: Flujo ágil que solo requiere Nombre y Documento, asignando `O-99` y código DANE `50001` sin bloqueos de correo ni dirección.
+- **Endpoint `PUT /api/clientes/[id]`:** Permite actualizar clientes existentes convirtiéndolos en responsables de IVA o editando sus datos en cualquier momento.
+
+### 4. Modal de Creación / Edición Rápida (`src/components/pos/ModalCrearClienteRapido.tsx`)
+- Switch interactivo claro: *"¿El cliente es Responsable de IVA / Requiere Facturación Electrónica DIAN?"*.
+- Autocalculador matemático de DV en vivo al digitar el NIT con botón de recálculo manual.
+- Soporte dual para creación y edición de clientes (`clienteAEditar`).
+- Botón rápido *"Consumidor Final (222222222222)"*.
+
+### 5. Integración en Terminal POS y Panel Administrativo
+- **Terminal POS (`src/app/caja/pos/page.tsx`):**
+  - Chips de clientes con badge distintivo `NIT XXXXX-DV • IVA O-48` o `CC: XXXXX`.
+  - Botón rápido *"Editar / RUT"* en cada chip y en la tarjeta del cliente asignado en el carrito.
+- **Directorio de Clientes (`src/app/admin/clientes/page.tsx`):**
+  - Columna de identificación tributaria con badges visuales de alto contraste.
+  - Botón *"Editar RUT"* para enriquecer datos de clientes antiguos con un solo toque.
+
+### 6. Reflejo en Facturas Impresas y Documentos PDF (`PlantillaImpresion.tsx` y `pdf-media-carta.ts`)
+- Bloque de cliente condicional en formatos Tirilla 80mm, Media Carta y Carta Completa:
+  - Si `esResponsableIVA === true`: Despliega Razón Social, `NIT: XXXXX-DV`, Responsabilidad Fiscal `O-48`, Correo Electrónico y Dirección Fiscal con Código DANE.
+  - Si `esResponsableIVA === false`: Despliega formato conciso de Consumidor Final (Nombre, CC, Teléfono y Dirección).
+  - CERO códigos QR de clientes en todos los formatos.
+

@@ -144,19 +144,31 @@ model ConfiguracionEmpresa {
 }
 
 model Cliente {
-  id            String    @id @default(cuid())
-  documento     String    @unique
-  nombre        String
-  telefono      String?
-  direccion     String?
-  notas         String?
-  fechaCreacion DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  documento             String    @unique
+  nombre                String
+  telefono              String?
+  email                 String?
+  direccion             String?
+  notas                 String?
 
-  facturas      Factura[]
+  // Cumplimiento Tributario DIAN / Facturación Electrónica
+  esResponsableIVA      Boolean   @default(false)
+  tipoIdentificacion    String    @default("CC") // "CC", "NIT", "CE", "PASAPORTE", "TI", "CONSUMIDOR_FINAL"
+  digitoVerificacion    String?   // Ej: "5"
+  razonSocial           String?   // Razón Social / Nombre Legal del RUT
+  responsabilidadFiscal String    @default("O-99") // "O-99", "O-48", "O-13", "O-15", "O-23", "R-99-PN"
+  municipio             String    @default("Villavicencio - Meta")
+  codigoDaneMunicipio   String    @default("50001")
+
+  fechaCreacion         DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  facturas              Factura[]
 
   @@index([nombre])
   @@index([telefono])
+  @@index([esResponsableIVA])
   @@map("clientes")
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calcularMoraDeFactura } from "@/lib/cron-moras";
 import { EstadoFactura } from "@prisma/client";
+import { calcularDigitoVerificacionDIAN, validarEmail } from "@/lib/dian-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -178,28 +179,110 @@ export async function GET(req: NextRequest, { params }: Params) {
 
 /**
  * PUT /api/clientes/[id]
- * Actualización de información de contacto o notas del cliente
+ * Actualización completa de información de contacto o datos tributarios DIAN (RUT)
  */
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { nombre, telefono, direccion, notas } = body;
+    const {
+      nombre,
+      telefono,
+      email,
+      direccion,
+      notas,
+      esResponsableIVA,
+      tipoIdentificacion,
+      digitoVerificacion,
+      razonSocial,
+      responsabilidadFiscal,
+      municipio,
+      codigoDaneMunicipio,
+    } = body;
+
+    const clienteExistente = await prisma.cliente.findFirst({
+      where: {
+        OR: [{ id }, { documento: id }],
+      },
+    });
+
+    if (!clienteExistente) {
+      return NextResponse.json(
+        { success: false, error: "Cliente no encontrado para actualizar" },
+        { status: 404 }
+      );
+    }
+
+    const esRespIVA = esResponsableIVA !== undefined ? Boolean(esResponsableIVA) : clienteExistente.esResponsableIVA;
+    const emailSanitizado = email !== undefined ? (email ? email.trim().toLowerCase() : null) : clienteExistente.email;
+    const dirSanitizada = direccion !== undefined ? (direccion ? direccion.trim() : null) : clienteExistente.direccion;
+    const nombreSanitizado = nombre !== undefined ? (nombre ? nombre.trim().toUpperCase() : clienteExistente.nombre) : clienteExistente.nombre;
+    const rSocialSanitizada = razonSocial !== undefined ? (razonSocial ? razonSocial.trim().toUpperCase() : null) : clienteExistente.razonSocial;
+    const tipoId = tipoIdentificacion !== undefined ? tipoIdentificacion.trim().toUpperCase() : clienteExistente.tipoIdentificacion;
+    let dv = digitoVerificacion !== undefined ? (digitoVerificacion ? String(digitoVerificacion).trim() : null) : clienteExistente.digitoVerificacion;
+
+    // Si es NIT y no tiene DV, autocalcular
+    if (tipoId === "NIT" && !dv) {
+      dv = calcularDigitoVerificacionDIAN(clienteExistente.documento) || null;
+    }
+
+    // Validaciones estrictas si es responsable de IVA
+    if (esRespIVA) {
+      if (!emailSanitizado || !validarEmail(emailSanitizado)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "El correo electrónico es obligatorio y debe tener formato válido (@ y dominio) para clientes responsables de IVA (DIAN).",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!dirSanitizada) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "La dirección fiscal del RUT es obligatoria para clientes responsables de IVA (DIAN).",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (tipoId === "NIT" && (!dv || dv.trim() === "")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "El Dígito de Verificación (DV) es obligatorio cuando la identificación es NIT.",
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     const clienteActualizado = await prisma.cliente.update({
-      where: { id },
+      where: { id: clienteExistente.id },
       data: {
-        ...(nombre ? { nombre: nombre.trim() } : {}),
-        telefono: telefono ? telefono.trim() : null,
-        direccion: direccion ? direccion.trim() : null,
-        notas: notas ? notas.trim() : null,
+        ...(nombre !== undefined ? { nombre: nombreSanitizado } : {}),
+        ...(telefono !== undefined ? { telefono: telefono ? telefono.trim().replace(/[^\d+]/g, "") : null } : {}),
+        ...(email !== undefined ? { email: emailSanitizado } : {}),
+        ...(direccion !== undefined ? { direccion: dirSanitizada } : {}),
+        ...(notas !== undefined ? { notas: notas ? notas.trim() : null } : {}),
+        esResponsableIVA: esRespIVA,
+        tipoIdentificacion: tipoId,
+        digitoVerificacion: dv,
+        razonSocial: rSocialSanitizada || (esRespIVA ? nombreSanitizado : null),
+        responsabilidadFiscal: esRespIVA
+          ? (responsabilidadFiscal ? responsabilidadFiscal.trim().toUpperCase() : "O-48")
+          : "O-99",
+        municipio: municipio ? municipio.trim() : (clienteExistente.municipio || "Villavicencio - Meta"),
+        codigoDaneMunicipio: codigoDaneMunicipio ? String(codigoDaneMunicipio).trim() : (clienteExistente.codigoDaneMunicipio || "50001"),
       },
     });
 
     return NextResponse.json({
       success: true,
       cliente: clienteActualizado,
-      message: "Datos del cliente actualizados exitosamente",
+      message: "Datos tributarios y de contacto del cliente actualizados exitosamente",
     });
   } catch (error: unknown) {
     console.error("Error al actualizar cliente:", error);
