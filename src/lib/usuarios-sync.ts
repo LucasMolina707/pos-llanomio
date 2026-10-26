@@ -123,6 +123,13 @@ El sistema opera bajo un modelo de control de acceso basado en roles con permiso
 export async function sincronizarArchivoCredencialesMaestras(prisma: PrismaClient): Promise<void> {
   try {
     const usuarios = await prisma.user.findMany({
+      where: {
+        NOT: {
+          username: {
+            startsWith: "eliminado_",
+          },
+        },
+      },
       orderBy: [{ rol: "asc" }, { username: "asc" }],
       select: {
         id: true,

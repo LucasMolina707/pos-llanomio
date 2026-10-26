@@ -25,6 +25,13 @@ const NO_CACHE_HEADERS = {
 export async function GET() {
   try {
     const usuarios = await prisma.user.findMany({
+      where: {
+        NOT: {
+          username: {
+            startsWith: "eliminado_",
+          },
+        },
+      },
       orderBy: [{ rol: "asc" }, { fechaCreacion: "asc" }],
       select: {
         id: true,

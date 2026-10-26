@@ -51,7 +51,7 @@ El sistema opera bajo un modelo de control de acceso basado en roles con permiso
 
 ## 3. Directorio Auto-Sincronizado de Usuarios en SQLite (`database/llanomio.db`)
 
-> **Última sincronización automática:** 26/10/2026, 12:23 a. m. (Hora Colombia)
+> **Última sincronización automática:** 26/10/2026, 12:59 a. m. (Hora Colombia)
 > Total de cuentas registradas: **5** (1 Administradores, 4 Cajeros)
 
 | Nombre Completo | Usuario (`username`) | Rol | Estado | Seguridad 3-Factores | Intentos Fallidos | Transacciones | Último Cambio de Clave |

@@ -1034,3 +1034,50 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
     8. Desbloqueo y recuperación exitosa mediante los 3 factores legítimos y verificación de inicio de sesión con la nueva clave.
 - **Compilación de Producción:** `npx tsc --noEmit` y `npm run build` completados con **0 errores**, compilando las 21 rutas y el middleware de Next.js 15.
 - **Servicios en Producción:** Procesos PM2 `pos-llanomio` y `pos-mdns-proxy` corriendo en estado `online`.
+
+---
+
+## 23. Eliminación Segura de Usuarios con Modal de Doble Verificación Textual, Autoprotección y Preservación Contable
+
+### 1. Botón de Eliminación y Regla de Autoprotección en UI (`src/app/admin/usuarios/page.tsx`)
+- Incorporación del botón de **Eliminar Usuario** con icono `Trash2` de `lucide-react` en tono coral suave (`bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100`) para cada usuario en la tabla principal.
+- **Autoprotección:** Si el usuario corresponde a la propia cuenta del Administrador que tiene la sesión activa (`currentUser.id === u.id` o `currentUser.username === u.username`), el botón se deshabilita automáticamente (`disabled`, opacidad al 40% y cursor no permitido) con el tooltip: *"Tu propia cuenta en sesión activa (autoprotegido ante borrado)"*, evitando que se elimine por error a sí mismo.
+
+### 2. Modal de Confirmación Estricta de Seguridad ("Escribir `eliminar` para confirmar")
+- Al hacer clic en eliminar sobre cualquier cajero o administrador secundario, se despliega un **Modal en Tema Claro Ergonómico Antifatiga (WCAG AAA)**:
+  - Encabezado con icono `AlertTriangle` en recuadro `bg-rose-50 text-rose-600 border border-rose-200`, título *"Confirmar Eliminación de Usuario"* y detalle del nombre, `@username` y badge de rol.
+  - Explicación de impacto contable: *"Esta acción revocará de forma permanente el acceso de este usuario al sistema POS. Sus facturas, abonos y cierres de caja históricos se conservarán intactos para la contabilidad de LLANOMIO."*
+  - Detección reactiva de transacciones históricas: Si el usuario tiene facturas o abonos, resalta una alerta ámbar indicando que se aplicará una **Baja Definitiva** preservando el historial contable y liberando el nombre de usuario.
+  - **Campo de Verificación Obligatoria:** Input de texto controlado con autofocus y placeholder `"eliminar"`.
+  - **Botón Final de Confirmación:** Permanece deshabilitado en gris inactivo mientras el texto no coincida (`disabled={textoConfirmacionEliminar.trim().toLowerCase() !== "eliminar"}`). Solo al escribir `"eliminar"` se activa en color rojo intenso (`bg-rose-600 hover:bg-rose-700 text-white font-bold`).
+
+### 3. Backend Defensivo e Integridad Referencial (`DELETE /api/usuarios/[id]`)
+- **Autenticación y Autorización:** Exige rol `ADMIN` en sesión activa verificado mediante `obtenerSesionDesdeRequest(req)`. Peticiones no autorizadas reciben `403 Forbidden`.
+- **Verificación Textual:** Exige obligatoriamente la bandera `confirmacion: "eliminar"` en el cuerpo JSON o query param. De lo contrario, rechaza con `400 Bad Request`.
+- **Protección de Sesión y del Administrador Principal:**
+  - Impide que el usuario en sesión se elimine a sí mismo (`400 Bad Request`).
+  - Si el usuario a eliminar es `ADMIN`, verifica que quede al menos un Administrador activo en el sistema. Si es el último, rechaza la operación (`400 Bad Request`).
+- **Manejo Inteligente de Integridad Referencial en SQLite:**
+  - **Caso A (Sin historial contable):** Si nunca emitió facturas, abonos ni turnos de caja, ejecuta el borrado físico definitivo con `prisma.user.delete({ where: { id } })`.
+  - **Caso B (Con historial contable):** Para preservar las firmas de facturas pasadas y no romper llaves foráneas en SQLite:
+    - Aplica una **Baja Definitiva Lógica Irreversible**: establece `activo: false`, renombra `username` a `eliminado_${Date.now()}_${usernameOriginal}`, genera un hash de contraseña aleatorio e inutilizable con `bcryptjs`, limpia permisos y credenciales de seguridad (`pinSeguridadHash = null`, `respuestaSeguridadHash = null`).
+    - En `GET /api/usuarios`, filtra automáticamente los usuarios cuyo username comience por `eliminado_` con `where: { NOT: { username: { startsWith: "eliminado_" } } }`.
+    - Libera el `@username` original para que pueda ser registrado nuevamente en el futuro por un nuevo empleado sin conflicto con la restricción `UNIQUE` de SQLite.
+- **Auto-Sincronización:** Invoca `sincronizarArchivoCredencialesMaestras(prisma)` para actualizar de inmediato `USUARIOS_Y_CREDENCIALES_MAESTRAS.md`, reflejando exclusivamente el personal vigente.
+
+### 4. Control de Calidad y Pruebas Automatizadas (QA - Agente 5)
+- **Suite Automatizada de Eliminación (`scripts/test_qa_eliminar_usuario.ts`):**
+  - **14 de 14 pruebas superadas (100% PASS)**:
+    1. Rechazo con 403 a peticiones DELETE ejecutadas por cajeros.
+    2. Autoprotección: Rechazo con 400 cuando el Administrador intenta eliminarse a sí mismo.
+    3. Rechazo con 400 ante confirmaciones textuales diferentes a `"eliminar"`.
+    4. Borrado físico exitoso de usuarios sin movimientos contables.
+    5. Baja definitiva exitosa de usuarios con facturas históricas sin romper llaves foráneas.
+    6. Verificación de persistencia de facturas históricas vinculadas al `cajeroId` original.
+    7. Comprobación de que usuarios dados de baja no aparecen en `GET /api/usuarios`.
+    8. Reutilización exitosa del username original para nuevos empleados sin conflicto `UNIQUE`.
+    9. Sincronización limpia de `USUARIOS_Y_CREDENCIALES_MAESTRAS.md`.
+- **Suite Integral de Ciberseguridad (`scripts/test_qa_seguridad_rbac.ts`):** 34 de 34 pruebas superadas (100% PASS).
+- **Compilación de Producción:** `npx tsc --noEmit` y `npm run build` completados con **0 errores**.
+- **Servicios:** PM2 `pos-llanomio` y `pos-mdns-proxy` en ejecución continua.
+

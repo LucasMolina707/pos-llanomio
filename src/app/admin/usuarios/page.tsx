@@ -31,6 +31,7 @@ import {
   HelpCircle,
   Unlock,
   ShieldAlert,
+  Trash2,
 } from "lucide-react";
 
 export interface PermisosUsuario {
@@ -104,6 +105,14 @@ export default function GestionUsuariosPage() {
     pos_editar_precios: false,
   });
 
+  // Estado del usuario activo en la sesión actual
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; rol: string } | null>(null);
+
+  // Estados modal de eliminación estricta ("eliminar")
+  const [usuarioParaEliminar, setUsuarioParaEliminar] = useState<UsuarioItem | null>(null);
+  const [textoConfirmacionEliminar, setTextoConfirmacionEliminar] = useState("");
+  const [eliminandoUsuario, setEliminandoUsuario] = useState(false);
+
   // Estados de la tarjeta de configuración de 3 factores para el Administrador
   const [mostrarCardSeguridad, setMostrarCardSeguridad] = useState(false);
   const [adminSeguridadId, setAdminSeguridadId] = useState("");
@@ -144,6 +153,20 @@ export default function GestionUsuariosPage() {
 
   useEffect(() => {
     consultarUsuarios();
+
+    // Obtener información del usuario en sesión activa
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok && d.usuario) {
+          setCurrentUser({
+            id: d.usuario.id,
+            username: d.usuario.username,
+            rol: d.usuario.rol,
+          });
+        }
+      })
+      .catch((e) => console.warn("No se pudo obtener usuario actual:", e));
   }, [consultarUsuarios]);
 
   // Generador de clave fácil de recordar
@@ -284,6 +307,41 @@ export default function GestionUsuariosPage() {
       });
     } finally {
       setProcesando(false);
+    }
+  };
+
+  // Manejador Eliminar Usuario con Doble Verificación ("eliminar")
+  const handleEliminarUsuario = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!usuarioParaEliminar) return;
+    if (textoConfirmacionEliminar.trim().toLowerCase() !== "eliminar") return;
+
+    setMensaje(null);
+    try {
+      setEliminandoUsuario(true);
+      const res = await fetch(`/api/usuarios/${usuarioParaEliminar.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          confirmacion: "eliminar",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || (!data.success && !data.ok)) {
+        throw new Error(data.error || "No fue posible eliminar el usuario");
+      }
+
+      setMensaje({ tipo: "exito", texto: data.mensaje || "Usuario eliminado exitosamente" });
+      setUsuarioParaEliminar(null);
+      setTextoConfirmacionEliminar("");
+      await consultarUsuarios();
+    } catch (err: unknown) {
+      setMensaje({
+        tipo: "error",
+        texto: err instanceof Error ? err.message : "Error al eliminar el usuario",
+      });
+    } finally {
+      setEliminandoUsuario(false);
     }
   };
 
@@ -984,6 +1042,41 @@ export default function GestionUsuariosPage() {
                           >
                             <SlidersHorizontal className="w-4 h-4" />
                           </button>
+
+                          {/* Botón Eliminar con Regla de Autoprotección */}
+                          {(() => {
+                            const esPropioUsuario = currentUser
+                              ? currentUser.id === u.id ||
+                                currentUser.username.toLowerCase() === u.username.toLowerCase()
+                              : false;
+
+                            if (esPropioUsuario) {
+                              return (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="p-1.5 rounded-lg text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-40"
+                                  title="Tu propia cuenta en sesión activa (autoprotegido ante borrado)"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              );
+                            }
+
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUsuarioParaEliminar(u);
+                                  setTextoConfirmacionEliminar("");
+                                }}
+                                className="p-1.5 rounded-lg text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 hover:text-rose-800 transition cursor-pointer"
+                                title={`Eliminar usuario @${u.username}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            );
+                          })()}
                         </div>
                       </td>
                     </tr>
@@ -1476,6 +1569,119 @@ export default function GestionUsuariosPage() {
                 >
                   <Check className="h-4 w-4" />
                   <span>{procesando ? "Guardando..." : "Guardar Cambios"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación Estricta de Eliminación ("eliminar") */}
+      {usuarioParaEliminar && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FCFDFE] rounded-2xl shadow-xl border border-rose-200 max-w-md w-full p-6 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+            {/* Encabezado de Alerta */}
+            <div className="flex items-start gap-3.5 mb-4">
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-extrabold text-slate-950">
+                  Confirmar Eliminación de Usuario
+                </h3>
+                <div className="mt-1 flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-slate-900 text-sm">
+                    {usuarioParaEliminar.nombre}
+                  </span>
+                  <span className="font-mono text-xs text-slate-600 font-bold bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                    @{usuarioParaEliminar.username}
+                  </span>
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                      usuarioParaEliminar.rol === "ADMIN"
+                        ? "bg-blue-50 text-blue-900 border-blue-300"
+                        : "bg-emerald-50 text-emerald-900 border-emerald-300"
+                    }`}
+                  >
+                    {usuarioParaEliminar.rol}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setUsuarioParaEliminar(null);
+                  setTextoConfirmacionEliminar("");
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Explicación Contable e Integridad */}
+            <div className="space-y-3 mb-5">
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                Esta acción revocará de forma permanente el acceso de este usuario al sistema POS. Sus facturas, abonos y cierres de caja históricos se conservarán intactos para la contabilidad de LLANOMIO.
+              </p>
+
+              {usuarioParaEliminar.conteoFacturas > 0 && (
+                <div className="bg-amber-50/90 border border-amber-200 p-3 rounded-xl text-xs text-amber-900 font-medium space-y-1">
+                  <p className="font-bold text-amber-950">
+                    Historial contable vinculado detectado:
+                  </p>
+                  <p>
+                    Este usuario cuenta con <strong>{usuarioParaEliminar.conteoFacturas} facturas</strong> y <strong>{usuarioParaEliminar.conteoAbonos} abonos</strong> registrados. El sistema aplicará una <strong>Baja Definitiva</strong> preservando las firmas de las facturas históricas y liberando el nombre de usuario <code>@{usuarioParaEliminar.username}</code> para futuras contrataciones.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Formulario de Verificación Obligatoria */}
+            <form onSubmit={handleEliminarUsuario} className="space-y-4" autoComplete="off">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Para confirmar esta acción, escribe exactamente la palabra <span className="text-rose-600 font-black">eliminar</span> en el recuadro:
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  value={textoConfirmacionEliminar}
+                  onChange={(e) => setTextoConfirmacionEliminar(e.target.value)}
+                  placeholder="eliminar"
+                  autoComplete="off"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm font-mono font-bold bg-white focus:ring-2 focus:ring-rose-500 focus:outline-none placeholder:text-slate-400"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUsuarioParaEliminar(null);
+                    setTextoConfirmacionEliminar("");
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs sm:text-sm font-semibold hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    textoConfirmacionEliminar.trim().toLowerCase() !== "eliminar" ||
+                    eliminandoUsuario
+                  }
+                  className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition inline-flex items-center gap-1.5 cursor-pointer ${
+                    textoConfirmacionEliminar.trim().toLowerCase() === "eliminar" && !eliminandoUsuario
+                      ? "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200 cursor-pointer"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
+                  }`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>
+                    {eliminandoUsuario ? "Eliminando cuenta..." : "Confirmar y Eliminar Cuenta"}
+                  </span>
                 </button>
               </div>
             </form>
