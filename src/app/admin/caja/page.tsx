@@ -22,7 +22,11 @@ import {
   Plus,
   X,
   Check,
+  FileText,
+  CalendarDays,
+  ArrowRight,
 } from "lucide-react";
+import HistorialArqueosView from "@/components/caja/HistorialArqueosView";
 
 interface CajeroParticipante {
   id: string;
@@ -86,6 +90,12 @@ interface TurnoCerradoItem {
   totalTransferencia: number;
   totalRecaudado: number;
   diferenciaEfectivo: number;
+  efectivoEsperado?: number;
+  efectivoContado?: number;
+  diferencia?: number;
+  tieneDiferencia?: boolean;
+  notaNovedad?: string | null;
+  observaciones?: string | null;
   usuarioCajero: {
     nombre: string;
     username: string;
@@ -130,6 +140,9 @@ export default function ControlCajaAdminPage() {
   const [procesando, setProcesando] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: "exito" | "error"; texto: string } | null>(null);
 
+  // Pestaña activa: "TURNOS_ACTIVOS" o "HISTORIAL_ARQUEOS"
+  const [pestanaActiva, setPestanaActiva] = useState<"TURNOS_ACTIVOS" | "HISTORIAL_ARQUEOS">("TURNOS_ACTIVOS");
+
   // Estados formulario Apertura Inicial
   const [baseInicialInput, setBaseInicialInput] = useState<string>("100000");
   const [nombreGabineteInput, setNombreGabineteInput] = useState<string>("Gabinete #1 - Principal");
@@ -141,10 +154,15 @@ export default function ControlCajaAdminPage() {
   const [nombreNuevaCajaDividida, setNombreNuevaCajaDividida] = useState<string>("");
   const [obsNuevaCajaDividida, setObsNuevaCajaDividida] = useState<string>("");
 
-  // Estados formulario Cierre del Gabinete Seleccionado
+  // Estados formulario Cierre del Gabinete Seleccionado (Arqueo con Justificación sin Bloqueo)
   const [efectivoContadoInput, setEfectivoContadoInput] = useState<string>("");
+  const [notaNovedadInput, setNotaNovedadInput] = useState<string>("");
+  const [errorNotaRequerida, setErrorNotaRequerida] = useState<boolean>(false);
   const [tipoCierre, setTipoCierre] = useState<"DIARIO" | "CONSOLIDADO_MENSUAL">("DIARIO");
   const [obsCierre, setObsCierre] = useState<string>("");
+
+  // Modal para ver nota de novedad en la tabla rápida inferior
+  const [turnoNovedadModal, setTurnoNovedadModal] = useState<TurnoCerradoItem | null>(null);
 
   const consultarEstadoCaja = useCallback(async () => {
     try {
@@ -278,10 +296,11 @@ export default function ControlCajaAdminPage() {
     }
   };
 
-  // Manejador de Cierre de Gabinete Seleccionado
+  // Manejador de Cierre de Gabinete Seleccionado con Arqueo Inteligente sin Bloqueo
   const handleCierre = async (e: React.FormEvent) => {
     e.preventDefault();
     setMensaje(null);
+    setErrorNotaRequerida(false);
 
     if (!gabineteSeleccionado) {
       setMensaje({ tipo: "error", texto: "No hay ningún gabinete seleccionado para cerrar" });
@@ -297,11 +316,27 @@ export default function ControlCajaAdminPage() {
       return;
     }
 
-    if (
-      !confirm(
-        `¿Está seguro de proceder con el CIERRE DEFINITIVO de ${gabineteSeleccionado.nombreGabinete}? Esta acción consolidará los registros de este gabinete de forma independiente.`
-      )
-    ) {
+    const esperadoGaveta = gabineteSeleccionado?.arqueo?.esperadoEnGavetaEfectivo || 0;
+    const diferencia = Math.round((contado - esperadoGaveta) * 100) / 100;
+    const tieneDiferencia = Math.abs(diferencia) > 0.001;
+
+    // REGLA DE NO BLOQUEO CON NOTA OBLIGATORIA ANTE DESVIACIÓN:
+    // Si hay diferencia pero no escribió nota, se exige redactar el motivo sin impedir que cierre una vez justificado.
+    if (tieneDiferencia && !notaNovedadInput.trim()) {
+      setErrorNotaRequerida(true);
+      const tipoDesv = diferencia > 0 ? "sobrante" : "faltante";
+      setMensaje({
+        tipo: "error",
+        texto: `Se ha detectado una diferencia (${tipoDesv}) de $${Math.abs(diferencia).toLocaleString("es-CO")} en el arqueo. Debe redactar obligatoriamente la Nota de Novedad / Justificación de la Diferencia antes de confirmar.`,
+      });
+      return;
+    }
+
+    const confirmMsg = tieneDiferencia
+      ? `Se registrará el cierre de ${gabineteSeleccionado.nombreGabinete} con una diferencia de $${diferencia.toLocaleString("es-CO")} y la siguiente nota de justificación:\n\n"${notaNovedadInput.trim()}"\n\n¿Desea proceder con el cierre?`
+      : `¿Está seguro de proceder con el CIERRE DEFINITIVO de ${gabineteSeleccionado.nombreGabinete}? Cuadre exacto ($0 de diferencia).`;
+
+    if (!confirm(confirmMsg)) {
       return;
     }
 
@@ -314,6 +349,8 @@ export default function ControlCajaAdminPage() {
           accion: "CIERRE",
           turnoCajaId: gabineteSeleccionado.id,
           efectivoFisicoContado: contado,
+          efectivoContado: contado,
+          notaNovedad: notaNovedadInput.trim() || undefined,
           tipoCierre,
           observaciones: obsCierre.trim() || undefined,
         }),
@@ -325,9 +362,11 @@ export default function ControlCajaAdminPage() {
 
       setMensaje({
         tipo: "exito",
-        texto: `${data.mensaje}. Diferencia en gaveta: $${Number(data.cuadre?.diferenciaEfectivo || 0).toLocaleString("es-CO")}`,
+        texto: `${data.mensaje}. ${data.cuadre?.tieneDiferencia ? `Diferencia auditada con novedad: $${Number(data.cuadre?.diferencia || 0).toLocaleString("es-CO")}` : "Cuadre exacto sin diferencias."}`,
       });
       setEfectivoContadoInput("");
+      setNotaNovedadInput("");
+      setErrorNotaRequerida(false);
       setObsCierre("");
       await consultarEstadoCaja();
     } catch (err: unknown) {
@@ -415,6 +454,56 @@ export default function ControlCajaAdminPage() {
         </div>
       </header>
 
+      {/* Selector de Pestañas: Control Operativo de Turnos vs Historial Multi-Periodo */}
+      <div className="flex items-center justify-between border-b border-slate-200 pb-2 gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPestanaActiva("TURNOS_ACTIVOS")}
+            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition cursor-pointer border ${
+              pestanaActiva === "TURNOS_ACTIVOS"
+                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+            }`}
+          >
+            <Vault className="w-4 h-4" />
+            <span>Control de Turnos Activos</span>
+            {hayTurnoAbierto && (
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold ${
+                  pestanaActiva === "TURNOS_ACTIVOS"
+                    ? "bg-blue-700 text-blue-100"
+                    : "bg-slate-200 text-slate-800"
+                }`}
+              >
+                {turnosAbiertos.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPestanaActiva("HISTORIAL_ARQUEOS")}
+            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition cursor-pointer border ${
+              pestanaActiva === "HISTORIAL_ARQUEOS"
+                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+            }`}
+          >
+            <History className={`w-4 h-4 ${pestanaActiva === "HISTORIAL_ARQUEOS" ? "text-white" : "text-amber-600"}`} />
+            <span>Historial de Arqueos & Novedades</span>
+          </button>
+        </div>
+
+        <Link
+          href="/admin/caja/historial"
+          className="text-xs font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition border border-transparent hover:border-blue-200"
+        >
+          <span>Abrir Vista Dedicada a Pantalla Completa</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+
       {/* 2. Banner Crítico de Alerta si hay Turno del Día Anterior Abierto Sin Cerrar */}
       {verificacionSeguridad?.estado === "BLOQUEADO_DIA_ANTERIOR" && (
         <div className="p-5 rounded-2xl border-2 border-rose-400 bg-rose-50 text-rose-950 shadow-sm space-y-3 animate-in fade-in">
@@ -481,9 +570,17 @@ export default function ControlCajaAdminPage() {
       )}
 
       {/* ========================================================= */}
-      {/* CASO A: NO HAY NINGÚN TURNO ABIERTO (Apertura Inicial)   */}
+      {/* VISTA A: HISTORIAL DE ARQUEOS & NOVEDADES MULTI-PERIODO   */}
       {/* ========================================================= */}
-      {!hayTurnoAbierto ? (
+      {pestanaActiva === "HISTORIAL_ARQUEOS" ? (
+        <HistorialArqueosView onRefrescarTurnoActivo={consultarEstadoCaja} />
+      ) : (
+        /* ========================================================= */
+        /* VISTA B: CONTROL OPERATIVO DE TURNOS Y GABINETES ACTIVOS  */
+        /* ========================================================= */
+        <div className="space-y-6">
+          {/* CASO 1: NO HAY NINGÚN TURNO ABIERTO (Apertura Inicial) */}
+          {!hayTurnoAbierto ? (
         <div className="bg-[#FCFDFE] rounded-2xl p-6 sm:p-8 shadow-xs border border-slate-200/90 max-w-2xl mx-auto space-y-6">
           <div className="text-center space-y-2">
             <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shadow-xs">
@@ -906,13 +1003,89 @@ export default function ControlCajaAdminPage() {
                           min="0"
                           step="100"
                           required
-                          placeholder="Ingrese el monto contado..."
+                          placeholder="Ingrese el conteo real de billetes y monedas..."
                           value={efectivoContadoInput}
-                          onChange={(e) => setEfectivoContadoInput(e.target.value)}
-                          className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-950 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
+                          onChange={(e) => {
+                            setEfectivoContadoInput(e.target.value);
+                            setErrorNotaRequerida(false);
+                          }}
+                          className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-950 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs font-mono"
                         />
                       </div>
                     </div>
+
+                    {/* Alerta Visual de Diferencia Detectada (Regla de Arqueo Sin Bloqueo) */}
+                    {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
+                      <div
+                        className={`p-3.5 rounded-xl border flex items-start gap-3 animate-in fade-in ${
+                          diferenciaEnVivo > 0
+                            ? "bg-amber-50 border-amber-300 text-amber-950"
+                            : "bg-rose-50 border-rose-300 text-rose-950"
+                        }`}
+                      >
+                        <AlertTriangle
+                          className={`w-5 h-5 shrink-0 mt-0.5 ${
+                            diferenciaEnVivo > 0 ? "text-amber-600" : "text-rose-600"
+                          }`}
+                        />
+                        <div className="text-xs sm:text-sm space-y-0.5">
+                          <p className="font-bold">
+                            Se ha detectado una diferencia de ${Math.abs(diferenciaEnVivo).toLocaleString("es-CO")}{" "}
+                            ({diferenciaEnVivo > 0 ? "Sobrante" : "Faltante"}) en el arqueo.
+                          </p>
+                          <p className="text-xs opacity-90">
+                            El cierre continúa operativo y habilitado. Por control financiero, debe justificar el motivo en el campo inferior.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Campo Dinámico Obligatorio de Nota de Novedad ante Diferencia */}
+                    {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
+                      <div className="space-y-1.5 animate-in fade-in">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <FileText className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Nota de Novedad / Justificación de la Diferencia *</span>
+                          </span>
+                          <span className="text-xs font-semibold text-rose-600">Requerido por desviación</span>
+                        </label>
+                        <textarea
+                          rows={3}
+                          required
+                          placeholder="Explique el motivo del faltante o sobrante para el estudio contable (ej. Cambio dado de más por error en hora pico, Diferencia pendiente de revisión con cajero, o Sobrante sin identificar)..."
+                          value={notaNovedadInput}
+                          onChange={(e) => {
+                            setNotaNovedadInput(e.target.value);
+                            if (e.target.value.trim()) setErrorNotaRequerida(false);
+                          }}
+                          className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 shadow-2xs leading-relaxed ${
+                            errorNotaRequerida && !notaNovedadInput.trim()
+                              ? "border-rose-500 focus:ring-rose-500 bg-rose-50/40"
+                              : "border-slate-300 bg-white focus:ring-blue-500"
+                          }`}
+                        />
+                        {errorNotaRequerida && !notaNovedadInput.trim() && (
+                          <p className="text-xs font-bold text-rose-600 flex items-center gap-1">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            <span>Por favor documente brevemente el motivo de la diferencia para continuar.</span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Badge de Cuadre Exacto */}
+                    {efectivoContadoInput !== "" && diferenciaEnVivo === 0 && (
+                      <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs sm:text-sm flex items-center gap-2.5 animate-in fade-in">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <div>
+                          <p className="font-bold">Cuadre Exacto (Sin diferencias)</p>
+                          <p className="text-xs text-emerald-800">
+                            El efectivo contado coincide al 100% con lo esperado por el sistema ($0 de desviación).
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -933,11 +1106,11 @@ export default function ControlCajaAdminPage() {
 
                       <div>
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
-                          Observaciones
+                          Observaciones Generales
                         </label>
                         <input
                           type="text"
-                          placeholder="Ej. Cuadre exacto sin novedades"
+                          placeholder="Ej. Turno de la tarde completado"
                           value={obsCierre}
                           onChange={(e) => setObsCierre(e.target.value)}
                           className="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
@@ -947,14 +1120,14 @@ export default function ControlCajaAdminPage() {
                   </div>
 
                   {/* Tarjeta de Comparación y Diferencia de Alto Contraste */}
-                  <div className="lg:col-span-6 bg-slate-50 p-5 rounded-2xl border border-slate-200/90 space-y-3">
+                  <div className="lg:col-span-6 bg-slate-50 p-5 rounded-2xl border border-slate-200/90 space-y-3.5">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                       Resultado del Cuadre de Gaveta ({gabineteSeleccionado.nombreGabinete})
                     </h3>
 
-                    <div className="space-y-2 text-xs sm:text-sm">
+                    <div className="space-y-2.5 text-xs sm:text-sm">
                       <div className="flex justify-between items-center text-slate-700 font-medium">
-                        <span>Total Físico Esperado (Base + Efectivo):</span>
+                        <span>Total Físico Esperado (Base + Recaudos Efectivo):</span>
                         <span className="font-mono font-bold text-slate-900 text-sm md:text-base">
                           ${esperadoGaveta.toLocaleString("es-CO")}
                         </span>
@@ -993,20 +1166,21 @@ export default function ControlCajaAdminPage() {
                       </div>
                     </div>
 
+                    {/* Botón de Cierre No Bloqueante */}
                     <button
                       type="submit"
                       disabled={procesando || efectivoContadoInput === ""}
-                      className="w-full min-h-[46px] py-3.5 rounded-xl font-bold text-sm md:text-base text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                      className="w-full min-h-[48px] py-3.5 rounded-xl font-bold text-sm md:text-base text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                     >
                       {procesando ? (
                         <>
                           <RefreshCw className="w-5 h-5 animate-spin" />
-                          <span>Consolidando Cierre...</span>
+                          <span>Consolidando Arqueo y Backup...</span>
                         </>
                       ) : (
                         <>
                           <Lock className="w-5 h-5" />
-                          <span>Cerrar {gabineteSeleccionado.nombreGabinete}</span>
+                          <span>Confirmar Cierre de {gabineteSeleccionado.nombreGabinete}</span>
                         </>
                       )}
                     </button>
@@ -1163,6 +1337,7 @@ export default function ControlCajaAdminPage() {
                   <th className="px-3 py-3 text-right">Digital</th>
                   <th className="px-3 py-3 text-right">Total Recaudado</th>
                   <th className="px-3 py-3 text-center">Diferencia</th>
+                  <th className="px-3.5 py-3">Nota de Novedad</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
@@ -1233,6 +1408,31 @@ export default function ControlCajaAdminPage() {
                         {Number(t.diferenciaEfectivo).toLocaleString("es-CO")}
                       </span>
                     </td>
+                    <td className="px-3.5 py-3 max-w-xs">
+                      {t.diferenciaEfectivo === 0 ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Exacto</span>
+                        </span>
+                      ) : t.notaNovedad ? (
+                        <div className="space-y-1">
+                          <p className="text-xs text-slate-800 font-medium line-clamp-1 bg-amber-50/70 p-1 rounded border border-amber-200">
+                            {t.notaNovedad}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setTurnoNovedadModal(t)}
+                            className="text-xs font-bold text-blue-700 hover:text-blue-900 underline cursor-pointer"
+                          >
+                            Ver novedad
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-500">
+                          Sin novedad
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1240,6 +1440,50 @@ export default function ControlCajaAdminPage() {
           )}
         </div>
       </div>
+        </div>
+      )}
+
+      {/* Modal para ver justificación completa en la tabla rápida */}
+      {turnoNovedadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-[#FCFDFE] rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg p-6 space-y-4 text-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-amber-600" />
+                <h3 className="text-base font-bold text-slate-900">
+                  Nota de Novedad — {turnoNovedadModal.nombreGabinete || "Gabinete"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTurnoNovedadModal(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-slate-900 text-sm leading-relaxed font-medium">
+              <p>{turnoNovedadModal.notaNovedad}</p>
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-200">
+              <span>Diferencia: ${Number(turnoNovedadModal.diferenciaEfectivo).toLocaleString("es-CO")}</span>
+              <span>Cajero: {turnoNovedadModal.usuarioCajero?.nombre}</span>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setTurnoNovedadModal(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

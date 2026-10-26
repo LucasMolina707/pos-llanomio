@@ -18,7 +18,14 @@
 /database/*.db-shm
 /database/backups_locales/*
 !/database/backups_locales/.gitkeep
+
+# Archivos de migración con datos privados
+/migracion_excel/origen/*
+!/migracion_excel/origen/.gitkeep
+/migracion_excel/excel_fuente/*
 !/migracion_excel/excel_fuente/.gitkeep
+*.xlsx
+*.xls
 
 # Environment files
 .env

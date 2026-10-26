@@ -188,10 +188,10 @@ export async function GET(req: NextRequest) {
       arqueoActual = turnoActivo.arqueo;
     }
 
-    // Historial de turnos cerrados recientemente
+    // Historial de turnos cerrados recientemente (hasta 50 para auditoría rápida)
     const historialTurnos = await prisma.turnoCaja.findMany({
       where: { estado: EstadoTurno.CERRADO },
-      take: 20,
+      take: 50,
       orderBy: { fechaCierre: "desc" },
       include: {
         usuarioCajero: {
@@ -236,6 +236,8 @@ export async function POST(req: NextRequest) {
       nombreGabinete,
       baseInicialEfectivo = 0,
       efectivoFisicoContado,
+      efectivoContado,
+      notaNovedad,
       observaciones,
       tipoCierre = "DIARIO",
     } = body;
@@ -485,8 +487,9 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Validar monto de efectivo físico en gaveta
-      const efectivoFisico = Math.round(Number(efectivoFisicoContado) * 100) / 100;
+      // Validar monto de efectivo físico en gaveta (acepta tanto efectivoFisicoContado como efectivoContado)
+      const valorEntrada = efectivoFisicoContado !== undefined ? efectivoFisicoContado : efectivoContado;
+      const efectivoFisico = Math.round(Number(valorEntrada) * 100) / 100;
       if (isNaN(efectivoFisico) || efectivoFisico < 0) {
         return NextResponse.json(
           { success: false, error: "Debe ingresar el valor de efectivo físico contado en la gaveta" },
@@ -527,6 +530,25 @@ export async function POST(req: NextRequest) {
         ) / 100;
       const esperadoGaveta = Math.round((base + totalEfectivo) * 100) / 100;
       const diferenciaEfectivo = Math.round((efectivoFisico - esperadoGaveta) * 100) / 100;
+      const tieneDiferencia = Math.abs(diferenciaEfectivo) > 0.001;
+
+      // REGLA DE ARQUEO SIN BLOQUEO PERO CON NOTA DE NOVEDAD OBLIGATORIA:
+      // Si hay desviación, no se bloquea el cierre pero se exige documentar el motivo.
+      const notaLimpia = typeof notaNovedad === "string" ? notaNovedad.trim() : "";
+      if (tieneDiferencia && !notaLimpia) {
+        const tipoDesv = diferenciaEfectivo > 0 ? "sobrante" : "faltante";
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Se ha detectado una diferencia (${tipoDesv}) de $${Math.abs(diferenciaEfectivo).toLocaleString("es-CO")} en el arqueo. Debe registrar obligatoriamente la Nota de Novedad / Justificación de la Diferencia antes de confirmar.`,
+            requiereNotaNovedad: true,
+            diferencia: diferenciaEfectivo,
+            efectivoEsperado: esperadoGaveta,
+            efectivoContado: efectivoFisico,
+          },
+          { status: 400 }
+        );
+      }
 
       // Facturas generadas en este turno
       const facturasTurno = await prisma.factura.findMany({
@@ -550,7 +572,7 @@ export async function POST(req: NextRequest) {
 
       const fechaCierre = new Date();
 
-      // Transacción atómica: Cerrar turno y generar CierreCaja
+      // Transacción atómica: Cerrar turno y generar CierreCaja con campos inmutables
       const resultadoCierre = await prisma.$transaction(async (tx) => {
         const nuevoCierre = await tx.cierreCaja.create({
           data: {
@@ -568,13 +590,23 @@ export async function POST(req: NextRequest) {
             totalTransferencia: Math.round(totalTransferencia * 100) / 100,
             totalConsignacion: Math.round(totalConsignacion * 100) / 100,
             totalGeneral: totalRecaudado,
+            // Auditoría y Novedades del Arqueo
+            efectivoEsperado: esperadoGaveta,
+            efectivoContado: efectivoFisico,
+            diferencia: diferenciaEfectivo,
+            tieneDiferencia,
+            notaNovedad: notaLimpia || null,
+            modalidad: turnoACerrar.modalidad || "COMPARTIDA",
+            nombreGabinete: turnoACerrar.nombreGabinete || "Gabinete #1 - Principal",
             totalVentas: Math.round(totalVentas * 100) / 100,
             totalAlquileres: Math.round(totalAlquileres * 100) / 100,
             totalArreglos: Math.round(totalArreglos * 100) / 100,
             cantidadFacturas: facturasTurno.length,
             observaciones:
               observaciones?.trim() ||
-              `Cierre de ${turnoACerrar.nombreGabinete} con diferencia de $${diferenciaEfectivo}`,
+              (tieneDiferencia
+                ? `Cierre de ${turnoACerrar.nombreGabinete} con novedad/diferencia de $${diferenciaEfectivo}: ${notaLimpia}`
+                : `Cierre de ${turnoACerrar.nombreGabinete} con cuadre exacto`),
           },
         });
 
@@ -590,6 +622,11 @@ export async function POST(req: NextRequest) {
             totalConsignacion: Math.round(totalConsignacion * 100) / 100,
             totalRecaudado,
             diferenciaEfectivo,
+            efectivoEsperado: esperadoGaveta,
+            efectivoContado: efectivoFisico,
+            diferencia: diferenciaEfectivo,
+            tieneDiferencia,
+            notaNovedad: notaLimpia || null,
             cierreCajaId: nuevoCierre.id,
             observaciones: observaciones?.trim() || null,
           },
@@ -620,8 +657,13 @@ export async function POST(req: NextRequest) {
           baseInicial: base,
           totalEfectivo,
           esperadoGaveta,
+          efectivoEsperado: esperadoGaveta,
           efectivoFisicoContado: efectivoFisico,
+          efectivoContado: efectivoFisico,
           diferenciaEfectivo,
+          diferencia: diferenciaEfectivo,
+          tieneDiferencia,
+          notaNovedad: notaLimpia || null,
           totalDigital: totalRecaudado - totalEfectivo,
           totalRecaudado,
         },

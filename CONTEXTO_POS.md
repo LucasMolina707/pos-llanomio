@@ -1081,3 +1081,65 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
 - **Compilación de Producción:** `npx tsc --noEmit` y `npm run build` completados con **0 errores**.
 - **Servicios:** PM2 `pos-llanomio` y `pos-mdns-proxy` en ejecución continua.
 
+---
+
+## 24. Módulo de Arqueo Inteligente de Caja con Historial Multi-Periodo (Diario, Mensual, Anual) y Gestión de Novedades sin Bloqueo
+
+### 1. Flujo de Arqueo sin Bloqueo por Diferencia (`src/app/admin/caja/page.tsx` y `src/app/api/caja/route.ts`)
+- **Regla de Operatividad Continua:** Al realizar el arqueo de cierre de cualquier turno de caja en tienda, el cajero o administrador ingresa el conteo físico real de gaveta (billetes y monedas). El sistema compara en vivo dicho valor con el efectivo esperado ($\text{Base Inicial} + \text{Efectivo Recibido}$).
+- **Cálculo de Desviación y Advertencia:**
+  - $\text{Diferencia} = \text{Efectivo Contado Físico} - \text{Efectivo Esperado}$.
+  - Si $\text{Diferencia} \neq 0$: Despliega un aviso visual de alto contraste en tono ámbar (sobrante) o coral/rosa (faltante) indicando el monto exacto de la desviación.
+- **Regla de No Bloqueo:** El botón de **"Confirmar Cierre de Turno"** jamás se bloquea ni impide el avance del cierre. Despliega obligatoriamente un área de texto: **"Nota de Novedad / Justificación de la Diferencia * (Requerido por desviación)"** donde se debe documentar el motivo (ej. *"Cambio entregado de más en hora pico"*, *"Diferencia pendiente de revisión contable"*, o *"Sobrante no identificado"*).
+- **Cuadre Exacto:** Si $\text{Diferencia} = \$0$, muestra el badge verde esmeralda con checkmark vectorial *"Cuadre Exacto (Sin diferencias)"* y la nota de justificación se mantiene opcional.
+- **Inmutabilidad y Respaldo:** El monto de la diferencia, el flag booleano `tieneDiferencia`, el efectivo esperado, el efectivo contado y la nota de justificación quedan almacenados de manera inmutable en los modelos `TurnoCaja` y `CierreCaja` en SQLite (`database/llanomio.db`), y se dispara automáticamente el respaldo en caliente `VACUUM INTO` hacia `C:\POS_LLANOMIO_BACKUPS\`.
+
+### 2. Historial de Arqueos Multi-Periodo (Diario, Mensual, Anual)
+- **Central Reutilizable de Historial (`src/components/caja/HistorialArqueosView.tsx`):**
+  - **Filtros Temporales Interactivos:** Selector de periodo por botones segmentados: `[Diario]` (filtro por fecha exacta `YYYY-MM-DD` con navegación día anterior/siguiente/hoy), `[Mensual]` (selector de mes `YYYY-MM` con navegación mes a mes) y `[Anual]` (selector de año `YYYY` con navegación anual).
+  - **Filtro de Desviaciones:** Switch interactivo *"Ver solo turnos con diferencias / novedades"*.
+  - **Buscador Reactivo:** Filtra instantáneamente por nombre de cajero, `@username`, nombre de gabinete o texto contenido en las notas de justificación.
+  - **Tarjetas Resumen de Rendimiento Financiero (KPIs):**
+    1. *Efectivo Recaudado:* Total acumulado en efectivo del periodo.
+    2. *Recaudos Digitales:* Total acumulado en Nequi, Daviplata, Bancolombia y transferencias.
+    3. *Recaudo Total:* Sumatoria global consolidada.
+    4. *Arqueos Auditados:* Conteo de turnos cerrados con desglose de turnos exactos vs con novedad.
+    5. *Diferencia Neta Acumulada:* Balance global de desviaciones con desglose de Faltantes vs Sobrantes.
+  - **Tabla de Auditoría Histórica:**
+    - Columnas: Fecha & Horario (apertura y cierre), Gabinete & Modalidad (Caja Compartida vs Dividida), Cajero Responsable, Efectivo Esperado, Efectivo Contado, Diferencia (color verde para $\$0$, azul para sobrante y rojo para faltante), Nota de Novedad con vista previa y botón de justificación completa, Desglose Digital y Total Recaudado.
+  - **Modal de Auditoría de Novedad:** Ventana emergente con comparativa de efectivo esperado vs contado, detalle del cajero responsable, horario exacto y documento inmutable de la nota de novedad registrada.
+
+### 3. Vistas Integradas y Dedicadas
+- **Sección Integrada en Panel de Control (`src/app/admin/caja/page.tsx`):**
+  - Barra de pestañas que permite al Administrador y Cajero alternar entre `[Control de Turnos Activos]` y `[Historial de Arqueos & Novedades]` en la misma pantalla sin perder contexto operativo.
+  - Enriquecimiento de la tabla rápida de turnos cerrados con la columna de novedades y modal de auditoría rápida.
+- **Página Dedicada a Pantalla Completa (`src/app/admin/caja/historial/page.tsx`):**
+  - Vista gerencial de página completa con accesos directos al POS y al Control de Caja.
+- **Endpoint Backend Gerencial (`GET /api/caja/historial`):**
+  - Soporta parámetros `periodo`, `fecha`, `mes`, `anio`, `soloNovedades` y `cajeroId`.
+  - Agrupa registros, calcula métricas consolidadas y retorna el desglose completo de arqueos para auditorías mensuales o anuales.
+
+### 4. Ampliación del Esquema Prisma (`prisma/schema.prisma` y `database/schema.prisma`)
+- Modelos `TurnoCaja` y `CierreCaja` enriquecidos con:
+  - `efectivoEsperado Float @default(0)`
+  - `efectivoContado Float @default(0)`
+  - `diferencia Float @default(0)`
+  - `tieneDiferencia Boolean @default(false)`
+  - `notaNovedad String?`
+  - `modalidad String @default("COMPARTIDA")` y `nombreGabinete String @default("Gabinete #1 - Principal")` en `CierreCaja`.
+- Sincronizados con `npx prisma db push` y cliente regenerado con `npx prisma generate`.
+
+### 5. Control de Calidad y Pruebas Automatizadas (QA - Agente 5)
+- **Suite Automatizada de Pruebas (`scripts/test_qa_arqueo_novedades.ts`):**
+  - Creación de turno con base inicial de $\$100.000$ y ventas simuladas en efectivo ($\$50.000$) y digital ($\$30.000$). Total esperado: $\$150.000$.
+  - Validación de rechazo cuando hay diferencia deliberada y la nota se envía vacía.
+  - Verificación de aprobación exitosa sin bloqueos al incluir la nota de justificación.
+  - Comprobación en SQLite de inmutabilidad de `diferencia` ($-5.000$), `tieneDiferencia = true` y texto exacto de `notaNovedad`.
+  - Verificación de cierre con cuadre exacto ($\$0$) sin exigir nota obligatoria (`tieneDiferencia = false`).
+  - Ejecución de respaldo en caliente `VACUUM INTO` con resultado exitoso.
+  - Verificación de consultas multi-periodo y consolidación de sumatorias.
+  - **100% de pruebas superadas exitosamente (100% PASS)**.
+- **Compilación de Producción:** `npx tsc --noEmit` y `npm run build` completados con **0 errores**, compilando las 22 rutas estáticas y dinámicas.
+- **Servicios:** PM2 `pos-llanomio` y `pos-mdns-proxy` en ejecución continua en estado `online`.
+
+

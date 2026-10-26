@@ -319,6 +319,11 @@ model TurnoCaja {
   totalConsignacion   Float       @default(0)
   totalRecaudado      Float       @default(0)
   diferenciaEfectivo  Float       @default(0)
+  efectivoEsperado    Float       @default(0)
+  efectivoContado     Float       @default(0)
+  diferencia          Float       @default(0)
+  tieneDiferencia     Boolean     @default(false)
+  notaNovedad         String?
   observaciones       String?
 
   cierreCajaId        String?
@@ -354,6 +359,15 @@ model CierreCaja {
   totalTransferencia Float      @default(0)
   totalConsignacion  Float      @default(0)
   totalGeneral       Float      @default(0)
+
+  // Arqueo y gestión de novedades
+  efectivoEsperado   Float      @default(0)
+  efectivoContado    Float      @default(0)
+  diferencia         Float      @default(0)
+  tieneDiferencia    Boolean    @default(false)
+  notaNovedad        String?
+  modalidad          String     @default("COMPARTIDA")
+  nombreGabinete     String     @default("Gabinete #1 - Principal")
 
   // Desglose por tipo de operación
   totalVentas        Float      @default(0)
