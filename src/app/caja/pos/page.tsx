@@ -49,6 +49,7 @@ import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresio
 import ModalLiquidarFactura from "@/components/facturas/ModalLiquidarFactura";
 import BotonWhatsApp from "@/components/crm/BotonWhatsApp";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
+import LogoEmpresa from "@/components/brand/LogoEmpresa";
 
 export interface ProductoInventario {
   id: string;
@@ -1004,46 +1005,50 @@ export default function PosPage() {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-100 select-none text-slate-800">
+    <div className="min-h-screen lg:h-screen w-full lg:w-screen overflow-y-auto lg:overflow-hidden flex flex-col bg-[#F4F6F8] select-none text-slate-800 max-w-full overflow-x-hidden">
       {/* ========================================================================= */}
-      {/* 1. HEADER FIJO SUPERIOR (h-14 shrink-0) */}
+      {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA (min-h-[3.75rem] py-2 shrink-0) */}
       {/* ========================================================================= */}
-      <header className="h-14 shrink-0 px-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shadow-sm z-30">
-        {/* Izquierda: Identificador de Terminal, Nombre del Cajero y Estado de Caja */}
-        <div className="flex items-center gap-2 sm:gap-3">
+      <header className="min-h-[3.75rem] py-2 shrink-0 px-3 sm:px-4 bg-[#FCFDFE] text-slate-800 flex flex-wrap items-center justify-between border-b border-slate-200/90 shadow-2xs z-30 gap-2">
+        {/* Izquierda: Logo Oficial, Identificador de Terminal, Cajero y Estado de Caja */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {/* Botón Volver al Menú Principal */}
           <Link
             href="/"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition border border-slate-700/80 text-xs sm:text-sm font-semibold shrink-0"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition border border-slate-300/80 text-xs sm:text-sm font-semibold shrink-0"
             title="Volver al panel principal"
           >
-            <ArrowLeft className="w-4 h-4 text-slate-400" />
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
             <span className="hidden sm:inline">Menú</span>
           </Link>
 
-          <div className="p-2 rounded-xl bg-blue-600 text-white shadow-xs shrink-0">
-            <Receipt className="w-4 h-4" />
+          {/* Logotipo Oficial Sincronizado */}
+          <div className="shrink-0">
+            <LogoEmpresa size="sm" showText={false} />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs sm:text-sm font-black tracking-wider text-slate-100 uppercase">
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 truncate">
+              <span className="font-mono text-xs sm:text-sm font-black tracking-wider text-slate-900 uppercase">
                 Terminal POS
               </span>
-              <span className="text-xs text-blue-400 font-bold">• LLANOMIO</span>
+              <span className="text-xs text-blue-600 font-bold truncate">
+                • {empresaConfig?.nombreComercial || "LLANOMIO"}
+              </span>
             </div>
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-300 font-medium">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600 font-medium">
               <div className="flex items-center gap-1">
                 {seguridadCaja.estado === "ABIERTO_HOY" ? (
                   <Link
                     href="/admin/caja"
                     target="_blank"
                     title="Caja al día. Clic para ver arqueo en tiempo real"
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 font-bold transition text-xs"
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 font-bold transition text-xs"
                   >
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Caja Abierta Hoy</span>
                     {seguridadCaja.turnoAbierto?.baseInicialEfectivo ? (
-                      <span className="font-mono text-emerald-200">
+                      <span className="font-mono text-emerald-900">
                         (${seguridadCaja.turnoAbierto.baseInicialEfectivo.toLocaleString("es-CO")})
                       </span>
                     ) : null}
@@ -1053,25 +1058,25 @@ export default function PosPage() {
                     href="/admin/caja"
                     target="_blank"
                     title="Alerta Crítica: Turno anterior sin cerrar. Clic para cerrar caja"
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-600/30 border border-rose-500 text-rose-300 hover:bg-rose-600/40 font-bold transition text-xs animate-pulse"
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-800 hover:bg-rose-100 font-bold transition text-xs animate-pulse"
                   >
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
                     <span>Bloqueada (Día Anterior)</span>
                   </Link>
                 ) : (
                   <div
                     title="Turno de caja no iniciado hoy. Apertura obligatoria requerida"
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold text-xs"
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 font-bold text-xs"
                   >
-                    <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    <Lock className="w-3.5 h-3.5 text-amber-600" />
                     <span>Sin Turno Abierto</span>
                   </div>
                 )}
               </div>
-              <span className="text-slate-500">|</span>
-              <span className="truncate max-w-[150px] text-slate-300">
+              <span className="text-slate-400">|</span>
+              <span className="truncate max-w-[150px] text-slate-600">
                 Cajero:{" "}
-                <strong className="text-white">
+                <strong className="text-slate-900">
                   {turnoAbierto?.usuarioCajero?.nombre || usuarioSesion?.nombre || "Cajero en Turno"}
                 </strong>
               </span>
@@ -1079,10 +1084,10 @@ export default function PosPage() {
           </div>
         </div>
 
-        {/* Centro: Stepper Compacto (visible en Nueva Factura) o Título de Historial */}
+        {/* Centro: Stepper Compacto Claro (visible en Nueva Factura) o Título de Historial */}
         <div className="hidden lg:flex items-center">
           {vistaPrincipal === "NUEVA_FACTURA" ? (
-            <div className="flex items-center gap-1 p-1 bg-slate-800 rounded-xl border border-slate-700/80">
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/90 shadow-2xs">
               {/* Paso 1: Cliente */}
               <button
                 type="button"
@@ -1091,16 +1096,16 @@ export default function PosPage() {
                   pasoActual === 1
                     ? "bg-blue-600 text-white shadow-xs"
                     : clienteSeleccionado
-                    ? "bg-slate-700 text-slate-200 hover:bg-slate-600"
-                    : "text-slate-400"
+                    ? "bg-white text-slate-800 hover:bg-slate-50 border border-slate-200"
+                    : "text-slate-500 hover:text-slate-800"
                 }`}
               >
                 <User className="w-3.5 h-3.5" />
                 <span>1. Cliente</span>
-                {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-600" />}
               </button>
 
-              <ArrowRight className="w-3 h-3 text-slate-500" />
+              <ArrowRight className="w-3 h-3 text-slate-400" />
 
               {/* Paso 2: Ítems */}
               <button
@@ -1111,16 +1116,16 @@ export default function PosPage() {
                   pasoActual === 2
                     ? "bg-blue-600 text-white shadow-xs"
                     : itemsCarrito.length > 0
-                    ? "bg-slate-700 text-slate-200 hover:bg-slate-600"
-                    : "text-slate-400"
+                    ? "bg-white text-slate-800 hover:bg-slate-50 border border-slate-200"
+                    : "text-slate-500"
                 }`}
               >
                 <ShoppingBag className="w-3.5 h-3.5" />
                 <span>2. Ítems ({itemsCarrito.length})</span>
-                {itemsCarrito.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                {itemsCarrito.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-600" />}
               </button>
 
-              <ArrowRight className="w-3 h-3 text-slate-500" />
+              <ArrowRight className="w-3 h-3 text-slate-400" />
 
               {/* Paso 3: Caja / Vueltas */}
               <button
@@ -1130,14 +1135,14 @@ export default function PosPage() {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
                   pasoActual === 3
                     ? "bg-blue-600 text-white shadow-xs"
-                    : "text-slate-400"
+                    : "text-slate-500"
                 }`}
               >
                 <Wallet className="w-3.5 h-3.5" />
                 <span>3. Cobro & Vueltas</span>
               </button>
 
-              <ArrowRight className="w-3 h-3 text-slate-500" />
+              <ArrowRight className="w-3 h-3 text-slate-400" />
 
               {/* Paso 4: Impresión */}
               <button
@@ -1147,7 +1152,7 @@ export default function PosPage() {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
                   pasoActual === 4
                     ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-400"
+                    : "text-slate-500"
                 }`}
               >
                 <Printer className="w-3.5 h-3.5" />
@@ -1155,15 +1160,15 @@ export default function PosPage() {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-300 text-xs md:text-sm font-black">
-              <History className="w-4 h-4" />
+            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs md:text-sm font-black">
+              <History className="w-4 h-4 text-amber-600" />
               <span>CENTRO DE HISTORIAL, CARTERA, MORAS Y PAZ Y SALVOS</span>
             </div>
           )}
         </div>
 
         {/* Derecha: Botón Recargar + Historial / Moras + Alternar Nueva Factura + Salir al Panel */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Botón Recargar Consola */}
           <button
             type="button"
@@ -1173,7 +1178,7 @@ export default function PosPage() {
               cargarInventario();
               cargarMonitoreo(false);
             }}
-            className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition border border-slate-700/80"
+            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition border border-slate-300/80 cursor-pointer"
             title="Recargar inventario y sincronizar caja"
           >
             <RefreshCw className="w-4 h-4" />
@@ -1186,14 +1191,14 @@ export default function PosPage() {
               setVistaPrincipal("HISTORIAL");
               cargarMonitoreo(false);
             }}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs md:text-sm font-bold transition shadow-xs ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs md:text-sm font-bold transition shadow-xs cursor-pointer ${
               vistaPrincipal === "HISTORIAL"
                 ? "bg-amber-500 text-slate-950 font-black ring-2 ring-amber-400/40"
-                : "bg-slate-800 text-slate-200 hover:bg-slate-750 border border-slate-700"
+                : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
             }`}
             title="Ver centro de cartera, facturas por cobrar, retrasos en mora y paz y salvos"
           >
-            <History className="w-4 h-4 text-amber-400 shrink-0" />
+            <History className="w-4 h-4 text-amber-600 shrink-0" />
             <span className="hidden sm:inline">Historial de Facturas y Moras</span>
             <span className="sm:hidden">Historial</span>
 
@@ -1230,10 +1235,10 @@ export default function PosPage() {
                 }
               }
             }}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-bold transition shadow-xs ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-bold transition shadow-xs cursor-pointer ${
               vistaPrincipal === "NUEVA_FACTURA"
-                ? "bg-blue-600 hover:bg-blue-500 text-white"
-                : "bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700"
+                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/20"
+                : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
             }`}
           >
             <Plus className="w-4 h-4 shrink-0" />
@@ -1243,7 +1248,7 @@ export default function PosPage() {
           {/* Acceso rápido para Salir al Panel Administrativo */}
           <Link
             href="/admin/dashboard"
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition border border-transparent hover:border-slate-700 shrink-0"
+            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition border border-slate-300/80 shrink-0"
             title="Ir al Dashboard de Administración"
           >
             <Building2 className="w-4 h-4" />

@@ -704,5 +704,57 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
 - **Compilación de Producción:** `npx tsc --noEmit` y `npm run build` ejecutados exitosamente con **0 errores de TypeScript y 22 rutas estáticas/dinámicas optimizadas**.
 - **Servidor PM2:** Reiniciado en producción local (`pos-llanomio` y `pos-mdns-proxy`) operando en estado `online`.
 
+---
+
+## 17. Sincronización Global del Logo de Empresa, Paleta Clara Antifatiga Visual y Ergonomía Tipográfica / Responsiva
+
+### 1. Sincronización Global del Logotipo Oficial de la Empresa
+- **Problema previo:** El logotipo de la empresa configurado en `/admin/configuracion` únicamente se inyectaba en la plantilla de impresión de facturas (`PlantillaImpresion.tsx`), mientras que el resto del sistema (Inicio de Sesión, Menú Lateral, Barra Superior, Terminal POS, Panel Principal y Favicon) utilizaba logotipos o isotipos estáticos. Además, la consulta a `/api/empresa` estaba protegida con rol `ADMIN`, impidiendo su lectura pública en el Login y en la Terminal de rol `CAJERO`.
+- **Nuevo Endpoint Público de Identidad (`src/app/api/empresa/publico/route.ts`):**
+  - Acceso `GET` sin restricción de sesión o rol.
+  - Cabeceras estrictas de no-almacenamiento en caché: `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate`, `Pragma: no-cache`.
+  - Retorna exclusivamente los campos públicos de marca: `{ nombreTienda, nombreComercial, eslogan, logoUrl, nit, telefono, direccion, ciudad, email }`.
+- **Nuevo Componente Universal `<LogoEmpresa />` (`src/components/brand/LogoEmpresa.tsx`):**
+  - Soporta 4 tamaños estandarizados: `sm` (36px, barras compactas), `md` (44px, barra lateral), `lg` (64px, banner de bienvenida) y `xl` (96px, pantalla de login).
+  - Renderizado limpio de `<img>` con proporción preservada `object-contain` en marco redondeado antideslumbrante (`rounded-2xl bg-gradient-to-br from-white to-slate-100 border border-slate-200/90 shadow-sm`).
+  - Fallback elegante con isotipo vectorial (`Store` de `lucide-react`) con degradado cobalto en caso de no haberse cargado aún una imagen corporativa.
+  - Inyección y actualización dinámica del `favicon` de la pestaña del navegador (`link rel="icon"`).
+  - Escucha en caliente del evento global de ventana `'empresa-updated'` para actualizarse inmediatamente en toda la interfaz sin recargar la página.
+- **Sincronización en Tiempo Real al Guardar (`src/app/admin/configuracion/page.tsx`):**
+  - Emisión de `window.dispatchEvent(new Event('empresa-updated'))` tras guardar cambios en la identidad de la empresa.
+- **Puntos de Integración del Logo:**
+  - **Pantalla de Inicio de Sesión (`src/app/login/page.tsx`):** `<LogoEmpresa size="xl" showText orientation="vertical" />`.
+  - **Barra Lateral / Sidebar (`src/components/layout/Sidebar.tsx`):** `<LogoEmpresa size="md" showText={!isCollapsed} />`.
+  - **Barra Superior / Navbar (`src/components/layout/Navbar.tsx`):** `<LogoEmpresa size="sm" showText={false} />` visible en móviles.
+  - **Terminal de Cajero (`src/app/caja/pos/page.tsx`):** `<LogoEmpresa size="sm" showText={false} />` en cabecera junto a datos del turno.
+  - **Panel de Inicio (`src/app/page.tsx`):** `<LogoEmpresa size="lg" showText showSubtitle />` en el banner corporativo.
+  - **Acceso Denegado (`src/app/acceso-denegado/page.tsx`):** `<LogoEmpresa size="md" showText />`.
+
+### 2. Paleta de Colores Clara Antifatiga Visual (Cero Tema Oscuro, Cero Blanco Encandilante)
+- **Objetivo Ergonómico:** Diseñado para operadores de mostrador y cajeros con jornadas continuas de 8+ horas bajo iluminación artificial, eliminando el choque visual de fondos negros pesados y el deslumbramiento de blancos puros (`#FFFFFF`).
+- **Definición Cromática en `src/app/globals.css`:**
+  - **Fondo de Aplicación (`--background`):** Gris azulado cálido suave (`#F4F6F8`), reduciendo drásticamente la fatiga ocular por luminancia excesiva.
+  - **Superficie de Tarjetas y Tablas (`--surface`):** Blanco marfil suave antideslumbrante (`#FCFDFE`) con bordes amables (`#E2E8F0`).
+  - **Menú Lateral / Sidebar (`--sidebar-bg`):** Pizarra claro corporativo (`#F1F5F9`) con borde suave (`#E2E8F0`), texto pizarra profundo (`#1E293B`) e ítem activo en azul cobalto (`#2563EB text-white`).
+  - **Tipografía y Contraste:** Texto principal pizarra profundo (`#1E293B`) y secundario legible (`#64748B`), garantizando contraste WCAG AAA descansado.
+  - **Colores Semánticos Serenos:**
+    - Acción Principal / Venta: Azul cobalto equilibrado (`#2563EB` hover `#1D4ED8`).
+    - Paz y Salvo / Disponible: Verde esmeralda sereno (`bg-emerald-50 text-emerald-800 border-emerald-200`, botones `#059669`).
+    - Alquiler / Alerta Media: Ámbar suave (`bg-amber-50 text-amber-900 border-amber-200`).
+    - Mora / Alerta Crítica: Coral suave de alta legibilidad (`bg-rose-50 text-rose-800 border-rose-200`, acento `#E11D48`).
+
+### 3. Ergonomía Tipográfica en PC y Responsividad Estricta en Móviles (Cero Desbordes)
+- **Terminal de Cajero en Escritorio PC (`src/app/caja/pos/page.tsx`):**
+  - Conserva su ventana fija de 100vh sin scroll de página (`lg:h-screen lg:w-screen lg:overflow-hidden flex flex-col`).
+  - Tipografía base aumentada descansadamente a `15px - 16px font-medium` (`text-[15px] lg:text-base text-slate-800`).
+  - Botones de acción y pestañas de catálogo con altura táctil mínima de 42px a 46px (`min-h-[42px]`).
+  - Cifras financieras y calculadora de cambio en `text-lg lg:text-xl font-bold` y totales en `text-2xl font-black`.
+- **Adaptación Responsiva en Celulares y Tablets (`320px - 768px`):**
+  - La terminal de cajero permite scroll vertical fluido en móviles (`min-h-screen overflow-y-auto overflow-x-hidden`) para que los paneles de selección, catálogo y carrito no se solapen.
+  - Blindaje global en `html, body { max-width: 100vw; overflow-x: hidden; }` eliminando cualquier reborde o desplazamiento horizontal involuntario.
+  - Tablas de Monitoreo, Inventario, Caja e Historial envueltas en contenedores elásticos con `overflow-x-auto`.
+  - Contenedores flexibles con `flex-wrap gap-2 min-w-0` y textos largos protegidos con `truncate` o `break-words`.
+
+
 
 

@@ -688,13 +688,13 @@ export default function ControlCajaAdminPage() {
         {/* ========================================================= */}
         {/* SECCIÓN 3: HISTORIAL DE TURNOS CERRADOS PREVIOS           */}
         {/* ========================================================= */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 space-y-4">
+        <div className="bg-[#FCFDFE] rounded-2xl shadow-sm border border-slate-200/90 p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
               <History className="w-4 h-4 text-amber-500" />
               Historial de Turnos y Cierres Previos
             </h2>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-slate-500">
               Auditoría inmutable de transacciones
             </span>
           </div>
@@ -706,7 +706,7 @@ export default function ControlCajaAdminPage() {
               </p>
             ) : (
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800/40 text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                <thead className="bg-slate-100/80 text-xs sm:text-sm font-bold text-slate-600 uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-3">Apertura / Cierre</th>
                     <th className="px-3 py-3">Cajero</th>
@@ -717,11 +717,11 @@ export default function ControlCajaAdminPage() {
                     <th className="px-3 py-3 text-center">Diferencia</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tbody className="divide-y divide-slate-100">
                   {historialTurnos.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                    <tr key={t.id} className="hover:bg-slate-50/70 transition">
                       <td className="px-4 py-3">
-                        <p className="font-bold text-slate-900 dark:text-white text-sm">
+                        <p className="font-bold text-slate-900 text-sm">
                           {new Date(t.fechaApertura).toLocaleDateString("es-CO")}
                         </p>
                         <span className="text-xs text-slate-500 font-mono">
@@ -729,29 +729,29 @@ export default function ControlCajaAdminPage() {
                           {t.fechaCierre ? new Date(t.fechaCierre).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }) : "Abierto"}
                         </span>
                       </td>
-                      <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300 text-sm">
+                      <td className="px-3 py-3 font-semibold text-slate-700 text-sm">
                         {t.usuarioCajero?.nombre}
                       </td>
                       <td className="px-3 py-3 text-right font-mono text-sm">
                         ${Number(t.baseInicialEfectivo).toLocaleString("es-CO")}
                       </td>
-                      <td className="px-3 py-3 text-right font-mono font-bold text-slate-900 dark:text-white text-sm">
+                      <td className="px-3 py-3 text-right font-mono font-bold text-slate-900 text-sm">
                         ${Number(t.totalEfectivo).toLocaleString("es-CO")}
                       </td>
-                      <td className="px-3 py-3 text-right font-mono text-purple-700 dark:text-purple-400 text-sm">
+                      <td className="px-3 py-3 text-right font-mono text-purple-700 text-sm">
                         ${(Number(t.totalNequi) + Number(t.totalDaviplata) + Number(t.totalTransferencia)).toLocaleString("es-CO")}
                       </td>
-                      <td className="px-3 py-3 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm md:text-base">
+                      <td className="px-3 py-3 text-right font-mono font-black text-emerald-600 text-sm md:text-base">
                         ${Number(t.totalRecaudado).toLocaleString("es-CO")}
                       </td>
                       <td className="px-3 py-3 text-center">
                         <span
                           className={`px-2.5 py-1 rounded-full text-xs font-bold font-mono ${
                             t.diferenciaEfectivo === 0
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                               : t.diferenciaEfectivo > 0
-                              ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
-                              : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                              ? "bg-blue-50 text-blue-800 border border-blue-200"
+                              : "bg-rose-50 text-rose-800 border border-rose-200"
                           }`}
                         >
                           {t.diferenciaEfectivo >= 0 ? "+" : ""}${Number(t.diferenciaEfectivo).toLocaleString("es-CO")}

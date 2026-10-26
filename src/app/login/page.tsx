@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, User, Sparkles, AlertCircle, ArrowRight, ShieldCheck } from "lucide-react";
+import { Lock, User, AlertCircle, ArrowRight, ShieldCheck, UserCheck } from "lucide-react";
+import LogoEmpresa from "@/components/brand/LogoEmpresa";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,34 +48,37 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-slate-100 p-4">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-[#F4F6F8] p-4 sm:p-6 overflow-x-hidden">
       <div className="max-w-md w-full">
-        {/* Cabecera / Identidad */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-emerald-600 text-white shadow-lg mb-4">
-            <Sparkles className="h-8 w-8" />
+        {/* Cabecera / Identidad Oficial con LogoEmpresa */}
+        <div className="text-center mb-6">
+          <LogoEmpresa
+            size="xl"
+            showText
+            showSubtitle
+            orientation="vertical"
+            className="w-full justify-center mb-2"
+            textClassName="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight"
+            subtitleClassName="text-xs sm:text-sm text-slate-500 font-medium mt-1"
+          />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/80 border border-slate-300/70 text-slate-700 text-xs font-semibold mt-2">
+            <span>Sistema POS & Control de Mostrador</span>
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900">
-            POS LLANOMIO
-          </h1>
-          <p className="text-xs text-slate-500 font-medium mt-1">
-            Control de Acceso y Facturación Local
-          </p>
         </div>
 
-        {/* Tarjeta de Formulario */}
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
+        {/* Tarjeta de Formulario con Paleta Clara Antifatiga */}
+        <div className="bg-[#FCFDFE] rounded-2xl shadow-sm border border-slate-200/90 p-6 sm:p-8">
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start space-x-3 text-red-700 text-xs font-semibold">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start space-x-2.5 text-rose-800 text-xs sm:text-sm font-semibold">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Usuario
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Usuario de Turno
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -86,13 +90,14 @@ export default function LoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="admin o cajero"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  autoComplete="username"
+                  className="w-full pl-10 pr-4 py-2.5 sm:py-3 rounded-xl border border-slate-300 text-slate-800 text-[15px] sm:text-base font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:text-slate-400"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 Contraseña
               </label>
               <div className="relative">
@@ -105,7 +110,8 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  autoComplete="current-password"
+                  className="w-full pl-10 pr-4 py-2.5 sm:py-3 rounded-xl border border-slate-300 text-slate-800 text-[15px] sm:text-base font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -113,29 +119,29 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={cargando}
-              className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md transition duration-200 flex items-center justify-center space-x-2 disabled:opacity-60"
+              className="w-full min-h-[46px] py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[15px] sm:text-base shadow-sm shadow-blue-500/20 transition-all duration-150 flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
             >
-              <span>{cargando ? "Iniciando sesión..." : "Ingresar al Sistema"}</span>
+              <span>{cargando ? "Iniciando turno..." : "Ingresar al Sistema"}</span>
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
 
-          {/* Accesos rápidos de desarrollo/tienda */}
-          <div className="mt-6 pt-6 border-t border-slate-200">
-            <span className="block text-xs font-medium text-slate-500 mb-3 text-center">
-              Credenciales locales configuradas:
+          {/* Accesos rápidos locales de mostrador */}
+          <div className="mt-6 pt-5 border-t border-slate-200/90">
+            <span className="block text-xs font-semibold text-slate-500 mb-2.5 text-center">
+              Acceso rápido para terminal de mostrador:
             </span>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <button
                 type="button"
                 onClick={() => setCredencialRapida("admin", "admin123")}
-                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-left transition"
+                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-left transition"
               >
                 <div className="flex items-center space-x-1.5 font-bold text-slate-800">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                  <ShieldCheck className="h-4 w-4 text-blue-600" />
                   <span>Admin</span>
                 </div>
-                <div className="text-slate-500 text-xs font-mono mt-0.5">admin / admin123</div>
+                <div className="text-slate-500 text-[11px] font-mono mt-0.5">admin / admin123</div>
               </button>
 
               <button
@@ -144,14 +150,18 @@ export default function LoginPage() {
                 className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-left transition"
               >
                 <div className="flex items-center space-x-1.5 font-bold text-slate-800">
-                  <User className="h-3.5 w-3.5 text-blue-600" />
+                  <UserCheck className="h-4 w-4 text-blue-600" />
                   <span>Cajero</span>
                 </div>
-                <div className="text-slate-500 text-xs font-mono mt-0.5">cajero / cajero123</div>
+                <div className="text-slate-500 text-[11px] font-mono mt-0.5">cajero / cajero123</div>
               </button>
             </div>
           </div>
         </div>
+
+        <p className="text-center text-xs text-slate-500 mt-4">
+          Red Local mDNS activa en <span className="font-semibold text-slate-700">http://llanomio.local</span>
+        </p>
       </div>
     </div>
   );

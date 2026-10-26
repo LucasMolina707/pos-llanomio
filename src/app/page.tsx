@@ -6,23 +6,17 @@ import {
   ShoppingBag,
   CalendarCheck,
   Package,
-  Layers,
   ShieldCheck,
-  Server,
-  Database,
-  ArrowRight,
-  Settings,
-  Vault,
   BarChart3,
   Radio,
-  FileText,
-  Clock,
-  Sparkles,
+  Settings,
+  Vault,
+  ArrowRight,
   QrCode,
   X,
-  Wifi,
 } from "lucide-react";
 import TarjetaConexionLAN from "@/components/red/TarjetaConexionLAN";
+import LogoEmpresa from "@/components/brand/LogoEmpresa";
 
 interface UsuarioSesion {
   userId: string;
@@ -51,7 +45,7 @@ export default function HomePage() {
       titulo: "Terminal de Facturación",
       descripcion: "Emisión ágil de facturas para ventas directas, alquileres, separes y servicios libres de arreglo.",
       icono: ShoppingBag,
-      colorIcono: "bg-blue-50 text-blue-600 border-blue-100",
+      colorIcono: "bg-blue-50 text-blue-600 border-blue-200",
       etiqueta: "Mostrador POS",
       colorBadge: "bg-blue-50 text-blue-700 border-blue-200",
       href: "/caja/pos",
@@ -60,7 +54,7 @@ export default function HomePage() {
       titulo: "Control de Caja & Arqueos",
       descripcion: "Apertura con base inicial en efectivo, arqueo físico en gaveta y cierre diario por métodos de pago.",
       icono: Vault,
-      colorIcono: "bg-emerald-50 text-emerald-600 border-emerald-100",
+      colorIcono: "bg-emerald-50 text-emerald-600 border-emerald-200",
       etiqueta: "Caja y Turnos",
       colorBadge: "bg-emerald-50 text-emerald-700 border-emerald-200",
       href: "/admin/caja",
@@ -69,7 +63,7 @@ export default function HomePage() {
       titulo: "Historial de Facturas y Moras",
       descripcion: "Centro unificado de cartera: facturas pendientes, cobro de moras acumuladas, prendas fuera de inventario y reimpresión de Paz y Salvos.",
       icono: CalendarCheck,
-      colorIcono: "bg-rose-50 text-rose-600 border-rose-100",
+      colorIcono: "bg-rose-50 text-rose-600 border-rose-200",
       etiqueta: "Cartera y Auditoría",
       colorBadge: "bg-rose-50 text-rose-700 border-rose-200",
       href: "/admin/monitoreo",
@@ -78,7 +72,7 @@ export default function HomePage() {
       titulo: "Directorio de Clientes",
       descripcion: "Consulta de clientes, saldos pendientes consolidados, historial de prendas alquiladas y compras registradas.",
       icono: ShieldCheck,
-      colorIcono: "bg-cyan-50 text-cyan-600 border-cyan-100",
+      colorIcono: "bg-cyan-50 text-cyan-600 border-cyan-200",
       etiqueta: "Cartera y Clientes",
       colorBadge: "bg-cyan-50 text-cyan-700 border-cyan-200",
       href: "/admin/clientes",
@@ -87,7 +81,7 @@ export default function HomePage() {
       titulo: "Inventario Especializado",
       descripcion: "Control de stock, prendas por talla y color, estados de disponibilidad y tarifas de penalización.",
       icono: Package,
-      colorIcono: "bg-amber-50 text-amber-600 border-amber-100",
+      colorIcono: "bg-amber-50 text-amber-600 border-amber-200",
       etiqueta: "Catálogo",
       colorBadge: "bg-amber-50 text-amber-700 border-amber-200",
       href: "/admin/inventario",
@@ -96,7 +90,7 @@ export default function HomePage() {
       titulo: "Dashboard Gerencial",
       descripcion: "Consolidado de métricas financieras, ingresos netos, cuentas por cobrar y rendimiento por líneas de negocio.",
       icono: BarChart3,
-      colorIcono: "bg-indigo-50 text-indigo-600 border-indigo-100",
+      colorIcono: "bg-indigo-50 text-indigo-600 border-indigo-200",
       etiqueta: "Inteligencia",
       colorBadge: "bg-indigo-50 text-indigo-700 border-indigo-200",
       href: "/admin/dashboard",
@@ -105,7 +99,7 @@ export default function HomePage() {
       titulo: "Configuración y Datos Fiscales",
       descripcion: "Administración de datos de la empresa, NIT, políticas de factura, logotipos y formatos de impresión.",
       icono: Settings,
-      colorIcono: "bg-purple-50 text-purple-600 border-purple-100",
+      colorIcono: "bg-purple-50 text-purple-600 border-purple-200",
       etiqueta: "Solo Administrador",
       colorBadge: "bg-purple-50 text-purple-700 border-purple-200",
       href: "/admin/configuracion",
@@ -113,30 +107,36 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="w-full space-y-6">
-      {/* 1. Banner Corporativo Principal */}
-      <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-xl p-6 sm:p-8 text-white shadow-md border border-slate-800 relative overflow-hidden">
-        <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold mb-3">
-            <Radio className="h-3.5 w-3.5 text-blue-400 animate-pulse" />
-            <span>Red Local LAN Activa &bull; llanomio.local</span>
+    <div className="w-full space-y-6 max-w-full overflow-x-hidden">
+      {/* 1. Banner Corporativo Antifatiga Visual */}
+      <section className="bg-gradient-to-br from-white via-slate-50 to-blue-50/40 rounded-2xl p-5 sm:p-7 text-slate-800 shadow-xs border border-slate-200/90 relative overflow-hidden">
+        <div className="relative z-10 max-w-3xl space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <LogoEmpresa
+              size="lg"
+              showText
+              showSubtitle
+              orientation="horizontal"
+              textClassName="text-xl sm:text-2xl font-black text-slate-900 tracking-tight"
+              subtitleClassName="text-xs sm:text-sm text-slate-500 font-medium"
+            />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
+              <Radio className="h-3.5 w-3.5 text-blue-600 animate-pulse" />
+              <span>Red Local LAN Activa &bull; llanomio.local</span>
+            </div>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-            Sistema POS Local LLANOMIO
-          </h1>
-
-          <p className="mt-2 text-slate-300 text-xs sm:text-sm leading-relaxed">
-            Plataforma autónoma de punto de venta, gestión de alquileres y control de inventario.
+          <p className="text-slate-600 text-xs sm:text-sm md:text-base leading-relaxed">
+            Plataforma autónoma de punto de venta, gestión de alquileres y control de inventario para mostrador.
             Operando 100% en red de área local en Windows sin requerir conexión a internet ni costos en la nube.
           </p>
 
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="pt-2 flex flex-wrap items-center gap-3">
             <Link
               href="/caja/pos"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[42px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm md:text-base font-bold transition shadow-sm shadow-blue-500/30"
+              className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm md:text-base font-bold transition shadow-sm shadow-blue-500/25 cursor-pointer"
             >
               <ShoppingBag className="h-5 w-5" />
               <span>Abrir Terminal POS (Nueva Ventana)</span>
@@ -145,7 +145,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => setMostrarModalQR(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition shadow-sm shadow-emerald-500/20"
+              className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition shadow-sm shadow-emerald-500/20 cursor-pointer"
             >
               <QrCode className="h-4 w-4" />
               <span>Conectar Celular / PC en Red</span>
@@ -153,17 +153,12 @@ export default function HomePage() {
 
             <Link
               href="/admin/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-semibold transition"
+              className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs sm:text-sm font-semibold transition"
             >
-              <BarChart3 className="h-4 w-4 text-blue-400" />
+              <BarChart3 className="h-4 w-4 text-blue-600" />
               <span>Ver Métricas</span>
             </Link>
           </div>
-        </div>
-
-        {/* Decoración de fondo */}
-        <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
-          <Layers className="w-64 h-64 text-white" />
         </div>
       </section>
 
@@ -172,7 +167,7 @@ export default function HomePage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="h-6 w-1.5 rounded-full bg-blue-600"></div>
-            <h2 className="text-lg md:text-xl font-bold text-slate-900">
+            <h2 className="text-base sm:text-lg md:text-xl font-bold text-slate-800">
               Módulos Operativos del Negocio
             </h2>
           </div>
@@ -181,7 +176,7 @@ export default function HomePage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
           {modulos.map((modulo, idx) => {
             const Icono = modulo.icono;
             const esPos = modulo.href === "/caja/pos";
@@ -192,28 +187,28 @@ export default function HomePage() {
                 href={modulo.href}
                 target={esPos ? "_blank" : undefined}
                 rel={esPos ? "noopener noreferrer" : undefined}
-                className="group bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md hover:border-blue-300 transition-all duration-200 flex flex-col justify-between"
+                className="group bg-[#FCFDFE] rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-sm hover:border-blue-400 transition-all duration-200 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <div className={`h-11 w-11 rounded-xl flex items-center justify-center border ${modulo.colorIcono}`}>
                       <Icono className="h-5 w-5" />
                     </div>
-                    <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${modulo.colorBadge}`}>
+                    <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${modulo.colorBadge}`}>
                       {modulo.etiqueta}
                     </span>
                   </div>
 
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-base font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
                     {modulo.titulo}
                   </h3>
 
-                  <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
                     {modulo.descripcion}
                   </p>
                 </div>
 
-                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-sm font-bold text-blue-600">
+                <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs sm:text-sm font-bold text-blue-600">
                   <span>{esPos ? "Abrir Terminal en Nueva Ventana" : "Acceder al módulo"}</span>
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </div>
@@ -231,12 +226,12 @@ export default function HomePage() {
 
       {/* Modal Flotante de Conexión Rápida QR */}
       {mostrarModalQR && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm p-4 sm:p-6 flex items-center justify-center animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs p-4 sm:p-6 flex items-center justify-center animate-in fade-in duration-200">
           <div className="relative w-full max-w-4xl">
             <button
               type="button"
               onClick={() => setMostrarModalQR(false)}
-              className="absolute -top-3 -right-3 z-10 p-2 rounded-full bg-slate-900 text-white hover:bg-slate-800 shadow-md transition"
+              className="absolute -top-3 -right-3 z-10 p-2 rounded-full bg-slate-800 text-white hover:bg-slate-700 shadow-md transition"
               title="Cerrar modal"
             >
               <X className="w-4 h-4" />

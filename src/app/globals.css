@@ -3,25 +3,41 @@
 @tailwind utilities;
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --sidebar-bg: #0f172a;
-  --sidebar-border: #1e293b;
-  --primary-blue: #2563eb;
-  --primary-blue-hover: #1d4ed8;
+  /* Paleta Clara Antifatiga Visual (Uso intensivo de 8+ horas) */
+  --background: #F4F6F8;       /* Piedra / arena suave de baja reflectancia */
+  --surface: #FCFDFE;          /* Blanco marfil suave (Cero blanco puro encandilante) */
+  --surface-muted: #EEF2F6;    /* Superficie secundaria / celdas alternas */
+  --surface-elevated: #FFFFFF;
+  --sidebar-bg: #F1F5F9;       /* Barra lateral clara corporativa */
+  --sidebar-border: #E2E8F0;   /* Borde suave delimitador */
+  --sidebar-hover: #E2E8F0;
+  --foreground: #1E293B;       /* Texto pizarra profundo de alto contraste descansado */
+  --foreground-muted: #64748B; /* Texto secundario legible */
+  --border-soft: #E2E8F0;      /* Bordes sutiles */
+  --border-medium: #CBD5E1;
+  --primary-blue: #2563EB;     /* Azul cobalto sereno */
+  --primary-blue-hover: #1D4ED8;
+  --emerald-action: #059669;   /* Esmeralda suave */
+}
+
+html {
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  background-color: var(--background);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   min-height: 100vh;
+  max-width: 100vw;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar fina y moderna para monitores de escritorio */
+/* Scrollbar ergonómica y sutil */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -32,12 +48,29 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #94A3B8;
+}
+
+/* Clases de apoyo Antifatiga */
+.bg-app {
+  background-color: #F4F6F8;
+}
+
+.tarjeta-empresa {
+  background-color: #FCFDFE;
+  border: 1px solid #E2E8F0;
+  border-radius: 1rem; /* rounded-2xl */
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.03);
+}
+
+.tarjeta-empresa:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
 }
 
 /* Transiciones suaves en botones y tarjetas */
@@ -53,16 +86,18 @@ body {
   justify-content: center;
 }
 
-/* Tarjeta estándar del panel empresarial */
-.tarjeta-empresa {
-  background-color: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  border-radius: 0.75rem; /* rounded-xl */
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+/* Blindaje anti-desbordamiento horizontal para tablas y grillas */
+.tabla-responsiva-contenedor {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.tarjeta-empresa:hover {
-  border-color: rgba(203, 213, 225, 0.95);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+/* Texto de tamaño base ergonómico para terminales de PC */
+@media (min-width: 1024px) {
+  .texto-pos-base {
+    font-size: 0.965rem; /* ~15.5px */
+    line-height: 1.45;
+  }
 }
-

@@ -40,17 +40,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const esCajaPos = pathname === "/caja/pos";
 
   if (esPaginaLogin) {
-    return <main className="min-h-screen bg-slate-50">{children}</main>;
+    return <main className="min-h-screen w-full bg-[#F4F6F8] overflow-x-hidden">{children}</main>;
   }
 
   if (esCajaPos) {
-    return <main className="h-screen w-screen overflow-hidden bg-slate-100">{children}</main>;
+    return (
+      <main className="min-h-screen lg:h-screen w-full lg:w-screen overflow-x-hidden lg:overflow-hidden bg-[#F4F6F8]">
+        {children}
+      </main>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen w-full bg-[#F4F6F8] flex max-w-full overflow-x-hidden">
       {/* 1. Barra Lateral en Escritorio */}
-      <div className="hidden md:block">
+      <div className="hidden md:block shrink-0">
         <Sidebar
           isCollapsed={isCollapsed}
           onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
@@ -62,10 +66,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {isMobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex">
           <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
             onClick={() => setIsMobileOpen(false)}
           />
-          <div className="relative w-64 max-w-[80vw] h-full z-10">
+          <div className="relative w-64 max-w-[80vw] h-full z-10 shadow-2xl">
             <Sidebar
               isCollapsed={false}
               onToggleCollapse={() => setIsMobileOpen(false)}
@@ -77,7 +81,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* 3. Contenedor Principal (Navbar + Contenido Full-Width) */}
       <div
-        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out ${
+        className={`flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden transition-all duration-300 ease-in-out ${
           isCollapsed ? "md:ml-20" : "md:ml-64"
         }`}
       >
@@ -86,7 +90,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           isSidebarCollapsed={isCollapsed}
           usuario={usuario}
         />
-        <main className="flex-1 w-full p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 w-full max-w-full p-3.5 sm:p-5 lg:p-7 overflow-x-hidden">
           {children}
         </main>
       </div>

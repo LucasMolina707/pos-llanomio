@@ -247,7 +247,10 @@ export default function ConfiguracionAdminPage() {
         throw new Error(data.error || "Error al guardar la configuración de factura.");
       }
 
-      setMensajeExito("La configuración de factura y el logotipo han sido actualizados con éxito.");
+      setMensajeExito("La configuración de factura y el logotipo han sido actualizados con éxito en todo el sistema.");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("empresa-updated"));
+      }
       setTimeout(() => setMensajeExito(null), 5000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error al guardar configuración.";
@@ -353,15 +356,15 @@ export default function ConfiguracionAdminPage() {
         <div className="lg:col-span-7 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* SECCIÓN 1: IDENTIDAD VISUAL Y LOGOTIPO DE EMPRESA */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+            <div className="bg-[#FCFDFE] rounded-2xl border border-slate-200/90 p-6 shadow-xs">
               <div className="flex items-center space-x-2.5 mb-4 pb-3 border-b border-slate-100">
                 <Upload className="h-5 w-5 text-blue-600" />
                 <div>
                   <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                    Logotipo Corporativo de Factura
+                    Logotipo Oficial del Sistema y Facturas
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Se almacena directamente en Base64 para visualización instantánea 100% offline y en PDF
+                    Sincronización automática en Login, Menú Lateral, Terminal POS, Barra Superior, Favicon y Facturas impresas (80mm, Media Carta y Carta).
                   </p>
                 </div>
               </div>
