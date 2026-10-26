@@ -755,6 +755,49 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
   - Tablas de Monitoreo, Inventario, Caja e Historial envueltas en contenedores elásticos con `overflow-x-auto`.
   - Contenedores flexibles con `flex-wrap gap-2 min-w-0` y textos largos protegidos con `truncate` o `break-words`.
 
+---
 
+## 18. Rediseño Ergonómico Antifatiga y Alto Contraste (WCAG AAA) en Control de Caja y Terminal POS
 
+### 1. Corrección Quirúrgica del Banner de Turno y Cajero Responsable (`src/app/admin/caja/page.tsx`)
+- **Problema Previo:** La tarjeta superior de turno activo conservaba gradientes oscuros o fondos con contraste insuficiente (`bg-slate-900`, `text-slate-300`/`400`), dificultando la lectura rápida en pantallas de mostrador bajo luz diurna o artificial intensa.
+- **Nuevo Diseño Claro de Máximo Contraste (Estándar WCAG AAA):**
+  - **Turno Activo al Día:**
+    - Contenedor: Fondo verde esmeralda luminoso antifatiga (`bg-emerald-50/90`) con borde izquierdo acentuado (`border-l-4 border-l-emerald-600 border border-emerald-200 rounded-2xl shadow-sm p-4 sm:p-5`).
+    - Título Principal (*"Turno Activo al Día — [Fecha y Hora]"*): Texto en pizarra profundo de altísima nitidez (`text-slate-900 font-bold text-base md:text-lg tracking-tight`), acompañado de la fecha en `text-slate-800 font-semibold`.
+    - Badge de Estado: Píldora clara destacada (`bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold px-3 py-1 rounded-full text-xs`).
+    - Subtítulo de Cajero (*"Cajero Responsable:"*): Etiqueta en gris pizarra fuerte (`text-slate-700 font-medium text-sm md:text-base`) con icono vectorial `User` (`text-slate-500`).
+    - Nombre del Cajero: Resaltado en negrita de máximo contraste sobre pastilla blanca independiente (`text-slate-950 font-bold bg-white px-2.5 py-0.5 rounded-md border border-slate-200 shadow-2xs`).
+  - **Turno Pendiente del Día Anterior (Alerta de Seguridad Financiera):**
+    - Contenedor: Fondo ámbar claro luminoso (`bg-amber-50/95 border-l-4 border-l-amber-600 border border-amber-300 rounded-2xl shadow-sm p-4 sm:p-5`).
+    - Título: `text-amber-950 font-bold text-base md:text-lg`.
+    - Badge: `bg-rose-100 text-rose-900 border border-rose-300 font-bold px-3 py-1 rounded-full text-xs animate-pulse` (*"Requiere Cierre Urgente"*).
 
+### 2. Erradicación Integral de Fondos Oscuros en `/admin/caja` y Subcomponentes
+- **Eliminación Total:** Cero clases oscuras (`bg-slate-950`, `bg-slate-900`, `bg-slate-800`, `bg-zinc-900`, `bg-neutral-900`) y erradicación de variantes `dark:*` en la vista de control de caja.
+- **Cuadrícula de Métricas de Arqueo en Vivo:**
+  - Superficie base de tarjetas: Blanco marfil descansado (`bg-[#FCFDFE] border border-slate-200/90 rounded-2xl p-5 shadow-xs`).
+  - Títulos de tarjeta: `text-slate-700 font-semibold text-xs uppercase tracking-wider` (alto contraste).
+  - Valores numéricos: `text-slate-900 font-extrabold text-2xl sm:text-3xl font-mono`.
+  - **Tarjeta "Total Esperado en Gaveta Física":** Resaltada en azul real muy suave y luminoso (`bg-blue-50/80 border-2 border-blue-300 rounded-2xl p-5 shadow-xs`) con cifras en azul profundo (`text-blue-950 font-extrabold text-2xl sm:text-3xl font-mono`).
+- **Panel de Conteo Físico y Cierre:**
+  - Inputs numéricos con fondo blanco nítido (`bg-white border-slate-300 text-slate-950 font-semibold focus:border-blue-500 focus:ring-2 focus:ring-blue-100`).
+  - **Indicador de Diferencia en Gaveta:**
+    - Cuadre Exacto (`$0`): `bg-emerald-50 border border-emerald-300 text-emerald-950 font-bold`.
+    - Sobrante (`+`): `bg-blue-50 border border-blue-300 text-blue-950 font-bold`.
+    - Faltante (`-`): `bg-rose-50 border border-rose-300 text-rose-950 font-bold`.
+  - Botón de cierre: Azul cobalto corporativo (`bg-blue-600 hover:bg-blue-700 text-white font-bold`).
+- **Tabla de Historial de Cierres Previos:**
+  - Cabecera (`thead`): Fondo gris suave (`bg-slate-100 border-b border-slate-300`) con texto en `text-slate-800 font-bold text-xs sm:text-sm uppercase tracking-wider`.
+  - Filas (`tbody`): Fondo `bg-white hover:bg-blue-50/40`, texto principal en `text-slate-900 font-bold` y fechas/horas secundarias en `text-slate-700 font-mono text-xs`.
+
+### 3. Saneamiento en Modales POS y Vistas Administrativas Relacionadas
+- **Terminal POS (`src/app/caja/pos/page.tsx`):**
+  - Modales de seguridad por *Turno del Día Anterior Sin Cerrar* y *Apertura Obligatoria* migrados de bloques oscuros a superficies blanco marfil descansado (`bg-[#FCFDFE] text-slate-900 border border-slate-200/90 shadow-xl`), con textos en `text-slate-950` y telón de fondo nítido (`bg-slate-900/60 backdrop-blur-xs`).
+- **Perfil de Clientes (`src/app/admin/clientes/[id]/page.tsx`):** Botón de retorno migrado a azul cobalto claro (`bg-blue-600 hover:bg-blue-700 text-white`).
+- **Catálogo de Inventario (`src/app/admin/inventario/page.tsx`):** Chips de filtro de tallas activos actualizados de `bg-slate-800` a `bg-blue-600 text-white shadow-xs`.
+
+### 4. Aseguramiento de Calidad (QA) y Estado de Compilación
+- **Auditoría de Tipos:** `npx tsc --noEmit` completado con **0 errores de TypeScript**.
+- **Build de Producción:** `npm run build` completado exitosamente empaquetando las 22 rutas estáticas y dinámicas.
+- **Servicios en Ejecución:** Procesos de servidor PM2 (`pos-llanomio` y `pos-mdns-proxy`) reiniciados y activos en status `online`.

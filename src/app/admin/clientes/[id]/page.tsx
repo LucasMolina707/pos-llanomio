@@ -214,7 +214,7 @@ export default function PerfilClientePage() {
         <p className="text-base font-bold">{error || "Cliente no encontrado"}</p>
         <Link
           href="/admin/clientes"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs sm:text-sm font-bold"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm shadow-blue-500/20 transition"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Volver al Directorio de Clientes</span>

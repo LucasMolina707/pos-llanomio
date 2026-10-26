@@ -2664,29 +2664,32 @@ export default function PosPage() {
       {/* ========================================================================= */}
       {/* CASO B: INTERCEPTOR DE BLOQUEO CRÍTICO POR CAJA DEL DÍA ANTERIOR SIN CERRAR */}
       {/* ========================================================================= */}
+      {/* ========================================================================= */}
+      {/* CASO B: INTERCEPTOR DE BLOQUEO CRÍTICO POR CAJA DEL DÍA ANTERIOR SIN CERRAR */}
+      {/* ========================================================================= */}
       {seguridadCaja.estado === "BLOQUEADO_DIA_ANTERIOR" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-rose-500 shadow-2xl w-full max-w-xl p-6 sm:p-8 flex flex-col space-y-6 text-slate-800 dark:text-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-[#FCFDFE] rounded-3xl border-2 border-rose-500 shadow-xl w-full max-w-xl p-6 sm:p-8 flex flex-col space-y-6 text-slate-900">
             {/* Cabecera y Alerta Crítica */}
             <div className="text-center space-y-3">
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900 flex items-center justify-center shadow-xs">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center shadow-xs">
                 <AlertTriangle className="w-9 h-9" />
               </div>
               <div>
-                <span className="text-xs font-mono font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 block mb-1">
+                <span className="text-xs font-mono font-black uppercase tracking-widest text-rose-700 block mb-1">
                   Control Estricto de Seguridad Financiera POS
                 </span>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                <h2 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
                   Alerta Crítica: Cierre de Caja Pendiente
                 </h2>
               </div>
             </div>
 
             {/* Mensaje Informativo de la Política Contable */}
-            <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-xs sm:text-sm text-rose-900 dark:text-rose-200 leading-relaxed">
-              <p className="font-semibold mb-1">
+            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-xs sm:text-sm text-rose-950 leading-relaxed font-medium">
+              <p className="font-bold mb-1 text-rose-950">
                 Existe un turno de caja anterior abierto correspondiente al{" "}
-                <span className="underline font-black text-rose-700 dark:text-rose-300">
+                <span className="underline font-black text-rose-700">
                   {seguridadCaja.turnoAbierto?.fechaAperturaLocal || "fecha anterior"}
                 </span>
                 {seguridadCaja.turnoAbierto?.diasAbierto ? (
@@ -2694,39 +2697,39 @@ export default function PosPage() {
                 ) : null}{" "}
                 que no fue cerrado al finalizar la jornada.
               </p>
-              <p className="text-rose-800/90 dark:text-rose-300/90">
+              <p className="text-rose-900 font-medium">
                 Por política de control contable y auditoría financiera, debe realizar primero el arqueo y cierre formal de esa caja anterior antes de poder aperturar el turno del día de hoy y emitir nuevas facturas.
               </p>
             </div>
 
             {/* Ficha Resumen del Turno Atrasado */}
-            <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 text-xs sm:text-sm">
+            <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs sm:text-sm">
               <div>
-                <span className="text-xs font-semibold text-slate-500 block">Cajero Responsable:</span>
-                <span className="font-bold text-slate-900 dark:text-white">
+                <span className="text-xs font-bold text-slate-700 block uppercase">Cajero Responsable:</span>
+                <span className="font-extrabold text-slate-950 block text-sm">
                   {seguridadCaja.turnoAbierto?.usuarioCajero.nombre || "No especificado"}
                 </span>
-                <span className="text-xs text-slate-400 block font-mono">
+                <span className="text-xs text-slate-600 block font-mono">
                   @{seguridadCaja.turnoAbierto?.usuarioCajero.username}
                 </span>
               </div>
               <div>
-                <span className="text-xs font-semibold text-slate-500 block">Base Inicial en Caja:</span>
-                <span className="font-bold font-mono text-slate-900 dark:text-white">
+                <span className="text-xs font-bold text-slate-700 block uppercase">Base Inicial en Caja:</span>
+                <span className="font-extrabold font-mono text-slate-950 block text-sm">
                   ${(seguridadCaja.turnoAbierto?.baseInicialEfectivo || 0).toLocaleString("es-CO")}
                 </span>
               </div>
               {seguridadCaja.arqueoTurno && (
                 <>
                   <div>
-                    <span className="text-xs font-semibold text-slate-500 block">Efectivo en Gaveta:</span>
-                    <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                    <span className="text-xs font-bold text-slate-700 block uppercase">Efectivo en Gaveta:</span>
+                    <span className="font-extrabold font-mono text-emerald-800 block text-sm">
                       ${seguridadCaja.arqueoTurno.esperadoEnGaveta.toLocaleString("es-CO")}
                     </span>
                   </div>
                   <div>
-                    <span className="text-xs font-semibold text-slate-500 block">Total Recaudado:</span>
-                    <span className="font-bold font-mono text-blue-600 dark:text-blue-400">
+                    <span className="text-xs font-bold text-slate-700 block uppercase">Total Recaudado:</span>
+                    <span className="font-extrabold font-mono text-blue-800 block text-sm">
                       ${seguridadCaja.arqueoTurno.totalRecaudado.toLocaleString("es-CO")}
                     </span>
                   </div>
@@ -2739,7 +2742,7 @@ export default function PosPage() {
               <Link
                 href="/admin/caja"
                 target="_blank"
-                className="w-full py-3.5 px-4 rounded-xl font-black text-sm text-white bg-rose-600 hover:bg-rose-700 transition shadow-md shadow-rose-600/20 flex items-center justify-center gap-2 min-h-[46px]"
+                className="w-full py-3.5 px-4 rounded-xl font-bold text-sm text-white bg-rose-600 hover:bg-rose-700 transition shadow-sm shadow-rose-600/20 flex items-center justify-center gap-2 min-h-[46px]"
               >
                 <Vault className="w-5 h-5" />
                 <span>Ir al Panel de Arqueo y Cierre de Caja</span>
@@ -2751,7 +2754,7 @@ export default function PosPage() {
                   type="button"
                   onClick={() => cargarSesionYTurno()}
                   disabled={cargandoSeguridadCaja}
-                  className="flex-1 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 min-h-[44px]"
+                  className="flex-1 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-slate-800 bg-slate-100 hover:bg-slate-200 transition border border-slate-300 flex items-center justify-center gap-2 min-h-[44px] cursor-pointer"
                 >
                   <RefreshCw className={`w-4 h-4 text-blue-600 ${cargandoSeguridadCaja ? "animate-spin" : ""}`} />
                   <span>Reverificar Estado de Caja</span>
@@ -2759,7 +2762,7 @@ export default function PosPage() {
 
                 <Link
                   href="/"
-                  className="px-4 py-3 rounded-xl font-bold text-xs sm:text-sm text-slate-500 hover:text-slate-800 dark:hover:text-white transition"
+                  className="px-4 py-3 rounded-xl font-bold text-xs sm:text-sm text-slate-700 hover:text-slate-950 transition"
                 >
                   Volver al Menú
                 </Link>
@@ -2773,42 +2776,42 @@ export default function PosPage() {
       {/* CASO A: MODAL OBLIGATORIO DE APERTURA POR TURNO NO INICIADO HOY           */}
       {/* ========================================================================= */}
       {seguridadCaja.estado === "SIN_TURNO" && !cargandoSeguridadCaja && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 sm:p-8 flex flex-col space-y-5 text-slate-800 dark:text-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-[#FCFDFE] rounded-3xl border border-slate-200/90 shadow-xl w-full max-w-lg p-6 sm:p-8 flex flex-col space-y-5 text-slate-800">
             {/* Cabecera */}
             <div className="text-center space-y-2">
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200/80 dark:border-amber-900/60 flex items-center justify-center shadow-xs">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shadow-xs">
                 <Unlock className="w-7 h-7" />
               </div>
               <div>
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-700 block mb-1">
                   Apertura de Caja Obligatoria
                 </span>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                   Turno de Caja No Iniciado
                 </h2>
               </div>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              <p className="text-xs sm:text-sm text-slate-600 max-w-sm mx-auto font-medium">
                 Debe registrar la base de efectivo inicial para abrir la caja antes de emitir facturas en la terminal POS.
               </p>
             </div>
 
             {/* Error si ocurre en la apertura */}
             {errorAperturaRapida && (
-              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-center gap-2">
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs sm:text-sm flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                <span>{errorAperturaRapida}</span>
+                <span className="font-semibold">{errorAperturaRapida}</span>
               </div>
             )}
 
             {/* Formulario de Apertura Rápida */}
             <form onSubmit={handleAperturaRapidaCaja} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
                   Base Inicial en Efectivo ($ COP) *
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-extrabold text-base">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
                     $
                   </div>
                   <input
@@ -2819,18 +2822,18 @@ export default function PosPage() {
                     placeholder="100000"
                     value={baseAperturaRapida}
                     onChange={(e) => setBaseAperturaRapida(e.target.value)}
-                    className="w-full pl-8 pr-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-lg font-extrabold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-950 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
                     autoFocus
                   />
                 </div>
                 {/* Botones de sugerencia rápida */}
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-2 mt-2 flex-wrap">
                   {[50000, 100000, 150000, 200000].map((monto) => (
                     <button
                       key={monto}
                       type="button"
                       onClick={() => setBaseAperturaRapida(String(monto))}
-                      className="flex-1 py-1 px-1 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
+                      className="flex-1 py-1.5 px-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300/80 transition cursor-pointer"
                     >
                       ${monto.toLocaleString("es-CO")}
                     </button>
@@ -2839,7 +2842,7 @@ export default function PosPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
                   Observaciones de Apertura (Opcional)
                 </label>
                 <input
@@ -2847,7 +2850,7 @@ export default function PosPage() {
                   placeholder="Ej. Billetes de 10k y 20k para vueltas de la mañana"
                   value={obsAperturaRapida}
                   onChange={(e) => setObsAperturaRapida(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
                 />
               </div>
 
@@ -2855,7 +2858,7 @@ export default function PosPage() {
                 <button
                   type="submit"
                   disabled={procesandoAperturaRapida}
-                  className="w-full py-3.5 px-4 rounded-xl font-black text-sm text-white bg-amber-600 hover:bg-amber-700 transition shadow-md shadow-amber-600/20 flex items-center justify-center gap-2 min-h-[46px] disabled:opacity-50"
+                  className="w-full py-3.5 px-4 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20 flex items-center justify-center gap-2 min-h-[46px] disabled:opacity-50 cursor-pointer"
                 >
                   {procesandoAperturaRapida ? (
                     <>
@@ -2874,7 +2877,7 @@ export default function PosPage() {
                   <Link
                     href="/admin/caja"
                     target="_blank"
-                    className="text-blue-600 hover:text-blue-700 font-semibold underline flex items-center gap-1"
+                    className="text-blue-700 hover:text-blue-800 font-bold underline flex items-center gap-1"
                   >
                     <Vault className="w-3.5 h-3.5" />
                     <span>Panel Avanzado de Caja</span>
@@ -2882,7 +2885,7 @@ export default function PosPage() {
 
                   <Link
                     href="/"
-                    className="text-slate-500 hover:text-slate-800 font-medium"
+                    className="text-slate-600 hover:text-slate-900 font-semibold"
                   >
                     Volver al Menú Principal
                   </Link>

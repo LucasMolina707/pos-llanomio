@@ -525,8 +525,8 @@ export default function InventarioAdminPage() {
                   onClick={() => setFiltroTalla("TODAS")}
                   className={`px-2.5 py-1 rounded-md text-xs sm:text-sm font-semibold transition min-h-[34px] ${
                     filtroTalla === "TODAS"
-                      ? "bg-slate-800 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                   }`}
                 >
                   Todas
@@ -538,8 +538,8 @@ export default function InventarioAdminPage() {
                     onClick={() => setFiltroTalla(filtroTalla === talla ? "TODAS" : talla)}
                     className={`px-2.5 py-1 rounded-md text-xs sm:text-sm font-semibold transition min-h-[34px] ${
                       filtroTalla === talla
-                        ? "bg-slate-800 text-white shadow-xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                     }`}
                   >
                     {talla}
