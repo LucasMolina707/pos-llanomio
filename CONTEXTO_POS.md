@@ -1326,6 +1326,36 @@ Se completó la separación arquitectónica y operativa del negocio de **Alquile
 ### 6. Control de Calidad y Validación
 - `npm run build` ejecutado exitosamente con **0 errores de TypeScript y 0 errores de ESLint**, generando las 23 rutas del sistema incluyendo `/caja/alquileres`.
 
+---
+
+## 10. Bitácora de Actualización: Unificación del Motor de Impresión, Copias y PDF para Alquileres y Depósitos en Garantía
+
+### 1. Resumen de la Implementación
+Se unificó, reparó y perfeccionó la visualización, impresión y descarga en PDF del **Comprobante de Factura de Alquiler, Depósito en Garantía y Liquidación / Paz y Salvo** dentro de `/caja/alquileres` y su Centro de Historial, asegurando paridad 1:1 con la facturación de `/caja/pos`:
+- **Formatos 1:1 Soportados:** `TIRILLA` (80mm térmica), `MEDIA_CARTA` (215.9mm x 139.7mm landscape) y `CARTA` (Letter portrait con max-height 258mm anti-hoja en blanco).
+- **Selector de Copias Físicas:**
+  - **`1 Copia`:** Genera un ejemplar con la leyenda `"COPIA CLIENTE"`.
+  - **`2 Copias`:** Genera dos ejemplares rotulados como `"EJEMPLAR 1: COPIA CLIENTE"` y `"EJEMPLAR 2: RESPALDO FÍSICO TIENDA / ARCHIVO"` con línea de corte punteada en tirilla y en páginas separadas en Media Carta y Carta.
+- **Estructura Especial para Alquileres:**
+  - **Cabecera Corporativa:** Logo en Base64, datos fiscales de Llanomio y fecha/hora con cajero.
+  - **Ficha Cliente Completa:** Nombre/Razón Social, documento, **Teléfono Primario** y **Teléfono Secundario**.
+  - **Fechas Destacadas:** Fecha de entrega/salida y fecha y hora exacta límite de devolución.
+  - **Sección 1 — Liquidación del Alquiler:** Badge visible (`PAGO COMPLETO`, `PAGO PARCIAL / CON ABONO`, `PENDIENTE POR PAGAR`), total de alquiler, recargo de mora, historial detallado de abonos (concepto, método, fecha, monto) y saldo pendiente.
+  - **Sección 2 — Comprobante de Depósito en Garantía:** Recuadro destacado con monto, método de pago, estado explicativo (en custodia, devuelto 100% a conformidad, o retenido parcial/total con motivo de daño o pérdida) y resumen de caja en mano.
+  - **Pie y Firmas Físicas:** Políticas de alquiler y dos líneas de firma (`Firma y C.C. del Cliente` y `Firma Vendedor / Cajero Responsable`).
+  - **CERO códigos QR** en los 3 formatos.
+
+### 2. Persistencia y Reimpresión desde el Historial
+- Cada fila de las 4 pestañas del Centro de Historial (`ACTIVAS`, `EN_MORA`, `POR_COBRAR`, `CERRADAS`) cuenta con el botón **`[Comprobante / PDF]`**, que abre el visor de `PlantillaImpresion` en un modal flotante sin perder de vista la pestaña activa.
+- Al liquidar un alquiler y su depósito (`procesarLiquidacionYDevolucion`), se abre de inmediato el comprobante actualizado de liquidación y paz y salvo para su impresión o descarga en PDF.
+
+### 3. Archivos Modificados
+- `src/lib/pdf-media-carta.ts`: Soporte de `{ numCopias: 1 | 2 }` para jsPDF en Tirilla (duplicación de lienzo con corte punteado), Media Carta (2 páginas con encabezados diferenciados) y Carta (2 páginas). Inclusión completa de datos de depósito, teléfonos duales y firmas.
+- `src/components/impresion/PlantillaImpresion.tsx`: Unificación de diseño con insignias de estado de pago, recuadro de depósito, selector de 1 y 2 copias reactivo, y exportación fiel de PDF.
+- `src/app/caja/alquileres/page.tsx`: Modal flotante de comprobante, botón `[Comprobante / PDF]` en todas las filas del historial y flujo de apertura inmediata tras liquidar.
+- `src/app/api/facturas/[id]/route.ts`: Corrección de validación para cobro de saldo y devolución/retención de depósito.
+
+
 
 
 

@@ -238,9 +238,100 @@ export default function TerminalAlquileresPage() {
   const [metodoPagoSaldo, setMetodoPagoSaldo] = useState<MetodoPagoAlquiler>("EFECTIVO");
   const [procesandoLiquidacion, setProcesandoLiquidacion] = useState(false);
 
+  // Modal Flotante de Comprobante / Reimpresión / PDF
+  const [modalComprobanteAbierto, setModalComprobanteAbierto] = useState(false);
+  const [datosComprobanteModal, setDatosComprobanteModal] = useState<DatosImpresionFactura | null>(null);
+  const [cargandoComprobante, setCargandoComprobante] = useState(false);
+
   // Mensajería y Feedback
   const [mensajeError, setMensajeError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
+
+  /**
+   * Abre el visor documental de PlantillaImpresion para cualquier alquiler
+   * consultando los datos frescos desde /api/impresion/[id] con fallback seguro.
+   */
+  const abrirComprobanteAlquiler = async (facturaOId: any) => {
+    try {
+      setCargandoComprobante(true);
+      const id = typeof facturaOId === "string" ? facturaOId : facturaOId?.id;
+      if (id) {
+        const res = await fetch(`/api/impresion/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.factura) {
+            setDatosComprobanteModal({
+              factura: data.factura,
+              empresa: data.empresa || empresaConfig,
+            });
+            setModalComprobanteAbierto(true);
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("No se pudo obtener datos via API de impresion, aplicando fallback:", err);
+    } finally {
+      setCargandoComprobante(false);
+    }
+
+    // Fallback con datos locales si la llamada falla o si ya tenemos la factura hidratada
+    if (typeof facturaOId === "object" && facturaOId !== null) {
+      setDatosComprobanteModal({
+        factura: {
+          id: facturaOId.id,
+          numeroFactura: facturaOId.numeroFactura,
+          fechaCreacion: facturaOId.fechaCreacion,
+          fechaEntregaAlquiler: facturaOId.fechaEntregaAlquiler || facturaOId.fechaCreacion,
+          fechaDevolucionPactada: facturaOId.fechaDevolucionPactada,
+          fechaDevolucionReal: facturaOId.fechaDevolucionReal,
+          tipoOperacion: facturaOId.tipoOperacion || "ALQUILER",
+          estado: facturaOId.estado,
+          subtotalProductos: facturaOId.totalFactura || 0,
+          subtotalArreglosLibres: 0,
+          recargoMoraAcumulado: facturaOId.recargoMora || facturaOId.recargoMoraAcumulado || 0,
+          totalFactura: facturaOId.totalFactura || 0,
+          totalAbonado: facturaOId.totalAbonado || 0,
+          saldoPendiente: facturaOId.saldoPendiente || 0,
+          montoDeposito: facturaOId.montoDeposito || 0,
+          estadoDeposito: facturaOId.estadoDeposito,
+          montoRetenidoDeposito: facturaOId.montoRetenidoDeposito || 0,
+          montoDevueltoDeposito: facturaOId.montoDevueltoDeposito || 0,
+          motivoRetencionDeposito: facturaOId.motivoRetencionDeposito,
+          metodoPagoDeposito: facturaOId.metodoPagoDeposito,
+          cliente: {
+            nombre: facturaOId.cliente.nombre,
+            documento: facturaOId.cliente.documento,
+            telefono: facturaOId.cliente.telefono,
+            telefonoSecundario: facturaOId.cliente.telefonoSecundario,
+            direccion: facturaOId.cliente.direccion,
+            esResponsableIVA: facturaOId.cliente.esResponsableIVA,
+            razonSocial: facturaOId.cliente.razonSocial,
+          },
+          usuarioCajero: facturaOId.usuarioCajero,
+          detalles: Array.isArray(facturaOId.detalles) && facturaOId.detalles.length > 0
+            ? facturaOId.detalles
+            : [
+                {
+                  id: "item-principal",
+                  cantidad: 1,
+                  precioUnitario: facturaOId.totalFactura || 0,
+                  subtotal: facturaOId.totalFactura || 0,
+                  esServicioLibre: false,
+                  producto: {
+                    codigo: "ALQ",
+                    nombre: facturaOId.prendaPrincipal || "Prenda de Alquiler",
+                    tipo: "ALQUILER",
+                  },
+                },
+              ],
+          abonos: Array.isArray(facturaOId.abonos) ? facturaOId.abonos : [],
+        },
+        empresa: empresaConfig,
+      });
+      setModalComprobanteAbierto(true);
+    }
+  };
 
 
 
@@ -700,66 +791,10 @@ export default function TerminalAlquileresPage() {
       setModalLiquidarAbierto(false);
       setAlquilerLiquidar(null);
 
-      // Cargar comprobante de paz y salvo listo para imprimir
+      // Abrir inmediatamente el comprobante actualizado de liquidación y paz y salvo
       const fActualizada = data.factura;
-      setDatosImpresion({
-        factura: {
-          id: fActualizada.id,
-          numeroFactura: fActualizada.numeroFactura,
-          fechaCreacion: fActualizada.fechaCreacion,
-          fechaEntregaAlquiler: fActualizada.fechaEntregaAlquiler,
-          fechaDevolucionPactada: fActualizada.fechaDevolucionPactada,
-          fechaDevolucionReal: fActualizada.fechaDevolucionReal,
-          tipoOperacion: fActualizada.tipoOperacion,
-          estado: fActualizada.estado,
-          subtotalProductos: fActualizada.subtotalProductos,
-          subtotalArreglosLibres: fActualizada.subtotalArreglosLibres,
-          recargoMoraAcumulado: fActualizada.recargoMoraAcumulado || 0,
-          totalFactura: fActualizada.totalFactura,
-          totalAbonado: fActualizada.totalAbonado,
-          saldoPendiente: fActualizada.saldoPendiente,
-          montoDeposito: fActualizada.montoDeposito,
-          estadoDeposito: fActualizada.estadoDeposito,
-          montoRetenidoDeposito: fActualizada.montoRetenidoDeposito,
-          montoDevueltoDeposito: fActualizada.montoDevueltoDeposito,
-          motivoRetencionDeposito: fActualizada.motivoRetencionDeposito,
-          metodoPagoDeposito: fActualizada.metodoPagoDeposito,
-          notas: fActualizada.notas,
-          cliente: {
-            nombre: fActualizada.cliente.nombre,
-            documento: fActualizada.cliente.documento,
-            telefono: fActualizada.cliente.telefono,
-            telefonoSecundario: fActualizada.cliente.telefonoSecundario,
-            direccion: fActualizada.cliente.direccion,
-            esResponsableIVA: fActualizada.cliente.esResponsableIVA,
-            razonSocial: fActualizada.cliente.razonSocial,
-          },
-          usuarioCajero: fActualizada.usuarioCajero,
-          detalles: fActualizada.detalles.map((d: any) => ({
-            id: d.id,
-            cantidad: d.cantidad,
-            precioUnitario: d.precioUnitario,
-            subtotal: d.subtotal,
-            esServicioLibre: d.esServicioLibre,
-            descripcionLibre: d.descripcionLibre,
-            producto: d.producto,
-          })),
-          abonos: fActualizada.abonos.map((a: any) => ({
-            id: a.id,
-            fecha: a.fecha,
-            monto: a.monto,
-            metodoPago: a.metodoPago,
-            montoRecibido: a.montoRecibido,
-            vueltasEntregadas: a.vueltasEntregadas,
-            referenciaComprobante: a.referenciaComprobante,
-            cajero: a.cajero,
-          })),
-        },
-        empresa: empresaConfig,
-      });
+      await abrirComprobanteAlquiler(fActualizada.id || fActualizada);
 
-      setPasoActual(4);
-      setVistaPrincipal("NUEVO_ALQUILER");
       cargarPrendas();
       cargarHistorialAlquileres();
     } catch (err: unknown) {
@@ -1272,8 +1307,18 @@ export default function TerminalAlquileresPage() {
 
                             {/* 7. Botones de Acción */}
                             <td className="py-3 px-3 text-center">
-                              <div className="flex items-center justify-center gap-1.5">
-                                {!esCerrada ? (
+                              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                {/* Botón Comprobante / PDF para reimprimir o descargar en cualquier momento */}
+                                <button
+                                  onClick={() => abrirComprobanteAlquiler(factura)}
+                                  className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                                  title="Ver Comprobante, Imprimir o Descargar PDF (80mm, Media Carta, Carta)"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-amber-400" />
+                                  <span>Comprobante / PDF</span>
+                                </button>
+
+                                {!esCerrada && (
                                   <button
                                     onClick={() => abrirModalLiquidacion(factura)}
                                     className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-all"
@@ -1281,32 +1326,6 @@ export default function TerminalAlquileresPage() {
                                   >
                                     <RotateCcw className="w-3.5 h-3.5" />
                                     <span>Recibir / Liquidar</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => {
-                                      setDatosImpresion({
-                                        factura: {
-                                          ...factura,
-                                          subtotalProductos: factura.totalFactura,
-                                          subtotalArreglosLibres: 0,
-                                          recargoMoraAcumulado: factura.recargoMora,
-                                          cliente: {
-                                            ...factura.cliente,
-                                            nombre: factura.cliente.nombre,
-                                            documento: factura.cliente.documento,
-                                          },
-                                        },
-                                        empresa: empresaConfig,
-                                      });
-                                      setPasoActual(4);
-                                      setVistaPrincipal("NUEVO_ALQUILER");
-                                    }}
-                                    className="px-2 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1 border border-slate-300"
-                                    title="Ver Comprobante / Paz y Salvo"
-                                  >
-                                    <Printer className="w-3.5 h-3.5" />
-                                    <span>Paz y Salvo</span>
                                   </button>
                                 )}
 
@@ -2372,6 +2391,35 @@ export default function TerminalAlquileresPage() {
         />
       )}
 
+      {/* 5. MODAL DE VISOR DE COMPROBANTE / IMPRESIÓN Y PDF FLOTANTE */}
+      {modalComprobanteAbierto && datosComprobanteModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-5xl w-full max-h-[96vh] flex flex-col overflow-hidden">
+            <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <Printer className="w-5 h-5 text-amber-400" />
+                <h3 className="text-sm font-black">
+                  Comprobante Oficial de Alquiler — N° {datosComprobanteModal.factura.numeroFactura}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalComprobanteAbierto(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                title="Cerrar visor de comprobante"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100">
+              <PlantillaImpresion
+                datos={datosComprobanteModal}
+                onCerrar={() => setModalComprobanteAbierto(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -10,7 +10,8 @@ export const ANCHO_MEDIA_CARTA_MM = 215.9;
 export const ALTO_MEDIA_CARTA_MM = 139.7;
 
 export interface OpcionesPdfMediaCarta {
-  tipoCopia?: "ORIGINAL CLIENTE" | "COPIA ARCHIVO TIENDA" | "COPIA CONTABLE";
+  tipoCopia?: string;
+  numCopias?: 1 | 2;
 }
 
 /**
@@ -40,56 +41,50 @@ function insertarLogoSeguro(
 }
 
 /**
- * Genera una instancia vectorial de jsPDF en formato Media Carta optimizada para 1 sola página
+ * Dibuja un ejemplar completo de factura en formato Media Carta (Horizontal)
  */
-export function crearDocumentoPdfMediaCarta(
+function dibujarPaginaMediaCarta(
+  doc: jsPDF,
   datos: DatosImpresionFactura,
-  opciones: OpcionesPdfMediaCarta = {}
-): jsPDF {
+  tipoCopiaTexto: string
+): void {
   const { factura, empresa } = datos;
-  const tipoCopia = opciones.tipoCopia || "ORIGINAL CLIENTE";
-
-  const doc = new jsPDF({
-    orientation: "landscape",
-    unit: "mm",
-    format: [ALTO_MEDIA_CARTA_MM, ANCHO_MEDIA_CARTA_MM],
-    compress: true,
-  });
-
   const margenIzquierdo = 8;
   const margenDerecho = ANCHO_MEDIA_CARTA_MM - 8;
-  let cursorY = 8;
+  let cursorY = 7;
+
+  const esAlquiler = factura.tipoOperacion === "ALQUILER";
+  const esPazYSalvo = factura.saldoPendiente <= 0;
 
   // 1. ENCABEZADO: LOGO + DATOS DE EMPRESA + RECUADRO DE FACTURA
-  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 20, 16);
+  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 20, 15);
   const textoEmpresaX = tieneLogo ? margenIzquierdo + 23 : margenIzquierdo;
 
   doc.setTextColor(15, 23, 42); // Slate 900
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
+  doc.setFontSize(12.5);
   doc.text(empresa.nombreComercial.toUpperCase(), textoEmpresaX, cursorY + 4);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(71, 85, 105); // Slate 600
-  let yDetalle = cursorY + 7.5;
+  doc.setFontSize(7.2);
+  doc.setTextColor(71, 85, 105);
+  let yDetalle = cursorY + 7.2;
   if (empresa.eslogan) {
     doc.text(empresa.eslogan, textoEmpresaX, yDetalle);
-    yDetalle += 3.2;
+    yDetalle += 3;
   }
   const regimenTexto = empresa.regimenFiscal ? ` | ${empresa.regimenFiscal}` : "";
   doc.text(`NIT: ${empresa.nit}${regimenTexto}`, textoEmpresaX, yDetalle);
-  yDetalle += 3.2;
+  yDetalle += 3;
   doc.text(`${empresa.direccion} — ${empresa.ciudad || "Villavicencio, Meta"}`, textoEmpresaX, yDetalle);
-  yDetalle += 3.2;
+  yDetalle += 3;
   doc.text(`Tel: ${empresa.telefono}${empresa.email ? ` | ${empresa.email}` : ""}`, textoEmpresaX, yDetalle);
 
-  // Recuadro derecho de Factura
-  const anchoCajaFactura = 68;
+  // Recuadro derecho de Factura / Contrato
+  const anchoCajaFactura = 70;
   const altoCajaFactura = 17;
   const xCajaFactura = margenDerecho - anchoCajaFactura;
   const yCajaFactura = 6;
-  const esPazYSalvo = factura.saldoPendiente <= 0;
 
   if (esPazYSalvo) {
     doc.setFillColor(236, 253, 245);
@@ -103,24 +98,23 @@ export function crearDocumentoPdfMediaCarta(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
-  const esAlquiler = factura.tipoOperacion === "ALQUILER";
   if (esPazYSalvo) {
     doc.setTextColor(5, 150, 105);
     doc.text(esAlquiler ? "PAZ Y SALVO DE ALQUILER" : "PAGO FINAL (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
   } else {
     doc.setTextColor(100, 116, 139);
-    doc.text(esAlquiler ? "CONTRATO DE ALQUILER" : "FACTURA COMERCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
+    doc.text(esAlquiler ? "CONTRATO / FACTURA ALQUILER" : "FACTURA COMERCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
   }
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
+  doc.setFontSize(11.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(`N° ${factura.numeroFactura}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 10, { align: "center" });
+  doc.text(`N° ${factura.numeroFactura}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 9.8, { align: "center" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.5);
   doc.setTextColor(esPazYSalvo ? 5 : 37, esPazYSalvo ? 150 : 99, esPazYSalvo ? 105 : 235);
-  doc.text(`** ${tipoCopia} **`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 14.5, { align: "center" });
+  doc.text(`** ${tipoCopiaTexto} **`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 14.5, { align: "center" });
 
   cursorY = Math.max(yDetalle + 2, yCajaFactura + altoCajaFactura + 2);
 
@@ -135,7 +129,7 @@ export function crearDocumentoPdfMediaCarta(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.5);
   doc.setTextColor(100, 116, 139);
-  doc.text("CLIENTE / ARRENDATARIO:", margenIzquierdo + 3, cursorY + 3.8);
+  doc.text(esAlquiler ? "CLIENTE / ARRENDATARIO:" : "CLIENTE / ADQUIRIENTE:", margenIzquierdo + 3, cursorY + 3.8);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
@@ -158,10 +152,10 @@ export function crearDocumentoPdfMediaCarta(
     const infoFiscal = `Resp: ${factura.cliente.responsabilidadFiscal || "O-48"} | ${factura.cliente.email || ""}`.substring(0, 48);
     doc.text(infoFiscal, margenIzquierdo + 3, cursorY + 14.8);
   } else if (factura.cliente.direccion) {
-    doc.text(`Dir: ${factura.cliente.direccion.substring(0, 45)}`, margenIzquierdo + 3, cursorY + 14.8);
+    doc.text(`Dir: ${factura.cliente.direccion.substring(0, 48)}`, margenIzquierdo + 3, cursorY + 14.8);
   }
 
-  // Columna Derecha: Operación & Vendedor
+  // Columna Derecha: Operación & Fechas
   const xColOp = ANCHO_MEDIA_CARTA_MM / 2 + 10;
   const fechaTexto = new Date(factura.fechaCreacion).toLocaleString("es-CO", {
     dateStyle: "short",
@@ -173,48 +167,48 @@ export function crearDocumentoPdfMediaCarta(
   doc.text("DATOS DE LA OPERACIÓN:", xColOp, cursorY + 3.8);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
+  doc.setFontSize(6.8);
   doc.setTextColor(71, 85, 105);
-  doc.text(`Fecha: ${fechaTexto}  |  Operación: ${factura.tipoOperacion}`, xColOp, cursorY + 7.8);
+  doc.text(`Fecha Emisión: ${fechaTexto}  |  Op: ${factura.tipoOperacion}`, xColOp, cursorY + 7.6);
 
   const cajeroTexto =
     empresa.mostrarVendedorFactura !== false && factura.usuarioCajero?.nombre
       ? `Cajero: ${factura.usuarioCajero.nombre}`
       : "Caja Principal LLANOMIO";
-  doc.text(cajeroTexto, xColOp, cursorY + 11.5);
+  doc.text(cajeroTexto, xColOp, cursorY + 11.2);
 
-  if (factura.fechaDevolucionPactada) {
+  if (esAlquiler && factura.fechaDevolucionPactada) {
     const fDev = new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", {
       dateStyle: "short",
       timeStyle: "short",
     });
     doc.setFont("helvetica", "bold");
     doc.setTextColor(180, 83, 9);
-    doc.text(`Devolución Pactada: ${fDev}`, xColOp, cursorY + 14.8);
+    doc.text(`Límite Devolución: ${fDev}`, xColOp, cursorY + 14.8);
   }
 
-  cursorY += altoFichaCliente + 2.5;
+  cursorY += altoFichaCliente + 2;
 
   // 3. TABLA DE ÍTEMS
-  const altoCabecera = 5.5;
+  const altoCabecera = 5.2;
   doc.setFillColor(15, 23, 42);
   doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoCabecera, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.5);
   doc.setTextColor(255, 255, 255);
-  doc.text("CANT", margenIzquierdo + 3, cursorY + 3.8);
-  doc.text("TIPO", margenIzquierdo + 14, cursorY + 3.8);
-  doc.text("DESCRIPCIÓN DE LA PRENDA O SERVICIO", margenIzquierdo + 30, cursorY + 3.8);
-  doc.text("PRECIO UNIT.", margenDerecho - 38, cursorY + 3.8, { align: "right" });
-  doc.text("SUBTOTAL", margenDerecho - 3, cursorY + 3.8, { align: "right" });
+  doc.text("CANT", margenIzquierdo + 3, cursorY + 3.6);
+  doc.text("TIPO", margenIzquierdo + 14, cursorY + 3.6);
+  doc.text("DESCRIPCIÓN DE LA PRENDA O SERVICIO", margenIzquierdo + 30, cursorY + 3.6);
+  doc.text("PRECIO UNIT.", margenDerecho - 38, cursorY + 3.6, { align: "right" });
+  doc.text("SUBTOTAL", margenDerecho - 3, cursorY + 3.6, { align: "right" });
 
   cursorY += altoCabecera;
 
-  const maxItemsMediaCarta = Math.min(factura.detalles.length, 5);
+  const maxItemsMediaCarta = Math.min(factura.detalles.length, 4);
   for (let i = 0; i < maxItemsMediaCarta; i++) {
     const det = factura.detalles[i];
-    const altoFila = 5.2;
+    const altoFila = 5;
     if (i % 2 === 0) {
       doc.setFillColor(255, 255, 255);
     } else {
@@ -225,63 +219,91 @@ export function crearDocumentoPdfMediaCarta(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(String(det.cantidad), margenIzquierdo + 5, cursorY + 3.6, { align: "center" });
+    doc.text(String(det.cantidad), margenIzquierdo + 5, cursorY + 3.5, { align: "center" });
 
     const esAlq = det.producto?.tipo === "ALQUILER" || factura.tipoOperacion === "ALQUILER";
     const tipoLabel = det.esServicioLibre ? "SERVICIO" : esAlq ? "ALQUILER" : "VENTA";
     doc.setFont("helvetica", "bold");
-    doc.text(tipoLabel, margenIzquierdo + 14, cursorY + 3.6);
+    doc.text(tipoLabel, margenIzquierdo + 14, cursorY + 3.5);
 
     doc.setFont("helvetica", "normal");
     let desc = det.esServicioLibre
       ? (det.descripcionLibre || "Arreglo de sastrería")
       : (det.producto?.nombre || "Prenda");
     if (det.producto?.codigo) desc = `[${det.producto.codigo}] ${desc}`;
-    doc.text(desc.substring(0, 50), margenIzquierdo + 30, cursorY + 3.6);
+    doc.text(desc.substring(0, 52), margenIzquierdo + 30, cursorY + 3.5);
 
-    doc.text(`$${det.precioUnitario.toLocaleString("es-CO")}`, margenDerecho - 38, cursorY + 3.6, { align: "right" });
+    doc.text(`$${det.precioUnitario.toLocaleString("es-CO")}`, margenDerecho - 38, cursorY + 3.5, { align: "right" });
     doc.setFont("helvetica", "bold");
-    doc.text(`$${det.subtotal.toLocaleString("es-CO")}`, margenDerecho - 3, cursorY + 3.6, { align: "right" });
+    doc.text(`$${det.subtotal.toLocaleString("es-CO")}`, margenDerecho - 3, cursorY + 3.5, { align: "right" });
 
     cursorY += altoFila;
   }
 
-  // 4. RESUMEN FINANCIERO Y POLÍTICAS (LADO A LADO)
+  // 4. RECUADRO DE DEPÓSITO EN GARANTÍA (SI APLICA)
+  if (esAlquiler || (factura.montoDeposito && factura.montoDeposito > 0)) {
+    cursorY += 1.5;
+    const altoDep = 7.5;
+    doc.setFillColor(254, 243, 199); // Amber 100
+    doc.setDrawColor(217, 119, 6); // Amber 600
+    doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDep, 1, 1, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(146, 64, 14); // Amber 800
+    doc.text("COMPROBANTE DE DEPÓSITO EN GARANTÍA:", margenIzquierdo + 3, cursorY + 3.5);
+    doc.text(`$${(factura.montoDeposito || 0).toLocaleString("es-CO")}`, margenDerecho - 3, cursorY + 3.5, { align: "right" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6);
+    const estadoDepTxt = factura.estadoDeposito === "DEVUELTO_COMPLETO"
+      ? `DEPÓSITO DEVUELTO 100% AL CLIENTE ($${(factura.montoDevueltoDeposito || factura.montoDeposito || 0).toLocaleString("es-CO")})`
+      : factura.estadoDeposito === "RETENIDO_PARCIAL"
+      ? `RETENCIÓN POR DAÑO: $${(factura.montoRetenidoDeposito || 0).toLocaleString("es-CO")} | DEVUELTO: $${(factura.montoDevueltoDeposito || 0).toLocaleString("es-CO")}${factura.motivoRetencionDeposito ? ` — ${factura.motivoRetencionDeposito}` : ""}`
+      : factura.estadoDeposito === "RETENIDO_TOTAL"
+      ? `RETENCIÓN TOTAL POR DAÑO / PÉRDIDA${factura.motivoRetencionDeposito ? ` — ${factura.motivoRetencionDeposito}` : ""}`
+      : "RECIBIDO EN CUSTODIA (Reembolsable al devolver las prendas completas y sin daños)";
+    doc.text(estadoDepTxt.substring(0, 95), margenIzquierdo + 3, cursorY + 6.2);
+
+    cursorY += altoDep;
+  }
+
+  // 5. RESUMEN FINANCIERO Y FIRMAS (LADO A LADO)
   cursorY += 2;
-  const anchoTotales = 65;
+  const anchoTotales = 68;
   const xTotales = margenDerecho - anchoTotales;
 
-  // Políticas a la izquierda
+  // Políticas y Firmas a la izquierda
   const anchoPoliticas = xTotales - margenIzquierdo - 5;
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(226, 232, 240);
-  doc.roundedRect(margenIzquierdo, cursorY, anchoPoliticas, 22, 1, 1, "FD");
+  doc.roundedRect(margenIzquierdo, cursorY, anchoPoliticas, 24, 1, 1, "FD");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6);
   doc.setTextColor(71, 85, 105);
-  doc.text("TÉRMINOS Y POLÍTICAS DE ALQUILER / VENTA:", margenIzquierdo + 2.5, cursorY + 3.2);
+  doc.text(esAlquiler ? "TÉRMINOS Y CONDICIONES DE ALQUILER:" : "TÉRMINOS Y POLÍTICAS COMERCIALES:", margenIzquierdo + 2.5, cursorY + 3.2);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(5.5);
   doc.setTextColor(100, 116, 139);
   const textoPol = empresa.politicasFactura || "Las prendas en alquiler deben devolverse en la fecha pactada en óptimas condiciones. Todo retraso genera recargo de mora.";
   const lineasPoliticas = doc.splitTextToSize(textoPol, anchoPoliticas - 5);
-  doc.text(lineasPoliticas.slice(0, 4), margenIzquierdo + 2.5, cursorY + 6.2);
+  doc.text(lineasPoliticas.slice(0, 3), margenIzquierdo + 2.5, cursorY + 6.2);
 
   // Firmas debajo de políticas
-  doc.setFontSize(5.5);
+  doc.setFontSize(5.2);
   doc.setTextColor(100, 116, 139);
-  doc.line(margenIzquierdo + 5, cursorY + 18, margenIzquierdo + 40, cursorY + 18);
-  doc.text("Firma Autorizada LLANOMIO", margenIzquierdo + 8, cursorY + 20.5);
+  doc.line(margenIzquierdo + 4, cursorY + 19, margenIzquierdo + 46, cursorY + 19);
+  doc.text("Firma Vendedor / Cajero Responsable", margenIzquierdo + 6, cursorY + 22);
 
-  doc.line(margenIzquierdo + 48, cursorY + 18, margenIzquierdo + 85, cursorY + 18);
-  doc.text("Firma / Cédula del Cliente", margenIzquierdo + 52, cursorY + 20.5);
+  doc.line(margenIzquierdo + 52, cursorY + 19, margenIzquierdo + 110, cursorY + 19);
+  doc.text("Firma y C.C. Cliente (Aceptación de Términos)", margenIzquierdo + 54, cursorY + 22);
 
   // Cuadro de Totales a la derecha
   let yTot = cursorY;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
+  doc.setFontSize(7.2);
   doc.setTextColor(71, 85, 105);
   doc.text("TOTAL FACTURA:", xTotales, yTot + 3.5);
   doc.setTextColor(15, 23, 42);
@@ -299,16 +321,16 @@ export function crearDocumentoPdfMediaCarta(
     doc.setDrawColor(16, 185, 129);
     doc.roundedRect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6, 1, 1, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(5, 150, 105);
-    doc.text("SALDO PENDIENTE:", xTotales, yTot + 4);
+    doc.text("SALDO:", xTotales, yTot + 4);
     doc.text("$0 (PAZ Y SALVO)", margenDerecho - 1, yTot + 4, { align: "right" });
   } else {
     doc.setFillColor(255, 241, 242);
     doc.setDrawColor(225, 29, 72);
     doc.roundedRect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6, 1, 1, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(225, 29, 72);
     doc.text("SALDO PENDIENTE:", xTotales, yTot + 4);
     doc.text(`$${factura.saldoPendiente.toLocaleString("es-CO")}`, margenDerecho - 1, yTot + 4, { align: "right" });
@@ -316,42 +338,57 @@ export function crearDocumentoPdfMediaCarta(
 
   // Pie de cortesía sin QR
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(6);
+  doc.setFontSize(5.8);
   doc.setTextColor(148, 163, 184);
   const pie = empresa.piePaginaFactura || "Sistema POS Local LLANOMIO — Impreso sin códigos QR externos";
   doc.text(pie, ANCHO_MEDIA_CARTA_MM / 2, ALTO_MEDIA_CARTA_MM - 3, { align: "center" });
+}
 
-  // Garantía estricta de 1 sola página
-  if (doc.getNumberOfPages() > 1) {
-    doc.deletePage(2);
+/**
+ * Genera una instancia vectorial de jsPDF en formato Media Carta optimizada
+ */
+export function crearDocumentoPdfMediaCarta(
+  datos: DatosImpresionFactura,
+  opciones: OpcionesPdfMediaCarta = {}
+): jsPDF {
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: [ALTO_MEDIA_CARTA_MM, ANCHO_MEDIA_CARTA_MM],
+    compress: true,
+  });
+
+  if (opciones.numCopias === 2) {
+    dibujarPaginaMediaCarta(doc, datos, "EJEMPLAR 1: COPIA CLIENTE");
+    doc.addPage([ALTO_MEDIA_CARTA_MM, ANCHO_MEDIA_CARTA_MM], "landscape");
+    dibujarPaginaMediaCarta(doc, datos, "EJEMPLAR 2: RESPALDO FÍSICO TIENDA / ARCHIVO");
+  } else {
+    dibujarPaginaMediaCarta(doc, datos, opciones.tipoCopia || "COPIA CLIENTE");
+    if (doc.getNumberOfPages() > 1) {
+      doc.deletePage(2);
+    }
   }
 
   return doc;
 }
 
 /**
- * Genera una instancia vectorial de jsPDF en formato Carta Completa (Letter Portrait)
- * con garantía estricta de 1 sola página (Anti-Hoja en Blanco).
+ * Dibuja un ejemplar completo de factura en formato Carta Completa (Vertical)
  */
-export function crearDocumentoPdfCarta(
+function dibujarPaginaCarta(
+  doc: jsPDF,
   datos: DatosImpresionFactura,
-  opciones: OpcionesPdfMediaCarta = {}
-): jsPDF {
+  tipoCopiaTexto: string
+): void {
   const { factura, empresa } = datos;
-  const tipoCopia = opciones.tipoCopia || "ORIGINAL CLIENTE";
   const anchoCartaMm = 215.9;
   const altoCartaMm = 279.4;
-
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "letter",
-    compress: true,
-  });
-
   const margenIzquierdo = 12;
   const margenDerecho = anchoCartaMm - 12;
   let cursorY = 12;
+
+  const esAlquiler = factura.tipoOperacion === "ALQUILER";
+  const esPazYSalvo = factura.saldoPendiente <= 0;
 
   // 1. ENCABEZADO: LOGO + DATOS FISCALES + RECUADRO DE FACTURA
   const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 26, 20);
@@ -359,30 +396,29 @@ export function crearDocumentoPdfCarta(
 
   doc.setTextColor(15, 23, 42);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(15);
+  doc.setFontSize(14.5);
   doc.text(empresa.nombreComercial.toUpperCase(), textoEmpresaX, cursorY + 4.5);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
+  doc.setFontSize(8.2);
   doc.setTextColor(71, 85, 105);
   let yDet = cursorY + 9;
   if (empresa.eslogan) {
     doc.text(empresa.eslogan, textoEmpresaX, yDet);
-    yDet += 4;
+    yDet += 3.8;
   }
   const reg = empresa.regimenFiscal ? `  |  ${empresa.regimenFiscal}` : "";
   doc.text(`NIT: ${empresa.nit}${reg}`, textoEmpresaX, yDet);
-  yDet += 4;
+  yDet += 3.8;
   doc.text(`${empresa.direccion} — ${empresa.ciudad || "Villavicencio, Meta"}`, textoEmpresaX, yDet);
-  yDet += 4;
+  yDet += 3.8;
   doc.text(`Teléfono / WhatsApp: ${empresa.telefono}${empresa.email ? ` | ${empresa.email}` : ""}`, textoEmpresaX, yDet);
 
   // Recuadro derecho de Factura
-  const anchoCajaFactura = 74;
+  const anchoCajaFactura = 76;
   const altoCajaFactura = 22;
   const xCajaFactura = margenDerecho - anchoCajaFactura;
   const yCajaFactura = 10;
-  const esPazYSalvo = factura.saldoPendiente <= 0;
 
   if (esPazYSalvo) {
     doc.setFillColor(236, 253, 245);
@@ -396,24 +432,23 @@ export function crearDocumentoPdfCarta(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
-  const esAlquilerCarta = factura.tipoOperacion === "ALQUILER";
   if (esPazYSalvo) {
     doc.setTextColor(5, 150, 105);
-    doc.text(esAlquilerCarta ? "PAZ Y SALVO DE ALQUILER" : "PAGO FINAL (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+    doc.text(esAlquiler ? "PAZ Y SALVO DE ALQUILER" : "PAGO FINAL (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
   } else {
     doc.setTextColor(100, 116, 139);
-    doc.text(esAlquilerCarta ? "CONTRATO DE ALQUILER" : "FACTURA COMERCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+    doc.text(esAlquiler ? "CONTRATO / FACTURA DE ALQUILER" : "FACTURA COMERCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
   }
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
+  doc.setFontSize(13.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(`N° ${factura.numeroFactura}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 13, { align: "center" });
+  doc.text(`N° ${factura.numeroFactura}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 12.8, { align: "center" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(esPazYSalvo ? 5 : 37, esPazYSalvo ? 150 : 99, esPazYSalvo ? 105 : 235);
-  doc.text(`** ${tipoCopia} **`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 18.5, { align: "center" });
+  doc.text(`** ${tipoCopiaTexto} **`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 18.5, { align: "center" });
 
   cursorY = Math.max(yDet + 3, yCajaFactura + altoCajaFactura + 3);
 
@@ -424,7 +459,7 @@ export function crearDocumentoPdfCarta(
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(255, 255, 255);
-    doc.text(esAlquilerCarta ? "CONTRATO LIQUIDADO AL 100% — PAZ Y SALVO DE ALQUILER" : "FACTURA PAGADA AL 100% — PAZ Y SALVO DE OBLIGACIÓN — SALDO TOTAL: $0", anchoCartaMm / 2, cursorY + 4.8, { align: "center" });
+    doc.text(esAlquiler ? "CONTRATO LIQUIDADO AL 100% — PAZ Y SALVO DE ALQUILER — SALDO $0" : "FACTURA PAGADA AL 100% — PAZ Y SALVO DE OBLIGACIÓN — SALDO TOTAL: $0", anchoCartaMm / 2, cursorY + 4.8, { align: "center" });
     cursorY += 10;
   }
 
@@ -437,7 +472,7 @@ export function crearDocumentoPdfCarta(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(71, 85, 105);
-  doc.text("CLIENTE / ARRENDATARIO:", margenIzquierdo + 4, cursorY + 5);
+  doc.text(esAlquiler ? "CLIENTE / ARRENDATARIO:" : "CLIENTE / ADQUIRIENTE:", margenIzquierdo + 4, cursorY + 5);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9.5);
@@ -475,7 +510,7 @@ export function crearDocumentoPdfCarta(
   doc.text(`Fecha Emisión: ${fechaTexto}`, colDerX, cursorY + 9.5);
   doc.text(`Tipo Operación: ${factura.tipoOperacion}`, colDerX, cursorY + 13.5);
 
-  if (factura.fechaDevolucionPactada) {
+  if (esAlquiler && factura.fechaDevolucionPactada) {
     const devTexto = new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", {
       dateStyle: "short",
       timeStyle: "short",
@@ -485,6 +520,7 @@ export function crearDocumentoPdfCarta(
     doc.text(`Devolución Pactada: ${devTexto}`, colDerX, cursorY + 17.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(71, 85, 105);
+  } else {
     const cajeroNom =
       empresa.mostrarVendedorFactura !== false && factura.usuarioCajero?.nombre
         ? factura.usuarioCajero.nombre
@@ -492,7 +528,7 @@ export function crearDocumentoPdfCarta(
     doc.text(`Atendido por: ${cajeroNom}`, colDerX, cursorY + 17.5);
   }
 
-  cursorY += 28;
+  cursorY += 27;
 
   // 4. TABLA DE ÍTEMS
   const altoCabecera = 6.5;
@@ -509,10 +545,10 @@ export function crearDocumentoPdfCarta(
 
   cursorY += altoCabecera;
 
-  const maxItemsCarta = Math.min(factura.detalles.length, 10);
+  const maxItemsCarta = Math.min(factura.detalles.length, 7);
   for (let i = 0; i < maxItemsCarta; i++) {
     const det = factura.detalles[i];
-    const altoFila = 6.5;
+    const altoFila = 6.2;
     if (i % 2 === 0) {
       doc.setFillColor(255, 255, 255);
     } else {
@@ -523,23 +559,51 @@ export function crearDocumentoPdfCarta(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(String(det.cantidad), margenIzquierdo + 7, cursorY + 4.5, { align: "center" });
+    doc.text(String(det.cantidad), margenIzquierdo + 7, cursorY + 4.3, { align: "center" });
 
     let desc = det.esServicioLibre
       ? (det.descripcionLibre || "Servicio de Sastrería")
       : (det.producto?.nombre || "Prenda");
     if (det.producto?.codigo) desc = `[${det.producto.codigo}] ${desc}`;
-    doc.text(desc.substring(0, 65), margenIzquierdo + 18, cursorY + 4.5);
+    doc.text(desc.substring(0, 65), margenIzquierdo + 18, cursorY + 4.3);
 
-    doc.text(`$${det.precioUnitario.toLocaleString("es-CO")}`, margenDerecho - 46, cursorY + 4.5, { align: "right" });
+    doc.text(`$${det.precioUnitario.toLocaleString("es-CO")}`, margenDerecho - 46, cursorY + 4.3, { align: "right" });
     doc.setFont("helvetica", "bold");
-    doc.text(`$${det.subtotal.toLocaleString("es-CO")}`, margenDerecho - 4, cursorY + 4.5, { align: "right" });
+    doc.text(`$${det.subtotal.toLocaleString("es-CO")}`, margenDerecho - 4, cursorY + 4.3, { align: "right" });
 
     cursorY += altoFila;
   }
 
-  // 5. TOTALES Y POLÍTICAS
-  cursorY += 5;
+  // 5. RECUADRO DE DEPÓSITO EN GARANTÍA (SI APLICA)
+  if (esAlquiler || (factura.montoDeposito && factura.montoDeposito > 0)) {
+    cursorY += 2.5;
+    const altoDepCarta = 11;
+    doc.setFillColor(254, 243, 199);
+    doc.setDrawColor(217, 119, 6);
+    doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDepCarta, 1.5, 1.5, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(146, 64, 14);
+    doc.text("COMPROBANTE DE DEPÓSITO EN GARANTÍA (RESPALDO POR DAÑOS O PÉRDIDA):", margenIzquierdo + 4, cursorY + 4.5);
+    doc.text(`$${(factura.montoDeposito || 0).toLocaleString("es-CO")}`, margenDerecho - 4, cursorY + 4.5, { align: "right" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    const estadoDepTxt = factura.estadoDeposito === "DEVUELTO_COMPLETO"
+      ? `DEPÓSITO DEVUELTO 100% AL CLIENTE ($${(factura.montoDevueltoDeposito || factura.montoDeposito || 0).toLocaleString("es-CO")}) — Prendas recibidas a conformidad`
+      : factura.estadoDeposito === "RETENIDO_PARCIAL"
+      ? `DEPÓSITO RETENIDO ($${(factura.montoRetenidoDeposito || 0).toLocaleString("es-CO")} Retenido / $${(factura.montoDevueltoDeposito || 0).toLocaleString("es-CO")} Devuelto)${factura.motivoRetencionDeposito ? ` — Motivo: ${factura.motivoRetencionDeposito}` : ""}`
+      : factura.estadoDeposito === "RETENIDO_TOTAL"
+      ? `DEPÓSITO RETENIDO 100% POR DAÑO O PÉRDIDA${factura.motivoRetencionDeposito ? ` — Motivo: ${factura.motivoRetencionDeposito}` : ""}`
+      : "RECIBIDO EN CUSTODIA (Reembolsable al devolver las prendas completas y en perfecto estado)";
+    doc.text(estadoDepTxt.substring(0, 115), margenIzquierdo + 4, cursorY + 8.5);
+
+    cursorY += altoDepCarta;
+  }
+
+  // 6. TOTALES Y POLÍTICAS
+  cursorY += 3;
   const anchoTotales = 75;
   const xTotales = margenDerecho - anchoTotales;
 
@@ -552,21 +616,22 @@ export function crearDocumentoPdfCarta(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
   doc.setTextColor(71, 85, 105);
-  doc.text("TÉRMINOS, CONDICIONES Y POLÍTICAS DE ALQUILER:", margenIzquierdo + 3, cursorY + 4.5);
+  doc.text(esAlquiler ? "TÉRMINOS Y CONDICIONES DEL CONTRATO DE ALQUILER:" : "TÉRMINOS Y CONDICIONES COMERCIALES:", margenIzquierdo + 3, cursorY + 4.5);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   doc.setTextColor(100, 116, 139);
   const polTexto = empresa.politicasFactura || "Las prendas en alquiler deben devolverse en la fecha pactada en óptimas condiciones. Todo retraso generará cobro de mora. Cuide su comprobante.";
   const lineasPol = doc.splitTextToSize(polTexto, anchoPol - 6);
-  doc.text(lineasPol.slice(0, 4), margenIzquierdo + 3, cursorY + 8.5);
+  doc.text(lineasPol.slice(0, 3), margenIzquierdo + 3, cursorY + 8.5);
 
   // Firmas
-  doc.line(margenIzquierdo + 6, cursorY + 23, margenIzquierdo + 46, cursorY + 23);
-  doc.text("Firma Autorizada LLANOMIO", margenIzquierdo + 8, cursorY + 26);
+  doc.setFontSize(6.2);
+  doc.line(margenIzquierdo + 6, cursorY + 22, margenIzquierdo + 52, cursorY + 22);
+  doc.text("Firma Vendedor / Cajero Responsable", margenIzquierdo + 8, cursorY + 25.5);
 
-  doc.line(margenIzquierdo + 58, cursorY + 23, margenIzquierdo + 98, cursorY + 23);
-  doc.text("Firma y Cédula del Cliente", margenIzquierdo + 62, cursorY + 26);
+  doc.line(margenIzquierdo + 60, cursorY + 22, margenIzquierdo + 120, cursorY + 22);
+  doc.text("Firma y C.C. del Cliente (Aceptación de Términos)", margenIzquierdo + 62, cursorY + 25.5);
 
   // Cuadro de Totales
   doc.setFont("helvetica", "bold");
@@ -588,7 +653,7 @@ export function crearDocumentoPdfCarta(
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
     doc.setTextColor(5, 150, 105);
-    doc.text("SALDO PENDIENTE:", xTotales, cursorY + 19);
+    doc.text("SALDO:", xTotales, cursorY + 19);
     doc.text("$0 (PAZ Y SALVO)", margenDerecho - 1, cursorY + 19, { align: "right" });
   } else {
     doc.setFillColor(255, 241, 242);
@@ -601,11 +666,11 @@ export function crearDocumentoPdfCarta(
     doc.text(`$${factura.saldoPendiente.toLocaleString("es-CO")}`, margenDerecho - 1, cursorY + 19, { align: "right" });
   }
 
-  // 6. HISTORIAL DE ABONOS
+  // 7. HISTORIAL DE ABONOS (SI HAY ESPACIO)
   if (factura.abonos && factura.abonos.length > 0) {
-    cursorY += 32;
+    cursorY += 31;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(71, 85, 105);
     doc.text("HISTORIAL DE ABONOS Y MÉTODOS DE PAGO:", margenIzquierdo, cursorY);
 
@@ -614,12 +679,12 @@ export function crearDocumentoPdfCarta(
     for (let a = 0; a < maxAbonos; a++) {
       const ab = factura.abonos[a];
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
+      doc.setFontSize(6.8);
       doc.setTextColor(100, 116, 139);
       const fAb = new Date(ab.fecha).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
       const cajeroAb = ab.cajero?.nombre ? ` (Cajero: ${ab.cajero.nombre})` : "";
       doc.text(`• ${fAb} | ${ab.metodoPago}${cajeroAb}: $${ab.monto.toLocaleString("es-CO")}`, margenIzquierdo + 3, cursorY);
-      cursorY += 4;
+      cursorY += 3.8;
     }
   }
 
@@ -629,13 +694,224 @@ export function crearDocumentoPdfCarta(
   doc.setTextColor(148, 163, 184);
   const pieFinal = empresa.piePaginaFactura || `Comprobante Oficial LLANOMIO POS — Consecutivo ${factura.numeroFactura} — Impreso sin códigos QR externos`;
   doc.text(pieFinal, anchoCartaMm / 2, altoCartaMm - 6, { align: "center" });
+}
 
-  // CORRECCIÓN ANTI-HOJA EN BLANCO: Si se generó una segunda página accidental, eliminarla
-  if (doc.getNumberOfPages() > 1) {
-    doc.deletePage(2);
+/**
+ * Genera una instancia vectorial de jsPDF en formato Carta Completa (Letter Portrait)
+ */
+export function crearDocumentoPdfCarta(
+  datos: DatosImpresionFactura,
+  opciones: OpcionesPdfMediaCarta = {}
+): jsPDF {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "letter",
+    compress: true,
+  });
+
+  if (opciones.numCopias === 2) {
+    dibujarPaginaCarta(doc, datos, "EJEMPLAR 1: COPIA CLIENTE");
+    doc.addPage("letter", "portrait");
+    dibujarPaginaCarta(doc, datos, "EJEMPLAR 2: RESPALDO FÍSICO TIENDA / ARCHIVO");
+  } else {
+    dibujarPaginaCarta(doc, datos, opciones.tipoCopia || "COPIA CLIENTE");
+    if (doc.getNumberOfPages() > 1) {
+      doc.deletePage(2);
+    }
   }
 
   return doc;
+}
+
+/**
+ * Dibuja un ejemplar de tirilla térmica 80mm en el lienzo
+ */
+function dibujarContenidoTirilla(
+  doc: jsPDF,
+  datos: DatosImpresionFactura,
+  startY: number,
+  tipoCopiaTexto: string
+): number {
+  const { factura, empresa } = datos;
+  const anchoMm = 80;
+  const margen = 4;
+  const margenDer = anchoMm - 4;
+  let cursorY = startY;
+
+  const esAlquiler = factura.tipoOperacion === "ALQUILER";
+  const esPazYSalvo = factura.saldoPendiente <= 0;
+
+  // Logo centrado si existe
+  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, (anchoMm - 24) / 2, cursorY, 24, 14);
+  if (tieneLogo) {
+    cursorY += 15;
+  }
+
+  // Cabecera Empresa
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text(empresa.nombreComercial.toUpperCase(), anchoMm / 2, cursorY, { align: "center" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.8);
+  if (empresa.eslogan) {
+    cursorY += 3.2;
+    doc.text(empresa.eslogan, anchoMm / 2, cursorY, { align: "center" });
+  }
+  cursorY += 3.2;
+  doc.text(`NIT: ${empresa.nit}`, anchoMm / 2, cursorY, { align: "center" });
+  if (empresa.regimenFiscal) {
+    cursorY += 2.8;
+    doc.text(empresa.regimenFiscal, anchoMm / 2, cursorY, { align: "center" });
+  }
+  cursorY += 2.8;
+  doc.text(empresa.direccion, anchoMm / 2, cursorY, { align: "center" });
+  cursorY += 2.8;
+  doc.text(`Tel: ${empresa.telefono}`, anchoMm / 2, cursorY, { align: "center" });
+  cursorY += 3.2;
+  doc.setFont("helvetica", "bold");
+  doc.text(`** ${tipoCopiaTexto} **`, anchoMm / 2, cursorY, { align: "center" });
+
+  cursorY += 3.2;
+  doc.setLineWidth(0.2);
+  doc.line(margen, cursorY, margenDer, cursorY);
+
+  // Datos Factura / Contrato
+  cursorY += 3.5;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  const tituloTirilla = esAlquiler
+    ? (esPazYSalvo ? "PAZ Y SALVO ALQUILER:" : "CONTRATO ALQUILER:")
+    : "FACTURA:";
+  doc.text(`${tituloTirilla} ${factura.numeroFactura}`, margen, cursorY);
+
+  cursorY += 3;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.text(`Fecha: ${new Date(factura.fechaCreacion).toLocaleString("es-CO")}`, margen, cursorY);
+
+  if (empresa.mostrarVendedorFactura !== false && factura.usuarioCajero?.nombre) {
+    cursorY += 2.8;
+    doc.text(`Cajero: ${factura.usuarioCajero.nombre}`, margen, cursorY);
+  }
+
+  cursorY += 2.8;
+  const nomTirilla = (factura.cliente.esResponsableIVA && factura.cliente.razonSocial
+    ? factura.cliente.razonSocial
+    : factura.cliente.nombre).toUpperCase();
+  doc.text(`Cliente: ${nomTirilla.substring(0, 26)}`, margen, cursorY);
+
+  cursorY += 2.8;
+  const tipoTirilla = factura.cliente.tipoIdentificacion || (factura.cliente.esResponsableIVA ? "NIT" : "Doc");
+  const dvTirilla = factura.cliente.digitoVerificacion ? `-${factura.cliente.digitoVerificacion}` : "";
+  doc.text(`${tipoTirilla}: ${factura.cliente.documento}${dvTirilla}`, margen, cursorY);
+
+  if (factura.cliente.telefono) {
+    cursorY += 2.8;
+    const telSecTirilla = factura.cliente.telefonoSecundario ? ` | 2°: ${factura.cliente.telefonoSecundario}` : "";
+    doc.text(`Tel: ${factura.cliente.telefono}${telSecTirilla}`, margen, cursorY);
+  }
+
+  // Fechas de Alquiler en Tirilla
+  if (esAlquiler) {
+    cursorY += 2.8;
+    doc.text(`Salida: ${new Date(factura.fechaEntregaAlquiler || factura.fechaCreacion).toLocaleDateString("es-CO")}`, margen, cursorY);
+    if (factura.fechaDevolucionPactada) {
+      cursorY += 2.8;
+      doc.setFont("helvetica", "bold");
+      doc.text(`Devolución: ${new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}`, margen, cursorY);
+      doc.setFont("helvetica", "normal");
+    }
+  }
+
+  cursorY += 3.2;
+  doc.line(margen, cursorY, margenDer, cursorY);
+
+  // Tabla ítems
+  cursorY += 3.2;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.text("CANT  DESCRIPCIÓN", margen, cursorY);
+  doc.text("TOTAL", margenDer, cursorY, { align: "right" });
+
+  cursorY += 2.8;
+  factura.detalles.forEach((det) => {
+    doc.setFont("helvetica", "normal");
+    const desc = det.esServicioLibre
+      ? (det.descripcionLibre || "Servicio")
+      : (det.producto?.nombre || "Prenda");
+    doc.text(`${det.cantidad}x ${desc.substring(0, 24)}`, margen, cursorY);
+    doc.setFont("helvetica", "bold");
+    doc.text(`$${det.subtotal.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
+    cursorY += 3;
+  });
+
+  cursorY += 1.5;
+  doc.line(margen, cursorY, margenDer, cursorY);
+
+  // Totales
+  cursorY += 3.2;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.2);
+  doc.text("TOTAL:", margen, cursorY);
+  doc.text(`$${factura.totalFactura.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
+
+  cursorY += 3;
+  doc.text("TOTAL ABONADO:", margen, cursorY);
+  doc.text(`-$${factura.totalAbonado.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
+
+  cursorY += 3.2;
+  doc.setFontSize(7.5);
+  doc.text("SALDO PENDIENTE:", margen, cursorY);
+  if (esPazYSalvo) {
+    doc.text("$0 (PAZ Y SALVO)", margenDer, cursorY, { align: "right" });
+  } else {
+    doc.text(`$${factura.saldoPendiente.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
+  }
+
+  // Depósito en Garantía
+  if (esAlquiler || (factura.montoDeposito && factura.montoDeposito > 0)) {
+    cursorY += 3.2;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.8);
+    doc.text("DEPÓSITO GARANTÍA:", margen, cursorY);
+    doc.text(`$${(factura.montoDeposito || 0).toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
+
+    cursorY += 2.6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6);
+    const estadoDepTir = factura.estadoDeposito === "DEVUELTO_COMPLETO"
+      ? "(Devuelto 100%)"
+      : factura.estadoDeposito === "RETENIDO_PARCIAL"
+      ? "(Ret. Parcial por daño)"
+      : factura.estadoDeposito === "RETENIDO_TOTAL"
+      ? "(Retenido por pérdida/daño)"
+      : "(En custodia — Reembolsable)";
+    doc.text(estadoDepTir, margen, cursorY);
+  }
+
+  // Firmas en Tirilla
+  cursorY += 4.5;
+  doc.setLineWidth(0.2);
+  doc.line(margen + 2, cursorY, margen + 34, cursorY);
+  doc.line(margenDer - 34, cursorY, margenDer - 2, cursorY);
+  cursorY += 2.5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(5.5);
+  doc.text("Firma Cajero", margen + 8, cursorY);
+  doc.text("Firma Cliente", margenDer - 26, cursorY);
+
+  // Pie
+  cursorY += 4;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  doc.text("¡GRACIAS POR SU PREFERENCIA!", anchoMm / 2, cursorY, { align: "center" });
+  cursorY += 2.8;
+  doc.text(empresa.piePaginaFactura || "Sistema POS Local LLANOMIO — Cero QR", anchoMm / 2, cursorY, { align: "center" });
+
+  return cursorY + 4;
 }
 
 /**
@@ -645,186 +921,33 @@ export function crearDocumentoPdfTirilla(
   datos: DatosImpresionFactura,
   opciones: OpcionesPdfMediaCarta = {}
 ): jsPDF {
-  const { factura, empresa } = datos;
-  const tipoCopia = opciones.tipoCopia || "ORIGINAL CLIENTE";
+  const altoBaseMm = Math.max(160, 110 + datos.factura.detalles.length * 8 + (datos.factura.abonos?.length || 0) * 7);
+  const numCopias = opciones.numCopias || 1;
+  const altoTotalMm = numCopias === 2 ? altoBaseMm * 2 + 15 : altoBaseMm;
   const anchoMm = 80;
-  const altoEstimadoMm = Math.max(160, 100 + factura.detalles.length * 8 + (factura.abonos?.length || 0) * 7);
 
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
-    format: [anchoMm, altoEstimadoMm],
+    format: [anchoMm, altoTotalMm],
     compress: true,
   });
 
-  const margen = 4;
-  const margenDer = anchoMm - 4;
-  let cursorY = 4;
+  if (numCopias === 2) {
+    const yFin1 = dibujarContenidoTirilla(doc, datos, 4, "EJEMPLAR 1: COPIA CLIENTE");
 
-  // Logo centrado si existe
-  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, (anchoMm - 24) / 2, cursorY, 24, 14);
-  if (tieneLogo) {
-    cursorY += 16;
-  }
-
-  // Cabecera Empresa
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10.5);
-  doc.setTextColor(0, 0, 0);
-  doc.text(empresa.nombreComercial.toUpperCase(), anchoMm / 2, cursorY, { align: "center" });
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  if (empresa.eslogan) {
-    cursorY += 3.5;
-    doc.text(empresa.eslogan, anchoMm / 2, cursorY, { align: "center" });
-  }
-  cursorY += 3.5;
-  doc.text(`NIT: ${empresa.nit}`, anchoMm / 2, cursorY, { align: "center" });
-  if (empresa.regimenFiscal) {
-    cursorY += 3;
-    doc.text(empresa.regimenFiscal, anchoMm / 2, cursorY, { align: "center" });
-  }
-  cursorY += 3;
-  doc.text(empresa.direccion, anchoMm / 2, cursorY, { align: "center" });
-  cursorY += 3;
-  doc.text(`Tel: ${empresa.telefono}`, anchoMm / 2, cursorY, { align: "center" });
-  cursorY += 3.5;
-  doc.setFont("helvetica", "bold");
-  doc.text(`** ${tipoCopia} **`, anchoMm / 2, cursorY, { align: "center" });
-
-  cursorY += 3.5;
-  doc.setLineWidth(0.2);
-  doc.line(margen, cursorY, margenDer, cursorY);
-
-  // Datos Factura
-  cursorY += 3.5;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  const esAlquilerTirilla = factura.tipoOperacion === "ALQUILER";
-  const tituloTirilla = esAlquilerTirilla
-    ? (factura.saldoPendiente <= 0 ? "PAZ Y SALVO DE ALQUILER" : "CONTRATO DE ALQUILER")
-    : `FACTURA: ${factura.numeroFactura}`;
-  doc.text(tituloTirilla, margen, cursorY);
-  if (esAlquilerTirilla) {
-    cursorY += 3;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.text(`N° ${factura.numeroFactura}`, margen, cursorY);
-  }
-  cursorY += 3.2;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(6.5);
-  doc.text(`Fecha: ${new Date(factura.fechaCreacion).toLocaleString("es-CO")}`, margen, cursorY);
-
-  if (empresa.mostrarVendedorFactura !== false && factura.usuarioCajero?.nombre) {
-    cursorY += 3;
-    doc.text(`Cajero: ${factura.usuarioCajero.nombre}`, margen, cursorY);
-  }
-
-  cursorY += 3;
-  const nomTirilla = (factura.cliente.esResponsableIVA && factura.cliente.razonSocial
-    ? factura.cliente.razonSocial
-    : factura.cliente.nombre).toUpperCase();
-  doc.text(`Cliente: ${nomTirilla.substring(0, 26)}`, margen, cursorY);
-  cursorY += 3;
-  const tipoTirilla = factura.cliente.tipoIdentificacion || (factura.cliente.esResponsableIVA ? "NIT" : "Doc");
-  const dvTirilla = factura.cliente.digitoVerificacion ? `-${factura.cliente.digitoVerificacion}` : "";
-  doc.text(`${tipoTirilla}: ${factura.cliente.documento}${dvTirilla}`, margen, cursorY);
-  if (factura.cliente.esResponsableIVA) {
-    cursorY += 3;
-    doc.text(`Resp: ${factura.cliente.responsabilidadFiscal || "O-48"}`, margen, cursorY);
-  }
-  if (factura.cliente.telefono) {
-    cursorY += 3;
-    const telSecTirilla = factura.cliente.telefonoSecundario ? ` | 2°: ${factura.cliente.telefonoSecundario}` : "";
-    doc.text(`Tel: ${factura.cliente.telefono}${telSecTirilla}`, margen, cursorY);
-  }
-  if (factura.fechaDevolucionPactada) {
-    cursorY += 3;
-    doc.setFont("helvetica", "bold");
-    doc.text(`Devolución: ${new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}`, margen, cursorY);
-    doc.setFont("helvetica", "normal");
-  }
-
-  cursorY += 3.5;
-  doc.line(margen, cursorY, margenDer, cursorY);
-
-  // Tabla ítems
-  cursorY += 3.5;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.5);
-  doc.text("CANT  DESCRIPCIÓN", margen, cursorY);
-  doc.text("TOTAL", margenDer, cursorY, { align: "right" });
-
-  cursorY += 3;
-  factura.detalles.forEach((det) => {
-    doc.setFont("helvetica", "normal");
-    const desc = det.esServicioLibre
-      ? (det.descripcionLibre || "Servicio")
-      : (det.producto?.nombre || "Prenda");
-    doc.text(`${det.cantidad}x ${desc.substring(0, 24)}`, margen, cursorY);
-    doc.setFont("helvetica", "bold");
-    doc.text(`$${det.subtotal.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
-    cursorY += 3.2;
-  });
-
-  cursorY += 1.5;
-  doc.line(margen, cursorY, margenDer, cursorY);
-
-  // Totales
-  cursorY += 3.5;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  doc.text("TOTAL:", margen, cursorY);
-  doc.text(`$${factura.totalFactura.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
-
-  cursorY += 3.2;
-  doc.text("TOTAL ABONADO:", margen, cursorY);
-  doc.text(`-$${factura.totalAbonado.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
-
-  if (factura.montoDeposito && factura.montoDeposito > 0) {
-    cursorY += 3.2;
-    doc.text("DEPÓSITO GARANTÍA:", margen, cursorY);
-    const estadoDepTir = factura.estadoDeposito === "DEVUELTO_COMPLETO"
-      ? "(Devuelto)"
-      : factura.estadoDeposito === "RETENIDO_PARCIAL"
-      ? "(Ret. Parcial)"
-      : factura.estadoDeposito === "RETENIDO_TOTAL"
-      ? "(Retenido)"
-      : "(En Custodia)";
-    doc.text(`$${factura.montoDeposito.toLocaleString("es-CO")} ${estadoDepTir}`, margenDer, cursorY, { align: "right" });
-  }
-
-  cursorY += 3.5;
-  doc.setFontSize(8);
-  doc.text("SALDO PENDIENTE:", margen, cursorY);
-  if (factura.saldoPendiente <= 0) {
-    doc.text("$0 (PAZ Y SALVO)", margenDer, cursorY, { align: "right" });
-  } else {
-    doc.text(`$${factura.saldoPendiente.toLocaleString("es-CO")}`, margenDer, cursorY, { align: "right" });
-  }
-
-  // Políticas
-  if (empresa.politicasFactura) {
-    cursorY += 4.5;
+    // Línea de corte
+    doc.setLineDashPattern([1.5, 1.5], 0);
+    doc.line(4, yFin1 + 3, 76, yFin1 + 3);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6);
-    doc.text("TÉRMINOS Y CONDICIONES:", anchoMm / 2, cursorY, { align: "center" });
-    cursorY += 2.5;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(5.5);
-    const polLineas = doc.splitTextToSize(empresa.politicasFactura, anchoMm - 8);
-    doc.text(polLineas.slice(0, 5), anchoMm / 2, cursorY, { align: "center" });
-    cursorY += polLineas.slice(0, 5).length * 2.8;
-  }
+    doc.text("- - - - - CORTE DE COPIA - - - - -", anchoMm / 2, yFin1 + 6, { align: "center" });
+    doc.setLineDashPattern([], 0);
 
-  cursorY += 4;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(6.5);
-  doc.text("¡GRACIAS POR SU PREFERENCIA!", anchoMm / 2, cursorY, { align: "center" });
-  cursorY += 3;
-  doc.text(empresa.piePaginaFactura || "Sistema POS Local LLANOMIO — Cero QR", anchoMm / 2, cursorY, { align: "center" });
+    dibujarContenidoTirilla(doc, datos, yFin1 + 10, "EJEMPLAR 2: RESPALDO FÍSICO TIENDA / ARCHIVO");
+  } else {
+    dibujarContenidoTirilla(doc, datos, 4, opciones.tipoCopia || "COPIA CLIENTE");
+  }
 
   return doc;
 }
@@ -835,19 +958,26 @@ export function crearDocumentoPdfTirilla(
 export function descargarPdfSegunFormato(
   datos: DatosImpresionFactura,
   formato: FormatoImpresionTipo = "MEDIA_CARTA",
-  nombreArchivo?: string
+  nombreArchivo?: string,
+  opciones: OpcionesPdfMediaCarta = {}
 ): void {
   let doc: jsPDF;
   if (formato === "TIRILLA") {
-    doc = crearDocumentoPdfTirilla(datos);
+    doc = crearDocumentoPdfTirilla(datos, opciones);
   } else if (formato === "CARTA") {
-    doc = crearDocumentoPdfCarta(datos);
+    doc = crearDocumentoPdfCarta(datos, opciones);
   } else {
-    doc = crearDocumentoPdfMediaCarta(datos);
+    doc = crearDocumentoPdfMediaCarta(datos, opciones);
   }
 
+  const esAlquiler = datos.factura.tipoOperacion === "ALQUILER";
+  const prefijo = esAlquiler ? "Comprobante_Alquiler" : "Factura";
+  const clienteLimpio = (datos.factura.cliente.nombre || "Cliente")
+    .replace(/[^a-zA-Z0-9]/g, "_")
+    .substring(0, 20);
+
   const nombre =
-    nombreArchivo || `Factura_${datos.factura.numeroFactura}_${formato}.pdf`;
+    nombreArchivo || `${prefijo}_${datos.factura.numeroFactura}_${clienteLimpio}_${formato}.pdf`;
   doc.save(nombre);
 }
 
@@ -856,16 +986,29 @@ export function descargarPdfSegunFormato(
  */
 export function descargarPdfMediaCarta(
   datos: DatosImpresionFactura,
-  nombreArchivo?: string
+  nombreArchivo?: string,
+  opciones: OpcionesPdfMediaCarta = {}
 ): void {
-  descargarPdfSegunFormato(datos, "MEDIA_CARTA", nombreArchivo);
+  descargarPdfSegunFormato(datos, "MEDIA_CARTA", nombreArchivo, opciones);
 }
 
 /**
  * Abre el PDF en una pestaña nueva del navegador para visualización o impresión física directa
  */
-export function abrirPdfMediaCarta(datos: DatosImpresionFactura): void {
-  const doc = crearDocumentoPdfMediaCarta(datos);
+export function abrirPdfMediaCarta(
+  datos: DatosImpresionFactura,
+  formato: FormatoImpresionTipo = "MEDIA_CARTA",
+  opciones: OpcionesPdfMediaCarta = {}
+): void {
+  let doc: jsPDF;
+  if (formato === "TIRILLA") {
+    doc = crearDocumentoPdfTirilla(datos, opciones);
+  } else if (formato === "CARTA") {
+    doc = crearDocumentoPdfCarta(datos, opciones);
+  } else {
+    doc = crearDocumentoPdfMediaCarta(datos, opciones);
+  }
+
   const blob = doc.output("blob");
   const blobUrl = URL.createObjectURL(blob);
   window.open(blobUrl, "_blank");

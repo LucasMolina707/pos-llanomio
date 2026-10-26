@@ -97,8 +97,9 @@ export async function POST(req: NextRequest, { params }: Params) {
       estadoPrendasDevueltas,
     } = body;
 
-    // 1. Validar el monto del abono
-    const montoNumerico = Math.round(Number(monto) * 100) / 100;
+    // 1. Validar el monto del abono o cobro de saldo
+    const valorEntrada = monto !== undefined ? monto : (body.cobroSaldo !== undefined ? body.cobroSaldo : 0);
+    const montoNumerico = Math.round(Number(valorEntrada) * 100) / 100;
     const recargoMoraNumerico = Math.max(0, Math.round(Number(recargoMora || 0) * 100) / 100);
 
     if (isNaN(montoNumerico) || montoNumerico < 0) {
