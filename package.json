@@ -18,7 +18,9 @@
     "db:migrar-excel": "tsx src/migracion/migrar-datos.ts",
     "db:mantenimiento": "tsx scripts/mantenimiento_db.ts",
     "db:vacuum": "tsx scripts/mantenimiento_db.ts",
-    "db:reset-fabrica": "tsx scripts/reset-db-fabrica.ts"
+    "db:reset-fabrica": "tsx scripts/reset-db-fabrica.ts",
+    "verificar:puertos": "node scripts/verificar-puertos.js",
+    "configurar:puertos": "node scripts/verificar-puertos.js --interactivo"
   },
   "prisma": {
     "schema": "database/schema.prisma",

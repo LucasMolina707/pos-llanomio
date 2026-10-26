@@ -1200,5 +1200,56 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
 - Compilación de producción con `npm run build` completada con **0 errores**, generando las 22 rutas del sistema.
 - Procesos PM2 `pos-llanomio` y `pos-mdns-proxy` activos en producción.
 
+---
+
+## 26. Sistema de Detección y Configuración Interactiva de Puertos de Red para Instalación Limpia en Equipos Nuevos
+
+### 1. Diagnóstico y Asistente Interactivo de Puertos (`scripts/verificar-puertos.js`)
+- **Detección de Ocupación por Socket TCP:** Comprueba en tiempo real la disponibilidad de los puertos estándar (`3000` para el motor Next.js y `80` para el servidor HTTP/Proxy LAN mDNS) utilizando sockets nativos de Node.js (`net.createServer().listen()`), evitando falsos positivos de red.
+- **Identificación de Procesos Conflictivos:** En Windows consulta `netstat -ano -p tcp` y `tasklist` para obtener el PID y el nombre del ejecutable que ocupa el puerto (ej. `node.exe`, `System`, `IIS`, etc.).
+- **Liberación Controlada de Procesos:** Ofrece la opción de terminar procesos huérfanos o instancias previas mediante `taskkill /F /PID <pid>` antes de forzar un cambio de puerto.
+- **Asistente Interactivo de Reasignación:** Si los puertos estándar están en conflicto o se ejecuta con el flag `--interactivo`, solicita amigablemente al operador:
+  - `Ingrese el puerto web deseado para Next.js [Por defecto 3000]:`
+  - `Ingrese el puerto HTTP local [Por defecto 80]:`
+- **Validación en Tiempo Real y Búsqueda de Puertos Libres:** Valida que las entradas sean números de puerto válidos (1-65535), que el puerto proxy no sea idéntico al puerto de Next.js, y comprueba inmediatamente si el puerto ingresado está libre; en caso de colisión, sugiere automáticamente el siguiente puerto libre disponible (ej. `3001`, `8080`, `8081`).
+- **Persistencia Segura en `.env`:** Actualiza o inserta de forma inmutable las claves `PORT`, `HTTP_PORT` y `PORT_PROXY` en el archivo `.env` del proyecto conservando comentarios y demás variables.
+
+### 2. Actualización de la Suite de Instalación y Despliegue en `/instalador_tienda`
+- **`instalador_tienda/1_INSTALAR_POS_GITHUB.bat`:**
+  - Se añade el paso `[4/7] Analizando disponibilidad de puertos de red en este computador...` invocando `node scripts/verificar-puertos.js`.
+  - Si no hay conflictos, confirma los puertos canónicos automáticamente sin detener la instalación. Si detecta conflictos, abre el asistente interactivo en la misma ventana de consola.
+- **`instalador_tienda/CONFIGURAR_PUERTOS_RED.bat` (Nuevo):**
+  - Script ejecutable directo para tiendas que requieran reconfigurar sus puertos en cualquier momento sin reinstalar dependencias.
+  - Actualiza el archivo `.env` y reinicia automáticamente los procesos de PM2 con `pm2 restart ecosystem.config.js`.
+- **`instalador_tienda/2_iniciar_sistema_pm2.bat`:**
+  - Lee dinámicamente `PORT` y `HTTP_PORT` desde `.env`.
+  - Configura la regla de Firewall de Windows `POS_LLANOMIO_PUERTOS_WEB` para autorizar los puertos TCP exactos configurados.
+  - Imprime las URLs finales de acceso local (`http://localhost:[puerto]`) y red LAN (`http://llanomio.local:[puerto]`).
+- **`instalador_tienda/5_ABRIR_FIREWALL_LAN.bat`:**
+  - Adaptado con expansión de variables retardada para leer los puertos de `.env` y autorizarlos dinámicamente en el Firewall de Windows.
+
+### 3. Orquestación Dinámica de Runtime (PM2, Next.js y mDNS)
+- **`ecosystem.config.js`:**
+  - Función `cargarVariablesEnv()` que lee `.env` al arrancar.
+  - Asigna `PORT: String(puertoNext)` a la aplicación `pos-llanomio`.
+  - Asigna `PORT_PROXY: String(puertoProxy)` y `PORT_NEXT: String(puertoNext)` al proxy `pos-mdns-proxy`.
+- **`start-pos.js`:**
+  - Lee el puerto desde `process.env.PORT` o `.env` y simula dinámicamente `next start -H 0.0.0.0 -p <puerto>`.
+- **`server-mdns.js` y `src/server-mdns.ts`:**
+  - Enlazan el proxy HTTP a `process.env.PORT_PROXY || process.env.HTTP_PORT || 80` y reenvían el tráfico a `process.env.PORT_NEXT || process.env.PORT || 3000`.
+- **`src/app/api/red-local/route.ts`:**
+  - Adapta la generación de URLs y códigos QR de red local: si el puerto HTTP configurado es diferente al 80 estándar, concatena `:puerto` tanto en las direcciones IP como en `http://llanomio.local:[puerto]`.
+
+### 4. Scripts en `package.json`
+- `"verificar:puertos": "node scripts/verificar-puertos.js"`
+- `"configurar:puertos": "node scripts/verificar-puertos.js --interactivo"`
+
+### 5. Control de Calidad y Verificación (QA - Agente 5)
+- **Pruebas de Conflicto y Detección:** Verificada la identificación de procesos en ejecución (`node.exe` en puertos 3000 y 80) y la reasignación interactiva a puertos alternativos (`3005`, `8081`).
+- **Estado Limpio de Fábrica:** Ejecutado `npm run db:reset-fabrica` con éxito garantizando 0 clientes, 0 productos, 0 facturas, 0 abonos, 0 turnos/cierres de caja, 1 administrador inicial y 1 registro neutro de empresa.
+- **Compilación de Producción:** `npm run build` ejecutado exitosamente con **0 errores de TypeScript**, generando las 22 rutas del sistema.
+- **Procesos PM2:** Servicios `pos-llanomio` y `pos-mdns-proxy` activos y estables en estado `online`.
+
+
 
 

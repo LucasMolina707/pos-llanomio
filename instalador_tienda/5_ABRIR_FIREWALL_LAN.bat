@@ -39,14 +39,24 @@ netsh advfirewall firewall delete rule name="LLANOMIO_POS_MDNS" >nul 2>&1
 netsh advfirewall firewall delete rule name="LLANOMIO_NODE_APP" >nul 2>&1
 
 :: -----------------------------------------------------------------------------
-:: 2. Regla Entrante TCP: Puertos 80 y 3000 (HTTP y Servidor Web Next.js)
+:: 2. Leer puertos configurados desde .env y abrir regla TCP
 :: -----------------------------------------------------------------------------
-echo [2/4] Abriendo puertos TCP 80 y 3000 (Servidor Web POS)...
-netsh advfirewall firewall add rule name="LLANOMIO_POS_WEB_LAN" dir=in action=allow protocol=TCP localport=80,3000 profile=any description="Permite acceso web a LLANOMIO POS desde la red local LAN"
+set "PORT_NEXT=3000"
+set "PORT_HTTP=80"
+if exist ".env" (
+    for /f "usebackq tokens=1,2 delims==" %%A in (".env") do (
+        if "%%A"=="PORT" set "PORT_NEXT=%%B"
+        if "%%A"=="HTTP_PORT" set "PORT_HTTP=%%B"
+        if "%%A"=="PORT_PROXY" set "PORT_HTTP=%%B"
+    )
+)
+
+echo [2/4] Abriendo puertos TCP !PORT_HTTP! y !PORT_NEXT! (Servidor Web POS)...
+netsh advfirewall firewall add rule name="LLANOMIO_POS_WEB_LAN" dir=in action=allow protocol=TCP localport=!PORT_HTTP!,!PORT_NEXT! profile=any description="Permite acceso web a LLANOMIO POS desde la red local LAN"
 if %errorlevel% equ 0 (
-    echo       [OK] Regla TCP 80,3000 creada exitosamente en perfiles Privado y Publico.
+    echo       [OK] Regla TCP !PORT_HTTP!,!PORT_NEXT! creada exitosamente en perfiles Privado y Publico.
 ) else (
-    echo       [ADVERTENCIA] No se pudo crear la regla TCP 80,3000.
+    echo       [ADVERTENCIA] No se pudo crear la regla TCP !PORT_HTTP!,!PORT_NEXT!.
 )
 
 :: -----------------------------------------------------------------------------
@@ -89,7 +99,7 @@ echo.
 echo =========================================================================
 echo                    RESUMEN DE CONFIGURACION LAN
 echo =========================================================================
-echo - Puertos autorizados: TCP 80 (HTTP) y TCP 3000 (Next.js)
+echo - Puertos autorizados: TCP !PORT_HTTP! (HTTP) y TCP !PORT_NEXT! (Next.js)
 echo - Servicio mDNS: UDP 5353 (http://llanomio.local)
 echo - Perfiles de Red: Habilitado para redes Privadas y Publicas
 echo.

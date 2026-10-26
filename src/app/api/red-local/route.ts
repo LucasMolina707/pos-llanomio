@@ -146,7 +146,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const PUERTO_PROXY = 80;
+    const PUERTO_PROXY = process.env.PORT_PROXY
+      ? parseInt(process.env.PORT_PROXY, 10)
+      : (process.env.HTTP_PORT ? parseInt(process.env.HTTP_PORT, 10) : 80);
 
     // Verificar en tiempo real si el puerto 80 y el puerto Next están respondiendo
     const [puerto80Activo, puertoNextActivo] = await Promise.all([
@@ -178,9 +180,12 @@ export async function GET(req: NextRequest) {
             nombreMin.includes("wlan") ||
             nombreMin.includes("wireless");
 
-          const urlPuerto80 = `http://${iface.address}`;
+          const urlPuerto80 =
+            PUERTO_PROXY === 80
+              ? `http://${iface.address}`
+              : `http://${iface.address}:${PUERTO_PROXY}`;
           const urlPuerto3000 = `http://${iface.address}:${puertoNext}`;
-          // Si el puerto 80 responde, la recomendada puede ser puerto 80 o directo a 3000.
+          // Si el puerto proxy responde, la recomendada puede ser proxy o directo a Next.js.
           // Priorizamos la que garantice conexión universal en celulares.
           const urlRecomendada = puerto80Activo ? urlPuerto80 : urlPuerto3000;
 
@@ -206,24 +211,26 @@ export async function GET(req: NextRequest) {
     });
 
     const ipPrincipal = listaInterfacesFisicas.length > 0 ? listaInterfacesFisicas[0].ip : "127.0.0.1";
+    const urlHttpPrincipal =
+      PUERTO_PROXY === 80 ? `http://${ipPrincipal}` : `http://${ipPrincipal}:${PUERTO_PROXY}`;
 
-    // Si el puerto 80 no está activo, la URL predeterminada DEBE ser con el puerto activo (ej: :3000)
+    // Si el puerto HTTP/Proxy no está activo, la URL predeterminada DEBE ser con el puerto activo (ej: :3000)
     // para evitar fallos de conexión en celulares
     const urlPredeterminada = puerto80Activo
-      ? `http://${ipPrincipal}`
+      ? urlHttpPrincipal
       : `http://${ipPrincipal}:${puertoNext}`;
 
     const respuesta: RespuestaRedLocal = {
       ok: true,
       hostname,
-      mdnsUrl: "http://llanomio.local",
+      mdnsUrl: PUERTO_PROXY === 80 ? "http://llanomio.local" : `http://llanomio.local:${PUERTO_PROXY}`,
       mdnsUrlPort: `http://llanomio.local:${puertoNext}`,
       puertoProxy: PUERTO_PROXY,
       puertoNext,
       puerto80Activo,
       ipPrincipal,
       urlPredeterminada,
-      urlPrincipal80: `http://${ipPrincipal}`,
+      urlPrincipal80: urlHttpPrincipal,
       urlPrincipal3000: `http://${ipPrincipal}:${puertoNext}`,
       interfaces: listaInterfacesFisicas,
       diagnostico: {

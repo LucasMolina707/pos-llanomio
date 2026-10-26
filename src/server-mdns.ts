@@ -21,8 +21,8 @@ export function obtenerIpLocal(): string {
   return "127.0.0.1";
 }
 
-const PUERTO_PROXY = parseInt(process.env.PORT_PROXY || "80", 10);
-const PUERTO_DESTINO = parseInt(process.env.PORT_NEXT || "3000", 10);
+const PUERTO_PROXY = parseInt(process.env.PORT_PROXY || process.env.HTTP_PORT || "80", 10);
+const PUERTO_DESTINO = parseInt(process.env.PORT_NEXT || process.env.PORT || "3000", 10);
 const ipLocal = obtenerIpLocal();
 
 console.log("=============================================================");
