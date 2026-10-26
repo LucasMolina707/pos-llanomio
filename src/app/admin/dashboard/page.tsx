@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -25,6 +25,14 @@ import {
   AlertCircle,
   FileText,
   User,
+  Radio,
+  Play,
+  Pause,
+  ShieldCheck,
+  Building2,
+  Clock,
+  Activity,
+  Zap,
 } from "lucide-react";
 
 interface MetricasData {
@@ -32,21 +40,35 @@ interface MetricasData {
   cuentasPorCobrar: number;
   morasRecaudadas: number;
   totalPrendasAlquiladas: number;
+  prendasAlquiladasActivas: number;
   rendimientoSastreria: number;
+  rendimientoVentas: number;
+  rendimientoAlquileres: number;
   totalFacturas: number;
+  totalAbonos: number;
 }
 
 interface DesgloseMetodosPago {
   totalEfectivo: number;
   totalNequi: number;
   totalDaviplata: number;
+  totalBancolombia: number;
+  totalLlave: number;
   totalTransferencia: number;
+  totalDigital: number;
 }
 
 interface DesgloseLineasNegocio {
   alquileres: number;
   ventas: number;
   sastreria: number;
+}
+
+interface TurnoActualInfo {
+  id: string;
+  fechaApertura: string;
+  baseInicial: number;
+  cajero: string;
 }
 
 interface UltimaFactura {
@@ -72,20 +94,28 @@ export default function DashboardGerencialPage() {
     return new Date().toISOString().split("T")[0];
   });
 
+  // Estados de métricas financieras
   const [metricas, setMetricas] = useState<MetricasData>({
     ingresosNetos: 0,
     cuentasPorCobrar: 0,
     morasRecaudadas: 0,
     totalPrendasAlquiladas: 0,
+    prendasAlquiladasActivas: 0,
     rendimientoSastreria: 0,
+    rendimientoVentas: 0,
+    rendimientoAlquileres: 0,
     totalFacturas: 0,
+    totalAbonos: 0,
   });
 
   const [metodosPago, setMetodosPago] = useState<DesgloseMetodosPago>({
     totalEfectivo: 0,
     totalNequi: 0,
     totalDaviplata: 0,
+    totalBancolombia: 0,
+    totalLlave: 0,
     totalTransferencia: 0,
+    totalDigital: 0,
   });
 
   const [lineasNegocio, setLineasNegocio] = useState<DesgloseLineasNegocio>({
@@ -94,30 +124,137 @@ export default function DashboardGerencialPage() {
     sastreria: 0,
   });
 
+  const [turnoActual, setTurnoActual] = useState<TurnoActualInfo | null>(null);
   const [ultimasFacturas, setUltimasFacturas] = useState<UltimaFactura[]>([]);
-  const [cargando, setCargando] = useState(true);
 
-  const cargarMetricas = useCallback(async () => {
-    try {
-      setCargando(true);
-      const res = await fetch(`/api/admin/dashboard?desde=${fechaDesde}&hasta=${fechaHasta}`);
-      const data = await res.json();
-      if (data.success) {
-        setMetricas(data.metricas);
-        setMetodosPago(data.desgloseMetodos);
-        setLineasNegocio(data.desgloseLineas);
-        setUltimasFacturas(data.ultimasFacturas);
+  // Estados de control de telemetría en tiempo real
+  const [cargandoInicial, setCargandoInicial] = useState(true);
+  const [actualizandoSilencioso, setActualizandoSilencioso] = useState(false);
+  const [enVivoActivo, setEnVivoActivo] = useState(true);
+  const [ultimaSincronizacion, setUltimaSincronizacion] = useState<Date>(new Date());
+  const [totalPulsosRecibidos, setTotalPulsosRecibidos] = useState(0);
+
+  // Referencias para evitar revalidaciones duplicadas y condiciones de carrera
+  const ultimaFirmaDatosRef = useRef<string>("");
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Función principal de carga de métricas (silenciosa o con indicador)
+  const cargarMetricas = useCallback(
+    async (mostrarSpinner = false) => {
+      if (mostrarSpinner) {
+        setCargandoInicial(true);
+      } else {
+        setActualizandoSilencioso(true);
       }
-    } catch (error) {
-      console.error("Error al cargar métricas del dashboard:", error);
-    } finally {
-      setCargando(false);
-    }
-  }, [fechaDesde, fechaHasta]);
 
+      // Cancelar request previo si aún está en vuelo
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        const res = await fetch(
+          `/api/dashboard/metrics?desde=${fechaDesde}&hasta=${fechaHasta}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        );
+
+        if (!res.ok) throw new Error("Fallo en consulta de métricas");
+        const data = await res.json();
+
+        if (data.success) {
+          // Generar firma de cambio para evitar re-renderizados innecesarios
+          const firmaActual = `${data.metricas.ingresosNetos}-${data.metricas.cuentasPorCobrar}-${data.metricas.totalFacturas}-${data.ultimasFacturas?.[0]?.id || ""}`;
+
+          if (firmaActual !== ultimaFirmaDatosRef.current || mostrarSpinner) {
+            ultimaFirmaDatosRef.current = firmaActual;
+            setMetricas(data.metricas);
+            setMetodosPago(data.desgloseMetodos || data.desgloseMetodosPago);
+            setLineasNegocio(data.desgloseLineas || data.desgloseLineasNegocio);
+            setUltimasFacturas(data.ultimasFacturas || []);
+            setTurnoActual(data.turnoActual || null);
+          }
+
+          setUltimaSincronizacion(new Date());
+          setTotalPulsosRecibidos((prev) => prev + 1);
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") {
+          return;
+        }
+        console.warn("Telemetría en segundo plano no crítica:", err);
+      } finally {
+        setCargandoInicial(false);
+        setActualizandoSilencioso(false);
+      }
+    },
+    [fechaDesde, fechaHasta]
+  );
+
+  // Carga inicial al montar o al cambiar fechas manualmente
   useEffect(() => {
-    cargarMetricas();
+    cargarMetricas(true);
   }, [cargarMetricas]);
+
+  // Bus en tiempo real: Server-Sent Events (SSE) con fallback a Polling Inteligente (3.5s)
+  useEffect(() => {
+    if (!enVivoActivo) return;
+
+    let eventSource: EventSource | null = null;
+    let fallbackInterval: NodeJS.Timeout | null = null;
+
+    try {
+      // Intentar suscripción nativa al canal SSE
+      eventSource = new EventSource("/api/dashboard/stream");
+
+      eventSource.addEventListener("tick", (e: MessageEvent) => {
+        try {
+          const payload = JSON.parse(e.data);
+          // Si hubo una factura o abono nuevo, refrescar silenciosamente de inmediato
+          if (payload) {
+            cargarMetricas(false);
+          }
+        } catch {}
+      });
+
+      eventSource.onerror = () => {
+        // En caso de cierre o error temporal de conexión SSE, asegurar polling de respaldo
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+      };
+    } catch {
+      // Navegador sin soporte SSE: el intervalo de respaldo tomará el control
+    }
+
+    // Intervalo de polling silencioso constante cada 3.5 segundos (velocidad LAN local)
+    fallbackInterval = setInterval(() => {
+      cargarMetricas(false);
+    }, 3500);
+
+    // Revalidación inmediata al recibir foco o volver a la pestaña del navegador
+    const handleReenfoque = () => {
+      if (document.visibilityState === "visible") {
+        cargarMetricas(false);
+      }
+    };
+
+    window.addEventListener("focus", handleReenfoque);
+    document.addEventListener("visibilitychange", handleReenfoque);
+
+    return () => {
+      if (eventSource) eventSource.close();
+      if (fallbackInterval) clearInterval(fallbackInterval);
+      window.removeEventListener("focus", handleReenfoque);
+      document.removeEventListener("visibilitychange", handleReenfoque);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  }, [enVivoActivo, cargarMetricas]);
 
   const formatearDinero = (val: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -165,6 +302,8 @@ export default function DashboardGerencialPage() {
     metodosPago.totalEfectivo +
     metodosPago.totalNequi +
     metodosPago.totalDaviplata +
+    (metodosPago.totalBancolombia || 0) +
+    (metodosPago.totalLlave || 0) +
     metodosPago.totalTransferencia || 1;
 
   const totalLineas =
@@ -172,24 +311,72 @@ export default function DashboardGerencialPage() {
 
   return (
     <div className="w-full space-y-6">
-      {/* 1. Cabecera Gerencial & Filtro de Rango de Fechas */}
+      {/* 1. Cabecera Gerencial & Telemetría en Vivo */}
       <div className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
               Dashboard Gerencial
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/80">
-              Métricas Consolidadas
+
+            {/* Indicador de Conexión en Vivo (Local LAN) */}
+            <div
+              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition ${
+                enVivoActivo
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                  : "bg-slate-100 text-slate-600 border-slate-300"
+              }`}
+              title={
+                enVivoActivo
+                  ? `Sincronización activa en red local. Pulsos recibidos: ${totalPulsosRecibidos}`
+                  : "Sincronización automática en pausa"
+              }
+            >
+              {enVivoActivo ? (
+                <>
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <span>Conectado en Vivo (Local LAN)</span>
+                </>
+              ) : (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-slate-400"></span>
+                  <span>En Vivo Pausado</span>
+                </>
+              )}
+            </div>
+
+            {/* Hora de última actualización silenciosa */}
+            <span className="text-xs text-slate-400 font-medium">
+              Actualizado: {ultimaSincronizacion.toLocaleTimeString("es-CO")}
             </span>
           </div>
+
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Visualización en tiempo real de ingresos, cuentas por cobrar, moras y rendimiento comercial
           </p>
         </div>
 
-        {/* Controles de Filtros Temporales */}
+        {/* Controles de Filtros Temporales y Botón En Vivo */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Conmutador de Pausa / Reanudación En Vivo */}
+          <button
+            type="button"
+            onClick={() => setEnVivoActivo(!enVivoActivo)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition border shadow-xs ${
+              enVivoActivo
+                ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
+                : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+            }`}
+            title={enVivoActivo ? "Pausar actualización en tiempo real" : "Reanudar actualización en tiempo real"}
+          >
+            {enVivoActivo ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <span>{enVivoActivo ? "Tiempo Real Activo" : "Reanudar En Vivo"}</span>
+          </button>
+
+          {/* Rango de Fechas */}
           <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
             <Calendar className="w-4 h-4 text-blue-600 ml-1.5" />
             <input
@@ -207,6 +394,7 @@ export default function DashboardGerencialPage() {
             />
           </div>
 
+          {/* Botones de Atajo Rápido */}
           <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
             <button
               type="button"
@@ -238,19 +426,64 @@ export default function DashboardGerencialPage() {
             </button>
           </div>
 
+          {/* Botón de Refresco Manual */}
           <button
             type="button"
-            onClick={cargarMetricas}
-            disabled={cargando}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition"
+            onClick={() => cargarMetricas(true)}
+            disabled={cargandoInicial || actualizandoSilencioso}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition"
+            title="Forzar actualización completa ahora"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${cargando ? "animate-spin text-blue-600" : ""}`} />
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${
+                cargandoInicial || actualizandoSilencioso ? "animate-spin text-blue-600" : "text-slate-500"
+              }`}
+            />
             <span>Actualizar</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Cuadrícula de Métricas Principales en Grid Expandido (5 Columnas en Pantallas Grandes) */}
+      {/* 2. Banner de Estado de Turno de Caja en Vivo */}
+      {turnoActual && (
+        <div className="bg-gradient-to-r from-blue-900 to-slate-900 rounded-xl p-4 text-white shadow-xs border border-blue-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-600 text-white shrink-0">
+              <Vault className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-300">
+                  Turno de Caja Activo en Mostrador
+                </span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-200">
+                A cargo de: <strong className="text-white">{turnoActual.cajero}</strong> — Abierto el{" "}
+                {new Date(turnoActual.fechaApertura).toLocaleTimeString("es-CO")}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 self-end sm:self-auto">
+            <div className="text-right">
+              <span className="text-xs text-slate-400 block font-semibold">Base en Gaveta</span>
+              <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base">
+                ${turnoActual.baseInicial.toLocaleString("es-CO")}
+              </span>
+            </div>
+            <Link
+              href="/admin/caja"
+              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition shadow-xs flex items-center gap-1"
+            >
+              <span>Ver Arqueo</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Cuadrícula de Métricas Principales (5 Columnas en Pantallas Grandes) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
         {/* Tarjeta 1: Ingresos Netos */}
         <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
@@ -263,11 +496,12 @@ export default function DashboardGerencialPage() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-slate-900">
+            <div className="text-2xl font-black tracking-tight text-slate-900 transition-colors">
               {formatearDinero(metricas.ingresosNetos)}
             </div>
-            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-              Total recaudado en el periodo
+            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1 flex items-center justify-between">
+              <span>Total recaudado</span>
+              <span className="font-bold text-slate-700">{metricas.totalAbonos} abonos</span>
             </p>
           </div>
         </div>
@@ -283,7 +517,7 @@ export default function DashboardGerencialPage() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-amber-600">
+            <div className="text-2xl font-black tracking-tight text-amber-600 transition-colors">
               {formatearDinero(metricas.cuentasPorCobrar)}
             </div>
             <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
@@ -303,7 +537,7 @@ export default function DashboardGerencialPage() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-rose-600">
+            <div className="text-2xl font-black tracking-tight text-rose-600 transition-colors">
               {formatearDinero(metricas.morasRecaudadas)}
             </div>
             <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
@@ -323,11 +557,14 @@ export default function DashboardGerencialPage() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-slate-900">
+            <div className="text-2xl font-black tracking-tight text-slate-900 transition-colors">
               {metricas.totalPrendasAlquiladas}
             </div>
-            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-              Trajes en posesión de clientes
+            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1 flex items-center justify-between">
+              <span>En periodo</span>
+              <span className="font-bold text-indigo-600">
+                {metricas.prendasAlquiladasActivas} fuera de tienda
+              </span>
             </p>
           </div>
         </div>
@@ -343,17 +580,17 @@ export default function DashboardGerencialPage() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-emerald-600">
+            <div className="text-2xl font-black tracking-tight text-emerald-600 transition-colors">
               {formatearDinero(metricas.rendimientoSastreria)}
             </div>
             <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-              Arreglos y confección sin inventario
+              Arreglos y confección sin stock
             </p>
           </div>
         </div>
       </div>
 
-      {/* 3. Desgloses Comparativos en 2 Columnas Grandes */}
+      {/* 4. Desgloses Comparativos en 2 Columnas Grandes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Desglose por Método de Pago */}
         <div className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs">
@@ -426,7 +663,35 @@ export default function DashboardGerencialPage() {
               </div>
             </div>
 
-            {/* Transferencia */}
+            {/* Bancolombia / Llave */}
+            {(metodosPago.totalBancolombia > 0 || metodosPago.totalLlave > 0) && (
+              <div>
+                <div className="flex justify-between text-xs font-semibold mb-1">
+                  <span className="text-slate-700 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-amber-600" /> Bancolombia & Llave
+                  </span>
+                  <span className="font-bold text-slate-900">
+                    {formatearDinero((metodosPago.totalBancolombia || 0) + (metodosPago.totalLlave || 0))} (
+                    {Math.round(
+                      (((metodosPago.totalBancolombia || 0) + (metodosPago.totalLlave || 0)) / totalPagos) * 100
+                    )}
+                    %)
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="bg-amber-500 h-2.5 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${
+                        (((metodosPago.totalBancolombia || 0) + (metodosPago.totalLlave || 0)) / totalPagos) * 100
+                      }%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Transferencias / Consignaciones */}
             <div>
               <div className="flex justify-between text-xs font-semibold mb-1">
                 <span className="text-slate-700 flex items-center gap-1.5">
@@ -520,7 +785,7 @@ export default function DashboardGerencialPage() {
         </div>
       </div>
 
-      {/* 4. Tabla de Últimas Facturas en Ancho Completo */}
+      {/* 5. Tabla de Últimas Facturas Emitidas en Ancho Completo */}
       <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="p-5 border-b border-slate-200/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -528,11 +793,16 @@ export default function DashboardGerencialPage() {
               <Receipt className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900">
-                Últimas Facturas Emitidas
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900">
+                  Últimas Facturas Emitidas
+                </h2>
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                  {ultimasFacturas.length} en pantalla
+                </span>
+              </div>
               <p className="text-xs text-slate-500">
-                Actividad reciente de mostrador en el periodo seleccionado
+                Transacciones registradas en tiempo real en la base de datos
               </p>
             </div>
           </div>
@@ -541,7 +811,7 @@ export default function DashboardGerencialPage() {
             href="/admin/monitoreo"
             className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition"
           >
-            <span>Ver Monitoreo Completo</span>
+            <span>Ver Centro de Facturas y Moras</span>
             <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
         </div>
@@ -557,7 +827,7 @@ export default function DashboardGerencialPage() {
                 <th className="py-3 px-5 text-right">Total</th>
                 <th className="py-3 px-5 text-right">Abonado</th>
                 <th className="py-3 px-5 text-right">Saldo Pendiente</th>
-                <th className="py-3 px-5 text-center">Fecha</th>
+                <th className="py-3 px-5 text-center">Fecha y Hora</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -570,13 +840,13 @@ export default function DashboardGerencialPage() {
               ) : (
                 ultimasFacturas.map((fac) => (
                   <tr key={fac.id} className="hover:bg-slate-50/60 transition">
-                    <td className="py-3 px-5 font-bold text-slate-900">
-                      {fac.numeroFactura}
+                    <td className="py-3 px-5 font-bold text-slate-900 font-mono">
+                      #{fac.numeroFactura}
                     </td>
                     <td className="py-3 px-5 font-medium text-slate-700">
                       <div className="flex items-center gap-1.5">
-                        <User className="w-3 h-3 text-slate-400" />
-                        <span>{fac.clienteNombre}</span>
+                        <User className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-semibold">{fac.clienteNombre}</span>
                       </div>
                     </td>
                     <td className="py-3 px-5">
@@ -602,17 +872,20 @@ export default function DashboardGerencialPage() {
                         <span>{fac.estado}</span>
                       </span>
                     </td>
-                    <td className="py-3 px-5 text-right font-bold text-slate-900">
+                    <td className="py-3 px-5 text-right font-bold text-slate-900 font-mono">
                       {formatearDinero(fac.totalFactura)}
                     </td>
-                    <td className="py-3 px-5 text-right font-semibold text-emerald-600">
+                    <td className="py-3 px-5 text-right font-semibold text-emerald-600 font-mono">
                       {formatearDinero(fac.totalAbonado)}
                     </td>
-                    <td className="py-3 px-5 text-right font-bold text-amber-600">
+                    <td className="py-3 px-5 text-right font-bold text-amber-600 font-mono">
                       {formatearDinero(fac.saldoPendiente)}
                     </td>
-                    <td className="py-3 px-5 text-center text-slate-500 font-medium">
-                      {new Date(fac.fechaCreacion).toLocaleDateString("es-CO")}
+                    <td className="py-3 px-5 text-center text-slate-500 font-medium font-mono">
+                      {new Date(fac.fechaCreacion).toLocaleString("es-CO", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}
                     </td>
                   </tr>
                 ))

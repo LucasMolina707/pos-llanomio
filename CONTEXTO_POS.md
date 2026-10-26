@@ -665,4 +665,44 @@ Al presionar el botón superior **"Historial de Facturas y Pagos"**, el sistema 
 - **Compilación de Producción:** Ejecutado `npm run build` con **0 errores de TypeScript y empaquetado exitoso de las 23 rutas del sistema**.
 - **Servicios Locales:** Reinicio exitoso de PM2 (`pos-llanomio` y `pos-mdns-proxy`) operando en estado `online`.
 
+---
+
+## 16. Dashboard Gerencial en Tiempo Real (Telemetría de Alta Velocidad, SSE & Polling Silencioso en Red Local)
+
+### 1. Objetivo y Experiencia de Usuario (Gerencia y Administración)
+- **Actualización Instantánea Sin Recarga (Cero F5):** Cada vez que se emite una factura en la terminal POS (`/caja/pos`), se abona dinero, se cobra un recargo de mora o se cierra una caja, las tarjetas gerenciales de **Ingresos Netos**, **Cuentas por Cobrar**, **Moras Recaudadas**, **Prendas Alquiladas**, **Sastrería Libre** y el listado de **Últimas Facturas** se actualizan automáticamente en el panel administrativo (`/admin/dashboard`) en cuestión de segundos, sin parpadeos de pantalla ni necesidad de refrescar la página manualmente.
+- **Indicador Visual de Estado en Vivo:** Badge interactivo superior con punto verde pulsante (*"Conectado en Vivo (Local LAN)"*), hora de última sincronización al segundo, conmutador de pausa/reanudación y botón de refresco forzado.
+
+### 2. Arquitectura de Endpoints y Comunicación Reactiva
+- **`src/app/api/dashboard/metrics/route.ts` (Cálculo Financiero Optimizado sin Caché):**
+  - Implementación con directivas `export const dynamic = "force-dynamic"`, `export const revalidate = 0` y encabezados HTTP estrictos:
+    `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate`, `Pragma: no-cache`, `Expires: 0`.
+  - Agregación atómica en SQLite:
+    - **Ingresos Netos:** Suma de todos los abonos monetarios recibidos en el rango temporal.
+    - **Desglose de Métodos de Pago:** Efectivo, Nequi, Daviplata, Bancolombia, Llave, Transferencia Bancaria y Consignaciones, con cálculo de recaudación digital unificada.
+    - **Cuentas por Cobrar:** Suma de saldos pendientes exigibles en facturas activas.
+    - **Moras Recaudadas:** Total de recargos por retraso liquidados.
+    - **Rendimiento por Líneas de Negocio:** Alquiler de prendas, Ventas directas y Confección/Sastrería libre.
+    - **Estado del Turno de Mostrador:** Identificador de turno activo hoy, cajero responsable y base en gaveta.
+    - **Últimas Facturas:** Las 10 transacciones más recientes con cliente, tipo, estado y montos.
+- **`src/app/api/dashboard/stream/route.ts` (Canal de Server-Sent Events - SSE):**
+  - Stream de texto continuo (`text/event-stream; charset=utf-8`) mediante `ReadableStream` y `TextEncoder`.
+  - Emite un pulso periódico de telemetría (`event: tick`) cada 3 segundos informando del último ID de factura, abono y turno activo para despertar la reactividad del frontend de forma ultraligera.
+- **`src/app/api/admin/dashboard/route.ts` (Compatibilidad Retroactiva):**
+  - Delegación directa hacia `/api/dashboard/metrics` manteniendo compatibilidad tanto con `desgloseMetodos` como con `desgloseMetodosPago`.
+- **`src/app/admin/dashboard/page.tsx` (Panel Gerencial Reactivo):**
+  - Suscripción dual de alta resiliencia: Canal SSE nativo + Polling silencioso en segundo plano cada 3.5 segundos con firma de comparación de datos en memoria (`useRef`) para actualizar el DOM únicamente cuando hay cambios reales.
+  - Revalidación instantánea al recuperar foco o visibilidad (`window.focus` y `document.visibilitychange`).
+  - Cancelación preventiva de peticiones en vuelo con `AbortController` para evitar condiciones de carrera.
+
+### 3. Control de Calidad (QA - Agente 5) y Verificación
+- **Prueba de Transmisión en Vivo:**
+  1. Estado inicial verificado en SQLite.
+  2. Emisión de factura `#QA-RT-...` con abono Nequi de $50.000: detectada inmediatamente por el motor de telemetría.
+  3. Liquidación de saldo en Efectivo de $100.000 y cierre a Paz y Salvo: reflejado automáticamente en ingresos netos (+$150.000) y saldo a $0.
+  4. Limpieza transparente del registro de prueba.
+- **Compilación de Producción:** `npx tsc --noEmit` y `npm run build` ejecutados exitosamente con **0 errores de TypeScript y 22 rutas estáticas/dinámicas optimizadas**.
+- **Servidor PM2:** Reiniciado en producción local (`pos-llanomio` y `pos-mdns-proxy`) operando en estado `online`.
+
+
 
