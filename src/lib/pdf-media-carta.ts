@@ -97,13 +97,24 @@ function dibujarPaginaMediaCarta(
   doc.roundedRect(xCajaFactura, yCajaFactura, anchoCajaFactura, altoCajaFactura, 2, 2, "FD");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  if (esPazYSalvo) {
+  doc.setFontSize(6.5);
+  if (esAlquiler) {
+    if (factura.estado === "CERRADA") {
+      doc.setTextColor(5, 150, 105);
+      doc.text("PAZ Y SALVO ALQUILER Y DEPÓSITO", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
+    } else if (factura.saldoPendiente <= 0) {
+      doc.setTextColor(15, 23, 42);
+      doc.text("FACTURA ALQUILER (PAGO COMPLETO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
+    } else {
+      doc.setTextColor(100, 116, 139);
+      doc.text("COMPROBANTE ALQUILER (CON SALDO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
+    }
+  } else if (esPazYSalvo) {
     doc.setTextColor(5, 150, 105);
-    doc.text(esAlquiler ? "PAZ Y SALVO DE ALQUILER" : "PAGO FINAL (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
+    doc.text("PAGO FINAL (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
   } else {
     doc.setTextColor(100, 116, 139);
-    doc.text(esAlquiler ? "CONTRATO / FACTURA ALQUILER" : "FACTURA COMERCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
+    doc.text("FACTURA COMERCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
   }
 
   doc.setFont("helvetica", "bold");
@@ -431,13 +442,24 @@ function dibujarPaginaCarta(
   doc.roundedRect(xCajaFactura, yCajaFactura, anchoCajaFactura, altoCajaFactura, 2, 2, "FD");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  if (esPazYSalvo) {
+  doc.setFontSize(7.5);
+  if (esAlquiler) {
+    if (factura.estado === "CERRADA") {
+      doc.setTextColor(5, 150, 105);
+      doc.text("CERTIFICADO DE PAZ Y SALVO FINAL DE ALQUILER Y DEPÓSITO", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+    } else if (factura.saldoPendiente <= 0) {
+      doc.setTextColor(15, 23, 42);
+      doc.text("FACTURA DE ALQUILER - PAGO COMPLETO (PRENDA EN ALQUILER)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+    } else {
+      doc.setTextColor(100, 116, 139);
+      doc.text("COMPROBANTE DE ALQUILER - SALDO PENDIENTE / ABONO PARCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+    }
+  } else if (esPazYSalvo) {
     doc.setTextColor(5, 150, 105);
-    doc.text(esAlquiler ? "PAZ Y SALVO DE ALQUILER" : "PAGO FINAL (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+    doc.text("PAGO FINAL (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
   } else {
     doc.setTextColor(100, 116, 139);
-    doc.text(esAlquiler ? "CONTRATO / FACTURA DE ALQUILER" : "FACTURA COMERCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+    doc.text("FACTURA COMERCIAL", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
   }
 
   doc.setFont("helvetica", "bold");
@@ -781,10 +803,18 @@ function dibujarContenidoTirilla(
   // Datos Factura / Contrato
   cursorY += 3.5;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  const tituloTirilla = esAlquiler
-    ? (esPazYSalvo ? "PAZ Y SALVO ALQUILER:" : "CONTRATO ALQUILER:")
-    : "FACTURA:";
+  let tituloTirilla = "FACTURA:";
+  if (esAlquiler) {
+    if (factura.estado === "CERRADA") {
+      tituloTirilla = "CERTIFICADO PAZ Y SALVO ALQUILER:";
+    } else if (factura.saldoPendiente <= 0) {
+      tituloTirilla = "FACTURA ALQUILER (PAGO COMPLETO):";
+    } else {
+      tituloTirilla = "COMPROBANTE ALQUILER (CON SALDO):";
+    }
+  } else if (esPazYSalvo) {
+    tituloTirilla = "PAGO FINAL (PAZ Y SALVO):";
+  }
   doc.text(`${tituloTirilla} ${factura.numeroFactura}`, margen, cursorY);
 
   cursorY += 3;

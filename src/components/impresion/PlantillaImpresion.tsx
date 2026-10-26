@@ -347,8 +347,12 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
             <div className="flex justify-between font-bold">
               <span>
                 {esAlquiler
-                  ? (esPazYSalvo ? "PAZ Y SALVO ALQUILER:" : "CONTRATO ALQUILER:")
-                  : "FACTURA:"}
+                  ? (factura.estado === "CERRADA"
+                      ? "CERTIFICADO PAZ Y SALVO ALQUILER:"
+                      : factura.saldoPendiente <= 0
+                      ? "FACTURA ALQUILER (PAGO COMPLETO):"
+                      : "COMPROBANTE ALQUILER (CON SALDO):")
+                  : (esPazYSalvo ? "PAGO FINAL (PAZ Y SALVO):" : "FACTURA:")}
               </span>
               <span>{factura.numeroFactura}</span>
             </div>
@@ -630,9 +634,11 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                     }`}
                   >
                     {esAlquiler
-                      ? (esPazYSalvo
-                          ? "PAZ Y SALVO DE ALQUILER"
-                          : "CONTRATO / FACTURA DE ALQUILER")
+                      ? (factura.estado === "CERRADA"
+                          ? "CERTIFICADO DE PAZ Y SALVO FINAL DE ALQUILER Y DEPÓSITO"
+                          : factura.saldoPendiente <= 0
+                          ? "FACTURA DE ALQUILER - PAGO COMPLETO (PRENDA EN ALQUILER)"
+                          : "COMPROBANTE DE ALQUILER - SALDO PENDIENTE / ABONO PARCIAL")
                       : (esPazYSalvo
                           ? "COMPROBANTE DE PAGO FINAL (PAZ Y SALVO)"
                           : "FACTURA COMERCIAL")}
@@ -910,9 +916,11 @@ export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresi
                   }`}
                 >
                   {esAlquiler
-                    ? (esPazYSalvo
-                        ? "PAZ Y SALVO DE ALQUILER"
-                        : "CONTRATO / FACTURA DE ALQUILER")
+                    ? (factura.estado === "CERRADA"
+                        ? "CERTIFICADO DE PAZ Y SALVO FINAL DE ALQUILER Y DEPÓSITO"
+                        : factura.saldoPendiente <= 0
+                        ? "FACTURA DE ALQUILER - PAGO COMPLETO (PRENDA EN ALQUILER)"
+                        : "COMPROBANTE DE ALQUILER - SALDO PENDIENTE / ABONO PARCIAL")
                     : (esPazYSalvo
                         ? "COMPROBANTE DE PAGO FINAL (PAZ Y SALVO)"
                         : "FACTURA COMERCIAL")}

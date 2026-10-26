@@ -1355,6 +1355,62 @@ Se unificó, reparó y perfeccionó la visualización, impresión y descarga en 
 - `src/app/caja/alquileres/page.tsx`: Modal flotante de comprobante, botón `[Comprobante / PDF]` en todas las filas del historial y flujo de apertura inmediata tras liquidar.
 - `src/app/api/facturas/[id]/route.ts`: Corrección de validación para cobro de saldo y devolución/retención de depósito.
 
+---
+
+## 11. Bitácora de Blindaje Transaccional: Circuito Completo de Alquileres, Abonos Posteriores y Paz y Salvo Integrado (`/caja/alquileres`)
+
+### 1. Resumen de la Implementación
+Se blindó de punta a punta el circuito completo del **Sistema de Alquileres (`/caja/alquileres`)** para garantizar una experiencia continua, reactiva y documental sin fisuras:
+1. **Flujo Paso a Paso Continuo:**
+   - **Paso 1 (Cliente):** Validación y selección o creación ágil con Teléfono Primario obligatorio y Teléfono Secundario opcional.
+   - **Paso 2 (Prendas y Fechas):** Selección de prendas de alquiler (`tipo === 'ALQUILER'`), definición de fecha/hora de salida y fecha/hora límite de retorno.
+   - **Paso 3 (Liquidación Inicial y Depósito):** Modalidad de pago (Completo, Adelanto o Pendiente), Depósito en Garantía y calculadora de efectivo y vueltas.
+   - **Paso 4 (Emisión e Impresión Integrada en la Misma Secuencia):** Transición automática inmediata al panel embebido de `<PlantillaImpresion />`, con botones de acción rápida:
+     - `[+ Iniciar Nuevo Alquiler]` (reinicia el asistente).
+     - `[Ver en Historial de Alquileres]` (conmuta al centro de monitoreo).
+2. **Acción de Registro de Abonos Posteriores (`ModalAbonarSaldo`):**
+   - Incorporado en la tabla de Historial de Alquileres para contratos activos con saldo pendiente (`!esCerrada && factura.saldoPendiente > 0`).
+   - Permite abonar parcial o totalmente el saldo pendiente (con desglose de mora acumulada si existe).
+   - Selector visual de método de pago (`EFECTIVO`, `NEQUI`, `BANCOLOMBIA`, `LLAVE`, `DAVIPLATA`, `TRANSFERENCIA`).
+   - Calculadora de efectivo recibido con billetes colombianos rápidos ($20k, $50k, $100k) y cálculo en vivo de vueltas a entregar.
+   - Envío a `PATCH /api/facturas/[id]` e invocación automática inmediata del comprobante actualizado sin salir del panel.
+3. **Recepción de Prendas y Liquidación de Depósito (Paz y Salvo):**
+   - Modal de liquidación que permite cobrar saldo faltante y liquidar el depósito en garantía:
+     - `DEVUELTO_COMPLETO`: 100% reintegrado al cliente a conformidad.
+     - `RETENIDO_PARCIAL`: Reintegro de saldo al cliente y retención con nota de daño obligatorio.
+     - `RETENIDO_TOTAL`: Retención del 100% del depósito por daño irreparable o extravío.
+   - Transiciona la factura a `CERRADA` (Paz y Salvo), devuelve las prendas al inventario (`DISPONIBLE` o `EN_ARREGLO`) y despliega en pantalla el **Certificado de Paz y Salvo Final**.
+4. **Motor Documental y Títulos Exactos en los 3 Formatos:**
+   - `estado !== 'CERRADA' && saldoPendiente > 0`: **`COMPROBANTE DE ALQUILER - SALDO PENDIENTE / ABONO PARCIAL`**
+   - `estado !== 'CERRADA' && saldoPendiente === 0`: **`FACTURA DE ALQUILER - PAGO COMPLETO (PRENDA EN ALQUILER)`**
+   - `estado === 'CERRADA'`: **`CERTIFICADO DE PAZ Y SALVO FINAL DE ALQUILER Y DEPÓSITO`** (o `CERTIFICADO PAZ Y SALVO ALQUILER:` en Tirilla 80mm).
+   - Selector en caliente de **1 Copia** vs **2 Copias** (con corte punteado en tirilla y dos hojas independientes en Media Carta/Carta).
+   - Botón directo de **Impresión Aislada en Iframe** y **Descarga/Exportación PDF nativa** con **CERO códigos QR**.
+
+### 2. Archivos Creados y Modificados
+1. `src/app/caja/alquileres/page.tsx`:
+   - Agregado el botón `[Ver en Historial de Alquileres]` en el encabezado del Paso 4.
+   - Creados los estados y funciones para `ModalAbonarSaldo` (`abrirModalAbonar`, `procesarRegistroAbono`).
+   - Incorporado el botón `[Abonar Saldo]` en las filas de contratos con saldo pendiente.
+   - Renderizado del componente modal `ModalAbonarSaldo` con diseño responsive, paleta Slate/Emerald y cero emojis.
+2. `src/components/impresion/PlantillaImpresion.tsx`:
+   - Títulos dinámicos de cabecera sincronizados con el estado de pago y cierre del contrato.
+   - Soporte para 1 y 2 copias con etiquetas formales (`COPIA CLIENTE` / `RESPALDO FÍSICO TIENDA`).
+3. `src/lib/pdf-media-carta.ts`:
+   - Lógica de jsPDF sincronizada para emitir los 3 títulos exactos y exportar en Tirilla 80mm, Media Carta y Carta sin QR.
+4. `src/app/api/facturas/[id]/route.ts`:
+   - Endpoints `POST` y `PATCH` auditados para registrar abonos posteriores y liquidación de prendas/depósito.
+5. `src/app/api/impresion/[id]/route.ts`:
+   - Payload garantizado con teléfonos primario/secundario, historial de abonos cronológico, depósito y configuración empresarial.
+6. `scripts/test-circuito-alquileres-qa.ts`:
+   - Nuevo script de prueba automatizada integral de extremo a extremo para el ciclo completo de alquileres.
+
+### 3. Resultados de Calidad (QA)
+- **Suite QA Ejecutada:** `npx tsx scripts/test-circuito-alquileres-qa.ts` finalizó con código 0 y 100% de aserciones aprobadas.
+- **Base de Datos:** Restablecida a estado virgen de fábrica mediante `npx tsx scripts/reset-db-fabrica.ts`.
+- **Compilación de Producción:** `npm run build` ejecutado exitosamente con **0 errores de TypeScript y 0 errores de empaquetado**.
+- **Servicios Locales:** PM2 recargado exitosamente (`pos-llanomio` y `pos-mdns-proxy` en estado `online`).
+
 
 
 

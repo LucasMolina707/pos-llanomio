@@ -238,6 +238,16 @@ export default function TerminalAlquileresPage() {
   const [metodoPagoSaldo, setMetodoPagoSaldo] = useState<MetodoPagoAlquiler>("EFECTIVO");
   const [procesandoLiquidacion, setProcesandoLiquidacion] = useState(false);
 
+  // Modal de Registro de Abonos Posteriores / Cobro de Saldo
+  const [modalAbonarAbierto, setModalAbonarAbierto] = useState(false);
+  const [alquilerAbonar, setAlquilerAbonar] = useState<FacturaAlquilerMonitoreo | null>(null);
+  const [montoAbonar, setMontoAbonar] = useState<string>("");
+  const [metodoPagoAbonar, setMetodoPagoAbonar] = useState<MetodoPagoAlquiler>("EFECTIVO");
+  const [efectivoRecibidoAbonar, setEfectivoRecibidoAbonar] = useState<string>("");
+  const [referenciaAbonar, setReferenciaAbonar] = useState("");
+  const [notasAbonar, setNotasAbonar] = useState("");
+  const [procesandoAbono, setProcesandoAbono] = useState(false);
+
   // Modal Flotante de Comprobante / Reimpresión / PDF
   const [modalComprobanteAbierto, setModalComprobanteAbierto] = useState(false);
   const [datosComprobanteModal, setDatosComprobanteModal] = useState<DatosImpresionFactura | null>(null);
@@ -720,6 +730,77 @@ export default function TerminalAlquileresPage() {
   };
 
 
+
+  // Abrir Modal de Registro de Abonos Posteriores / Cobro de Saldo
+  const abrirModalAbonar = (factura: FacturaAlquilerMonitoreo) => {
+    setAlquilerAbonar(factura);
+    setMontoAbonar(String(factura.saldoPendiente));
+    setMetodoPagoAbonar("EFECTIVO");
+    setEfectivoRecibidoAbonar("");
+    setReferenciaAbonar("");
+    setNotasAbonar("");
+    setModalAbonarAbierto(true);
+  };
+
+  // Registrar un Abono Parcial o Cancelación de Saldo Pendiente
+  const procesarRegistroAbono = async () => {
+    if (!alquilerAbonar) return;
+    const montoNum = parseFloat(montoAbonar) || 0;
+    if (montoNum <= 0) {
+      setMensajeError("El monto a abonar debe ser un valor mayor a cero.");
+      return;
+    }
+    if (montoNum > alquilerAbonar.saldoPendiente) {
+      setMensajeError(`El monto no puede exceder el saldo pendiente ($${alquilerAbonar.saldoPendiente.toLocaleString("es-CO")}).`);
+      return;
+    }
+
+    try {
+      setProcesandoAbono(true);
+      setMensajeError(null);
+
+      const efectivoNum = parseFloat(efectivoRecibidoAbonar) || 0;
+      const vueltas = metodoPagoAbonar === "EFECTIVO" && efectivoNum > montoNum ? efectivoNum - montoNum : 0;
+
+      const payload = {
+        monto: montoNum,
+        metodoPago: metodoPagoAbonar,
+        montoRecibido: metodoPagoAbonar === "EFECTIVO" ? efectivoNum : undefined,
+        vueltasEntregadas: vueltas,
+        referenciaComprobante: referenciaAbonar.trim() || undefined,
+        notas: notasAbonar.trim() || `Abono a contrato de alquiler N° ${alquilerAbonar.numeroFactura}`,
+      };
+
+      const res = await fetch(`/api/facturas/${alquilerAbonar.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "No se pudo registrar el abono en el sistema.");
+      }
+
+      setMensajeExito(`¡Abono de $${montoNum.toLocaleString("es-CO")} registrado correctamente!`);
+      setModalAbonarAbierto(false);
+      setAlquilerAbonar(null);
+
+      // Abrir inmediatamente el comprobante actualizado para imprimir o generar PDF
+      const fActualizada = data.factura;
+      await abrirComprobanteAlquiler(fActualizada.id || fActualizada);
+
+      cargarHistorialAlquileres();
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setMensajeError(err.message);
+      } else {
+        setMensajeError("Error inesperado al registrar el abono.");
+      }
+    } finally {
+      setProcesandoAbono(false);
+    }
+  };
 
   // Abrir Modal de Liquidación y Retención de Depósito
   const abrirModalLiquidacion = (factura: FacturaAlquilerMonitoreo) => {
@@ -1317,6 +1398,17 @@ export default function TerminalAlquileresPage() {
                                   <Printer className="w-3.5 h-3.5 text-amber-400" />
                                   <span>Comprobante / PDF</span>
                                 </button>
+
+                                {!esCerrada && factura.saldoPendiente > 0 && (
+                                  <button
+                                    onClick={() => abrirModalAbonar(factura)}
+                                    className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-all"
+                                    title="Registrar abono parcial o pagar el saldo pendiente"
+                                  >
+                                    <DollarSign className="w-3.5 h-3.5" />
+                                    <span>Abonar Saldo</span>
+                                  </button>
+                                )}
 
                                 {!esCerrada && (
                                   <button
@@ -2091,6 +2183,18 @@ export default function TerminalAlquileresPage() {
 
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
+                      onClick={() => {
+                        setVistaPrincipal("HISTORIAL_CENTRO");
+                        reiniciarNuevoAlquiler();
+                      }}
+                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 border border-slate-200 transition-all"
+                    >
+                      <History className="w-4 h-4 text-slate-500" />
+                      <span>Ver en Historial de Alquileres</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={reiniciarNuevoAlquiler}
                       className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition-all"
                     >
@@ -2389,6 +2493,247 @@ export default function TerminalAlquileresPage() {
             setModalCrearPrendaAbierto(false);
           }}
         />
+      )}
+
+      {/* 4. MODAL DE REGISTRO DE ABONO POSTERIOR / COBRO DE SALDO PENDIENTE */}
+      {modalAbonarAbierto && alquilerAbonar && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h3 className="text-sm font-black">
+                    Registrar Abono / Cobrar Saldo Pendiente
+                  </h3>
+                  <p className="text-[11px] text-slate-300 font-medium">
+                    Contrato N° {alquilerAbonar.numeroFactura} — {alquilerAbonar.cliente.nombre}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalAbonarAbierto(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                title="Cerrar modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4 text-xs">
+              {/* Resumen del Contrato y Saldos */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between text-slate-700">
+                  <span>Total Contrato Alquiler:</span>
+                  <span className="font-bold text-slate-900">
+                    ${alquilerAbonar.totalFactura.toLocaleString("es-CO")}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-slate-700">
+                  <span>Total Abonado a la Fecha:</span>
+                  <span className="font-bold text-emerald-700">
+                    ${alquilerAbonar.totalAbonado.toLocaleString("es-CO")}
+                  </span>
+                </div>
+                {alquilerAbonar.recargoMora > 0 && (
+                  <div className="flex items-center justify-between text-rose-700 font-bold bg-rose-50 px-2 py-1 rounded-lg">
+                    <span>Recargo Acumulado por Mora:</span>
+                    <span>+${alquilerAbonar.recargoMora.toLocaleString("es-CO")}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-sm">
+                  <span className="font-bold text-slate-800">Saldo Pendiente Actual:</span>
+                  <span className="font-black text-rose-600 text-base">
+                    ${alquilerAbonar.saldoPendiente.toLocaleString("es-CO")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Input Monto a Abonar */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+                    Monto a Abonar Hoy ($):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setMontoAbonar(String(alquilerAbonar.saldoPendiente))}
+                    className="text-[11px] font-black text-emerald-700 hover:underline"
+                  >
+                    Abonar Saldo Total (${alquilerAbonar.saldoPendiente.toLocaleString("es-CO")})
+                  </button>
+                </div>
+                <div className="relative">
+                  <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="number"
+                    value={montoAbonar}
+                    onChange={(e) => setMontoAbonar(e.target.value)}
+                    placeholder="0"
+                    max={alquilerAbonar.saldoPendiente}
+                    className="w-full pl-9 pr-3 py-2 text-sm font-black bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-slate-900"
+                  />
+                </div>
+                {parseFloat(montoAbonar) > 0 && (
+                  <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 font-medium">
+                    <span>Saldo restante posterior:</span>
+                    <span className="font-bold text-slate-700">
+                      ${Math.max(0, alquilerAbonar.saldoPendiente - (parseFloat(montoAbonar) || 0)).toLocaleString("es-CO")}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Selector de Método de Pago */}
+              <div>
+                <label className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block mb-1.5">
+                  Método de Pago:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      { id: "EFECTIVO", label: "Efectivo", icon: Banknote },
+                      { id: "NEQUI", label: "Nequi", icon: Smartphone },
+                      { id: "BANCOLOMBIA", label: "Bancolombia", icon: CreditCard },
+                      { id: "LLAVE", label: "Llave", icon: CreditCard },
+                      { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
+                      { id: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },
+                    ] as const
+                  ).map((m) => {
+                    const IconComp = m.icon;
+                    const activo = metodoPagoAbonar === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setMetodoPagoAbonar(m.id)}
+                        className={`p-2 rounded-xl border flex items-center justify-center gap-1.5 font-bold transition-all ${
+                          activo
+                            ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        <IconComp className="w-3.5 h-3.5" />
+                        <span className="text-[11px]">{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Calculadora de Efectivo si el método es EFECTIVO */}
+              {metodoPagoAbonar === "EFECTIVO" && (
+                <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-emerald-950 text-[11px]">
+                      Efectivo Recibido del Cliente:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEfectivoRecibidoAbonar(montoAbonar)}
+                      className="text-[10px] font-bold text-emerald-700 hover:underline"
+                    >
+                      Monto Exacto
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <DollarSign className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="number"
+                      value={efectivoRecibidoAbonar}
+                      onChange={(e) => setEfectivoRecibidoAbonar(e.target.value)}
+                      placeholder="0"
+                      className="w-full pl-9 pr-3 py-1.5 text-xs font-bold bg-white border border-emerald-300 rounded-lg text-emerald-950"
+                    />
+                  </div>
+
+                  {/* Botones de denominaciones colombianas */}
+                  <div className="flex gap-1.5 pt-1">
+                    {BILLETES_COLOMBIANOS.map((den) => (
+                      <button
+                        key={den}
+                        type="button"
+                        onClick={() => setEfectivoRecibidoAbonar(String(den))}
+                        className="flex-1 py-1 px-1 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-900 text-[10px] font-bold"
+                      >
+                        ${(den / 1000).toFixed(0)}k
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Vueltas */}
+                  {parseFloat(efectivoRecibidoAbonar) >= (parseFloat(montoAbonar) || 0) && (
+                    <div className="flex items-center justify-between pt-1 border-t border-emerald-200 font-bold text-emerald-950">
+                      <span>Vueltas a Entregar:</span>
+                      <span className="text-sm font-black text-emerald-800">
+                        ${Math.max(0, (parseFloat(efectivoRecibidoAbonar) || 0) - (parseFloat(montoAbonar) || 0)).toLocaleString("es-CO")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Referencia de Comprobante si no es efectivo */}
+              {metodoPagoAbonar !== "EFECTIVO" && (
+                <div>
+                  <label className="font-bold text-slate-800 text-[11px] block mb-1">
+                    Referencia / N° de Aprobación (Opcional):
+                  </label>
+                  <input
+                    type="text"
+                    value={referenciaAbonar}
+                    onChange={(e) => setReferenciaAbonar(e.target.value)}
+                    placeholder="Ej: Aprobación Nequi 948271"
+                    className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl"
+                  />
+                </div>
+              )}
+
+              {/* Notas del Abono */}
+              <div>
+                <label className="font-bold text-slate-800 text-[11px] block mb-1">
+                  Notas u Observaciones del Abono (Opcional):
+                </label>
+                <input
+                  type="text"
+                  value={notasAbonar}
+                  onChange={(e) => setNotasAbonar(e.target.value)}
+                  placeholder="Ej: Abono entregado por familiar del titular..."
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setModalAbonarAbierto(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={procesandoAbono || !parseFloat(montoAbonar) || parseFloat(montoAbonar) <= 0}
+                onClick={procesarRegistroAbono}
+                className="px-5 py-2 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm flex items-center gap-1.5 disabled:opacity-50 transition"
+              >
+                {procesandoAbono ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Guardando Abono...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Registrar Abono y Generar Comprobante</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 5. MODAL DE VISOR DE COMPROBANTE / IMPRESIÓN Y PDF FLOTANTE */}
