@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
+import { safeFetchJson } from "@/lib/safe-fetch";
 
 interface ClienteDirectorio {
   id: string;
@@ -60,12 +61,11 @@ export default function DirectorioClientesPage() {
     try {
       setCargando(true);
       setError(null);
-      const res = await fetch("/api/clientes");
-      const data = await res.json();
-      if (data.success) {
-        setClientes(data.clientes || []);
+      const res = await safeFetchJson<{ success?: boolean; ok?: boolean; clientes?: ClienteDirectorio[]; error?: string }>("/api/clientes");
+      if (res.ok && res.data?.clientes) {
+        setClientes(res.data.clientes);
       } else {
-        throw new Error(data.error || "Error al cargar la lista de clientes");
+        throw new Error(res.error || res.data?.error || "Error al cargar la lista de clientes");
       }
     } catch (err: unknown) {
       if (err instanceof Error) {

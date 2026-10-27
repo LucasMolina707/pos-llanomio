@@ -202,15 +202,17 @@ export default function BarraEstadoCajon({
       {modalDetalleAbierto && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden flex flex-col text-slate-800">
-            {/* Cabecera */}
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Vault className="w-5 h-5 text-emerald-400" />
+            {/* Cabecera Clara Antifatiga */}
+            <div className="p-4 bg-slate-50 border-b border-slate-200 text-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
+                  <Vault className="w-5 h-5 text-emerald-600" />
+                </div>
                 <div>
-                  <h3 className="text-sm font-black">
+                  <h3 className="text-sm font-black text-slate-900">
                     {cajonConectado.nombreGabinete}
                   </h3>
-                  <p className="text-[11px] text-slate-300">
+                  <p className="text-[11px] text-slate-500 font-medium">
                     Cajón {esDividida ? "Dividido Independiente" : "Compartido"} &bull; Responsable: {cajonConectado.usuarioCajero.nombre}
                   </p>
                 </div>
@@ -218,7 +220,7 @@ export default function BarraEstadoCajon({
               <button
                 type="button"
                 onClick={() => setModalDetalleAbierto(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -316,7 +318,7 @@ export default function BarraEstadoCajon({
                 <button
                   type="button"
                   onClick={() => setModalDetalleAbierto(false)}
-                  className="px-4 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition"
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition"
                 >
                   Entendido
                 </button>

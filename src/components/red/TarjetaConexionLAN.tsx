@@ -188,71 +188,71 @@ export default function TarjetaConexionLAN({
         </div>
       </div>
 
-      {/* Panel de Diagnóstico Colapsable */}
+      {/* Panel de Diagnóstico Colapsable Claro Antifatiga */}
       {mostrarDiagnostico && (
-        <div className="bg-slate-900 text-slate-100 p-5 border-b border-slate-800 text-xs animate-in fade-in duration-200">
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
-            <div className="flex items-center gap-2 font-bold text-sm text-blue-400">
-              <Activity className="w-4 h-4 text-blue-400" />
+        <div className="bg-slate-50 text-slate-800 p-5 border-b border-slate-200 text-xs animate-in fade-in duration-200">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200">
+            <div className="flex items-center gap-2 font-bold text-sm text-blue-700">
+              <Activity className="w-4 h-4 text-blue-600" />
               <span>Diagnóstico de Red Local del Servidor Tienda</span>
             </div>
-            <span className="text-[11px] font-mono text-slate-400">
+            <span className="text-[11px] font-mono text-slate-500 font-semibold">
               Host: {datosRed?.hostname || "Local"}
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-3 rounded-lg bg-slate-800/80 border border-slate-700/60">
-              <span className="text-slate-400 font-medium block mb-1">
+            <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+              <span className="text-slate-600 font-semibold block mb-1">
                 Servidor Next.js (Puerto 3000)
               </span>
               <div className="flex items-center gap-2">
                 <span
                   className={`w-2 h-2 rounded-full ${
-                    datosRed?.diagnostico?.puertoNextActivo ? "bg-emerald-400" : "bg-amber-400 animate-pulse"
+                    datosRed?.diagnostico?.puertoNextActivo ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
                   }`}
                 />
-                <span className="font-bold text-white font-mono">
+                <span className="font-bold text-slate-900 font-mono">
                   {datosRed?.diagnostico?.puertoNextActivo
                     ? "Escuchando en 0.0.0.0:3000"
                     : "Verificando conexión"}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-500 mt-1">
                 Permite conexiones directas desde cualquier IP de la red.
               </p>
             </div>
 
-            <div className="p-3 rounded-lg bg-slate-800/80 border border-slate-700/60">
-              <span className="text-slate-400 font-medium block mb-1">
+            <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+              <span className="text-slate-600 font-semibold block mb-1">
                 Proxy mDNS / Puerto 80
               </span>
               <div className="flex items-center gap-2">
                 <span
                   className={`w-2 h-2 rounded-full ${
-                    datosRed?.puerto80Activo ? "bg-emerald-400" : "bg-slate-400"
+                    datosRed?.puerto80Activo ? "bg-emerald-500" : "bg-slate-400"
                   }`}
                 />
-                <span className="font-bold text-white font-mono">
+                <span className="font-bold text-slate-900 font-mono">
                   {datosRed?.puerto80Activo ? "Activo (Puerto 80 Abierto)" : "Inactivo o en Puerto 3000"}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-500 mt-1">
                 {datosRed?.puerto80Activo
                   ? "Acceso simplificado sin número de puerto."
                   : "Usa el puerto :3000 para acceso directo."}
               </p>
             </div>
 
-            <div className="p-3 rounded-lg bg-slate-800/80 border border-slate-700/60">
-              <span className="text-slate-400 font-medium block mb-1">
+            <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+              <span className="text-slate-600 font-semibold block mb-1">
                 Firewall de Windows
               </span>
-              <div className="flex items-center gap-1.5 text-blue-300 font-semibold">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <div className="flex items-center gap-1.5 text-blue-700 font-bold">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
                 <span>Reglas LAN TCP 80, 3000</span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-500 mt-1">
                 Si un celular no conecta, ejecuta `5_ABRIR_FIREWALL_LAN.bat` en la carpeta `instalador_tienda`.
               </p>
             </div>
@@ -260,14 +260,14 @@ export default function TarjetaConexionLAN({
 
           {/* Filtro de adaptadores virtuales */}
           {datosRed?.diagnostico?.interfacesDescartadas && datosRed.diagnostico.interfacesDescartadas.length > 0 && (
-            <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <div className="mt-3 pt-2 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
               <span>
                 Adaptadores virtuales filtrados con éxito:{" "}
-                <span className="text-slate-300 font-mono">
+                <span className="text-slate-700 font-mono font-semibold">
                   {datosRed.diagnostico.interfacesDescartadas.join(", ")}
                 </span>
               </span>
-              <span className="text-emerald-400 font-medium">
+              <span className="text-emerald-700 font-bold">
                 IP real del Wi-Fi priorizada
               </span>
             </div>

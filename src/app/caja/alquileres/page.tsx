@@ -1178,164 +1178,104 @@ export default function TerminalAlquileresPage() {
 
   return (
     <div className="w-screen h-screen overflow-hidden flex flex-col bg-[#F3F6F9] select-none text-slate-800 antialiased font-sans">
-      {/* 1. BARRA SUPERIOR DE LA TERMINAL DE ALQUILERES */}
-      <header className="min-h-[3.75rem] py-2 shrink-0 px-3 sm:px-4 bg-[#FCFDFE] text-slate-800 flex flex-wrap items-center justify-between border-b border-slate-200/90 shadow-2xs z-30 gap-2">
-        {/* Izquierda: Botón Regresar, Logo Oficial, Nombre de Terminal y Cajero */}
+      {/* ========================================================================= */}
+      {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA HOMOLOGADO (h-14 shrink-0)          */}
+      {/* ========================================================================= */}
+      <header className="h-14 shrink-0 px-4 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2">
+        {/* Izquierda: Botón Regresar, Logo Oficial, Badge de Terminal */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {/* Botón Regresar al Menú Principal */}
           <Link
             href="/"
-            className="bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 rounded-xl px-3.5 py-2 text-sm font-bold shadow-2xs flex items-center gap-2 transition shrink-0"
+            className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-bold shadow-2xs flex items-center gap-1.5 transition shrink-0"
             title="Volver al panel principal"
           >
             <ArrowLeft className="w-4 h-4 text-slate-700" />
             <span>Regresar</span>
           </Link>
 
-          {/* Logotipo Oficial Sincronizado */}
-          <div className="shrink-0">
+          <div className="shrink-0 hidden sm:block">
             <LogoEmpresa size="sm" showText={false} />
           </div>
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 truncate">
-              <span className="font-mono text-xs sm:text-sm font-black tracking-wider text-slate-900 uppercase">
-                SISTEMA DE ALQUILERES — CAJA Y DEPÓSITOS
-              </span>
-              <span className="text-xs text-amber-600 font-bold truncate">
-                • {empresaConfig?.nombreComercial || "LLANOMIO"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600 font-medium">
-              <BarraEstadoCajon
-                cargando={cajon.cargando}
-                cajonConectado={cajon.cajonConectado}
-                seguridadCaja={cajon.seguridadCaja}
-                saldoActualEnCajon={cajon.saldoActualEnCajon}
-                totalDigital={cajon.totalDigital}
-                estado={cajon.estado}
-                motivoBloqueo={cajon.motivoBloqueo}
-                onRefrescar={() => cajon.actualizarCajon(true)}
-                onAbrirModal={cajon.abrirModal}
-              />
-              <span className="text-slate-400">|</span>
-              <span className="truncate max-w-[150px] text-slate-600">
-                Cajero: <strong className="text-slate-900">{usuarioSesion?.nombre || "Cajero en Turno"}</strong>
-              </span>
-            </div>
+          <div className="flex items-center gap-2 truncate">
+            <span className="px-2.5 py-1 rounded-xl text-xs font-black tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase truncate">
+              SISTEMA DE ALQUILERES · CAJA Y DEPÓSITOS
+            </span>
+            <span className="text-xs text-slate-500 font-bold hidden md:inline truncate">
+              • {empresaConfig?.nombreComercial || "LLANOMIO"}
+            </span>
           </div>
         </div>
 
-        {/* Stepper de 4 Pasos si estamos en Vista NUEVO_ALQUILER */}
-        {vistaPrincipal === "NUEVO_ALQUILER" && (
-          <div className="hidden md:flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <button
-              onClick={() => setPasoActual(1)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                pasoActual === 1
-                  ? "bg-white text-blue-700 shadow-sm border border-slate-200"
-                  : clienteSeleccionado
-                  ? "text-emerald-700 hover:bg-slate-200"
-                  : "text-slate-500 hover:bg-slate-200"
-              }`}
+        {/* Centro: Navegación Rápida entre las 3 Terminales + Estado en Vivo del Cajón Sincronizado */}
+        <div className="hidden xl:flex items-center gap-2.5">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
+            <Link
+              href="/caja/pos"
+              className="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition"
+              title="Ir a Terminal POS"
             >
-              <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-black ${
-                clienteSeleccionado ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700"
-              }`}>
-                {clienteSeleccionado ? <Check className="w-3 h-3" /> : "1"}
-              </span>
-              <span>1. Cliente</span>
-            </button>
-
-            <span className="text-slate-300 font-bold">›</span>
-
-            <button
-              onClick={() => {
-                if (clienteSeleccionado) setPasoActual(2);
-                else setMensajeError("Primero seleccione un cliente.");
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                pasoActual === 2
-                  ? "bg-white text-blue-700 shadow-sm border border-slate-200"
-                  : itemsCarrito.length > 0
-                  ? "text-emerald-700 hover:bg-slate-200"
-                  : "text-slate-500 hover:bg-slate-200"
-              }`}
+              Ir a POS
+            </Link>
+            <Link
+              href="/caja/alquileres"
+              className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white shadow-xs transition"
+              title="Terminal actual de Alquileres"
             >
-              <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-black ${
-                itemsCarrito.length > 0 ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700"
-              }`}>
-                {itemsCarrito.length > 0 ? <Check className="w-3 h-3" /> : "2"}
-              </span>
-              <span>2. Prendas y Fechas</span>
-            </button>
-
-            <span className="text-slate-300 font-bold">›</span>
-
-            <button
-              onClick={() => {
-                if (cajon.bloqueadoParaFacturar) {
-                  setMensajeError(cajon.motivoBloqueo || "Debe conectar o inicializar el cajón antes de procesar cobros.");
-                  cajon.abrirModal();
-                  return;
-                }
-                if (clienteSeleccionado && itemsCarrito.length > 0) setPasoActual(3);
-                else setMensajeError("Debe seleccionar cliente y prendas antes de cobrar.");
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                pasoActual === 3
-                  ? "bg-white text-blue-700 shadow-sm border border-slate-200"
-                  : "text-slate-500 hover:bg-slate-200"
-              }`}
+              Ir a Alquileres
+            </Link>
+            <Link
+              href="/caja/apartados"
+              className="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition"
+              title="Ir a Terminal de Apartados y Reservas"
             >
-              <span className="w-4 h-4 rounded-full bg-slate-300 text-slate-700 text-[10px] flex items-center justify-center font-black">
-                3
-              </span>
-              <span>3. Cobro y Depósito</span>
-            </button>
-
-            <span className="text-slate-300 font-bold">›</span>
-
-            <button
-              disabled={!datosImpresion && !facturaImpresionId}
-              onClick={() => {
-                if (datosImpresion || facturaImpresionId) setPasoActual(4);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                pasoActual === 4
-                  ? "bg-white text-blue-700 shadow-sm border border-slate-200"
-                  : datosImpresion || facturaImpresionId
-                  ? "text-slate-700 hover:bg-slate-200"
-                  : "text-slate-300 cursor-not-allowed"
-              }`}
-            >
-              <span className="w-4 h-4 rounded-full bg-slate-300 text-slate-700 text-[10px] flex items-center justify-center font-black">
-                4
-              </span>
-              <span>4. Comprobante</span>
-            </button>
+              Ir a Apartados
+            </Link>
           </div>
-        )}
 
-        {/* Acciones de Cabecera */}
-        <div className="flex items-center gap-2">
-          {/* Botón Tomar desde Apartados / Reservas */}
+          <BarraEstadoCajon
+            cargando={cajon.cargando}
+            cajonConectado={cajon.cajonConectado}
+            seguridadCaja={cajon.seguridadCaja}
+            saldoActualEnCajon={cajon.saldoActualEnCajon}
+            totalDigital={cajon.totalDigital}
+            estado={cajon.estado}
+            motivoBloqueo={cajon.motivoBloqueo}
+            onRefrescar={() => cajon.actualizarCajon(true)}
+            onAbrirModal={cajon.abrirModal}
+          />
+        </div>
+
+        {/* Derecha: Botón Recargar + Tomar desde Apartados + Historial con Conteo + Nuevo Alquiler */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              cargarClientes();
+              cargarPrendas();
+              cargarHistorialAlquileres();
+            }}
+            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition border border-slate-300/80 cursor-pointer"
+            title="Recargar catálogo y sincronizar"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+
           <button
             type="button"
             onClick={() => {
               cargarApartadosActivos();
               setModalCargarApartadoAbierto(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all shrink-0 shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all shrink-0 shadow-2xs cursor-pointer"
             title="Cargar cliente y prendas desde una reserva o apartado existente"
           >
-            <CalendarClock className="w-4 h-4 text-indigo-600" />
-            <span className="hidden md:inline">Tomar desde Apartados</span>
-            <span className="md:hidden">Apartados</span>
+            <CalendarClock className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden md:inline">Tomar de Apartado</span>
           </button>
 
-          {/* Botón Centro de Historial y Llegadas */}
           <button
+            type="button"
             onClick={() => {
               if (vistaPrincipal === "HISTORIAL_CENTRO") {
                 setVistaPrincipal("NUEVO_ALQUILER");
@@ -1344,47 +1284,137 @@ export default function TerminalAlquileresPage() {
                 cargarHistorialAlquileres();
               }
             }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-xs transition-all border ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs cursor-pointer ${
               vistaPrincipal === "HISTORIAL_CENTRO"
-                ? "bg-amber-600 text-white border-amber-700 shadow-sm"
-                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+                ? "bg-amber-500 text-slate-950 font-black ring-2 ring-amber-400/40"
+                : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
             }`}
+            title="Ver centro de alquileres, devoluciones y moras"
           >
-            <History className="w-4 h-4" />
-            <span>{vistaPrincipal === "HISTORIAL_CENTRO" ? "Volver a Nuevo Alquiler" : "Historial de Alquileres"}</span>
-            {enMora.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
-                {enMora.length}
-              </span>
-            )}
-            {activas.length > 0 && enMora.length === 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[10px] font-black">
-                {activas.length}
-              </span>
-            )}
+            <History className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="hidden sm:inline">Historial</span>
+            <div className="flex items-center gap-1 ml-0.5">
+              {enMora.length > 0 && (
+                <span
+                  title={`${enMora.length} prendas en mora`}
+                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black bg-rose-600 text-white animate-pulse"
+                >
+                  {enMora.length}
+                </span>
+              )}
+              {activas.length > 0 && enMora.length === 0 && (
+                <span
+                  title={`${activas.length} alquileres activos`}
+                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500 text-slate-950"
+                >
+                  {activas.length}
+                </span>
+              )}
+            </div>
           </button>
 
-          {/* Enlace rápido al Sistema de Apartados */}
-          <Link
-            href="/caja/apartados"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 transition-all shrink-0"
-            title="Ir a Terminal de Apartados y Reservas"
+          <button
+            type="button"
+            onClick={() => {
+              setVistaPrincipal("NUEVO_ALQUILER");
+              if (pasoActual === 4) reiniciarNuevoAlquiler();
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs cursor-pointer ${
+              vistaPrincipal === "NUEVO_ALQUILER"
+                ? "bg-emerald-600 text-white"
+                : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
+            }`}
           >
-            <CalendarClock className="w-4 h-4 text-slate-600" />
-            <span className="hidden sm:inline">Apartados</span>
-          </Link>
-
-          {/* Enlace rápido a la Terminal POS */}
-          <Link
-            href="/caja/pos"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 transition-all shrink-0"
-            title="Ir a Terminal POS para Ventas y Arreglos"
-          >
-            <ShoppingBag className="w-4 h-4 text-slate-600" />
-            <span className="hidden sm:inline">Ir a POS</span>
-          </Link>
+            <Plus className="w-4 h-4 inline-block mr-1" />
+            <span>Nuevo</span>
+          </button>
         </div>
       </header>
+
+      {/* ========================================================================= */}
+      {/* 2. BARRA DE PASOS LINEAL COMPACTA HOMOLOGADA (h-11 shrink-0)               */}
+      {/* ========================================================================= */}
+      {vistaPrincipal === "NUEVO_ALQUILER" && (
+        <div className="h-11 shrink-0 bg-slate-50 border-b border-slate-200 px-4 flex items-center justify-between z-20">
+          <div className="flex items-center gap-1.5">
+            {/* Paso 1 */}
+            <button
+              type="button"
+              onClick={() => setPasoActual(1)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition ${
+                pasoActual === 1
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : clienteSeleccionado
+                  ? "bg-white text-slate-800 hover:bg-slate-100 border border-slate-200"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>1. Cliente</span>
+              {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+            </button>
+
+            <ArrowRight className="w-3 h-3 text-slate-400" />
+
+            {/* Paso 2 */}
+            <button
+              type="button"
+              disabled={!clienteSeleccionado}
+              onClick={() => setPasoActual(2)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                pasoActual === 2
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : itemsCarrito.length > 0
+                  ? "bg-white text-slate-800 hover:bg-slate-100 border border-slate-200"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>2. Prendas y Fechas ({itemsCarrito.length})</span>
+              {itemsCarrito.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+            </button>
+
+            <ArrowRight className="w-3 h-3 text-slate-400" />
+
+            {/* Paso 3 */}
+            <button
+              type="button"
+              disabled={itemsCarrito.length === 0}
+              onClick={() => setPasoActual(3)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                pasoActual === 3
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>3. Cobro, Depósito y Caja</span>
+            </button>
+
+            <ArrowRight className="w-3 h-3 text-slate-400" />
+
+            {/* Paso 4 */}
+            <button
+              type="button"
+              disabled={!datosImpresion && !facturaImpresionId}
+              onClick={() => (datosImpresion || facturaImpresionId) && setPasoActual(4)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                pasoActual === 4
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>4. Impresión y Comprobante</span>
+            </button>
+          </div>
+
+          <div className="hidden md:flex items-center gap-2 text-xs text-slate-500">
+            <span>Cliente activo:</span>
+            <strong className="text-slate-800">{clienteSeleccionado?.nombre || "Sin seleccionar"}</strong>
+          </div>
+        </div>
+      )}
 
       {/* ALERTAS GLOBALES FLOTANTES */}
       {mensajeError && (
@@ -1691,10 +1721,10 @@ export default function TerminalAlquileresPage() {
                                 {/* Botón Comprobante / PDF para reimprimir o descargar en cualquier momento */}
                                 <button
                                   onClick={() => abrirComprobanteAlquiler(factura)}
-                                  className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                                  className="px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
                                   title="Ver Comprobante, Imprimir o Descargar PDF (80mm, Media Carta, Carta)"
                                 >
-                                  <Printer className="w-3.5 h-3.5 text-amber-400" />
+                                  <Printer className="w-3.5 h-3.5 text-blue-600" />
                                   <span>Comprobante / PDF</span>
                                 </button>
 
@@ -2494,20 +2524,20 @@ export default function TerminalAlquileresPage() {
                   {/* ========================================================================= */}
                   {/* SECCIÓN C: CUADRE DE EFECTIVO Y VUELTAS / CAMBIO FINAL (DONDE SÍ SUMAN)   */}
                   {/* ========================================================================= */}
-                  <div className="mt-6 p-5 rounded-2xl bg-slate-900 text-white shadow-md">
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                  <div className="mt-6 p-5 rounded-2xl bg-emerald-50/70 border-2 border-emerald-300 text-slate-800 shadow-2xs">
+                    <div className="flex items-center justify-between border-b border-emerald-200 pb-3 mb-4">
                       <div>
-                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+                        <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
                           SECCIÓN C — CUADRE DE CAJA Y VUELTAS
                         </span>
-                        <h3 className="text-sm font-black text-white flex items-center gap-2">
-                          <Banknote className="w-4 h-4 text-emerald-400" />
+                        <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                          <Banknote className="w-4 h-4 text-emerald-600" />
                           Cobro Total de Efectivo y Cálculo de Vueltas Final
                         </h3>
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] text-slate-400 block uppercase">Total Exigido Hoy en Caja</span>
-                        <span className="text-xl font-black text-emerald-400 font-mono">
+                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Total Exigido Hoy en Caja</span>
+                        <span className="text-xl font-black text-emerald-700 font-mono">
                           ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
                         </span>
                       </div>
@@ -2515,30 +2545,30 @@ export default function TerminalAlquileresPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                       {/* Desglose de Cobro */}
-                      <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs space-y-1.5">
+                      <div className="p-3 rounded-xl bg-white border border-emerald-200 text-xs space-y-1.5 shadow-2xs">
                         {apartadoOrigen && (
-                          <div className="flex justify-between text-indigo-300">
+                          <div className="flex justify-between text-indigo-700">
                             <span>(-) Abono Previo Apartado:</span>
-                            <span className="font-mono font-bold text-emerald-400">
+                            <span className="font-mono font-bold text-emerald-700">
                               -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
                             </span>
                           </div>
                         )}
-                        <div className="flex justify-between text-slate-300">
+                        <div className="flex justify-between text-slate-600">
                           <span>Abono/Pago Alquiler Hoy:</span>
-                          <span className="font-mono font-bold text-blue-300">
+                          <span className="font-mono font-bold text-blue-700">
                             ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}
                           </span>
                         </div>
-                        <div className="flex justify-between text-slate-300">
+                        <div className="flex justify-between text-slate-600">
                           <span>(+) Depósito de Respaldo:</span>
-                          <span className="font-mono font-bold text-amber-300">
+                          <span className="font-mono font-bold text-amber-800">
                             ${montoDeposito.toLocaleString("es-CO")}
                           </span>
                         </div>
-                        <div className="flex justify-between font-black pt-1 border-t border-slate-700 text-white text-sm">
+                        <div className="flex justify-between font-black pt-1 border-t border-slate-200 text-slate-900 text-sm">
                           <span>(=) TOTAL A COBRAR HOY:</span>
-                          <span className="font-mono text-emerald-400">
+                          <span className="font-mono text-emerald-700">
                             ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
                           </span>
                         </div>
@@ -2546,12 +2576,12 @@ export default function TerminalAlquileresPage() {
 
                       {/* Campo de Efectivo Recibido del Cliente */}
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-700">
                           <label>Efectivo Recibido del Cliente ($):</label>
                           <button
                             type="button"
                             onClick={() => setEfectivoRecibidoCliente(String(totalExigidoHoyEnCaja))}
-                            className="text-[10px] text-amber-400 hover:underline"
+                            className="text-[10px] text-emerald-700 hover:underline font-bold"
                           >
                             Monto Exacto (${totalExigidoHoyEnCaja.toLocaleString("es-CO")})
                           </button>
@@ -2561,7 +2591,7 @@ export default function TerminalAlquileresPage() {
                           value={efectivoRecibidoCliente}
                           onChange={(e) => setEfectivoRecibidoCliente(e.target.value)}
                           placeholder={String(totalExigidoHoyEnCaja)}
-                          className="w-full px-3 py-2 text-base font-black bg-white border border-slate-400 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          className="w-full px-3 py-2 text-base font-black bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
                         />
                         <div className="flex gap-1.5 pt-0.5">
                           {BILLETES_COLOMBIANOS.map((den) => (
@@ -2569,7 +2599,7 @@ export default function TerminalAlquileresPage() {
                               key={den}
                               type="button"
                               onClick={() => setEfectivoRecibidoCliente(String(den))}
-                              className="flex-1 py-1 px-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[10px] font-bold transition-all text-center"
+                              className="flex-1 py-1 px-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-[10px] font-bold transition-all text-center shadow-2xs"
                             >
                               ${(den / 1000).toFixed(0)}k
                             </button>
@@ -2578,14 +2608,14 @@ export default function TerminalAlquileresPage() {
                       </div>
 
                       {/* Vueltas / Cambio Final */}
-                      <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-center flex flex-col justify-center">
-                        <span className="text-[10px] font-bold uppercase text-slate-400 block mb-0.5">
+                      <div className="p-3 rounded-xl bg-white border border-emerald-200 text-center flex flex-col justify-center shadow-2xs">
+                        <span className="text-[10px] font-bold uppercase text-slate-500 block mb-0.5">
                           Vueltas / Cambio Final a Entregar
                         </span>
-                        <span className="text-2xl font-black text-emerald-400 font-mono">
+                        <span className="text-2xl font-black text-emerald-700 font-mono">
                           ${vueltasCambioFinal.toLocaleString("es-CO")}
                         </span>
-                        <span className="text-[10px] text-slate-400 mt-0.5">
+                        <span className="text-[10px] text-slate-500 mt-0.5 font-medium">
                           {efectivoRecibidoNum >= totalExigidoHoyEnCaja
                             ? `Dinero recibido: $${efectivoRecibidoNum.toLocaleString("es-CO")}`
                             : `Faltan $${(totalExigidoHoyEnCaja - efectivoRecibidoNum).toLocaleString("es-CO")}`}
@@ -2594,21 +2624,21 @@ export default function TerminalAlquileresPage() {
                     </div>
 
                     {/* Checkbox de Confirmación en Efectivo */}
-                    <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                    <div className="mt-4 pt-3 border-t border-emerald-200 flex items-center justify-between flex-wrap gap-2">
                       <label className="flex items-center gap-2.5 cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={abonoEfectivoConfirmado}
                           onChange={(e) => setAbonoEfectivoConfirmado(e.target.checked)}
-                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-600"
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
                         />
-                        <span className="text-xs font-bold text-slate-200">
-                          Confirmo haber recibido en <span className="underline text-emerald-400">EFECTIVO</span> la suma de ${efectivoRecibidoNum.toLocaleString("es-CO")} en gaveta y entregar ${vueltasCambioFinal.toLocaleString("es-CO")} de cambio final.
+                        <span className="text-xs font-bold text-slate-700">
+                          Confirmo haber recibido en <span className="underline text-emerald-800 font-black">EFECTIVO</span> la suma de ${efectivoRecibidoNum.toLocaleString("es-CO")} en gaveta y entregar ${vueltasCambioFinal.toLocaleString("es-CO")} de cambio final.
                         </span>
                       </label>
 
                       {efectivoRecibidoNum < totalExigidoHoyEnCaja && (
-                        <span className="text-xs font-black text-rose-400">
+                        <span className="text-xs font-black text-rose-600">
                           Efectivo insuficiente para cubrir el total a cobrar hoy.
                         </span>
                       )}
@@ -2634,7 +2664,7 @@ export default function TerminalAlquileresPage() {
                     <button
                       type="button"
                       onClick={() => setPasoActual(2)}
-                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 flex items-center gap-1.5 transition-all"
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 flex items-center gap-1.5 transition-all shadow-2xs"
                     >
                       <ArrowLeft className="w-4 h-4" />
                       <span>Volver al Catálogo de Prendas</span>
@@ -2644,7 +2674,7 @@ export default function TerminalAlquileresPage() {
                       type="button"
                       disabled={guardandoAlquiler || !puedeExpedirAlquiler}
                       onClick={registrarNuevoAlquiler}
-                      className="px-6 py-3 rounded-xl text-sm font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-md flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-6 py-3 rounded-xl text-sm font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-md flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.99]"
                     >
                       {guardandoAlquiler ? (
                         <>
@@ -2666,23 +2696,23 @@ export default function TerminalAlquileresPage() {
             {/* PASO 4: VISTA PREVIA, IMPRESIÓN Y EXPORTACIÓN PDF */}
             {pasoActual === 4 && (
               <div className="flex-1 flex flex-col overflow-hidden p-3 sm:p-6 max-w-5xl mx-auto w-full">
-                <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl border border-slate-700 shadow-sm p-4 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 text-white">
+                <div className="bg-emerald-50 rounded-2xl border border-emerald-200 shadow-2xs p-4 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 text-slate-900">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">
+                      <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">
                         Paso 4 de 4 — Alquiler Registrado
                       </span>
                       {facturaEnCursoId && (
-                        <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold">
                           Alquiler en curso / Editable
                         </span>
                       )}
                     </div>
-                    <h2 className="text-base font-black text-white flex items-center gap-2 mt-0.5">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    <h2 className="text-base font-black text-slate-900 flex items-center gap-2 mt-0.5">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                       Comprobante / Contrato de Alquiler {datosImpresion?.factura?.numeroFactura ? `N° ${datosImpresion.factura.numeroFactura}` : ""}
                     </h2>
-                    <p className="text-xs text-slate-300">
+                    <p className="text-xs text-slate-600">
                       {facturaEnCursoId
                         ? "Puedes retroceder para corregir prendas, abonos o depósito sin duplicar el registro."
                         : "Comprobante oficial emitido en tiempo real con respaldo documental completo."}
@@ -2694,10 +2724,10 @@ export default function TerminalAlquileresPage() {
                     <button
                       type="button"
                       onClick={() => setPasoActual(3)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-bold text-xs transition shadow-xs cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold text-xs transition shadow-2xs cursor-pointer"
                       title="Volver al Paso 3 para modificar valores, método de pago o depósito (se sobrescribirá la misma factura)"
                     >
-                      <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+                      <ArrowLeft className="w-3.5 h-3.5 text-amber-600" />
                       <span>← Retroceder al Paso 3 (Corregir Cobro)</span>
                     </button>
 
@@ -2705,7 +2735,7 @@ export default function TerminalAlquileresPage() {
                     <button
                       type="button"
                       onClick={finalizarYCerrarOperacion}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm transition shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm transition shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                       title="Finaliza el proceso, vacía la orden y regresa al Paso 1 para atender al siguiente cliente"
                     >
                       <CheckCircle2 className="w-4 h-4 text-white" />
@@ -2728,7 +2758,7 @@ export default function TerminalAlquileresPage() {
                       <button
                         type="button"
                         onClick={reiniciarNuevoAlquiler}
-                        className="mt-3 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
+                        className="mt-3 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold"
                       >
                         Volver al inicio
                       </button>
@@ -2745,16 +2775,16 @@ export default function TerminalAlquileresPage() {
       {modalLiquidarAbierto && alquilerLiquidar && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col animate-fadeIn">
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 text-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <RotateCcw className="w-5 h-5 text-amber-400" />
-                <h3 className="text-sm font-black">
+                <RotateCcw className="w-5 h-5 text-amber-600" />
+                <h3 className="text-sm font-black text-slate-900">
                   Recepción de Prendas y Liquidación de Depósito
                 </h3>
               </div>
               <button
                 onClick={() => setModalLiquidarAbierto(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -3023,14 +3053,14 @@ export default function TerminalAlquileresPage() {
       {modalAbonarAbierto && alquilerAbonar && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 text-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-emerald-400" />
+                <DollarSign className="w-5 h-5 text-emerald-600" />
                 <div>
-                  <h3 className="text-sm font-black">
+                  <h3 className="text-sm font-black text-slate-900">
                     Registrar Abono / Cobrar Saldo Pendiente
                   </h3>
-                  <p className="text-[11px] text-slate-300 font-medium">
+                  <p className="text-[11px] text-slate-500 font-medium">
                     Contrato N° {alquilerAbonar.numeroFactura} — {alquilerAbonar.cliente.nombre}
                   </p>
                 </div>
@@ -3038,7 +3068,7 @@ export default function TerminalAlquileresPage() {
               <button
                 type="button"
                 onClick={() => setModalAbonarAbierto(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition"
                 title="Cerrar modal"
               >
                 <X className="w-5 h-5" />
@@ -3134,7 +3164,7 @@ export default function TerminalAlquileresPage() {
                         onClick={() => setMetodoPagoAbonar(m.id)}
                         className={`p-2 rounded-xl border flex items-center justify-center gap-1.5 font-bold transition-all ${
                           activo
-                            ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
                             : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                         }`}
                       >
@@ -3262,19 +3292,19 @@ export default function TerminalAlquileresPage() {
 
       {/* 5. MODAL DE VISOR DE COMPROBANTE / IMPRESIÓN Y PDF FLOTANTE */}
       {modalComprobanteAbierto && (datosComprobanteModal || facturaImpresionId) && (
-        <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-5xl w-full max-h-[96vh] flex flex-col overflow-hidden">
-            <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
+            <div className="p-3.5 bg-slate-50 border-b border-slate-200 text-slate-800 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <Printer className="w-5 h-5 text-amber-400" />
-                <h3 className="text-sm font-black">
+                <Printer className="w-5 h-5 text-amber-600" />
+                <h3 className="text-sm font-black text-slate-900">
                   Comprobante Oficial de Alquiler {datosComprobanteModal?.factura?.numeroFactura ? `— N° ${datosComprobanteModal.factura.numeroFactura}` : ""}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setModalComprobanteAbierto(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition"
                 title="Cerrar visor de comprobante"
               >
                 <X className="w-5 h-5" />
@@ -3293,19 +3323,19 @@ export default function TerminalAlquileresPage() {
 
       {/* 6. MODAL DE CARGA RÁPIDA DESDE APARTADOS / RESERVAS PENDIENTES */}
       {modalCargarApartadoAbierto && (
-        <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
             {/* Cabecera del Modal */}
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 text-slate-800 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center">
-                  <CalendarClock className="w-4 h-4 text-indigo-400" />
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center">
+                  <CalendarClock className="w-4 h-4 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-white">
+                  <h3 className="text-sm font-black text-slate-900">
                     Tomar Prenda / Reserva desde el Sistema de Apartados
                   </h3>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-slate-500 font-medium">
                     Seleccione un apartado activo para precargar cliente, prendas y descontar el abono previo pagado.
                   </p>
                 </div>
@@ -3313,7 +3343,7 @@ export default function TerminalAlquileresPage() {
               <button
                 type="button"
                 onClick={() => setModalCargarApartadoAbierto(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition"
                 title="Cerrar ventana"
               >
                 <X className="w-5 h-5" />

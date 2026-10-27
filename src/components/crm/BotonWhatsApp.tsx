@@ -50,7 +50,7 @@ export default function BotonWhatsApp({
     return (
       <span
         title="Sin número telefónico válido para WhatsApp"
-        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 cursor-not-allowed opacity-60"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 bg-slate-100 cursor-not-allowed opacity-60"
       >
         <PhoneCall className="w-3.5 h-3.5" />
         {mostrarTexto && <span>Sin Teléfono</span>}
@@ -86,11 +86,11 @@ export default function BotonWhatsApp({
       href={urlWhatsApp}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200/90 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/80 border border-emerald-300 dark:border-emerald-800 transition shadow-xs active:scale-95 ${className}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200/90 border border-emerald-300 transition shadow-xs active:scale-95 ${className}`}
       title={`Enviar WhatsApp a ${nombreCliente} (${numeroLimpio})`}
     >
       <svg
-        className="w-4 h-4 fill-emerald-600 dark:fill-emerald-400 shrink-0"
+        className="w-4 h-4 fill-emerald-600 shrink-0"
         viewBox="0 0 24 24"
         xmlns="http://www.w3.org/2000/svg"
       >

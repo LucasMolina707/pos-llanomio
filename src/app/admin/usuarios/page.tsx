@@ -35,6 +35,7 @@ import {
   ShieldAlert,
   Trash2,
 } from "lucide-react";
+import { safeFetchJson } from "@/lib/safe-fetch";
 
 export interface PermisosUsuario {
   pos_facturar: boolean;
@@ -129,9 +130,8 @@ export default function GestionUsuariosPage() {
   const consultarUsuarios = useCallback(async () => {
     try {
       setCargando(true);
-      const res = await fetch("/api/usuarios");
-      const data = await res.json();
-      if (data.success || data.ok) {
+      const { ok, data } = await safeFetchJson<{ success?: boolean; ok?: boolean; usuarios?: UsuarioItem[] }>("/api/usuarios");
+      if (ok && (data?.success || data?.ok) && data?.usuarios) {
         const lista: UsuarioItem[] = data.usuarios || [];
         setUsuarios(lista);
 

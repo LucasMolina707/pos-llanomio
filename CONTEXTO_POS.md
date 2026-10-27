@@ -2105,6 +2105,49 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Pruebas de Red y Servidor:** Respuestas HTTP 200 confirmadas en `/caja/apartados`, `/caja/alquileres`, `/caja/pos`, `/api/clientes`, `/api/inventario`, `/api/facturas` y `/api/empresa`.
 - **Cero Emojis:** Verificación integral con ripgrep confirmando cero emojis en código e interfaces, utilizando únicamente `lucide-react`.
 
+---
+
+## 21. Auditoría Integral, Homologación Total de Terminales y Erradicación de Temas Oscuros (Antifatiga Visual)
+
+### 1. Homologación de las 3 Terminales de Mostrador (`/caja/pos`, `/caja/alquileres`, `/caja/apartados`)
+1. **Consistencia Estructural (`100vw x 100vh`, `overflow-hidden`):**
+   - Las tres terminales operan en viewport fijo de pantalla completa sin menú lateral (`Sidebar`), sin scroll global de ventana y con distribución fija en dos columnas (`col-span-8` consola activa, `col-span-4` resumen permanente).
+2. **Cabecera Superior Homologada (`h-14 shrink-0 bg-white border-b border-slate-200 px-4`):**
+   - **Izquierda:** Botón `<- Regresar` (`<Link href="/">`), `<LogoEmpresa size="sm" showText={false} />`, badge distintivo en color suave:
+     - POS: Badge Azul Claro (`bg-blue-50 text-blue-700 border-blue-200`) — **"SISTEMA POS · VENTAS Y ARREGLOS"**.
+     - Alquileres: Badge Esmeralda Claro (`bg-emerald-50 text-emerald-700 border-emerald-200`) — **"SISTEMA DE ALQUILERES · CAJA Y DEPÓSITOS"**.
+     - Apartados: Badge Índigo Claro (`bg-indigo-50 text-indigo-700 border-indigo-200`) — **"SISTEMA DE APARTADOS · RESERVAS"**.
+   - **Centro:** Navegador rápido entre las 3 terminales (`[Ir a POS]`, `[Ir a Alquileres]`, `[Ir a Apartados]`) con resaltado de la terminal activa, sincronizado con el componente en vivo `<BarraEstadoCajon />`.
+   - **Derecha:** Botón refrescar catálogo, conmutador entre flujo de caja y centro de historial (con conteo en vivo de moras y activos), botón de acceso rápido y botón "Nuevo".
+3. **Barra de Pasos Lineal Compacta (`h-11 shrink-0 bg-slate-50 border-b border-slate-200 px-4`):**
+   - Secuencia estandarizada: `Paso 1: Cliente` -> `Paso 2: Productos / Prendas` -> `Paso 3: Cobro, Abono/Depósito y Caja` -> `Paso 4: Impresión y Comprobante`.
+   - Protección anti-duplicados mediante `facturaEnCursoId`: permite retroceder al Paso 3 para modificar valores o formas de pago sin duplicar el registro en base de datos.
+4. **Paso 4 y Botón Definitivo de Cierre:**
+   - Banner unificado claro antifatiga (`bg-emerald-50 border border-emerald-200 text-emerald-950`) con botón `← Retroceder al Paso 3 (Corregir Cobro)` y botón definitivo destacado `Finalizar y Cerrar Operación`.
+
+### 2. Motor Unificado de Impresión y Comprobantes (`PlantillaImpresion.tsx`)
+- Barra de herramientas rediseñada al estilo ejecutivo antifatiga (`bg-white border border-slate-200 text-slate-800`), eliminando cualquier fondo negro.
+- Previsualización interactiva de los 3 formatos: **Tirilla POS 80mm**, **Media Carta** y **Carta Completa**.
+- Selector de **1 Copia (Original Cliente)** y **2 Copias (Original Cliente + Copia Respaldo Tienda)**.
+- Impresión limpia en `iframe` aislado y descarga directa a PDF con `pdf-media-carta.ts`.
+- CERO códigos QR impresos en facturas ni comprobantes.
+
+### 3. Erradicación de Temas Oscuros (Paleta Antifatiga Visual)
+- **Globals & Tokens (`src/app/globals.css`):** Lienzo principal fijado en `#F4F6F9`, tipografía profunda en `#0F172A`, superficies en `#FFFFFF` / `#FCFDFE`, bordes `border-slate-200` y eliminación de reglas que inviertan a tema oscuro.
+- **Sección C de Alquileres:** Transformada de fondo negro (`bg-slate-900`) a contenedor suave antifatiga (`bg-emerald-50/70 border-2 border-emerald-300 text-slate-800`), con tarjetas blancas internas para el desglose contable y calculadora de vueltas.
+- **Modales de Todo el Sistema:** Transformadas todas las cabeceras oscuras (`bg-slate-900`) a cabeceras claras (`bg-slate-50 border-b border-slate-200 text-slate-800`) en recepción de prendas, abonos, reimpresión y conexión LAN.
+
+### 4. Depuración y Blindaje Defensivo
+- Migración a `safeFetchJson` en `/admin/dashboard`, `/admin/clientes`, `/admin/usuarios` y terminales operativas.
+- Verificación de consistencia en el Panel Principal (`/`), conservando el Banner de Gráficas y Métricas (`<BannerMetricasInicio />`) y accesos a los 10 módulos oficiales.
+
+### 5. Resultados de Control de Calidad (QA - Agente 5)
+- **Tipado TypeScript:** `npx tsc --noEmit` completado con **0 errores**.
+- **Build de Producción:** `npm run build` completado exitosamente con **código 0** en las 23 rutas de la aplicación.
+- **Estado de Fábrica Limpio:** Ejecutado `npx tsx scripts/reset-db-fabrica.ts` con base de datos `database/llanomio.db` limpia de fábrica y compactada con `VACUUM` (0 clientes, 0 productos, 0 facturas, 0 turnos de caja, 1 administrador inicial `@admin`, 1 configuración empresarial de fábrica).
+- **Control de Iconografía:** CERO emojis en el 100% de la interfaz, utilizando exclusivamente `lucide-react`.
+
+
 
 
 

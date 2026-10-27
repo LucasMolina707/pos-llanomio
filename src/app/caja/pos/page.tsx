@@ -1012,144 +1012,75 @@ export default function PosPage() {
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#F4F6F8] select-none text-slate-800">
       {/* ========================================================================= */}
-      {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA (h-14 shrink-0) */}
+      {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA HOMOLOGADO (h-14 shrink-0) */}
       {/* ========================================================================= */}
-      <header className="h-14 shrink-0 px-4 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200/90 shadow-2xs z-30 gap-2">
-        {/* Izquierda: Logo Oficial, Identificador de Terminal, Cajero y Estado de Caja */}
+      <header className="h-14 shrink-0 px-4 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2">
+        {/* Izquierda: Botón Regresar, Logo Oficial, Badge de Terminal */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {/* Botón Regresar al Menú Principal */}
           <Link
             href="/"
-            className="bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 rounded-xl px-3.5 py-2 text-sm font-bold shadow-2xs flex items-center gap-2 transition shrink-0"
+            className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-bold shadow-2xs flex items-center gap-1.5 transition shrink-0"
             title="Volver al panel principal"
           >
             <ArrowLeft className="w-4 h-4 text-slate-700" />
             <span>Regresar</span>
           </Link>
 
-          {/* Logotipo Oficial Sincronizado */}
-          <div className="shrink-0">
+          <div className="shrink-0 hidden sm:block">
             <LogoEmpresa size="sm" showText={false} />
           </div>
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 truncate">
-              <span className="font-mono text-xs sm:text-sm font-black tracking-wider text-slate-900 uppercase">
-                TERMINAL POS — VENTAS Y ARREGLOS
-              </span>
-              <span className="text-xs text-blue-600 font-bold truncate">
-                • {empresaConfig?.nombreComercial || "LLANOMIO"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600 font-medium">
-              <BarraEstadoCajon
-                cargando={cajon.cargando}
-                cajonConectado={cajon.cajonConectado}
-                seguridadCaja={cajon.seguridadCaja}
-                saldoActualEnCajon={cajon.saldoActualEnCajon}
-                totalDigital={cajon.totalDigital}
-                estado={cajon.estado}
-                motivoBloqueo={cajon.motivoBloqueo}
-                onRefrescar={() => cajon.actualizarCajon(true)}
-                onAbrirModal={cajon.abrirModal}
-              />
-              <span className="text-slate-400">|</span>
-              <span className="truncate max-w-[150px] text-slate-600">
-                Cajero:{" "}
-                <strong className="text-slate-900">
-                  {turnoAbierto?.usuarioCajero?.nombre || usuarioSesion?.nombre || "Cajero en Turno"}
-                </strong>
-              </span>
-            </div>
+          <div className="flex items-center gap-2 truncate">
+            <span className="px-2.5 py-1 rounded-xl text-xs font-black tracking-wider bg-blue-50 text-blue-700 border border-blue-200 uppercase truncate">
+              SISTEMA POS · VENTAS Y ARREGLOS
+            </span>
+            <span className="text-xs text-slate-500 font-bold hidden md:inline truncate">
+              • {empresaConfig?.nombreComercial || "LLANOMIO"}
+            </span>
           </div>
         </div>
 
-        {/* Centro: Stepper Compacto Claro (visible en Nueva Factura) o Título de Historial */}
-        <div className="hidden lg:flex items-center">
-          {vistaPrincipal === "NUEVA_FACTURA" ? (
-            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/90 shadow-2xs">
-              {/* Paso 1: Cliente */}
-              <button
-                type="button"
-                onClick={() => setPasoActual(1)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold transition ${
-                  pasoActual === 1
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : clienteSeleccionado
-                    ? "bg-white text-slate-800 hover:bg-slate-50 border border-slate-200"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>1. Cliente</span>
-                {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-600" />}
-              </button>
+        {/* Centro: Navegación Rápida entre las 3 Terminales + Estado en Vivo del Cajón Sincronizado */}
+        <div className="hidden xl:flex items-center gap-2.5">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
+            <Link
+              href="/caja/pos"
+              className="px-2.5 py-1 rounded-lg bg-blue-600 text-white shadow-xs transition"
+              title="Terminal actual de Ventas y Arreglos"
+            >
+              Ir a POS
+            </Link>
+            <Link
+              href="/caja/alquileres"
+              className="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition"
+              title="Ir a Terminal de Alquileres"
+            >
+              Ir a Alquileres
+            </Link>
+            <Link
+              href="/caja/apartados"
+              className="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition"
+              title="Ir a Terminal de Apartados y Reservas"
+            >
+              Ir a Apartados
+            </Link>
+          </div>
 
-              <ArrowRight className="w-3 h-3 text-slate-400" />
-
-              {/* Paso 2: Ítems */}
-              <button
-                type="button"
-                disabled={!clienteSeleccionado}
-                onClick={() => setPasoActual(2)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
-                  pasoActual === 2
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : itemsCarrito.length > 0
-                    ? "bg-white text-slate-800 hover:bg-slate-50 border border-slate-200"
-                    : "text-slate-500"
-                }`}
-              >
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>2. Ítems ({itemsCarrito.length})</span>
-                {itemsCarrito.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-600" />}
-              </button>
-
-              <ArrowRight className="w-3 h-3 text-slate-400" />
-
-              {/* Paso 3: Caja / Vueltas */}
-              <button
-                type="button"
-                disabled={itemsCarrito.length === 0}
-                onClick={() => setPasoActual(3)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
-                  pasoActual === 3
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "text-slate-500"
-                }`}
-              >
-                <Wallet className="w-3.5 h-3.5" />
-                <span>3. Cobro & Vueltas</span>
-              </button>
-
-              <ArrowRight className="w-3 h-3 text-slate-400" />
-
-              {/* Paso 4: Impresión */}
-              <button
-                type="button"
-                disabled={!datosImpresion}
-                onClick={() => datosImpresion && setPasoActual(4)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
-                  pasoActual === 4
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-500"
-                }`}
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>4. Impresión</span>
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs md:text-sm font-black">
-              <History className="w-4 h-4 text-amber-600" />
-              <span>CENTRO DE HISTORIAL, CARTERA, MORAS Y PAZ Y SALVOS</span>
-            </div>
-          )}
+          <BarraEstadoCajon
+            cargando={cajon.cargando}
+            cajonConectado={cajon.cajonConectado}
+            seguridadCaja={cajon.seguridadCaja}
+            saldoActualEnCajon={cajon.saldoActualEnCajon}
+            totalDigital={cajon.totalDigital}
+            estado={cajon.estado}
+            motivoBloqueo={cajon.motivoBloqueo}
+            onRefrescar={() => cajon.actualizarCajon(true)}
+            onAbrirModal={cajon.abrirModal}
+          />
         </div>
 
-        {/* Derecha: Botón Recargar + Historial / Moras + Alternar Nueva Factura + Salir al Panel */}
+        {/* Derecha: Botón Recargar + Historial / Moras + Alternar Nueva Factura */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Botón Recargar Consola */}
           <button
             type="button"
             onClick={() => {
@@ -1164,30 +1095,27 @@ export default function PosPage() {
             <RefreshCw className="w-4 h-4" />
           </button>
 
-          {/* Botón Principal Universal: Historial de Facturas y Moras con Badges de Alerta */}
+          {/* Botón Principal: Historial del Módulo con Conteo */}
           <button
             type="button"
             onClick={() => {
               setVistaPrincipal("HISTORIAL");
               cargarMonitoreo(false);
             }}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs md:text-sm font-bold transition shadow-xs cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs cursor-pointer ${
               vistaPrincipal === "HISTORIAL"
                 ? "bg-amber-500 text-slate-950 font-black ring-2 ring-amber-400/40"
                 : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
             }`}
-            title="Ver centro de cartera, facturas por cobrar, retrasos en mora y paz y salvos"
+            title="Ver centro de cartera, facturas por cobrar, moras y paz y salvos"
           >
             <History className="w-4 h-4 text-amber-600 shrink-0" />
-            <span className="hidden sm:inline">Historial de Facturas y Moras</span>
-            <span className="sm:hidden">Historial</span>
-
-            {/* Badges de alerta de moras y pendientes */}
+            <span className="hidden sm:inline">Historial</span>
             <div className="flex items-center gap-1 ml-0.5">
               {estadisticasMonitoreo.totalEnMora > 0 && (
                 <span
                   title={`${estadisticasMonitoreo.totalEnMora} facturas con prendas en mora`}
-                  className="px-2 py-0.5 rounded-full text-xs font-mono font-black bg-rose-600 text-white animate-pulse"
+                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black bg-rose-600 text-white animate-pulse"
                 >
                   {estadisticasMonitoreo.totalEnMora}
                 </span>
@@ -1195,7 +1123,7 @@ export default function PosPage() {
               {estadisticasMonitoreo.conteoPendientesAlDia > 0 && (
                 <span
                   title={`${estadisticasMonitoreo.conteoPendientesAlDia} facturas pendientes por cobrar`}
-                  className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500 text-slate-950"
+                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500 text-slate-950"
                 >
                   {estadisticasMonitoreo.conteoPendientesAlDia}
                 </span>
@@ -1215,46 +1143,102 @@ export default function PosPage() {
                 }
               }
             }}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-bold transition shadow-xs cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs cursor-pointer ${
               vistaPrincipal === "NUEVA_FACTURA"
                 ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/20"
                 : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
             }`}
           >
             <Plus className="w-4 h-4 shrink-0" />
-            <span className="hidden sm:inline">Nueva Factura</span>
+            <span className="hidden sm:inline">Nueva Venta</span>
           </button>
-
-          {/* Botón: Acceso al Sistema de Apartados y Reservas */}
-          <Link
-            href="/caja/apartados"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 transition shadow-2xs"
-            title="Abrir terminal de Apartados y Reservas"
-          >
-            <CalendarClock className="w-4 h-4 text-amber-700 shrink-0" />
-            <span className="hidden sm:inline">Apartados</span>
-          </Link>
-
-          {/* Botón: Acceso al Sistema de Alquileres */}
-          <Link
-            href="/caja/alquileres"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 transition shadow-2xs"
-            title="Abrir terminal independiente de Alquileres"
-          >
-            <Clock className="w-4 h-4 text-emerald-700 shrink-0" />
-            <span className="hidden sm:inline">Alquileres</span>
-          </Link>
-
-          {/* Acceso rápido para Salir al Panel Administrativo */}
-          <Link
-            href="/admin/dashboard"
-            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition border border-slate-300/80 shrink-0"
-            title="Ir al Dashboard de Administración"
-          >
-            <Building2 className="w-4 h-4" />
-          </Link>
         </div>
       </header>
+
+      {/* ========================================================================= */}
+      {/* BARRA DE PASOS LINEAL COMPACTA HOMOLOGADA (h-11 shrink-0)                */}
+      {/* ========================================================================= */}
+      {vistaPrincipal === "NUEVA_FACTURA" && (
+        <div className="h-11 shrink-0 bg-slate-50 border-b border-slate-200 px-4 flex items-center justify-between z-20">
+          <div className="flex items-center gap-1.5">
+            {/* Paso 1 */}
+            <button
+              type="button"
+              onClick={() => setPasoActual(1)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition ${
+                pasoActual === 1
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : clienteSeleccionado
+                  ? "bg-white text-slate-800 hover:bg-slate-100 border border-slate-200"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>1. Cliente</span>
+              {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+            </button>
+
+            <ArrowRight className="w-3 h-3 text-slate-400" />
+
+            {/* Paso 2 */}
+            <button
+              type="button"
+              disabled={!clienteSeleccionado}
+              onClick={() => setPasoActual(2)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                pasoActual === 2
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : itemsCarrito.length > 0
+                  ? "bg-white text-slate-800 hover:bg-slate-100 border border-slate-200"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>2. Productos / Prendas ({itemsCarrito.length})</span>
+              {itemsCarrito.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+            </button>
+
+            <ArrowRight className="w-3 h-3 text-slate-400" />
+
+            {/* Paso 3 */}
+            <button
+              type="button"
+              disabled={itemsCarrito.length === 0}
+              onClick={() => setPasoActual(3)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                pasoActual === 3
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span>3. Cobro, Abono y Caja</span>
+            </button>
+
+            <ArrowRight className="w-3 h-3 text-slate-400" />
+
+            {/* Paso 4 */}
+            <button
+              type="button"
+              disabled={!datosImpresion}
+              onClick={() => datosImpresion && setPasoActual(4)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                pasoActual === 4
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>4. Impresión y Comprobante</span>
+            </button>
+          </div>
+
+          <div className="hidden md:flex items-center gap-2 text-xs text-slate-500">
+            <span>Cliente activo:</span>
+            <strong className="text-slate-800">{clienteSeleccionado?.nombre || "Sin seleccionar"}</strong>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 2. CUERPO DE TRABAJO FIJO SIN SCROLL VERTICAL (flex-1 min-h-0 overflow-hidden) */}
@@ -2512,22 +2496,24 @@ export default function PosPage() {
             {/* ========================================================================= */}
             {pasoActual === 4 && datosImpresion && (
               <div className="h-full flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 p-3 overflow-hidden">
-                {/* Cabecera Fija Éxito, Retroceso Seguro y Cierre Definitivo (shrink-0) */}
-                <div className="shrink-0 mb-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-sm border border-slate-700">
+                {/* Cabecera Fija Éxito, Retroceso Seguro y Cierre Definitivo Clara Antifatiga (shrink-0) */}
+                <div className="shrink-0 mb-3 bg-emerald-50 border border-emerald-200 text-emerald-950 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-2xs">
                   <div className="flex items-center gap-3">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+                    <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h2 className="text-sm md:text-base font-black">
+                        <h2 className="text-sm md:text-base font-black text-slate-900">
                           Factura Oficial N° {datosImpresion.factura.numeroFactura}
                         </h2>
                         {facturaEnCursoId && (
-                          <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10.5px] font-bold">
+                          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 text-[10.5px] font-bold">
                             En curso / Editable
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-300">
+                      <p className="text-xs text-slate-600">
                         {facturaEnCursoId
                           ? "Puedes retroceder para corregir pago o ítems sin duplicar registros en el historial."
                           : "Transacción guardada en base de datos SQLite y caja de mostrador actualizada."}
@@ -2540,10 +2526,10 @@ export default function PosPage() {
                     <button
                       type="button"
                       onClick={() => setPasoActual(3)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-bold text-xs transition shadow-xs cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold text-xs transition shadow-2xs cursor-pointer"
                       title="Volver al Paso 3 para modificar valores o método de pago (se sobrescribirá la misma factura)"
                     >
-                      <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+                      <ArrowLeft className="w-3.5 h-3.5 text-slate-600" />
                       <span>← Retroceder al Paso 3 (Corregir Pago)</span>
                     </button>
 
@@ -2551,7 +2537,7 @@ export default function PosPage() {
                     <button
                       type="button"
                       onClick={finalizarYCerrarOperacion}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm transition shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm transition shadow-xs cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                       title="Finaliza el proceso, vacía la orden y regresa al Paso 1 para atender al siguiente cliente"
                     >
                       <CheckCircle2 className="w-4 h-4 text-white" />
@@ -2618,10 +2604,10 @@ export default function PosPage() {
       {modalReimpresionAbierto && datosReimpresionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="shrink-0 p-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+            <div className="shrink-0 p-3.5 bg-slate-50 text-slate-800 flex items-center justify-between border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <Printer className="w-4 h-4 text-blue-400" />
-                <span className="text-xs font-black">
+                <Printer className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-black text-slate-900">
                   Reimpresión de Factura / Paz y Salvo #{datosReimpresionModal.factura.numeroFactura}
                 </span>
               </div>
@@ -2631,7 +2617,7 @@ export default function PosPage() {
                   setModalReimpresionAbierto(false);
                   setDatosReimpresionModal(null);
                 }}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition"
               >
                 <X className="w-4 h-4" />
               </button>

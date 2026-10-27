@@ -317,7 +317,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => setMostrarModalQR(false)}
-              className="absolute -top-3 -right-3 z-10 p-2 rounded-full bg-slate-800 text-white hover:bg-slate-700 shadow-md transition"
+              className="absolute -top-3 -right-3 z-10 p-2 rounded-full bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 shadow-md border border-slate-200 transition cursor-pointer"
               title="Cerrar modal"
             >
               <X className="w-4 h-4" />

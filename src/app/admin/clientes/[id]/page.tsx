@@ -708,10 +708,10 @@ export default function PerfilClientePage() {
       {modalImpresionAbierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 animate-in fade-in">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
-            <div className="shrink-0 p-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+            <div className="shrink-0 p-3.5 bg-slate-50 text-slate-800 flex items-center justify-between border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <Printer className="w-4 h-4 text-blue-400" />
-                <span className="text-xs font-black">
+                <Printer className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-black text-slate-900">
                   Visor de Comprobante / PDF {datosImpresionModal?.factura?.numeroFactura ? `#${datosImpresionModal.factura.numeroFactura}` : ""}
                 </span>
               </div>
@@ -721,7 +721,7 @@ export default function PerfilClientePage() {
                   setModalImpresionAbierto(false);
                   setDatosImpresionModal(null);
                 }}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition cursor-pointer"
                 title="Cerrar visor de impresión"
               >
                 <ArrowLeft className="w-4 h-4" />

@@ -34,6 +34,7 @@ import {
   Activity,
   Zap,
 } from "lucide-react";
+import { safeFetchJson } from "@/lib/safe-fetch";
 
 interface MetricasData {
   ingresosNetos: number;
@@ -196,15 +197,12 @@ export default function DashboardGerencialPage() {
             ? `periodo=${periodoActivo.toLowerCase()}`
             : `desde=${fechaDesde}&hasta=${fechaHasta}`;
 
-        const res = await fetch(`/api/dashboard/metrics?${queryParam}`, {
+        const { ok, data } = await safeFetchJson<any>(`/api/dashboard/metrics?${queryParam}`, {
           cache: "no-store",
           signal: controller.signal,
         });
 
-        if (!res.ok) throw new Error("Fallo en consulta de métricas");
-        const data = await res.json();
-
-        if (data.success) {
+        if (ok && data?.success && data?.metricas) {
           const firmaActual = `${data.metricas.ingresosNetos}-${data.metricas.cuentasPorCobrar}-${data.metricas.totalFacturas}-${data.dondeEstaElDinero?.depositosCustodia || 0}-${data.ultimasFacturas?.[0]?.id || ""}`;
 
           if (firmaActual !== ultimaFirmaDatosRef.current || mostrarSpinner) {

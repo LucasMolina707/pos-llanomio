@@ -241,7 +241,7 @@ export default function PlantillaImpresion({
           <button
             type="button"
             onClick={onCerrar}
-            className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition"
+            className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold transition"
           >
             Cerrar
           </button>
@@ -1620,32 +1620,32 @@ export default function PlantillaImpresion({
 
   return (
     <div className="space-y-6">
-      {/* Barra Superior de Control de Impresión */}
-      <div className="print:hidden bg-slate-900 text-white p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-lg">
+      {/* Barra Superior de Control de Impresión Clara Antifatiga */}
+      <div className="print:hidden bg-white text-slate-800 p-3.5 sm:p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xs border border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-white/10 text-white">
+          <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
             <FileText className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm font-bold">
+            <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
               Impresión Documental — Factura {factura.numeroFactura || ""}
             </h2>
-            <p className="text-xs text-slate-400">
-              Formato seleccionado: <strong>{formato}</strong> — Coherencia 1:1 entre vista, impresión y PDF
+            <p className="text-xs text-slate-500 font-medium">
+              Formato seleccionado: <strong className="text-slate-800">{formato}</strong> — Coherencia 1:1 entre vista, impresión y PDF
             </p>
           </div>
         </div>
 
-        <div className="flex items-center flex-wrap gap-3">
+        <div className="flex items-center flex-wrap gap-2.5">
           {/* Selector de Formato */}
-          <div className="flex items-center bg-slate-800 p-1 rounded-xl text-xs font-semibold">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
             <button
               type="button"
               onClick={() => setFormato("TIRILLA")}
               className={`px-3 py-1.5 rounded-lg transition ${
                 formato === "TIRILLA"
-                  ? "bg-amber-500 text-white shadow-xs"
-                  : "text-slate-300 hover:text-white"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
             >
               Tirilla 80mm
@@ -1655,8 +1655,8 @@ export default function PlantillaImpresion({
               onClick={() => setFormato("MEDIA_CARTA")}
               className={`px-3 py-1.5 rounded-lg transition ${
                 formato === "MEDIA_CARTA"
-                  ? "bg-amber-500 text-white shadow-xs"
-                  : "text-slate-300 hover:text-white"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
             >
               Media Carta
@@ -1666,8 +1666,8 @@ export default function PlantillaImpresion({
               onClick={() => setFormato("CARTA")}
               className={`px-3 py-1.5 rounded-lg transition ${
                 formato === "CARTA"
-                  ? "bg-amber-500 text-white shadow-xs"
-                  : "text-slate-300 hover:text-white"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
             >
               Carta Completa
@@ -1675,12 +1675,14 @@ export default function PlantillaImpresion({
           </div>
 
           {/* Selector de Copias */}
-          <div className="flex items-center bg-slate-800 p-1 rounded-xl text-xs font-semibold">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
             <button
               type="button"
               onClick={() => setNumCopias(1)}
               className={`px-3 py-1.5 rounded-lg transition ${
-                numCopias === 1 ? "bg-blue-600 text-white" : "text-slate-300 hover:text-white"
+                numCopias === 1
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
               title="1 Copia: Original Cliente"
             >
@@ -1690,7 +1692,9 @@ export default function PlantillaImpresion({
               type="button"
               onClick={() => setNumCopias(2)}
               className={`px-3 py-1.5 rounded-lg transition ${
-                numCopias === 2 ? "bg-blue-600 text-white" : "text-slate-300 hover:text-white"
+                numCopias === 2
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
               }`}
               title="2 Copias: Original Cliente + Respaldo Tienda"
             >
@@ -1702,18 +1706,18 @@ export default function PlantillaImpresion({
           <button
             type="button"
             onClick={() => descargarPdfSegunFormato(datos, formato, undefined, { numCopias })}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-md transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition"
             title={`Descargar archivo PDF oficial en tamaño ${formato} (${numCopias} ${numCopias === 1 ? "copia" : "copias"})`}
           >
             <FileDown className="w-4 h-4" />
-            <span>Descargar PDF ({formato})</span>
+            <span>Descargar PDF</span>
           </button>
 
           {/* Botón Abrir / Ver PDF */}
           <button
             type="button"
             onClick={() => abrirPdfMediaCarta(datos, formato, { numCopias })}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-md transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 shadow-2xs transition"
             title="Abrir PDF en pestaña nueva"
           >
             <ExternalLink className="w-4 h-4" />
@@ -1724,18 +1728,18 @@ export default function PlantillaImpresion({
           <button
             type="button"
             onClick={imprimirDocumentoAislado}
-            className="flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-emerald-500 hover:bg-emerald-600 text-white shadow-md transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition"
             title="Imprimir exclusivamente el documento en la impresora física seleccionada"
           >
             <Printer className="w-4 h-4" />
-            <span>Imprimir ({formato})</span>
+            <span>Imprimir</span>
           </button>
 
           {onCerrar && (
             <button
               type="button"
               onClick={onCerrar}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition border border-transparent hover:border-slate-200"
               title="Cerrar vista de impresión"
             >
               <X className="w-5 h-5" />
@@ -1747,7 +1751,7 @@ export default function PlantillaImpresion({
       {/* Área Imprimible Aislada */}
       <div
         ref={areaImprimibleRef}
-        className="bg-slate-200 dark:bg-slate-900/60 p-4 sm:p-8 rounded-2xl print:p-0 print:bg-white print:m-0 flex flex-col items-center"
+        className="bg-slate-100/80 p-4 sm:p-6 rounded-2xl print:p-0 print:bg-white print:m-0 flex flex-col items-center border border-slate-200 shadow-2xs"
       >
         {renderDocumento(numCopias === 2 ? "EJEMPLAR 1: COPIA CLIENTE" : "COPIA CLIENTE")}
 

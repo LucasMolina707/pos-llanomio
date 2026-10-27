@@ -4,14 +4,14 @@
 
 :root {
   /* Paleta Clara Antifatiga Visual (Uso intensivo de 8+ horas) */
-  --background: #F4F6F8;       /* Piedra / arena suave de baja reflectancia */
+  --background: #F4F6F9;       /* Piedra / gris perla suave de baja reflectancia */
   --surface: #FCFDFE;          /* Blanco marfil suave (Cero blanco puro encandilante) */
   --surface-muted: #EEF2F6;    /* Superficie secundaria / celdas alternas */
   --surface-elevated: #FFFFFF;
   --sidebar-bg: #F1F5F9;       /* Barra lateral clara corporativa */
   --sidebar-border: #E2E8F0;   /* Borde suave delimitador */
   --sidebar-hover: #E2E8F0;
-  --foreground: #1E293B;       /* Texto pizarra profundo de alto contraste descansado */
+  --foreground: #0F172A;       /* Texto pizarra profundo de alto contraste descansado */
   --foreground-muted: #64748B; /* Texto secundario legible */
   --border-soft: #E2E8F0;      /* Bordes sutiles */
   --border-medium: #CBD5E1;
@@ -27,8 +27,8 @@ html {
 }
 
 body {
-  color: var(--foreground);
-  background-color: var(--background);
+  color: #0F172A;
+  background-color: #F4F6F9;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   min-height: 100vh;
   max-width: 100vw;
