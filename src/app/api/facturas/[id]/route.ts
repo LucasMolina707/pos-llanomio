@@ -415,6 +415,8 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     return NextResponse.json({
       success: true,
+      ok: true,
+      id: resultado.facturaActualizada.id,
       mensaje: `Transacción registrada correctamente. Saldo restante: $${resultado.facturaActualizada.saldoPendiente.toLocaleString("es-CO")}`,
       abono: resultado.nuevoAbono,
       factura: resultado.facturaActualizada,
@@ -467,6 +469,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     return NextResponse.json({
       success: true,
+      ok: true,
+      id: facturaActualizada.id,
       mensaje: "Factura actualizada correctamente",
       factura: facturaActualizada,
     });

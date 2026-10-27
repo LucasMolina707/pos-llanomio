@@ -34,6 +34,15 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
   const router = useRouter();
   const [cerrandoSesion, setCerrandoSesion] = React.useState(false);
 
+  if (
+    pathname === "/login" ||
+    pathname?.startsWith("/caja/pos") ||
+    pathname?.startsWith("/caja/alquileres") ||
+    pathname?.startsWith("/impresion")
+  ) {
+    return null;
+  }
+
   // Mapeo de rutas a títulos e íconos para la cabecera
   const obtenerDetallesRuta = () => {
     if (pathname === "/caja/pos") {

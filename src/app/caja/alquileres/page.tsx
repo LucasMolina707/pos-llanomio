@@ -228,6 +228,7 @@ export default function TerminalAlquileresPage() {
 
   // Documento e impresión
   const [datosImpresion, setDatosImpresion] = useState<DatosImpresionFactura | null>(null);
+  const [facturaImpresionId, setFacturaImpresionId] = useState<string | null>(null);
   const [empresaConfig, setEmpresaConfig] = useState<any>(null);
   const [usuarioSesion, setUsuarioSesion] = useState<any>(null);
 
@@ -275,6 +276,7 @@ export default function TerminalAlquileresPage() {
       setCargandoComprobante(true);
       const id = typeof facturaOId === "string" ? facturaOId : facturaOId?.id;
       if (id) {
+        setFacturaImpresionId(id);
         const res = await fetch(`/api/impresion/${id}`, { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
@@ -722,64 +724,72 @@ export default function TerminalAlquileresPage() {
       cajon.actualizarCajon(true);
       cajon.notificarCajaActualizada();
 
-      const facturaFinal = data.factura;
-      setDatosImpresion({
-        factura: {
-          id: facturaFinal.id,
-          numeroFactura: facturaFinal.numeroFactura,
-          fechaCreacion: facturaFinal.fechaCreacion,
-          fechaEntregaAlquiler: facturaFinal.fechaEntregaAlquiler,
-          fechaDevolucionPactada: facturaFinal.fechaDevolucionPactada,
-          fechaDevolucionReal: facturaFinal.fechaDevolucionReal,
-          tipoOperacion: facturaFinal.tipoOperacion,
-          estado: facturaFinal.estado,
-          subtotalProductos: facturaFinal.subtotalProductos,
-          subtotalArreglosLibres: facturaFinal.subtotalArreglosLibres,
-          recargoMoraAcumulado: facturaFinal.recargoMoraAcumulado || 0,
-          totalFactura: facturaFinal.totalFactura,
-          totalAbonado: facturaFinal.totalAbonado,
-          saldoPendiente: facturaFinal.saldoPendiente,
-          montoDeposito: facturaFinal.montoDeposito || 0,
-          estadoDeposito: facturaFinal.estadoDeposito || "RECIBIDO_EN_GARANTIA",
-          montoRetenidoDeposito: facturaFinal.montoRetenidoDeposito || 0,
-          montoDevueltoDeposito: facturaFinal.montoDevueltoDeposito || 0,
-          motivoRetencionDeposito: facturaFinal.motivoRetencionDeposito,
-          metodoPagoDeposito: facturaFinal.metodoPagoDeposito,
-          notas: facturaFinal.notas,
-          cliente: {
-            nombre: facturaFinal.cliente.nombre,
-            documento: facturaFinal.cliente.documento,
-            telefono: facturaFinal.cliente.telefono,
-            telefonoSecundario: facturaFinal.cliente.telefonoSecundario,
-            direccion: facturaFinal.cliente.direccion,
-            esResponsableIVA: facturaFinal.cliente.esResponsableIVA,
-            razonSocial: facturaFinal.cliente.razonSocial,
-          },
-          usuarioCajero: facturaFinal.usuarioCajero,
-          detalles: facturaFinal.detalles.map((d: any) => ({
-            id: d.id,
-            cantidad: d.cantidad,
-            precioUnitario: d.precioUnitario,
-            subtotal: d.subtotal,
-            esServicioLibre: d.esServicioLibre,
-            descripcionLibre: d.descripcionLibre,
-            producto: d.producto,
-          })),
-          abonos: facturaFinal.abonos.map((a: any) => ({
-            id: a.id,
-            fecha: a.fecha,
-            monto: a.monto,
-            metodoPago: a.metodoPago,
-            montoRecibido: a.montoRecibido,
-            vueltasEntregadas: a.vueltasEntregadas,
-            referenciaComprobante: a.referenciaComprobante,
-            cajero: a.cajero,
-          })),
-        },
-        empresa: empresaConfig,
-      });
+      const facturaFinal = data.factura || data;
+      const fId = facturaFinal?.id || data?.id;
+      if (fId) {
+        setFacturaImpresionId(fId);
+      }
 
-      setMensajeExito(`¡Alquiler N° ${facturaFinal.numeroFactura} registrado con éxito!`);
+      if (facturaFinal && facturaFinal.cliente) {
+        setDatosImpresion({
+          factura: {
+            id: facturaFinal.id,
+            numeroFactura: facturaFinal.numeroFactura,
+            fechaCreacion: facturaFinal.fechaCreacion,
+            fechaEntregaAlquiler: facturaFinal.fechaEntregaAlquiler,
+            fechaDevolucionPactada: facturaFinal.fechaDevolucionPactada,
+            fechaDevolucionReal: facturaFinal.fechaDevolucionReal,
+            tipoOperacion: facturaFinal.tipoOperacion,
+            estado: facturaFinal.estado,
+            subtotalProductos: facturaFinal.subtotalProductos,
+            subtotalArreglosLibres: facturaFinal.subtotalArreglosLibres,
+            recargoMoraAcumulado: facturaFinal.recargoMoraAcumulado || 0,
+            totalFactura: facturaFinal.totalFactura,
+            totalAbonado: facturaFinal.totalAbonado,
+            saldoPendiente: facturaFinal.saldoPendiente,
+            montoDeposito: facturaFinal.montoDeposito || 0,
+            estadoDeposito: facturaFinal.estadoDeposito || "RECIBIDO_EN_GARANTIA",
+            montoRetenidoDeposito: facturaFinal.montoRetenidoDeposito || 0,
+            montoDevueltoDeposito: facturaFinal.montoDevueltoDeposito || 0,
+            motivoRetencionDeposito: facturaFinal.motivoRetencionDeposito,
+            metodoPagoDeposito: facturaFinal.metodoPagoDeposito,
+            notas: facturaFinal.notas,
+            cliente: {
+              nombre: facturaFinal.cliente.nombre,
+              documento: facturaFinal.cliente.documento,
+              telefono: facturaFinal.cliente.telefono,
+              telefonoSecundario: facturaFinal.cliente.telefonoSecundario,
+              direccion: facturaFinal.cliente.direccion,
+              esResponsableIVA: facturaFinal.cliente.esResponsableIVA,
+              razonSocial: facturaFinal.cliente.razonSocial,
+            },
+            usuarioCajero: facturaFinal.usuarioCajero,
+            detalles: (facturaFinal.detalles || []).map((d: any) => ({
+              id: d.id,
+              cantidad: d.cantidad,
+              precioUnitario: d.precioUnitario,
+              subtotal: d.subtotal,
+              esServicioLibre: d.esServicioLibre,
+              descripcionLibre: d.descripcionLibre,
+              producto: d.producto,
+            })),
+            abonos: (facturaFinal.abonos || []).map((a: any) => ({
+              id: a.id,
+              fecha: a.fecha,
+              monto: a.monto,
+              metodoPago: a.metodoPago,
+              montoRecibido: a.montoRecibido,
+              vueltasEntregadas: a.vueltasEntregadas,
+              referenciaComprobante: a.referenciaComprobante,
+              cajero: a.cajero,
+            })),
+          },
+          empresa: empresaConfig,
+        });
+      }
+
+      setMensajeExito(`¡Alquiler N° ${facturaFinal.numeroFactura || ""} registrado con éxito!`);
+      setVistaPrincipal("NUEVO_ALQUILER");
       setPasoActual(4);
       cargarPrendas();
       cargarHistorialAlquileres();
@@ -812,9 +822,12 @@ export default function TerminalAlquileresPage() {
     setEfectivoCanonRecibido("");
     setNotasAlquiler("");
     setDatosImpresion(null);
+    setFacturaImpresionId(null);
     setPasoActual(1);
     setVistaPrincipal("NUEVO_ALQUILER");
   };
+
+  const handleFinalizarYCobrarAlquiler = registrarNuevoAlquiler;
 
 
 
@@ -1048,26 +1061,51 @@ export default function TerminalAlquileresPage() {
   }, [pestanaHistorial, activas, enMora, porCobrar, cerradas, filtroTextoHistorial]);
 
   return (
-    <div className="lg:h-screen lg:overflow-hidden flex flex-col bg-slate-50 text-slate-800 antialiased font-sans select-none">
+    <div className="w-screen h-screen overflow-hidden flex flex-col bg-[#F3F6F9] select-none text-slate-800 antialiased font-sans">
       {/* 1. BARRA SUPERIOR DE LA TERMINAL DE ALQUILERES */}
-      <header className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shrink-0 shadow-sm z-20">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm">
-              <Sparkles className="w-5 h-5" />
+      <header className="min-h-[3.75rem] py-2 shrink-0 px-3 sm:px-4 bg-[#FCFDFE] text-slate-800 flex flex-wrap items-center justify-between border-b border-slate-200/90 shadow-2xs z-30 gap-2">
+        {/* Izquierda: Botón Regresar, Logo Oficial, Nombre de Terminal y Cajero */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {/* Botón Regresar al Menú Principal */}
+          <Link
+            href="/"
+            className="bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 rounded-xl px-3.5 py-2 text-sm font-bold shadow-2xs flex items-center gap-2 transition shrink-0"
+            title="Volver al panel principal"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-700" />
+            <span>Regresar</span>
+          </Link>
+
+          {/* Logotipo Oficial Sincronizado */}
+          <div className="shrink-0">
+            <LogoEmpresa size="sm" showText={false} />
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 truncate">
+              <span className="font-mono text-xs sm:text-sm font-black tracking-wider text-slate-900 uppercase">
+                SISTEMA DE ALQUILERES — CAJA Y DEPÓSITOS
+              </span>
+              <span className="text-xs text-amber-600 font-bold truncate">
+                • {empresaConfig?.nombreComercial || "LLANOMIO"}
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-sm tracking-wide text-slate-900 uppercase">
-                  Terminal de Alquileres
-                </span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                  Exclusivo Alquiler
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 leading-tight">
-                LLANOMIO POS — Gestión Integral de Contratos, Depósitos y Llegadas
-              </p>
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600 font-medium">
+              <BarraEstadoCajon
+                cargando={cajon.cargando}
+                cajonConectado={cajon.cajonConectado}
+                seguridadCaja={cajon.seguridadCaja}
+                saldoActualEnCajon={cajon.saldoActualEnCajon}
+                totalDigital={cajon.totalDigital}
+                estado={cajon.estado}
+                motivoBloqueo={cajon.motivoBloqueo}
+                onRefrescar={() => cajon.actualizarCajon(true)}
+                onAbrirModal={cajon.abrirModal}
+              />
+              <span className="text-slate-400">|</span>
+              <span className="truncate max-w-[150px] text-slate-600">
+                Cajero: <strong className="text-slate-900">{usuarioSesion?.nombre || "Cajero en Turno"}</strong>
+              </span>
             </div>
           </div>
         </div>
@@ -1143,14 +1181,14 @@ export default function TerminalAlquileresPage() {
             <span className="text-slate-300 font-bold">›</span>
 
             <button
-              disabled={!datosImpresion}
+              disabled={!datosImpresion && !facturaImpresionId}
               onClick={() => {
-                if (datosImpresion) setPasoActual(4);
+                if (datosImpresion || facturaImpresionId) setPasoActual(4);
               }}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                 pasoActual === 4
                   ? "bg-white text-blue-700 shadow-sm border border-slate-200"
-                  : datosImpresion
+                  : datosImpresion || facturaImpresionId
                   ? "text-slate-700 hover:bg-slate-200"
                   : "text-slate-300 cursor-not-allowed"
               }`}
@@ -1165,18 +1203,6 @@ export default function TerminalAlquileresPage() {
 
         {/* Acciones de Cabecera */}
         <div className="flex items-center gap-2">
-          {/* Indicador de Cajón Sincronizado en Vivo */}
-          <BarraEstadoCajon
-            cargando={cajon.cargando}
-            cajonConectado={cajon.cajonConectado}
-            seguridadCaja={cajon.seguridadCaja}
-            saldoActualEnCajon={cajon.saldoActualEnCajon}
-            totalDigital={cajon.totalDigital}
-            estado={cajon.estado}
-            motivoBloqueo={cajon.motivoBloqueo}
-            onRefrescar={() => cajon.actualizarCajon(true)}
-            onAbrirModal={cajon.abrirModal}
-          />
           {/* Botón Centro de Historial y Llegadas */}
           <button
             onClick={() => {
@@ -1194,7 +1220,7 @@ export default function TerminalAlquileresPage() {
             }`}
           >
             <History className="w-4 h-4" />
-            <span>Historial, Llegadas y Moras</span>
+            <span>{vistaPrincipal === "HISTORIAL_CENTRO" ? "Volver a Nuevo Alquiler" : "Historial de Alquileres"}</span>
             {enMora.length > 0 && (
               <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px] font-black animate-pulse">
                 {enMora.length}
@@ -1210,13 +1236,11 @@ export default function TerminalAlquileresPage() {
           {/* Enlace rápido a la Terminal POS */}
           <Link
             href="/caja/pos"
-            target="_blank"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 transition-all"
-            title="Abrir la Terminal POS para Ventas de Productos y Arreglos de Sastrería"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 transition-all shrink-0"
+            title="Ir a Terminal POS para Ventas y Arreglos"
           >
             <ShoppingBag className="w-4 h-4 text-slate-600" />
-            <span className="hidden sm:inline">Ir a POS (Ventas y Arreglos)</span>
-            <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+            <span className="hidden sm:inline">Ir a POS</span>
           </Link>
         </div>
       </header>
@@ -2426,8 +2450,8 @@ export default function TerminalAlquileresPage() {
             )}
 
             {/* PASO 4: VISTA PREVIA, IMPRESIÓN Y EXPORTACIÓN PDF */}
-            {pasoActual === 4 && datosImpresion && (
-              <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6 max-w-5xl mx-auto w-full">
+            {pasoActual === 4 && (
+              <div className="flex-1 flex flex-col overflow-hidden p-3 sm:p-6 max-w-5xl mx-auto w-full">
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
                   <div>
                     <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block">
@@ -2435,7 +2459,7 @@ export default function TerminalAlquileresPage() {
                     </span>
                     <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
                       <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      Comprobante / Contrato Exclusivo de Alquiler N° {datosImpresion.factura.numeroFactura}
+                      Comprobante / Contrato Exclusivo de Alquiler {datosImpresion?.factura?.numeroFactura ? `N° ${datosImpresion.factura.numeroFactura}` : ""}
                     </h2>
                   </div>
 
@@ -2462,12 +2486,26 @@ export default function TerminalAlquileresPage() {
                   </div>
                 </div>
 
-                {/* Previsualización documental integrada de PlantillaImpresion */}
+                {/* Previsualización documental integrada de PlantillaImpresion con auto-hidratación */}
                 <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-                  <PlantillaImpresion
-                    datos={datosImpresion}
-                    onCerrar={reiniciarNuevoAlquiler}
-                  />
+                  {facturaImpresionId || datosImpresion ? (
+                    <PlantillaImpresion
+                      facturaId={facturaImpresionId || datosImpresion?.factura?.id}
+                      datos={datosImpresion || undefined}
+                      onCerrar={reiniciarNuevoAlquiler}
+                    />
+                  ) : (
+                    <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center">
+                      <p className="text-sm font-bold text-slate-700">No se especificó un comprobante para visualizar.</p>
+                      <button
+                        type="button"
+                        onClick={reiniciarNuevoAlquiler}
+                        className="mt-3 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
+                      >
+                        Volver al inicio
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -2995,14 +3033,14 @@ export default function TerminalAlquileresPage() {
       )}
 
       {/* 5. MODAL DE VISOR DE COMPROBANTE / IMPRESIÓN Y PDF FLOTANTE */}
-      {modalComprobanteAbierto && datosComprobanteModal && (
+      {modalComprobanteAbierto && (datosComprobanteModal || facturaImpresionId) && (
         <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-5xl w-full max-h-[96vh] flex flex-col overflow-hidden">
             <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Printer className="w-5 h-5 text-amber-400" />
                 <h3 className="text-sm font-black">
-                  Comprobante Oficial de Alquiler — N° {datosComprobanteModal.factura.numeroFactura}
+                  Comprobante Oficial de Alquiler {datosComprobanteModal?.factura?.numeroFactura ? `— N° ${datosComprobanteModal.factura.numeroFactura}` : ""}
                 </h3>
               </div>
               <button
@@ -3016,7 +3054,8 @@ export default function TerminalAlquileresPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100">
               <PlantillaImpresion
-                datos={datosComprobanteModal}
+                facturaId={facturaImpresionId || datosComprobanteModal?.factura?.id}
+                datos={datosComprobanteModal || undefined}
                 onCerrar={() => setModalComprobanteAbierto(false)}
               />
             </div>

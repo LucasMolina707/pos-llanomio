@@ -35,17 +35,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setIsMobileOpen(false);
   }, [pathname]);
 
-  // Si es la página de login o la terminal de caja POS, renderizar directamente a pantalla completa
-  const esPaginaLogin = pathname === "/login";
-  const esCajaPos = pathname === "/caja/pos";
+  // Detección de consolas en pantalla completa (POS, Alquileres, Impresión, Login)
+  const isFullscreenTerminal =
+    pathname === "/login" ||
+    pathname?.startsWith("/caja/pos") ||
+    pathname?.startsWith("/caja/alquileres") ||
+    pathname?.startsWith("/impresion");
 
-  if (esPaginaLogin) {
-    return <main className="min-h-screen w-full bg-[#F4F6F8] overflow-x-hidden">{children}</main>;
-  }
-
-  if (esCajaPos) {
+  if (isFullscreenTerminal) {
     return (
-      <main className="min-h-screen lg:h-screen w-full lg:w-screen overflow-x-hidden lg:overflow-hidden bg-[#F4F6F8]">
+      <main className="w-screen h-screen overflow-hidden flex flex-col bg-[#F3F6F9]">
         {children}
       </main>
     );

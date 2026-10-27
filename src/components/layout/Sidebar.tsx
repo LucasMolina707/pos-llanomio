@@ -43,6 +43,15 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
   const router = useRouter();
   const [cerrandoSesion, setCerrandoSesion] = React.useState(false);
 
+  if (
+    pathname === "/login" ||
+    pathname?.startsWith("/caja/pos") ||
+    pathname?.startsWith("/caja/alquileres") ||
+    pathname?.startsWith("/impresion")
+  ) {
+    return null;
+  }
+
   const esAdmin = usuario?.rol === "ADMIN";
 
   // Definición de las secciones base

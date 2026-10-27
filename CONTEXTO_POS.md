@@ -1619,14 +1619,56 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 ### 4. Certificación de Calidad (QA) y Limpieza de Fábrica
 - **Prueba integral automatizada (`scripts/test-qa-tres-fallos-criticos.ts`):** 7/7 pasos ejecutados con éxito (Creación de cliente con 2 teléfonos -> Expedición de alquiler con depósito -> Cierre y liquidación sin error 500 -> Impresión remota -> Creación de venta en POS -> Segregación estricta de historiales -> Expediente unificado).
 - **Restablecimiento de Fábrica (`scripts/reset-db-fabrica.ts`):** Base de datos `database/llanomio.db` restablecida a estado virgen (0 facturas, 0 clientes, 0 productos, 1 administrador inicial, 1 empresa configurada) y compactada con `VACUUM`.
-- **Compilación de Producción (`npm run build`):** 0 errores de TypeScript, 0 errores de ESLint, 22/22 páginas estáticas y dinámicas compiladas exitosamente.
+---
 
+## 36. Unificación Visual en Ventana Completa (100vw x 100vh) sin Sidebar, Botón Regresar y Conexión Directa a Comprobantes de Impresión
 
+### 1. Diagnóstico y Objetivos de la Intervención
+1. **Unificación Visual de Consolas de Caja (`/caja/pos`, `/caja/alquileres`, `/impresion`):**
+   - Se requería eliminar por completo el panel lateral (`Sidebar.tsx`), la barra de navegación administrativa superior (`Navbar.tsx`) y cualquier margen o padding (`pl-64`, `ml-64`, `max-w-7xl`) que restara espacio útil de mostrador.
+   - Ambas terminales debían comportarse como consolas de pantalla completa (`w-screen h-screen overflow-hidden flex flex-col bg-[#F3F6F9]`) dedicadas exclusivamente a la atención ágil de caja.
+   - En la esquina superior izquierda de ambas terminales se unificó el botón **"Regresar"** (`<Link href="/">` con ícono `ArrowLeft`, texto `"Regresar"`, estilo de alto contraste `bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 rounded-xl px-3.5 py-2 text-sm font-bold shadow-2xs flex items-center gap-2`), seguido del logo corporativo `<LogoEmpresa size="sm" />` y el título formal de la terminal ("TERMINAL POS — VENTAS Y ARREGLOS" o "SISTEMA DE ALQUILERES — CAJA Y DEPÓSITOS").
 
+2. **Erradicación Definitiva de la Pantalla en Blanco / 404 al Cobrar Alquileres:**
+   - Anteriormente, al finalizar el cobro de un alquiler (o liquidar una devolución/abono), existía la posibilidad de redireccionar a rutas inexistentes o que estados de memoria no inicializados (`null` / `undefined`) dejaran la pantalla en blanco.
+   - Se blindaron `POST /api/facturas` y `POST/PATCH /api/facturas/[id]` para garantizar una respuesta JSON normalizada: `{ success: true, ok: true, id: factura.id, factura }`.
+   - En `src/app/caja/alquileres/page.tsx`, la función de cobro captura de forma segura `facturaId = data?.factura?.id || data?.id`, fija `setFacturaImpresionId(facturaId)` y avanza inmediatamente dentro de la misma ventana al **Paso 4: Comprobante e Impresión** (`setPasoActual(4)` y `setVistaPrincipal('NUEVO_ALQUILER')`), montando `<PlantillaImpresion facturaId={facturaImpresionId} />` sin redirecciones externas.
+   - Como respaldo defensivo ante cualquier enlace del sistema, se creó la página `src/app/impresion/[id]/page.tsx`, garantizando que `/impresion/[id]` siempre renderice el visor de comprobante en ventana completa con botón de regreso.
 
+3. **Garantía de Formatos en `<PlantillaImpresion />`:**
+   - La plantilla de comprobantes se blindó para auto-hidratar remotamente desde `/api/impresion/[id]` con `cache: 'no-store'` si no recibe datos en memoria, mostrando un estado de carga claro (sin `return null` silencioso).
+   - Permite alternar en tiempo real entre:
+     - **Tirilla POS 80mm (`TIRILLA`)**
+     - **Media Carta (`MEDIA_CARTA`)**
+     - **Carta Completa (`CARTA`)**
+   - Selector de copias (1 Copia Cliente | 2 Copias Cliente + Respaldo Tienda).
+   - Impresión limpia mediante iframe aislado y descarga directa de PDF con CERO códigos QR y desglose de abonos, depósito en efectivo y saldo pendiente.
 
+### 2. Archivos Creados o Modificados
+1. `src/components/layout/AppLayout.tsx`:
+   - Incorporación de `isFullscreenTerminal` para `/login`, `/caja/pos*`, `/caja/alquileres*` e `/impresion*`.
+   - Desmontaje total de `Sidebar` y `Navbar`, renderizando un contenedor `w-screen h-screen overflow-hidden flex flex-col bg-[#F3F6F9]` sin márgenes laterales.
+2. `src/components/layout/Sidebar.tsx` & `src/components/layout/Navbar.tsx`:
+   - Salvaguarda con retorno temprano `if (isFullscreenTerminal) return null;`.
+3. `src/app/caja/pos/page.tsx`:
+   - Estandarización de cabecera con botón **"Regresar"**, `<LogoEmpresa size="sm" />` y título **"TERMINAL POS — VENTAS Y ARREGLOS"**.
+4. `src/app/caja/alquileres/page.tsx`:
+   - Estructuración a ventana completa (`w-screen h-screen overflow-hidden flex flex-col bg-[#F3F6F9]`).
+   - Cabecera con botón **"Regresar"**, logo y título **"SISTEMA DE ALQUILERES — CAJA Y DEPÓSITOS"**.
+   - Captura de `facturaId`, avance directo al Paso 4 y montaje de `<PlantillaImpresion />` sin redirección externa.
+   - Sincronización de modales de abono, liquidación e impresión histórica con `facturaImpresionId`.
+5. `src/components/impresion/PlantillaImpresion.tsx`:
+   - Soporte de `facturaId` con auto-fetch remoto a `/api/impresion/[id]`.
+   - Fallback defensivo que evita pantallas en blanco durante la carga de datos.
+6. `src/app/impresion/[id]/page.tsx`:
+   - Creación de la ruta de respaldo en ventana completa con botón "Regresar" y visor `<PlantillaImpresion facturaId={id} />`.
+7. `src/app/api/facturas/route.ts` & `src/app/api/facturas/[id]/route.ts`:
+   - Homologación de payload JSON devuelto con `{ success: true, ok: true, id: factura.id, factura }`.
+8. `scripts/test-qa-ventana-completa-impresion.ts`:
+   - Script de prueba integral automatizada para validar el ciclo de cobro de alquiler, depósito en efectivo, consulta de comprobante y liquidación en Paz y Salvo.
 
-
-
-
+### 3. Resultados de Calidad (QA) y Verificación
+- **Prueba Integral de QA (`scripts/test-qa-ventana-completa-impresion.ts`):** 100% de las aserciones aprobadas con código 0.
+- **Limpieza de Fábrica (`scripts/reset-db-fabrica.ts`):** Base de datos `database/llanomio.db` restablecida a estado virgen y compactada con `VACUUM`.
+- **Compilación de Producción (`npm run build`):** Ejecución exitosa con **código 0, 0 errores de TypeScript y 22 rutas estáticas y dinámicas optimizadas** (incluyendo `ƒ /impresion/[id]`).
 

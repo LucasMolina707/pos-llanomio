@@ -632,6 +632,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
+        ok: true,
+        id: nuevaFactura.id,
         mensaje: `Factura ${nuevaFactura.numeroFactura} creada exitosamente`,
         factura: nuevaFactura,
       },

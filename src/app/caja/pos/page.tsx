@@ -997,14 +997,14 @@ export default function PosPage() {
       <header className="min-h-[3.75rem] py-2 shrink-0 px-3 sm:px-4 bg-[#FCFDFE] text-slate-800 flex flex-wrap items-center justify-between border-b border-slate-200/90 shadow-2xs z-30 gap-2">
         {/* Izquierda: Logo Oficial, Identificador de Terminal, Cajero y Estado de Caja */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {/* Botón Volver al Menú Principal */}
+          {/* Botón Regresar al Menú Principal */}
           <Link
             href="/"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition border border-slate-300/80 text-xs sm:text-sm font-semibold shrink-0"
+            className="bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 rounded-xl px-3.5 py-2 text-sm font-bold shadow-2xs flex items-center gap-2 transition shrink-0"
             title="Volver al panel principal"
           >
-            <ArrowLeft className="w-4 h-4 text-slate-500" />
-            <span className="hidden sm:inline">Menú</span>
+            <ArrowLeft className="w-4 h-4 text-slate-700" />
+            <span>Regresar</span>
           </Link>
 
           {/* Logotipo Oficial Sincronizado */}
@@ -1015,7 +1015,7 @@ export default function PosPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 truncate">
               <span className="font-mono text-xs sm:text-sm font-black tracking-wider text-slate-900 uppercase">
-                Terminal POS
+                TERMINAL POS — VENTAS Y ARREGLOS
               </span>
               <span className="text-xs text-blue-600 font-bold truncate">
                 • {empresaConfig?.nombreComercial || "LLANOMIO"}
