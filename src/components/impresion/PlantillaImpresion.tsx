@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Printer, FileText, CheckCircle2, X, FileDown, ExternalLink } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Printer, FileText, CheckCircle2, X, FileDown, ExternalLink, RefreshCw, AlertTriangle } from "lucide-react";
 import {
   descargarPdfMediaCarta,
   abrirPdfMediaCarta,
@@ -102,18 +102,102 @@ export interface DatosImpresionFactura {
 }
 
 interface PlantillaImpresionProps {
-  datos: DatosImpresionFactura;
+  datos?: DatosImpresionFactura | null;
+  facturaId?: string;
   onCerrar?: () => void;
 }
 
-export default function PlantillaImpresion({ datos, onCerrar }: PlantillaImpresionProps) {
-  const { factura, empresa } = datos;
+export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerrar }: PlantillaImpresionProps) {
+  const [datosCargados, setDatosCargados] = useState<DatosImpresionFactura | null>(null);
+  const [cargandoRemoto, setCargandoRemoto] = useState<boolean>(!datosProp && Boolean(facturaId));
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!datosProp && facturaId) {
+      let isMounted = true;
+      setCargandoRemoto(true);
+      setErrorCarga(null);
+
+      fetch(`/api/impresion/${facturaId}`, { cache: "no-store" })
+        .then((res) => {
+          if (!res.ok) throw new Error("No se pudo obtener la factura para impresión");
+          return res.json();
+        })
+        .then((data) => {
+          if (isMounted) {
+            if (data.success && data.factura) {
+              setDatosCargados({
+                factura: data.factura,
+                empresa: data.empresa,
+              });
+            } else {
+              setErrorCarga(data.error || "No se encontraron datos de la factura.");
+            }
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            setErrorCarga(err instanceof Error ? err.message : "Error al cargar datos");
+          }
+        })
+        .finally(() => {
+          if (isMounted) setCargandoRemoto(false);
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [datosProp, facturaId]);
+
+  const datos = datosProp || datosCargados;
+
   // Formato activo sincronizado 1:1 entre vista, iframe de impresión y descarga PDF
-  const [formato, setFormato] = useState<FormatoImpresionTipo>(
-    empresa.formatoPredeterminado || empresa.formatoImpresionDefault || "MEDIA_CARTA"
-  );
+  const [formato, setFormato] = useState<FormatoImpresionTipo>(() => {
+    if (datos?.empresa) {
+      return datos.empresa.formatoPredeterminado || datos.empresa.formatoImpresionDefault || "MEDIA_CARTA";
+    }
+    return "MEDIA_CARTA";
+  });
+
+  useEffect(() => {
+    if (datos?.empresa) {
+      setFormato(datos.empresa.formatoPredeterminado || datos.empresa.formatoImpresionDefault || "MEDIA_CARTA");
+    }
+  }, [datos?.empresa]);
+
   const [numCopias, setNumCopias] = useState<1 | 2>(1);
   const areaImprimibleRef = useRef<HTMLDivElement>(null);
+
+  if (cargandoRemoto) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl shadow-sm border border-slate-200">
+        <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mb-3" />
+        <p className="text-sm font-bold text-slate-700">Preparando documento para impresión...</p>
+        <span className="text-xs text-slate-400 mt-1">Cargando datos frescos y políticas comerciales</span>
+      </div>
+    );
+  }
+
+  if (errorCarga || !datos) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border border-rose-200 text-center">
+        <AlertTriangle className="w-8 h-8 text-rose-600 mb-2" />
+        <p className="text-sm font-bold text-slate-900">{errorCarga || "No hay datos disponibles para imprimir"}</p>
+        {onCerrar && (
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition"
+          >
+            Cerrar
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  const { factura, empresa } = datos;
 
   /**
    * Imprime exclusivamente el documento generado dentro de un iframe aislado,

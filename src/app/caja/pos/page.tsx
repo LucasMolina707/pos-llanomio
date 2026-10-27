@@ -370,25 +370,29 @@ export default function PosPage() {
     }
   }, [cajon]);
 
-  const cargarClientes = useCallback(async () => {
+  const cargarClientes = useCallback(async (silent = false) => {
     try {
-      setCargandoClientesInicial(true);
+      if (!silent) {
+        setCargandoClientesInicial(true);
+      }
       const res = await fetch("/api/clientes", { cache: "no-store" });
       const data = await res.json();
-      if (data.success) {
-        setTodosLosClientes(data.clientes || []);
+      if (data.success && Array.isArray(data.clientes)) {
+        setTodosLosClientes(data.clientes);
       }
     } catch (err) {
       console.error("Error al cargar clientes iniciales:", err);
     } finally {
-      setCargandoClientesInicial(false);
+      if (!silent) {
+        setCargandoClientesInicial(false);
+      }
     }
   }, []);
 
   const cargarInventario = useCallback(async () => {
     try {
       setCargandoInventario(true);
-      const res = await fetch("/api/inventario?tipo=TODOS");
+      const res = await fetch("/api/inventario?tipo=TODOS", { cache: "no-store" });
       const data = await res.json();
       if (data.ok) {
         setCatalogoInventario(data.productos || []);
@@ -409,13 +413,15 @@ export default function PosPage() {
       }
 
       const url = forzarSincronizacion
-        ? "/api/facturas/monitoreo?sync=true&tipo=VENTA_ARREGLO"
-        : "/api/facturas/monitoreo?tipo=VENTA_ARREGLO";
+        ? "/api/facturas/monitoreo?modulo=POS&sync=true&tipo=VENTA_ARREGLO"
+        : "/api/facturas/monitoreo?modulo=POS&tipo=VENTA_ARREGLO";
 
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();
       if (data.success) {
-        setFacturasMonitoreo(data.facturas || []);
+        // En la terminal POS solo mostramos Ventas y Arreglos
+        const soloPos = (data.facturas || []).filter((f: FacturaMonitoreo) => f.tipoOperacion !== "ALQUILER");
+        setFacturasMonitoreo(soloPos);
         if (data.estadisticas) {
           setEstadisticasMonitoreo(data.estadisticas);
         }
@@ -428,12 +434,49 @@ export default function PosPage() {
     }
   }, []);
 
+  // Carga inicial única y estable al montar el componente (Evita bucle infinito y parpadeos)
   useEffect(() => {
-    cargarSesionYTurno();
-    cargarClientes();
-    cargarInventario();
-    cargarMonitoreo();
-  }, [cargarSesionYTurno, cargarClientes, cargarInventario, cargarMonitoreo]);
+    let montado = true;
+
+    const iniciarApp = async () => {
+      try {
+        const [resAuth, resEmp] = await Promise.all([
+          fetch("/api/auth/me"),
+          fetch("/api/empresa", { cache: "no-store" }),
+        ]);
+
+        if (!montado) return;
+
+        const dataAuth = await resAuth.json();
+        if (dataAuth.ok && dataAuth.user) {
+          setUsuarioSesion(dataAuth.user);
+        }
+
+        const dataEmp = await resEmp.json();
+        const conf = dataEmp.configuracion || dataEmp.empresa;
+        if (conf) {
+          setEmpresaConfig((prev: any) => ({ ...prev, ...conf }));
+        }
+
+        await cajon.actualizarCajon(true);
+      } catch (err) {
+        console.warn("Error cargando sesión inicial:", err);
+      }
+
+      if (montado) {
+        cargarClientes();
+        cargarInventario();
+        cargarMonitoreo(false);
+      }
+    };
+
+    iniciarApp();
+
+    return () => {
+      montado = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // =========================================================
   // FILTRADO DINÁMICO FUZZY EN MEMORIA
@@ -472,21 +515,24 @@ export default function PosPage() {
     }));
   }, [catalogoInventario, busquedaAlquiler]);
 
-  // Filtrado de las 4 pestañas de Historial
+  // Filtrado de las 4 pestañas de Historial (Solo Ventas y Arreglos en Terminal POS)
   const facturasHistorialFiltradas = useMemo(() => {
-    // 1. Filtrar por pestaña
-    let porPestana = facturasMonitoreo;
+    // 1. Filtrar ESTRICTAMENTE para excluir alquileres
+    const soloPos = facturasMonitoreo.filter((f) => f.tipoOperacion !== "ALQUILER");
+
+    // 2. Filtrar por pestaña
+    let porPestana = soloPos;
     if (pestanaHistorial === "PENDIENTES_AL_DIA") {
-      porPestana = facturasMonitoreo.filter((f) => f.esPendienteAlDia);
+      porPestana = soloPos.filter((f) => f.esPendienteAlDia);
     } else if (pestanaHistorial === "MORA_Y_SALDO") {
-      porPestana = facturasMonitoreo.filter((f) => f.esMoraYSaldo);
+      porPestana = soloPos.filter((f) => f.esMoraYSaldo);
     } else if (pestanaHistorial === "SOLO_MORA") {
-      porPestana = facturasMonitoreo.filter((f) => f.esSoloMora);
+      porPestana = soloPos.filter((f) => f.esSoloMora);
     } else if (pestanaHistorial === "PAZ_Y_SALVOS") {
-      porPestana = facturasMonitoreo.filter((f) => f.esPazYSalvo);
+      porPestana = soloPos.filter((f) => f.esPazYSalvo);
     }
 
-    // 2. Filtrado difuso fuzzy multi-campo
+    // 3. Filtrado difuso fuzzy multi-campo
     if (!busquedaHistorial.trim()) return porPestana;
 
     return filtrarPorRelevancia(porPestana, busquedaHistorial, (item) => ({
@@ -564,6 +610,7 @@ export default function PosPage() {
     seleccionarCliente(clienteGuardado);
     setClienteAEditarModal(null);
     setMostrarModalCliente(false);
+    cargarClientes(true);
   };
 
   const abrirModalCrearCliente = () => {

@@ -145,31 +145,48 @@ export async function GET(req: NextRequest, { params }: Params) {
       }
     });
 
-    return NextResponse.json({
-      success: true,
-      cliente: {
-        id: cliente.id,
-        documento: cliente.documento,
-        nombre: cliente.nombre,
-        telefono: cliente.telefono,
-        telefonoSecundario: cliente.telefonoSecundario,
-        email: cliente.email,
-        direccion: cliente.direccion,
-        notas: cliente.notas,
-        fechaCreacion: cliente.fechaCreacion,
-        updatedAt: cliente.updatedAt,
+    return NextResponse.json(
+      {
+        success: true,
+        cliente: {
+          id: cliente.id,
+          documento: cliente.documento,
+          identificacion: cliente.documento,
+          nombre: cliente.nombre,
+          telefono: cliente.telefono,
+          telefonoSecundario: cliente.telefonoSecundario,
+          email: cliente.email,
+          direccion: cliente.direccion,
+          notas: cliente.notas,
+          esResponsableIVA: cliente.esResponsableIVA,
+          tipoIdentificacion: cliente.tipoIdentificacion,
+          digitoVerificacion: cliente.digitoVerificacion,
+          razonSocial: cliente.razonSocial,
+          responsabilidadFiscal: cliente.responsabilidadFiscal,
+          municipio: cliente.municipio,
+          codigoDaneMunicipio: cliente.codigoDaneMunicipio,
+          fechaCreacion: cliente.fechaCreacion,
+          updatedAt: cliente.updatedAt,
+        },
+        metricas: {
+          totalFacturas: historialFacturas.length,
+          totalFacturado: Math.round(totalFacturado * 100) / 100,
+          totalAbonado: Math.round(totalAbonado * 100) / 100,
+          saldoTotalPendiente: Math.round(saldoTotalPendiente * 100) / 100,
+          totalMoraVigente: Math.round(totalMoraVigente * 100) / 100,
+          prendasAlquiladasActivas: prendasEnPoderCliente.length,
+        },
+        prendasEnPoderCliente,
+        facturas: historialFacturas,
       },
-      metricas: {
-        totalFacturas: historialFacturas.length,
-        totalFacturado: Math.round(totalFacturado * 100) / 100,
-        totalAbonado: Math.round(totalAbonado * 100) / 100,
-        saldoTotalPendiente: Math.round(saldoTotalPendiente * 100) / 100,
-        totalMoraVigente: Math.round(totalMoraVigente * 100) / 100,
-        prendasAlquiladasActivas: prendasEnPoderCliente.length,
-      },
-      prendasEnPoderCliente,
-      facturas: historialFacturas,
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
   } catch (error: unknown) {
     console.error("Error al consultar cliente por ID:", error);
     return NextResponse.json(

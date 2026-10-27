@@ -6,6 +6,7 @@ import { EstadoFactura, MetodoPago, TipoOperacion, TipoProducto, EstadoTurno } f
 
 interface ItemDetalleInput {
   productoId?: string | null;
+  nombre?: string | null;
   esServicioLibre?: boolean;
   descripcionLibre?: string | null;
   cantidad: number;
@@ -33,6 +34,7 @@ export async function GET(req: NextRequest) {
     const limiteParam = searchParams.get("limite");
     const limite = limiteParam ? parseInt(limiteParam, 10) : pendientes ? 500 : 50;
 
+    const moduloParam = searchParams.get("modulo");
     const tipoParam = searchParams.get("tipo") || searchParams.get("tipoOperacion");
 
     const where: Record<string, unknown> = {};
@@ -41,9 +43,14 @@ export async function GET(req: NextRequest) {
       where.estado = estado;
     }
 
-    if (tipoParam === "ALQUILER") {
+    if (moduloParam === "ALQUILERES" || tipoParam === "ALQUILER") {
       where.tipoOperacion = "ALQUILER";
-    } else if (tipoParam === "VENTA" || tipoParam === "POS" || tipoParam === "VENTA_ARREGLO") {
+    } else if (
+      moduloParam === "POS" ||
+      tipoParam === "VENTA" ||
+      tipoParam === "POS" ||
+      tipoParam === "VENTA_ARREGLO"
+    ) {
       where.tipoOperacion = { not: "ALQUILER" };
     }
 
@@ -194,6 +201,20 @@ async function reservarSiguienteFolioFactura(
   };
 }
 
+function parseFechaSegura(val: unknown): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? null : val;
+  }
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+    const d = new Date(trimmed);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
 /**
  * POST /api/facturas
  * Creación de nueva factura (con ítems mixtos y abono inicial opcional)
@@ -206,35 +227,47 @@ export async function POST(req: NextRequest) {
     const {
       clienteId,
       cajeroId: cajeroIdBody,
-      detalles = [],
+      detalles = body.detalles || body.items || body.productos || [],
       abonoInicial,
       tipoOperacion = "VENTA",
       estadoInicial = "ACTIVA",
       fechaEntregaAlquiler,
       fechaDevolucionPactada,
       notas,
-      montoDeposito = 0,
+      montoDeposito: montoDepositoInput = 0,
       metodoPagoDeposito,
     } = body;
 
-    // 1. Determinar y validar el cajero autenticado obligatoriamente
-    let cajeroId = sesion?.userId || cajeroIdBody;
+    // Sanitización segura de montos principales
+    const montoDeposito = Math.max(0, Number(montoDepositoInput) || 0);
 
-    if (!cajeroId) {
+    // 1. Determinar y validar el cajero autenticado obligatoriamente (Blindaje Anti-P2003)
+    let cajeroId = sesion?.userId || cajeroIdBody;
+    let usuarioCajero = null;
+
+    if (cajeroId) {
+      usuarioCajero = await prisma.user.findFirst({
+        where: { id: cajeroId, activo: true },
+        select: { id: true, nombre: true, username: true },
+      });
+    }
+
+    if (!usuarioCajero) {
       // Fallback de seguridad: buscar un cajero o admin activo en el sistema local
-      const usuarioActivo = await prisma.user.findFirst({
+      usuarioCajero = await prisma.user.findFirst({
         where: { activo: true },
-        select: { id: true },
+        orderBy: { fechaCreacion: "asc" },
+        select: { id: true, nombre: true, username: true },
       });
 
-      if (!usuarioActivo) {
+      if (!usuarioCajero) {
         return NextResponse.json(
-          { success: false, error: "No existe un cajero activo disponible en el sistema" },
+          { success: false, error: "No existe un cajero activo disponible en el sistema para facturar" },
           { status: 401 }
         );
       }
-      cajeroId = usuarioActivo.id;
     }
+    cajeroId = usuarioCajero.id;
 
     // 0. Control de Seguridad Financiera POS (Apertura Obligatoria y Bloqueo por Día Anterior)
     const controlCaja = await verificarEstadoCajaParaFacturacion(prisma, cajeroId);
@@ -293,12 +326,8 @@ export async function POST(req: NextRequest) {
     let tieneAlquiler = false;
     let tieneArreglo = false;
 
-    let fechaDevolucionCalculada: Date | null = fechaDevolucionPactada
-      ? new Date(fechaDevolucionPactada)
-      : null;
-    let fechaEntregaCalculada: Date | null = fechaEntregaAlquiler
-      ? new Date(fechaEntregaAlquiler)
-      : null;
+    let fechaDevolucionCalculada: Date | null = parseFechaSegura(fechaDevolucionPactada);
+    let fechaEntregaCalculada: Date | null = parseFechaSegura(fechaEntregaAlquiler);
 
     const detallesProcesados: {
       productoId: string | null;
@@ -316,27 +345,35 @@ export async function POST(req: NextRequest) {
       const subtotalItem = Math.round(cantidad * precioUnitario * 100) / 100;
 
       if (item.fechaDevolucion && !fechaDevolucionCalculada) {
-        fechaDevolucionCalculada = new Date(item.fechaDevolucion);
+        fechaDevolucionCalculada = parseFechaSegura(item.fechaDevolucion);
       }
       if (item.fechaEntrega && !fechaEntregaCalculada) {
-        fechaEntregaCalculada = new Date(item.fechaEntrega);
+        fechaEntregaCalculada = parseFechaSegura(item.fechaEntrega);
       }
 
       if (item.esServicioLibre || !item.productoId) {
-        // Ítem libre de sastrería / arreglo
-        if (!item.descripcionLibre || !item.descripcionLibre.trim()) {
+        // Ítem libre de sastrería / arreglo o venta libre
+        const descripcionLibre = (item.descripcionLibre || item.nombre || "").trim();
+        if (!descripcionLibre) {
           return NextResponse.json(
-            { success: false, error: "Todo servicio de sastrería libre requiere una descripción" },
+            { success: false, error: "Todo servicio o ítem libre requiere una descripción o nombre" },
             { status: 400 }
           );
         }
 
-        tieneArreglo = true;
-        subtotalArreglosLibres += subtotalItem;
+        const esArreglo = item.esServicioLibre || body.tipoOperacion === "ARREGLO";
+        if (esArreglo) {
+          tieneArreglo = true;
+          subtotalArreglosLibres += subtotalItem;
+        } else {
+          tieneVenta = true;
+          subtotalProductos += subtotalItem;
+        }
+
         detallesProcesados.push({
           productoId: null,
-          esServicioLibre: true,
-          descripcionLibre: item.descripcionLibre.trim(),
+          esServicioLibre: esArreglo,
+          descripcionLibre,
           cantidad,
           precioUnitario,
           subtotal: subtotalItem,
@@ -379,7 +416,9 @@ export async function POST(req: NextRequest) {
     // 5. Procesar abono inicial (uno o múltiples pagos parciales / mixtos)
     const abonosInput: any[] = Array.isArray(body.abonos) && body.abonos.length > 0
       ? body.abonos
-      : (abonoInicial && Number(abonoInicial.monto) > 0 ? [abonoInicial] : []);
+      : (typeof abonoInicial === "number" && abonoInicial > 0
+          ? [{ monto: abonoInicial, metodoPago: body.metodoPagoAbono || MetodoPago.EFECTIVO }]
+          : (abonoInicial && Number(abonoInicial.monto) > 0 ? [abonoInicial] : []));
 
     const abonosDataCreacion: {
       monto: number;
@@ -394,21 +433,22 @@ export async function POST(req: NextRequest) {
     let totalAbonado = 0;
 
     for (const ab of abonosInput) {
-      const monto = Math.round(Number(ab.monto) * 100) / 100;
+      const monto = Math.round((Number(ab.monto) || 0) * 100) / 100;
       if (monto > 0) {
         totalAbonado += monto;
-        const metodoPago = Object.values(MetodoPago).includes(ab.metodoPago)
-          ? (ab.metodoPago as MetodoPago)
-          : MetodoPago.EFECTIVO;
+        let metodoPago: MetodoPago = MetodoPago.EFECTIVO;
+        if (ab.metodoPago && Object.values(MetodoPago).includes(ab.metodoPago as MetodoPago)) {
+          metodoPago = ab.metodoPago as MetodoPago;
+        }
 
         abonosDataCreacion.push({
           monto,
           metodoPago,
-          montoRecibido: ab.montoRecibido ? Number(ab.montoRecibido) : null,
-          vueltasEntregadas: ab.vueltasEntregadas ? Number(ab.vueltasEntregadas) : null,
+          montoRecibido: ab.montoRecibido ? Number(ab.montoRecibido) || null : null,
+          vueltasEntregadas: ab.vueltasEntregadas ? Number(ab.vueltasEntregadas) || null : null,
           cajeroId,
-          referenciaComprobante: ab.referenciaComprobante?.trim() || null,
-          notas: ab.notas?.trim() || "Abono en mostrador",
+          referenciaComprobante: ab.referenciaComprobante ? String(ab.referenciaComprobante).trim() : null,
+          notas: ab.notas ? String(ab.notas).trim() : "Abono en mostrador",
         });
       }
     }
@@ -489,11 +529,11 @@ export async function POST(req: NextRequest) {
           totalFactura,
           totalAbonado,
           saldoPendiente,
-          montoDeposito: Math.max(0, Number(montoDeposito) || 0),
-          estadoDeposito: Number(montoDeposito) > 0 ? "RECIBIDO_EN_GARANTIA" : "SIN_DEPOSITO",
+          montoDeposito,
+          estadoDeposito: montoDeposito > 0 ? "RECIBIDO_EN_GARANTIA" : "SIN_DEPOSITO",
           montoRetenidoDeposito: 0,
           montoDevueltoDeposito: 0,
-          metodoPagoDeposito: Number(montoDeposito) > 0 ? (tipoOpFinal === TipoOperacion.ALQUILER ? "EFECTIVO" : (metodoPagoDeposito || "EFECTIVO")) : null,
+          metodoPagoDeposito: montoDeposito > 0 ? (tipoOpFinal === TipoOperacion.ALQUILER ? "EFECTIVO" : (metodoPagoDeposito || "EFECTIVO")) : null,
           notas: notas?.trim() || null,
           fechaEntregaAlquiler: fechaEntregaCalculada,
           fechaDevolucionPactada: fechaDevolucionCalculada,
@@ -599,8 +639,9 @@ export async function POST(req: NextRequest) {
     );
   } catch (error: unknown) {
     console.error("Error al crear factura:", error);
+    const mensajeError = error instanceof Error ? error.message : "Error interno al procesar y guardar la factura";
     return NextResponse.json(
-      { success: false, error: "Error interno al procesar y guardar la factura" },
+      { success: false, error: mensajeError },
       { status: 500 }
     );
   }

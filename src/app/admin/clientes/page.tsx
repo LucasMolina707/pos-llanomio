@@ -314,11 +314,11 @@ export default function DirectorioClientesPage() {
 
                         <Link
                           href={`/admin/clientes/${c.id}`}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 min-h-[36px] rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 transition shadow-2xs"
-                          title="Ver historial financiero y alquileres"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 min-h-[36px] rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white transition shadow-xs"
+                          title="Ver expediente completo, ventas, arreglos y alquileres del cliente"
                         >
                           <FileText className="w-3.5 h-3.5" />
-                          <span>Historial</span>
+                          <span>Ver Historial Completo</span>
                           <ArrowRight className="w-3 h-3" />
                         </Link>
                       </div>

@@ -76,6 +76,12 @@ interface FacturaCliente {
   prendaPrincipal: string;
   estaCerrada: boolean;
   prendaSinEntregar: boolean;
+  montoDeposito?: number;
+  estadoDeposito?: string;
+  montoRetenidoDeposito?: number;
+  montoDevueltoDeposito?: number;
+  motivoRetencionDeposito?: string | null;
+  metodoPagoDeposito?: string | null;
   detalles: DetalleProducto[];
   abonos: AbonoItem[];
 }
@@ -488,104 +494,165 @@ export default function PerfilClientePage() {
           <div className="overflow-x-auto rounded-xl border border-slate-200">
             <table className="w-full text-left text-sm md:text-base border-collapse">
               <thead>
-                <tr className="bg-slate-100/90 text-slate-700 text-xs sm:text-sm font-bold uppercase tracking-wider border-b border-slate-200">
-                  <th className="px-3.5 py-3 text-center">Factura / Fecha</th>
-                  <th className="px-3.5 py-3">Concepto / Artículos</th>
-                  <th className="px-3.5 py-3 text-center">Devolución Pactada</th>
-                  <th className="px-3.5 py-3 text-center">Estado</th>
-                  <th className="px-3.5 py-3 text-right">Total Factura</th>
+                <tr className="bg-slate-100 text-slate-800 text-xs sm:text-sm font-bold uppercase tracking-wider border-b border-slate-300">
+                  <th className="px-3.5 py-3 text-center">Folio / Fecha</th>
+                  <th className="px-3.5 py-3 text-center">Tipo</th>
+                  <th className="px-3.5 py-3">Prendas & Detalle</th>
+                  <th className="px-3.5 py-3 text-right">Total</th>
                   <th className="px-3.5 py-3 text-right">Abonado</th>
-                  <th className="px-3.5 py-3 text-right">Saldo Exigible</th>
-                  <th className="px-3.5 py-3 text-center">Acciones</th>
+                  <th className="px-3.5 py-3 text-right">Saldo</th>
+                  <th className="px-3.5 py-3 text-center">Depósito</th>
+                  <th className="px-3.5 py-3 text-center">Estado</th>
+                  <th className="px-3.5 py-3 text-center">Comprobante</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-200 bg-white">
                 {facturasFiltradas.map((f) => {
                   const tieneMora = f.recargoMora > 0 || (f.enMora && f.diasRetraso > 0);
+                  const esAlquiler = f.tipoOperacion === "ALQUILER" || f.tipoOperacion === "MIXTO";
+                  const montoDep = f.montoDeposito || 0;
 
                   return (
                     <tr key={f.id} className={`hover:bg-slate-50/80 transition ${tieneMora ? "bg-rose-50/30" : ""}`}>
-                      {/* 1. Factura / Fecha */}
+                      {/* 1. Folio / Fecha */}
                       <td className="px-3.5 py-3 text-center">
-                        <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm block">
-                          {f.numeroFactura}
+                        <span className="font-mono font-black text-slate-900 text-xs sm:text-sm block">
+                          #{f.numeroFactura}
                         </span>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-slate-500 block">
                           {new Date(f.fechaCreacion).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
                         </span>
                       </td>
 
-                      {/* 2. Concepto / Artículos */}
+                      {/* 2. Badge Tipo de Operación */}
+                      <td className="px-3.5 py-3 text-center">
+                        {f.tipoOperacion === "VENTA" && (
+                          <span className="inline-block px-2.5 py-1 rounded-md text-xs font-black uppercase bg-blue-100 text-blue-800 border border-blue-200">
+                            Venta
+                          </span>
+                        )}
+                        {f.tipoOperacion === "ARREGLO" && (
+                          <span className="inline-block px-2.5 py-1 rounded-md text-xs font-black uppercase bg-purple-100 text-purple-800 border border-purple-200">
+                            Arreglo
+                          </span>
+                        )}
+                        {f.tipoOperacion === "ALQUILER" && (
+                          <span className="inline-block px-2.5 py-1 rounded-md text-xs font-black uppercase bg-amber-100 text-amber-900 border border-amber-200">
+                            Alquiler
+                          </span>
+                        )}
+                        {f.tipoOperacion === "MIXTO" && (
+                          <span className="inline-block px-2.5 py-1 rounded-md text-xs font-black uppercase bg-teal-100 text-teal-800 border border-teal-200">
+                            Mixto
+                          </span>
+                        )}
+                        {f.tipoOperacion !== "VENTA" && f.tipoOperacion !== "ARREGLO" && f.tipoOperacion !== "ALQUILER" && f.tipoOperacion !== "MIXTO" && (
+                          <span className="inline-block px-2.5 py-1 rounded-md text-xs font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200">
+                            {f.tipoOperacion}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 3. Prendas & Detalle */}
                       <td className="px-3.5 py-3">
-                        <p className="font-semibold text-slate-900 text-xs sm:text-sm">{f.prendaPrincipal}</p>
-                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 mt-0.5">
-                          {f.tipoOperacion}
-                        </span>
-                      </td>
-
-                      {/* 3. Devolución Pactada */}
-                      <td className="px-3.5 py-3 text-center">
-                        {f.fechaDevolucionPactada ? (
-                          <div className="text-xs">
-                            <span className="font-semibold text-slate-700 block">
-                              {new Date(f.fechaDevolucionPactada).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
-                            </span>
-                            <span className="text-slate-500 font-mono text-xs">
-                              {new Date(f.fechaDevolucionPactada).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 text-xs">N/A</span>
+                        <p className="font-bold text-slate-900 text-xs sm:text-sm line-clamp-1">{f.prendaPrincipal}</p>
+                        {Array.isArray(f.detalles) && f.detalles.length > 1 && (
+                          <span className="text-xs text-slate-500">
+                            +{f.detalles.length - 1} artículo(s) más
+                          </span>
                         )}
-                      </td>
-
-                      {/* 4. Estado */}
-                      <td className="px-3.5 py-3 text-center">
-                        {tieneMora ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white animate-pulse">
-                            <AlertTriangle className="w-3.5 h-3.5" />
-                            <span>Mora ({f.diasRetraso}d)</span>
-                          </span>
-                        ) : f.estaCerrada ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Paz y Salvo</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
-                            <Clock className="w-3.5 h-3.5 text-blue-600" />
-                            <span>Al Día</span>
+                        {f.fechaDevolucionPactada && (
+                          <span className="text-[11px] text-slate-500 block mt-0.5">
+                            Devolución: {new Date(f.fechaDevolucionPactada).toLocaleDateString("es-CO", { day: "2-digit", month: "short" })}
                           </span>
                         )}
                       </td>
 
-                      {/* 5. Total Factura */}
-                      <td className="px-3.5 py-3 text-right font-mono font-bold text-slate-800 text-xs sm:text-sm">
+                      {/* 4. Total Factura */}
+                      <td className="px-3.5 py-3 text-right font-mono font-bold text-slate-900 text-xs sm:text-sm">
                         ${f.totalFactura.toLocaleString("es-CO")}
                       </td>
 
-                      {/* 6. Total Abonado */}
+                      {/* 5. Total Abonado */}
                       <td className="px-3.5 py-3 text-right font-mono font-semibold text-emerald-700 text-xs sm:text-sm">
                         ${f.totalAbonado.toLocaleString("es-CO")}
                       </td>
 
-                      {/* 7. Saldo Exigible */}
-                      <td className="px-3.5 py-3 text-right">
+                      {/* 6. Saldo Pendiente */}
+                      <td className="px-3.5 py-3 text-right font-mono">
                         <span
-                          className={`font-mono font-black text-xs sm:text-sm md:text-base ${
+                          className={`font-black text-xs sm:text-sm md:text-base ${
                             f.totalExigible > 0 ? (tieneMora ? "text-rose-600" : "text-amber-600") : "text-emerald-600"
                           }`}
                         >
                           ${f.totalExigible.toLocaleString("es-CO")}
                         </span>
                         {f.recargoMora > 0 && (
-                          <span className="text-xs text-rose-600 font-mono block">
-                            (incluye +${f.recargoMora.toLocaleString("es-CO")} mora)
+                          <span className="text-[11px] text-rose-600 font-bold block">
+                            (+${f.recargoMora.toLocaleString("es-CO")} mora)
                           </span>
                         )}
                       </td>
 
-                      {/* 8. Acciones */}
+                      {/* 7. Depósito en Garantía */}
+                      <td className="px-3.5 py-3 text-center">
+                        {esAlquiler && montoDep > 0 ? (
+                          <div className="space-y-0.5">
+                            <span className="font-mono font-bold text-xs text-slate-800 block">
+                              ${montoDep.toLocaleString("es-CO")}
+                            </span>
+                            {f.estadoDeposito === "DEVUELTO_COMPLETO" && (
+                              <span className="inline-block px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                Devuelto
+                              </span>
+                            )}
+                            {f.estadoDeposito === "RETENIDO_PARCIAL" && (
+                              <span className="inline-block px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-200">
+                                Retenido Parcial
+                              </span>
+                            )}
+                            {f.estadoDeposito === "RETENIDO_TOTAL" && (
+                              <span className="inline-block px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-rose-100 text-rose-800 border border-rose-200">
+                                Retenido Total
+                              </span>
+                            )}
+                            {(!f.estadoDeposito || f.estadoDeposito === "RECIBIDO_EN_GARANTIA") && (
+                              <span className="inline-block px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-blue-100 text-blue-800 border border-blue-200">
+                                En Custodia
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">N/A</span>
+                        )}
+                      </td>
+
+                      {/* 8. Estado de Factura */}
+                      <td className="px-3.5 py-3 text-center">
+                        {tieneMora ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-black uppercase bg-rose-600 text-white animate-pulse">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <span>En Mora</span>
+                          </span>
+                        ) : f.estaCerrada || f.estado === "CERRADA" ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Paz y Salvo</span>
+                          </span>
+                        ) : f.estado === "ACTIVA_ALQUILADA" ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-black uppercase bg-amber-100 text-amber-900 border border-amber-200">
+                            <Clock className="w-3.5 h-3.5 text-amber-700" />
+                            <span>En Alquiler</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-black uppercase bg-blue-100 text-blue-800 border border-blue-200">
+                            <Clock className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Activa</span>
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 9. Acciones: Ver / Imprimir Comprobante */}
                       <td className="px-3.5 py-3 text-center">
                         <div className="flex items-center justify-center gap-1.5 flex-wrap">
                           {f.totalExigible > 0 && (
@@ -595,7 +662,7 @@ export default function PerfilClientePage() {
                                 setFacturaSeleccionadaId(f.id);
                                 setModalLiquidarAbierto(true);
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
                               title="Cobrar saldo pendiente y liquidar factura"
                             >
                               <DollarSign className="w-3.5 h-3.5" />
@@ -607,11 +674,11 @@ export default function PerfilClientePage() {
                             type="button"
                             onClick={() => abrirImpresionFactura(f.id)}
                             disabled={cargandoPdfId === f.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold border border-slate-300 transition"
-                            title="Reimprimir o exportar PDF de la factura"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                            title="Ver e imprimir comprobante en 80mm, Media Carta o Carta"
                           >
-                            <Printer className="w-3.5 h-3.5 text-blue-600" />
-                            <span>{cargandoPdfId === f.id ? "..." : "PDF"}</span>
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>{cargandoPdfId === f.id ? "Cargando..." : "Comprobante"}</span>
                           </button>
                         </div>
                       </td>
@@ -637,15 +704,41 @@ export default function PerfilClientePage() {
         }}
       />
 
-      {/* Modal de Reimpresión Universal */}
-      {modalImpresionAbierto && datosImpresionModal && (
-        <PlantillaImpresion
-          datos={datosImpresionModal}
-          onCerrar={() => {
-            setModalImpresionAbierto(false);
-            setDatosImpresionModal(null);
-          }}
-        />
+      {/* Modal de Reimpresión Universal Flotante */}
+      {modalImpresionAbierto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="shrink-0 p-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Printer className="w-4 h-4 text-blue-400" />
+                <span className="text-xs font-black">
+                  Visor de Comprobante / PDF {datosImpresionModal?.factura?.numeroFactura ? `#${datosImpresionModal.factura.numeroFactura}` : ""}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalImpresionAbierto(false);
+                  setDatosImpresionModal(null);
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                title="Cerrar visor de impresión"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 bg-slate-50">
+              <PlantillaImpresion
+                datos={datosImpresionModal}
+                facturaId={cargandoPdfId || undefined}
+                onCerrar={() => {
+                  setModalImpresionAbierto(false);
+                  setDatosImpresionModal(null);
+                }}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     const clienteId = searchParams.get("clienteId")?.trim() || "";
     const sincronizar = searchParams.get("sync") === "true";
 
+    const moduloParam = searchParams.get("modulo");
     const tipoParam = searchParams.get("tipo") || searchParams.get("tipoOperacion");
 
     // Si se solicita sincronización forzada en BD
@@ -34,9 +35,14 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {};
 
-    if (tipoParam === "ALQUILER") {
+    if (moduloParam === "ALQUILERES" || tipoParam === "ALQUILER") {
       where.tipoOperacion = "ALQUILER";
-    } else if (tipoParam === "VENTA" || tipoParam === "POS" || tipoParam === "VENTA_ARREGLO") {
+    } else if (
+      moduloParam === "POS" ||
+      tipoParam === "VENTA" ||
+      tipoParam === "POS" ||
+      tipoParam === "VENTA_ARREGLO"
+    ) {
       where.tipoOperacion = { not: "ALQUILER" };
     }
 

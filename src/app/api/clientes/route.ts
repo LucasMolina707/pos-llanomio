@@ -16,9 +16,11 @@ const NO_CACHE_HEADERS = {
  * Carga completa de clientes ordenados por más recientes / frecuentes
  * con soporte de búsqueda multi-campo (documento, nombre, razón social, teléfono, email, dirección).
  */
-export async function GET(req: NextRequest) {
+export async function GET(req: NextRequest | Request) {
   try {
-    const { searchParams } = new URL(req.url);
+    const searchParams = req?.url
+      ? new URL(req.url).searchParams
+      : new URL("http://localhost/api/clientes").searchParams;
     const q = searchParams.get("q")?.trim() || "";
     const limiteParam = searchParams.get("limite");
     const limite = limiteParam ? parseInt(limiteParam, 10) : undefined;
@@ -58,13 +60,12 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const clientes = await prisma.cliente.findMany({
+    const clientesRaw = await prisma.cliente.findMany({
       where,
       take: limite || undefined,
       orderBy: [
-        { updatedAt: "desc" },
         { fechaCreacion: "desc" },
-        { nombre: "asc" },
+        { updatedAt: "desc" },
       ],
       select: {
         id: true,
@@ -89,6 +90,11 @@ export async function GET(req: NextRequest) {
         },
       },
     });
+
+    const clientes = clientesRaw.map((c) => ({
+      ...c,
+      identificacion: c.documento,
+    }));
 
     return NextResponse.json(
       {

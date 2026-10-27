@@ -78,8 +78,19 @@ export async function obtenerSesionActual(): Promise<TokenPayload | null> {
 /**
  * Obtiene la sesión desde una solicitud HTTP entrante (útil para route handlers y middleware)
  */
-export async function obtenerSesionDesdeRequest(req: NextRequest): Promise<TokenPayload | null> {
-  const token = req.cookies.get(NOMBRE_COOKIE_SESION)?.value;
-  if (!token) return null;
-  return await verificarTokenSesion(token);
+export async function obtenerSesionDesdeRequest(req: NextRequest | Request): Promise<TokenPayload | null> {
+  try {
+    let token: string | undefined;
+    if ("cookies" in req && typeof (req as { cookies?: { get?: (name: string) => { value?: string } } }).cookies?.get === "function") {
+      token = (req as { cookies: { get: (name: string) => { value?: string } } }).cookies.get(NOMBRE_COOKIE_SESION)?.value;
+    } else {
+      const cookieHeader = req.headers.get("cookie") || "";
+      const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${NOMBRE_COOKIE_SESION}=([^;]*)`));
+      token = match ? decodeURIComponent(match[1]) : undefined;
+    }
+    if (!token) return null;
+    return await verificarTokenSesion(token);
+  } catch {
+    return null;
+  }
 }

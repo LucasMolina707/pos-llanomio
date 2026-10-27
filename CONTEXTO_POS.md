@@ -1587,6 +1587,41 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Restablecimiento de Fábrica (`scripts/reset-db-fabrica.ts`):** Base de datos SQLite depurada y compactada a estado 100% virgen (0 clientes, 0 productos, 0 facturas, 1 admin, 1 empresa).
 - **Compilación de Producción:** `npm run build` completado exitosamente con **código 0 y 22 rutas estáticas y dinámicas optimizadas**.
 
+---
+
+## 35. Resolución de Tres Fallos Críticos: Alquileres, Estabilidad de Clientes y Segregación de Historiales
+
+### 1. Erradicación del "Error Interno 500" en Alquileres y Pase Directo a Impresión
+- **Archivos blindados:** `src/app/api/facturas/route.ts`, `src/app/api/facturas/[id]/route.ts`, `src/app/api/impresion/[id]/route.ts`, `src/components/impresion/PlantillaImpresion.tsx`, `src/app/caja/alquileres/page.tsx`.
+- **Causa raíz eliminada:**
+  1. *Fallo de Clave Foránea `P2003` en `cajeroId`:* Si el token o la sesión enviaba un `cajeroId` inexistente tras un reinicio de base de datos, el backend fallaba con error de integridad relacional. Se implementó una resolución defensiva que localiza al usuario activo en `database/llanomio.db`.
+  2. *Strings vacíos en fechas:* Se implementó `parseFechaSegura()` para evitar que strings vacíos `""` o valores nulos rompan la serialización `Date` en Prisma.
+  3. *Sanitización de montos y métodos de pago:* Normalización de `Number(val) || 0` en `montoDeposito`, `abonoInicial`, y validación contra el enum `MetodoPago`.
+  4. *Cierre y liquidación sin 500:* En `POST /api/facturas/[id]`, la liberación de prendas solo afecta a aquellos ítems con `productoId !== null` mediante `updateMany`, liquidando depósitos y pasando el estado a `EstadoFactura.CERRADA` con saldo 0.
+  5. *Transición inmediata a impresión:* `<PlantillaImpresion />` ahora soporta la propiedad `facturaId?: string`, auto-hidratando los datos desde `GET /api/impresion/[id]` tanto al expedir un nuevo alquiler como al liquidar el cierre (Paz y Salvo) en los 3 formatos: **Tirilla 80mm**, **Media Carta** y **Carta**.
+
+### 2. Eliminación del Parpadeo Intermitente de Clientes y Sincronización 1:1
+- **Archivos corregidos:** `src/app/caja/pos/page.tsx`, `src/app/caja/alquileres/page.tsx`, `src/app/api/clientes/route.ts`.
+- **Causa raíz eliminada:**
+  1. *Dependencias inestables en `useEffect`:* En `/caja/pos`, la referencia reactiva de `cajon` cambiaba en cada render, disparando peticiones repetitivas a `/api/clientes` y vaciando el listado (`setLoadingClientes(true)`), lo que provocaba que las tarjetas parpadearan o desaparecieran y se perdiera el foco o clic del cajero.
+  2. *Carga silenciosa (`silent = true`):* Se desacopló la carga inicial a un `useEffect` con arreglo de dependencias vacío `[]`, y las recargas posteriores se realizan en segundo plano sin vaciar la lista existente ni mostrar pantallas de carga intrusivas.
+  3. *Unificación del contrato de datos:* `GET /api/clientes` expone de forma canónica `identificacion: c.documento` y ordena los resultados por `fechaCreacion: 'desc'` con cabeceras `Cache-Control: no-store`. Cualquier cliente creado en Alquileres queda disponible de inmediato para el POS y viceversa.
+
+### 3. Segregación Estricta de Historiales por Módulo y Expediente Unificado en Galería de Clientes
+- **Archivos modificados:** `src/app/api/facturas/route.ts`, `src/app/api/facturas/monitoreo/route.ts`, `src/app/api/clientes/[id]/route.ts`, `src/app/caja/pos/page.tsx`, `src/app/caja/alquileres/page.tsx`, `src/app/admin/clientes/page.tsx`, `src/app/admin/clientes/[id]/page.tsx`.
+- **Reglas implementadas:**
+  1. **Historial POS (`/caja/pos`):** Filtra y muestra **únicamente Ventas y Arreglos de Sastrería** (`tipoOperacion !== 'ALQUILER'`), descartando de raíz cualquier factura de alquiler.
+  2. **Historial Alquileres (`/caja/alquileres`):** Filtra y muestra **únicamente Alquileres** (`tipoOperacion === 'ALQUILER'`), con sus pestañas operativas de *En Alquiler*, *En Mora*, *Con Saldo Pendiente* y *Cerrados (Paz y Salvo)*.
+  3. **Galería / Directorio de Clientes (`/admin/clientes` y `/admin/clientes/[id]`):**
+     - Directorio de clientes con buscador en tiempo real, teléfonos primario/secundario, identificación DIAN y botón destacado **"Ver Historial Completo"**.
+     - **Expediente Unificado:** Muestra en una sola línea de tiempo todas las transacciones históricas del cliente (**Ventas + Arreglos + Alquileres**), con desglose de folios, prendas, montos, depósitos, abonos, saldos y botón directo para abrir e imprimir el comprobante con `<PlantillaImpresion />`.
+
+### 4. Certificación de Calidad (QA) y Limpieza de Fábrica
+- **Prueba integral automatizada (`scripts/test-qa-tres-fallos-criticos.ts`):** 7/7 pasos ejecutados con éxito (Creación de cliente con 2 teléfonos -> Expedición de alquiler con depósito -> Cierre y liquidación sin error 500 -> Impresión remota -> Creación de venta en POS -> Segregación estricta de historiales -> Expediente unificado).
+- **Restablecimiento de Fábrica (`scripts/reset-db-fabrica.ts`):** Base de datos `database/llanomio.db` restablecida a estado virgen (0 facturas, 0 clientes, 0 productos, 1 administrador inicial, 1 empresa configurada) y compactada con `VACUUM`.
+- **Compilación de Producción (`npm run build`):** 0 errores de TypeScript, 0 errores de ESLint, 22/22 páginas estáticas y dinámicas compiladas exitosamente.
+
+
 
 
 

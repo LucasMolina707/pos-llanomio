@@ -387,18 +387,20 @@ export default function TerminalAlquileresPage() {
     }
   };
 
-  const cargarClientes = async () => {
+  const cargarClientes = async (silent = false) => {
     try {
-      setCargandoClientes(true);
+      if (!silent) setCargandoClientes(true);
       const res = await fetch("/api/clientes", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        setClientes(data.clientes || []);
+        if (data.success && Array.isArray(data.clientes)) {
+          setClientes(data.clientes);
+        }
       }
     } catch (err) {
       console.error("Error al cargar clientes:", err);
     } finally {
-      setCargandoClientes(false);
+      if (!silent) setCargandoClientes(false);
     }
   };
 
@@ -420,10 +422,14 @@ export default function TerminalAlquileresPage() {
   const cargarHistorialAlquileres = async () => {
     try {
       setCargandoHistorial(true);
-      const res = await fetch("/api/facturas/monitoreo?tipo=ALQUILER", { cache: "no-store" });
+      const res = await fetch("/api/facturas/monitoreo?modulo=ALQUILERES&tipo=ALQUILER", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        setFacturasAlquiler(data.facturas || []);
+        // Filtrar estrictamente solo facturas de tipo ALQUILER
+        const soloAlquileres = (data.facturas || []).filter(
+          (f: FacturaAlquilerMonitoreo) => f.tipoOperacion === "ALQUILER"
+        );
+        setFacturasAlquiler(soloAlquileres);
       }
     } catch (err) {
       console.error("Error al cargar historial de alquileres:", err);

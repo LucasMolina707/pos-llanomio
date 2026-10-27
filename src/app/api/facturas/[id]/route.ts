@@ -110,22 +110,32 @@ export async function POST(req: NextRequest, { params }: Params) {
       );
     }
 
-    // 2. Determinar y validar el cajero autenticado
+    // 2. Determinar y validar el cajero autenticado (Blindaje Anti-P2003)
     let cajeroId = sesion?.userId || cajeroIdBody;
-    if (!cajeroId) {
-      const adminPorDefecto = await prisma.user.findFirst({
-        where: { activo: true },
-        orderBy: { fechaCreacion: "asc" },
+    let usuarioCajero = null;
+
+    if (cajeroId) {
+      usuarioCajero = await prisma.user.findFirst({
+        where: { id: cajeroId, activo: true },
+        select: { id: true, nombre: true, username: true },
       });
-      cajeroId = adminPorDefecto?.id;
     }
 
-    if (!cajeroId) {
+    if (!usuarioCajero) {
+      usuarioCajero = await prisma.user.findFirst({
+        where: { activo: true },
+        orderBy: { fechaCreacion: "asc" },
+        select: { id: true, nombre: true, username: true },
+      });
+    }
+
+    if (!usuarioCajero) {
       return NextResponse.json(
         { success: false, error: "No se identificó un cajero activo para procesar el cobro" },
         { status: 401 }
       );
     }
+    cajeroId = usuarioCajero.id;
 
     // Control de Caja: Si ingresa dinero, la caja no puede estar bloqueada por día anterior ni sin turno
     if (montoNumerico > 0) {
@@ -311,7 +321,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         const estadoDestino = esDaniado ? EstadoPrenda.EN_ARREGLO : EstadoPrenda.DISPONIBLE;
 
         const productosAlquilerIds = facturaExistente.detalles
-          .filter((d) => d.productoId && (d.producto?.tipo === TipoProducto.ALQUILER || !d.esServicioLibre))
+          .filter((d) => Boolean(d.productoId) && (d.producto?.tipo === TipoProducto.ALQUILER || !d.esServicioLibre))
           .map((d) => d.productoId as string);
 
         if (productosAlquilerIds.length > 0) {
@@ -346,7 +356,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
       let nuevoEstado: EstadoFactura = facturaExistente.estado;
       if (nuevoSaldoPendiente <= 0) {
-        if (tienePrendasAlquiler && !fechaDevReal) {
+        if (tienePrendasAlquiler && !fechaDevReal && !procesarDevolucion) {
           nuevoEstado = EstadoFactura.ACTIVA_ALQUILADA;
         } else {
           nuevoEstado = EstadoFactura.CERRADA;
@@ -377,6 +387,7 @@ export async function POST(req: NextRequest, { params }: Params) {
               id: true,
               username: true,
               nombre: true,
+              rol: true,
             },
           },
           detalles: {
@@ -410,8 +421,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     });
   } catch (error: unknown) {
     console.error("Error al registrar cobro/abono:", error);
+    const mensajeError = error instanceof Error ? error.message : "Error interno al procesar el cobro a la factura";
     return NextResponse.json(
-      { success: false, error: "Error interno al procesar el cobro a la factura" },
+      { success: false, error: mensajeError },
       { status: 500 }
     );
   }
