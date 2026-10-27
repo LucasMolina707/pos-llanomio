@@ -51,6 +51,7 @@ import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import { useCajonSincronizado } from "@/hooks/useCajonSincronizado";
 import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
 import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
+import { safeFetchJson } from "@/lib/safe-fetch";
 
 export interface ClienteAlquiler {
   id: string;
@@ -295,17 +296,14 @@ export default function TerminalAlquileresPage() {
       const id = typeof facturaOId === "string" ? facturaOId : facturaOId?.id;
       if (id) {
         setFacturaImpresionId(id);
-        const res = await fetch(`/api/impresion/${id}`, { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.factura) {
-            setDatosComprobanteModal({
-              factura: data.factura,
-              empresa: data.empresa || empresaConfig,
-            });
-            setModalComprobanteAbierto(true);
-            return;
-          }
+        const res = await safeFetchJson<any>(`/api/impresion/${id}`);
+        if (res.ok && res.data?.success && res.data?.factura) {
+          setDatosComprobanteModal({
+            factura: res.data.factura,
+            empresa: res.data.empresa || empresaConfig,
+          });
+          setModalComprobanteAbierto(true);
+          return;
         }
       }
     } catch (err) {
@@ -395,10 +393,9 @@ export default function TerminalAlquileresPage() {
   const cargarApartadosActivos = async () => {
     try {
       setCargandoApartadosModal(true);
-      const res = await fetch("/api/facturas/monitoreo?modulo=APARTADOS&tipo=SEPARE", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        const lista = (data.facturas || []).filter(
+      const res = await safeFetchJson<any>("/api/facturas/monitoreo?modulo=APARTADOS&tipo=SEPARE");
+      if (res.ok && res.data) {
+        const lista = (res.data.facturas || []).filter(
           (f: any) => f.tipoOperacion === "SEPARE" && f.estado !== "CERRADA"
         );
         setApartadosDisponibles(lista);
@@ -485,12 +482,9 @@ export default function TerminalAlquileresPage() {
 
   const cargarApartadoPorId = async (id: string) => {
     try {
-      const res = await fetch(`/api/facturas/${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.factura) {
-          seleccionarApartadoParaAlquilar(data.factura);
-        }
+      const res = await safeFetchJson<any>(`/api/facturas/${id}`);
+      if (res.ok && res.data?.success && res.data?.factura) {
+        seleccionarApartadoParaAlquilar(res.data.factura);
       }
     } catch (err) {
       console.error("Error al cargar apartado por ID:", err);
@@ -499,10 +493,9 @@ export default function TerminalAlquileresPage() {
 
   const cargarSesion = async () => {
     try {
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        setUsuarioSesion(data.usuario || null);
+      const res = await safeFetchJson<any>("/api/auth/me");
+      if (res.ok && res.data?.usuario) {
+        setUsuarioSesion(res.data.usuario);
       }
     } catch (err) {
       console.warn("No se pudo obtener la sesión actual:", err);
@@ -511,10 +504,9 @@ export default function TerminalAlquileresPage() {
 
   const cargarEmpresa = async () => {
     try {
-      const res = await fetch("/api/empresa", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setEmpresaConfig(data.empresa || null);
+      const res = await safeFetchJson<any>("/api/empresa");
+      if (res.ok && res.data) {
+        setEmpresaConfig(res.data.empresa || res.data.configuracion || null);
       }
     } catch (err) {
       console.warn("No se pudo cargar la configuración de empresa:", err);
@@ -524,12 +516,9 @@ export default function TerminalAlquileresPage() {
   const cargarClientes = async (silent = false) => {
     try {
       if (!silent) setCargandoClientes(true);
-      const res = await fetch("/api/clientes", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.clientes)) {
-          setClientes(data.clientes);
-        }
+      const res = await safeFetchJson<any>("/api/clientes");
+      if (res.ok && res.data?.success && Array.isArray(res.data.clientes)) {
+        setClientes(res.data.clientes);
       }
     } catch (err) {
       console.error("Error al cargar clientes:", err);
@@ -541,10 +530,9 @@ export default function TerminalAlquileresPage() {
   const cargarPrendas = async () => {
     try {
       setCargandoPrendas(true);
-      const res = await fetch("/api/inventario?tipo=ALQUILER");
-      if (res.ok) {
-        const data = await res.json();
-        setPrendas(data.productos || []);
+      const res = await safeFetchJson<any>("/api/inventario?tipo=ALQUILER");
+      if (res.ok && res.data) {
+        setPrendas(res.data.productos || []);
       }
     } catch (err) {
       console.error("Error al cargar prendas de alquiler:", err);
@@ -556,11 +544,9 @@ export default function TerminalAlquileresPage() {
   const cargarHistorialAlquileres = async () => {
     try {
       setCargandoHistorial(true);
-      const res = await fetch("/api/facturas/monitoreo?modulo=ALQUILERES&tipo=ALQUILER", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        // Filtrar estrictamente solo facturas de tipo ALQUILER
-        const soloAlquileres = (data.facturas || []).filter(
+      const res = await safeFetchJson<any>("/api/facturas/monitoreo?modulo=ALQUILERES&tipo=ALQUILER");
+      if (res.ok && res.data) {
+        const soloAlquileres = (res.data.facturas || []).filter(
           (f: FacturaAlquilerMonitoreo) => f.tipoOperacion === "ALQUILER"
         );
         setFacturasAlquiler(soloAlquileres);
@@ -824,21 +810,20 @@ export default function TerminalAlquileresPage() {
           })),
         };
 
-        const res = await fetch(`/api/facturas/${apartadoOrigen.id}`, {
+        const res = await safeFetchJson<any>(`/api/facturas/${apartadoOrigen.id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payloadConversion),
         });
 
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          if (res.status === 409 && (data.requiereAperturaHoy || data.requiereCierreAnterior)) {
+        if (!res.ok || !res.data?.success) {
+          if (res.status === 409 && (res.data?.requiereAperturaHoy || res.data?.requiereCierreAnterior)) {
             await cajon.actualizarCajon(false);
             cajon.abrirModal();
           }
-          throw new Error(data.error || "No se pudo convertir el apartado en alquiler activo.");
+          throw new Error(res.error || "No se pudo convertir el apartado en alquiler activo.");
         }
-        facturaFinal = data.factura || data;
+        facturaFinal = res.data.factura || res.data;
       } else {
         const payload = {
           clienteId: clienteSeleccionado.id,
@@ -879,21 +864,20 @@ export default function TerminalAlquileresPage() {
         const endpoint = facturaEnCursoId ? `/api/facturas/${facturaEnCursoId}` : "/api/facturas";
         const payloadFinal = facturaEnCursoId ? { ...payload, reemplazarEnCurso: true } : payload;
 
-        const res = await fetch(endpoint, {
+        const res = await safeFetchJson<any>(endpoint, {
           method,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payloadFinal),
         });
 
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          if (res.status === 409 && (data.requiereAperturaHoy || data.requiereCierreAnterior)) {
+        if (!res.ok || !res.data?.success) {
+          if (res.status === 409 && (res.data?.requiereAperturaHoy || res.data?.requiereCierreAnterior)) {
             await cajon.actualizarCajon(false);
             cajon.abrirModal();
           }
-          throw new Error(data.error || "No se pudo registrar el alquiler.");
+          throw new Error(res.error || "No se pudo registrar el alquiler.");
         }
-        facturaFinal = data.factura || data;
+        facturaFinal = res.data.factura || res.data;
       }
 
       // Sincronizar en vivo el cajón
@@ -1006,19 +990,21 @@ export default function TerminalAlquileresPage() {
         notas: notasAbonar.trim() || `Abono a contrato de alquiler N° ${alquilerAbonar.numeroFactura}`,
       };
 
-      const res = await fetch(`/api/facturas/${alquilerAbonar.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const { ok, status, data, error } = await safeFetchJson<{ success?: boolean; error?: string; factura?: any }>(
+        `/api/facturas/${alquilerAbonar.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        if (res.status === 409) {
+      if (!ok || !data?.success) {
+        if (status === 409) {
           await cajon.actualizarCajon(false);
           cajon.abrirModal();
         }
-        throw new Error(data.error || "No se pudo registrar el abono en el sistema.");
+        throw new Error(data?.error || error || "No se pudo registrar el abono en el sistema.");
       }
 
       // Sincronizar en vivo el saldo de cajón
@@ -1107,19 +1093,21 @@ export default function TerminalAlquileresPage() {
         notas: `Liquidación de alquiler. Depósito ${resolucionDeposito}: Devuelto $${montoDevueltoFinal.toLocaleString("es-CO")}, Retenido $${montoRetenidoFinal.toLocaleString("es-CO")}.`,
       };
 
-      const res = await fetch(`/api/facturas/${alquilerLiquidar.id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const { ok, status, data, error } = await safeFetchJson<{ success?: boolean; error?: string; factura?: any }>(
+        `/api/facturas/${alquilerLiquidar.id}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        if (res.status === 409) {
+      if (!ok || !data?.success) {
+        if (status === 409) {
           await cajon.actualizarCajon(false);
           cajon.abrirModal();
         }
-        throw new Error(data.error || "No se pudo liquidar el contrato de alquiler.");
+        throw new Error(data?.error || error || "No se pudo liquidar el contrato de alquiler.");
       }
 
       // Sincronizar en vivo el saldo de gaveta

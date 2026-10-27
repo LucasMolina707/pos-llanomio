@@ -2068,5 +2068,43 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Estado de Fábrica Limpio:** Ejecutado `npx tsx scripts/reset-db-fabrica.ts` dejando la base de datos `database/llanomio.db` virgen y compactada con `VACUUM`.
 - **Cero Emojis:** Cumplimiento estricto de las directrices del proyecto utilizando iconografía vectorial `lucide-react`.
 
+---
+
+## 20. Erradicación del Error SyntaxError JSON y Rediseño Ergonómico de Pantalla Completa (100vw x 100vh)
+
+### 1. Diagnóstico de Causa Raíz del Error `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON`
+1. **Petición a Rutas Inexistentes / Desalineadas:** En `/caja/apartados`, se consumía `/api/configuracion` (inexistente previamente), provocando que Next.js devolviera la página de error 404 HTML (`<!DOCTYPE html>...`). Al ejecutar `await res.json()`, el motor V8 fallaba inmediatamente con `Unexpected token '<'`.
+2. **Redirecciones HTML en Middleware:** Cuando una petición client-side no incluía cabeceras de sesión o expiraba el token, el middleware ejecutaba `NextResponse.redirect(new URL('/login', req.url))` que entregaba HTML del login con código 307.
+3. **Parseo Ciego de `res.json()`:** Los componentes frontend asumían que toda respuesta de red contenía JSON sin comprobar `content-type: application/json` ni el código HTTP.
+
+### 2. Solución de Arquitectura Implementada
+1. **Helper Universal Seguro (`src/lib/safe-fetch.ts`):**
+   - Función tipada `safeFetchJson<T>(url: string, options?: RequestInit)` que inyecta `Accept: application/json`, valida exhaustivamente el encabezado `content-type`, captura cualquier texto no JSON (HTML de 404 o 500) sin lanzar excepción no controlada, y devuelve un objeto seguro `{ ok: boolean, status: number, data: T | null, error?: string }`.
+2. **Blindaje de Middleware Edge (`src/middleware.ts`):**
+   - Para toda ruta `pathname.startsWith('/api/')` o peticiones con encabezado `Accept: application/json`, nunca se retorna `NextResponse.redirect` hacia `/login`. En su lugar, responde estrictamente con `NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 })`.
+3. **Creación de Endpoints Estratégicos:**
+   - `src/app/api/apartados/route.ts`: Manejador `GET` y `POST` dedicado para facturas tipo `SEPARE` delegando limpiamente hacia `/api/facturas` y garantizando respuesta JSON 200/201.
+   - `src/app/api/configuracion/route.ts`: Alias activo a `/api/empresa` retornando siempre JSON válido.
+4. **Migración Universal a `safeFetchJson`:**
+   - 100% de llamadas `fetch` en `/caja/apartados/page.tsx`, `/caja/alquileres/page.tsx`, `/caja/pos/page.tsx` y `AppLayout.tsx` migradas a `safeFetchJson`.
+
+### 3. Rediseño Ergonómico de Pantalla Completa sin Scroll Global (`100vw x 100vh`)
+1. **Estructura Viewport Fija en las 3 Terminales:**
+   - Cada terminal (`/caja/pos`, `/caja/alquileres`, `/caja/apartados`) opera en `w-screen h-screen overflow-hidden flex flex-col bg-[#F3F6F9]`.
+   - **Header Fijo (`h-14 shrink-0 px-4 bg-white border-b border-slate-200`):**
+     - Botón `<- Regresar`, Logotipo empresarial, Título de la terminal con acento antifatiga (Azul en POS, Esmeralda en Alquileres, Índigo en Apartados).
+     - Stepper horizontal compacto en línea (Pasos 1, 2, 3 y 4).
+     - Badge de gaveta conectada (`Saldo: $XX.XXX`), conmutadores rápidos entre `[POS]`, `[Alquileres]`, `[Apartados]` y botón `[Operación Actual]` / `[Historial]`.
+   - **Cuerpo en Consola Dividida (`flex-1 min-h-0 grid grid-cols-12 gap-3 p-3 overflow-hidden`):**
+     - **Columna Izquierda (`col-span-12 lg:col-span-8 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden`):** Cabecera interna compacta de búsqueda y scroll exclusivo interno para listas densas de clientes, prendas o calculadora de vueltas.
+     - **Columna Derecha (`col-span-12 lg:col-span-4 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden`):** Resumen permanente de cliente, carrito con scroll interno y pie fijo con totales y botones grandes de navegación (`<- Anterior` y `Siguiente ->`) siempre a la vista sin scroll de página.
+   - **Aislamiento en `AppLayout.tsx`:** Confirmada la exclusión de Sidebar y márgenes externos para consolas operativas.
+
+### 4. Control de Calidad y Verificación
+- **Validación TypeScript / Next.js:** `npm run build` ejecutado exitosamente con código de salida 0 y 0 errores de compilación o tipado en las 23 rutas.
+- **Pruebas de Red y Servidor:** Respuestas HTTP 200 confirmadas en `/caja/apartados`, `/caja/alquileres`, `/caja/pos`, `/api/clientes`, `/api/inventario`, `/api/facturas` y `/api/empresa`.
+- **Cero Emojis:** Verificación integral con ripgrep confirmando cero emojis en código e interfaces, utilizando únicamente `lucide-react`.
+
+
 
 

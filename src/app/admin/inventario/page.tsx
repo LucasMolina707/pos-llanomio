@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   Package,
+  ShoppingBag,
   Plus,
   Search,
   Filter,
@@ -270,11 +271,29 @@ export default function InventarioAdminPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
+        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
+          <Link
+            href="/caja/alquileres"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-300/80 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition"
+            title="Ir a Terminal de Alquileres"
+          >
+            <Clock className="h-4 w-4 text-emerald-600" />
+            <span className="hidden sm:inline">Alquileres</span>
+          </Link>
+
+          <Link
+            href="/caja/pos"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-300/80 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition"
+            title="Ir a Terminal POS"
+          >
+            <ShoppingBag className="h-4 w-4 text-blue-600" />
+            <span className="hidden sm:inline">Terminal POS</span>
+          </Link>
+
           <button
             type="button"
             onClick={handleNuevoProducto}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm shadow-blue-500/20 transition"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm shadow-blue-500/20 transition cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Nueva Prenda</span>

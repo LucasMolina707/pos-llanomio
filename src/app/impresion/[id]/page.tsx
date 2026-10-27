@@ -40,18 +40,34 @@ export default async function ImpresionFacturaPage({ params }: ImpresionPageProp
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Link
+            href="/caja/apartados"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-all shrink-0"
+            title="Ir a Apartados y Reservas"
+          >
+            <span>Apartados</span>
+          </Link>
           <Link
             href="/caja/alquileres"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 transition-all shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-emerald-50 text-emerald-900 border border-emerald-300 hover:bg-emerald-100 transition-all shrink-0"
+            title="Ir a Sistema de Alquileres"
           >
-            <span>Ir a Alquileres</span>
+            <span>Alquileres</span>
           </Link>
           <Link
             href="/caja/pos"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 transition-all shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-blue-50 text-blue-900 border border-blue-300 hover:bg-blue-100 transition-all shrink-0"
+            title="Ir a Terminal POS"
           >
-            <span>Ir a POS</span>
+            <span>Terminal POS</span>
+          </Link>
+          <Link
+            href="/admin/monitoreo"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 transition-all shrink-0"
+            title="Ir a Historial de Facturas y Moras"
+          >
+            <span>Historial Facturas</span>
           </Link>
         </div>
       </header>

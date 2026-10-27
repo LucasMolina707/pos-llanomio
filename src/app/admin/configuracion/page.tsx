@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import TarjetaConexionLAN from "@/components/red/TarjetaConexionLAN";
 import {
@@ -8,6 +9,8 @@ import {
   FileText,
   Save,
   Database,
+  BarChart3,
+  ShoppingBag,
   CheckCircle2,
   AlertCircle,
   Eye,
@@ -320,6 +323,24 @@ export default function ConfiguracionAdminPage() {
         </div>
 
         <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
+          <Link
+            href="/admin/dashboard"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-300/80 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition"
+            title="Ir a Métricas y Rendimiento"
+          >
+            <BarChart3 className="h-4 w-4 text-indigo-600" />
+            <span className="hidden sm:inline">Métricas</span>
+          </Link>
+
+          <Link
+            href="/caja/pos"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-300/80 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition"
+            title="Ir a Terminal POS"
+          >
+            <ShoppingBag className="h-4 w-4 text-blue-600" />
+            <span className="hidden sm:inline">Terminal POS</span>
+          </Link>
+
           <button
             type="button"
             onClick={() => router.push("/admin/usuarios")}

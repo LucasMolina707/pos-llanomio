@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 
+import { safeFetchJson } from "@/lib/safe-fetch";
+
 interface UsuarioSesion {
   userId: string;
   username: string;
@@ -26,28 +28,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return null;
   });
 
-  // Consultar usuario en sesión
+  // Consultar usuario en sesión de forma segura
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.ok && data?.user) {
-          setUsuario(data.user);
-          if (typeof window !== "undefined") {
-            try {
-              sessionStorage.setItem("pos_llanomio_user", JSON.stringify(data.user));
-            } catch {}
-          }
-        } else {
-          setUsuario(null);
-          if (typeof window !== "undefined") {
-            try {
-              sessionStorage.removeItem("pos_llanomio_user");
-            } catch {}
-          }
+    let activo = true;
+    safeFetchJson<{ ok?: boolean; user?: UsuarioSesion }>("/api/auth/me").then(({ ok, data }) => {
+      if (!activo) return;
+      if (ok && data?.ok && data?.user) {
+        setUsuario(data.user);
+        if (typeof window !== "undefined") {
+          try {
+            sessionStorage.setItem("pos_llanomio_user", JSON.stringify(data.user));
+          } catch {}
         }
-      })
-      .catch(() => {});
+      } else {
+        setUsuario(null);
+        if (typeof window !== "undefined") {
+          try {
+            sessionStorage.removeItem("pos_llanomio_user");
+          } catch {}
+        }
+      }
+    });
+    return () => {
+      activo = false;
+    };
   }, [pathname]);
 
   // Cerrar menú móvil al navegar

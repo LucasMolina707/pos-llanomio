@@ -84,7 +84,11 @@ export async function middleware(req: NextRequest) {
 
   // 4. Bloqueo estricto para rutas privadas: Si no hay sesión válida
   if (!sesionValida) {
-    if (pathname.startsWith("/api/")) {
+    const esPeticionApiOJson =
+      pathname.startsWith("/api/") ||
+      req.headers.get("accept")?.includes("application/json");
+
+    if (esPeticionApiOJson) {
       return NextResponse.json(
         { ok: false, error: "No autenticado. Inicie sesión para continuar." },
         { status: 401, headers: NO_CACHE_HEADERS }
@@ -105,7 +109,11 @@ export async function middleware(req: NextRequest) {
     );
 
     if (esRutaProhibida) {
-      if (pathname.startsWith("/api/")) {
+      const esPeticionApiOJson =
+        pathname.startsWith("/api/") ||
+        req.headers.get("accept")?.includes("application/json");
+
+      if (esPeticionApiOJson) {
         return NextResponse.json(
           { ok: false, error: "Acceso restringido para perfil cajero." },
           { status: 403, headers: NO_CACHE_HEADERS }

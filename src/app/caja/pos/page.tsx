@@ -25,6 +25,7 @@ import {
   Sparkles,
   FileText,
   Clock,
+  CalendarClock,
   Tag,
   Calendar,
   Wallet,
@@ -56,6 +57,7 @@ import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import { useCajonSincronizado, EstadoSeguridadCajaInfo } from "@/hooks/useCajonSincronizado";
 import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
 import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
+import { safeFetchJson } from "@/lib/safe-fetch";
 
 export interface ProductoInventario {
   id: string;
@@ -351,19 +353,19 @@ export default function PosPage() {
   const cargarSesionYTurno = useCallback(async () => {
     try {
       const [resAuth, resEmp] = await Promise.all([
-        fetch("/api/auth/me"),
-        fetch("/api/empresa", { cache: "no-store" }),
+        safeFetchJson<{ ok?: boolean; user?: any }>("/api/auth/me"),
+        safeFetchJson<{ configuracion?: any; empresa?: any }>("/api/empresa"),
       ]);
 
-      const dataAuth = await resAuth.json();
-      if (dataAuth.ok && dataAuth.user) {
-        setUsuarioSesion(dataAuth.user);
+      if (resAuth.ok && resAuth.data?.ok && resAuth.data.user) {
+        setUsuarioSesion(resAuth.data.user);
       }
 
-      const dataEmp = await resEmp.json();
-      const conf = dataEmp.configuracion || dataEmp.empresa;
-      if (conf) {
-        setEmpresaConfig((prev: any) => ({ ...prev, ...conf }));
+      if (resEmp.ok && resEmp.data) {
+        const conf = resEmp.data.configuracion || resEmp.data.empresa;
+        if (conf) {
+          setEmpresaConfig((prev: any) => ({ ...prev, ...conf }));
+        }
       }
 
       await cajon.actualizarCajon(true);
@@ -377,9 +379,8 @@ export default function PosPage() {
       if (!silent) {
         setCargandoClientesInicial(true);
       }
-      const res = await fetch("/api/clientes", { cache: "no-store" });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.clientes)) {
+      const { ok, data } = await safeFetchJson<{ success?: boolean; clientes?: any[] }>("/api/clientes");
+      if (ok && data?.success && Array.isArray(data.clientes)) {
         setTodosLosClientes(data.clientes);
       }
     } catch (err) {
@@ -394,9 +395,8 @@ export default function PosPage() {
   const cargarInventario = useCallback(async () => {
     try {
       setCargandoInventario(true);
-      const res = await fetch("/api/inventario?tipo=TODOS", { cache: "no-store" });
-      const data = await res.json();
-      if (data.ok) {
+      const { ok, data } = await safeFetchJson<{ ok?: boolean; productos?: ProductoInventario[] }>("/api/inventario?tipo=TODOS");
+      if (ok && data?.ok) {
         setCatalogoInventario(data.productos || []);
       }
     } catch (err) {
@@ -418,9 +418,8 @@ export default function PosPage() {
         ? "/api/facturas/monitoreo?modulo=POS&sync=true&tipo=VENTA_ARREGLO"
         : "/api/facturas/monitoreo?modulo=POS&tipo=VENTA_ARREGLO";
 
-      const res = await fetch(url, { cache: "no-store" });
-      const data = await res.json();
-      if (data.success) {
+      const { ok, data } = await safeFetchJson<{ success?: boolean; facturas?: FacturaMonitoreo[]; estadisticas?: any }>(url);
+      if (ok && data?.success) {
         // En la terminal POS solo mostramos Ventas y Arreglos
         const soloPos = (data.facturas || []).filter((f: FacturaMonitoreo) => f.tipoOperacion !== "ALQUILER");
         setFacturasMonitoreo(soloPos);
@@ -443,21 +442,21 @@ export default function PosPage() {
     const iniciarApp = async () => {
       try {
         const [resAuth, resEmp] = await Promise.all([
-          fetch("/api/auth/me"),
-          fetch("/api/empresa", { cache: "no-store" }),
+          safeFetchJson<{ ok?: boolean; user?: any }>("/api/auth/me"),
+          safeFetchJson<{ configuracion?: any; empresa?: any }>("/api/empresa"),
         ]);
 
         if (!montado) return;
 
-        const dataAuth = await resAuth.json();
-        if (dataAuth.ok && dataAuth.user) {
-          setUsuarioSesion(dataAuth.user);
+        if (resAuth.ok && resAuth.data?.ok && resAuth.data.user) {
+          setUsuarioSesion(resAuth.data.user);
         }
 
-        const dataEmp = await resEmp.json();
-        const conf = dataEmp.configuracion || dataEmp.empresa;
-        if (conf) {
-          setEmpresaConfig((prev: any) => ({ ...prev, ...conf }));
+        if (resEmp.ok && resEmp.data) {
+          const conf = resEmp.data.configuracion || resEmp.data.empresa;
+          if (conf) {
+            setEmpresaConfig((prev: any) => ({ ...prev, ...conf }));
+          }
         }
 
         await cajon.actualizarCajon(true);
@@ -833,19 +832,21 @@ export default function PosPage() {
       const endpoint = facturaEnCursoId ? `/api/facturas/${facturaEnCursoId}` : "/api/facturas";
       const payloadFinal = facturaEnCursoId ? { ...payload, reemplazarEnCurso: true } : payload;
 
-      const res = await fetch(endpoint, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payloadFinal),
-      });
+      const { ok, status, data, error } = await safeFetchJson<{ success?: boolean; error?: string; factura?: any }>(
+        endpoint,
+        {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payloadFinal),
+        }
+      );
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        if (res.status === 409) {
+      if (!ok || !data?.success) {
+        if (status === 409) {
           await cajon.actualizarCajon(false);
           cajon.abrirModal();
         }
-        throw new Error(data.error || "No se pudo registrar la factura.");
+        throw new Error(data?.error || error || "No se pudo registrar la factura.");
       }
 
       // Sincronizar en vivo el saldo de gaveta
@@ -1009,11 +1010,11 @@ export default function PosPage() {
   };
 
   return (
-    <div className="min-h-screen lg:h-screen w-full lg:w-screen overflow-y-auto lg:overflow-hidden flex flex-col bg-[#F4F6F8] select-none text-slate-800 max-w-full overflow-x-hidden">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#F4F6F8] select-none text-slate-800">
       {/* ========================================================================= */}
-      {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA (min-h-[3.75rem] py-2 shrink-0) */}
+      {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA (h-14 shrink-0) */}
       {/* ========================================================================= */}
-      <header className="min-h-[3.75rem] py-2 shrink-0 px-3 sm:px-4 bg-[#FCFDFE] text-slate-800 flex flex-wrap items-center justify-between border-b border-slate-200/90 shadow-2xs z-30 gap-2">
+      <header className="h-14 shrink-0 px-4 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200/90 shadow-2xs z-30 gap-2">
         {/* Izquierda: Logo Oficial, Identificador de Terminal, Cajero y Estado de Caja */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {/* Botón Regresar al Menú Principal */}
@@ -1224,15 +1225,24 @@ export default function PosPage() {
             <span className="hidden sm:inline">Nueva Factura</span>
           </button>
 
+          {/* Botón: Acceso al Sistema de Apartados y Reservas */}
+          <Link
+            href="/caja/apartados"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 transition shadow-2xs"
+            title="Abrir terminal de Apartados y Reservas"
+          >
+            <CalendarClock className="w-4 h-4 text-amber-700 shrink-0" />
+            <span className="hidden sm:inline">Apartados</span>
+          </Link>
+
           {/* Botón: Acceso al Sistema de Alquileres */}
           <Link
             href="/caja/alquileres"
-            target="_blank"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm shadow-emerald-500/20"
-            title="Abrir terminal independiente de Alquileres en ventana dedicada"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs md:text-sm font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 transition shadow-2xs"
+            title="Abrir terminal independiente de Alquileres"
           >
-            <Clock className="w-4 h-4 shrink-0" />
-            <span className="hidden sm:inline">Sistema de Alquileres</span>
+            <Clock className="w-4 h-4 text-emerald-700 shrink-0" />
+            <span className="hidden sm:inline">Alquileres</span>
           </Link>
 
           {/* Acceso rápido para Salir al Panel Administrativo */}

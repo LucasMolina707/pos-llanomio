@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Store } from "lucide-react";
 
 export interface EmpresaIdentidad {
@@ -181,10 +182,10 @@ export default function LogoEmpresa({
 
   if (linkHref) {
     return (
-      <a href={linkHref} className={`${containerClasses} hover:opacity-95 transition-opacity`}>
+      <Link href={linkHref} className={`${containerClasses} hover:opacity-95 transition-opacity`}>
         {logoNode}
         {textNode}
-      </a>
+      </Link>
     );
   }
 
