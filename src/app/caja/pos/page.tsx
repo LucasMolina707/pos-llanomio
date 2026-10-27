@@ -214,6 +214,8 @@ export default function PosPage() {
 
   // Stepper progresivo en Nueva Factura (1: Cliente, 2: Ítems, 3: Caja/Pago, 4: Impresión)
   const [pasoActual, setPasoActual] = useState<1 | 2 | 3 | 4>(1);
+  // Control de sesión de factura en curso (evita duplicar registros al retroceder entre pasos)
+  const [facturaEnCursoId, setFacturaEnCursoId] = useState<string | null>(null);
 
   // Pestaña activa del Historial (4 Pestañas)
   const [pestanaHistorial, setPestanaHistorial] = useState<PestanaHistorial>("PENDIENTES_AL_DIA");
@@ -826,10 +828,15 @@ export default function PosPage() {
             : undefined,
       };
 
-      const res = await fetch("/api/facturas", {
-        method: "POST",
+      // Si existe facturaEnCursoId, actualizarla con PUT sin crear un nuevo registro; de lo contrario, POST
+      const method = facturaEnCursoId ? "PUT" : "POST";
+      const endpoint = facturaEnCursoId ? `/api/facturas/${facturaEnCursoId}` : "/api/facturas";
+      const payloadFinal = facturaEnCursoId ? { ...payload, reemplazarEnCurso: true } : payload;
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payloadFinal),
       });
 
       const data = await res.json();
@@ -846,6 +853,11 @@ export default function PosPage() {
       cajon.notificarCajaActualizada();
 
       const facturaFinal = data.factura;
+      // Guardar el ID de la factura para evitar duplicados si el usuario retrocede entre pasos
+      if (facturaFinal?.id) {
+        setFacturaEnCursoId(facturaFinal.id);
+      }
+
       setDatosImpresion({
         factura: {
           id: facturaFinal.id,
@@ -864,13 +876,14 @@ export default function PosPage() {
           saldoPendiente: facturaFinal.saldoPendiente,
           notas: facturaFinal.notas,
           cliente: {
-            nombre: facturaFinal.cliente.nombre,
-            documento: facturaFinal.cliente.documento,
-            telefono: facturaFinal.cliente.telefono,
-            direccion: facturaFinal.cliente.direccion,
+            nombre: facturaFinal.cliente?.nombre || "",
+            documento: facturaFinal.cliente?.documento || "",
+            telefono: facturaFinal.cliente?.telefono || "",
+            telefonoSecundario: facturaFinal.cliente?.telefonoSecundario || null,
+            direccion: facturaFinal.cliente?.direccion || "",
           },
           usuarioCajero: facturaFinal.usuarioCajero,
-          detalles: facturaFinal.detalles.map((d: any) => ({
+          detalles: (facturaFinal.detalles || []).map((d: any) => ({
             id: d.id,
             cantidad: d.cantidad,
             precioUnitario: d.precioUnitario,
@@ -879,7 +892,7 @@ export default function PosPage() {
             descripcionLibre: d.descripcionLibre,
             producto: d.producto,
           })),
-          abonos: facturaFinal.abonos.map((a: any) => ({
+          abonos: (facturaFinal.abonos || []).map((a: any) => ({
             id: a.id,
             fecha: a.fecha,
             monto: a.monto,
@@ -911,6 +924,7 @@ export default function PosPage() {
   // REINICIO COMPLETO DE MEMORIA (SIGUIENTE FACTURA)
   // =========================================================
   const reiniciarMostrador = () => {
+    setFacturaEnCursoId(null);
     setClienteSeleccionado(null);
     setBusquedaCliente("");
     setItemsCarrito([]);
@@ -926,6 +940,11 @@ export default function PosPage() {
     setDatosImpresion(null);
     setPasoActual(1);
     setVistaPrincipal("NUEVA_FACTURA");
+  };
+
+  // Cierre definitivo de la operación desde el Paso 4
+  const finalizarYCerrarOperacion = () => {
+    reiniciarMostrador();
   };
 
   // =========================================================
@@ -2483,28 +2502,52 @@ export default function PosPage() {
             {/* ========================================================================= */}
             {pasoActual === 4 && datosImpresion && (
               <div className="h-full flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 p-3 overflow-hidden">
-                {/* Cabecera Fija Éxito y Nueva Venta (shrink-0) */}
-                <div className="shrink-0 mb-3 bg-emerald-600 text-white p-3.5 rounded-xl flex items-center justify-between shadow-sm">
+                {/* Cabecera Fija Éxito, Retroceso Seguro y Cierre Definitivo (shrink-0) */}
+                <div className="shrink-0 mb-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-sm border border-slate-700">
                   <div className="flex items-center gap-3">
-                    <CheckCircle2 className="w-6 h-6 text-white shrink-0" />
+                    <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
                     <div>
-                      <h2 className="text-sm md:text-base font-black">
-                        ¡Factura N° {datosImpresion.factura.numeroFactura} Registrada con Éxito!
-                      </h2>
-                      <p className="text-xs text-emerald-100">
-                        Transacción guardada en base de datos SQLite y caja de mostrador actualizada.
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm md:text-base font-black">
+                          Factura Oficial N° {datosImpresion.factura.numeroFactura}
+                        </h2>
+                        {facturaEnCursoId && (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10.5px] font-bold">
+                            En curso / Editable
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-300">
+                        {facturaEnCursoId
+                          ? "Puedes retroceder para corregir pago o ítems sin duplicar registros en el historial."
+                          : "Transacción guardada en base de datos SQLite y caja de mostrador actualizada."}
                       </p>
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={reiniciarMostrador}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-emerald-800 hover:bg-emerald-50 font-bold text-xs sm:text-sm transition shadow-xs min-h-[40px]"
-                  >
-                    <Sparkles className="w-4 h-4 text-emerald-600" />
-                    <span>+ Nueva Venta</span>
-                  </button>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    {/* Botón para retroceder al Paso 3 y corregir pago o ítems sin duplicar */}
+                    <button
+                      type="button"
+                      onClick={() => setPasoActual(3)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-bold text-xs transition shadow-xs cursor-pointer"
+                      title="Volver al Paso 3 para modificar valores o método de pago (se sobrescribirá la misma factura)"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+                      <span>← Retroceder al Paso 3 (Corregir Pago)</span>
+                    </button>
+
+                    {/* Botón Definitivo Destacado: Finalizar y Cerrar Operación */}
+                    <button
+                      type="button"
+                      onClick={finalizarYCerrarOperacion}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm transition shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                      title="Finaliza el proceso, vacía la orden y regresa al Paso 1 para atender al siguiente cliente"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                      <span>Finalizar y Cerrar Operación</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Visor Documental con Scroll Interno Propio */}

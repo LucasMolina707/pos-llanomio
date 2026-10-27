@@ -875,6 +875,14 @@ export default function PlantillaImpresion({
             </div>
           </div>
 
+          {/* Normas y Políticas de Factura en Media Carta */}
+          {empresa.politicasFactura && (
+            <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-200 text-[8px] text-slate-700 leading-tight">
+              <span className="font-black uppercase text-[8px] mr-1 text-slate-900">NORMAS Y POLÍTICAS:</span>
+              <span>{empresa.politicasFactura}</span>
+            </div>
+          )}
+
           {/* Firmas de Respaldo */}
           <div className="grid grid-cols-2 gap-6 text-center pt-1.5 border-t border-slate-200 text-[8px]">
             <div className="border-t border-slate-700 pt-0.5">

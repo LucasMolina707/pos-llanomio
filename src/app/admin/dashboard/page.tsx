@@ -46,6 +46,7 @@ interface MetricasData {
   rendimientoAlquileres: number;
   totalFacturas: number;
   totalAbonos: number;
+  depositosCustodia?: number;
 }
 
 interface DesgloseMetodosPago {
@@ -64,11 +65,28 @@ interface DesgloseLineasNegocio {
   sastreria: number;
 }
 
+interface DondeEstaElDineroData {
+  efectivoFisicoPeriodo: number;
+  efectivoEnGavetaTurno: number;
+  totalCuentasDigitales: number;
+  desgloseDigital: {
+    nequi: number;
+    bancolombia: number;
+    llave: number;
+    daviplata: number;
+    transferencia: number;
+  };
+  depositosCustodia: number;
+  cuentasPorCobrar: number;
+  morasRecaudadas: number;
+}
+
 interface TurnoActualInfo {
   id: string;
   fechaApertura: string;
   baseInicial: number;
   cajero: string;
+  efectivoEnGaveta?: number;
 }
 
 interface UltimaFactura {
@@ -84,11 +102,12 @@ interface UltimaFactura {
 }
 
 export default function DashboardGerencialPage() {
-  // Fechas por defecto: últimos 30 días
+  const [periodoActivo, setPeriodoActivo] = useState<"DIA" | "MES" | "ANIO" | "PERSONALIZADO">("MES");
+
+  // Fechas por defecto: mes actual
   const [fechaDesde, setFechaDesde] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return d.toISOString().split("T")[0];
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   });
   const [fechaHasta, setFechaHasta] = useState(() => {
     return new Date().toISOString().split("T")[0];
@@ -106,6 +125,23 @@ export default function DashboardGerencialPage() {
     rendimientoAlquileres: 0,
     totalFacturas: 0,
     totalAbonos: 0,
+    depositosCustodia: 0,
+  });
+
+  const [dondeEstaElDinero, setDondeEstaElDinero] = useState<DondeEstaElDineroData>({
+    efectivoFisicoPeriodo: 0,
+    efectivoEnGavetaTurno: 0,
+    totalCuentasDigitales: 0,
+    desgloseDigital: {
+      nequi: 0,
+      bancolombia: 0,
+      llave: 0,
+      daviplata: 0,
+      transferencia: 0,
+    },
+    depositosCustodia: 0,
+    cuentasPorCobrar: 0,
+    morasRecaudadas: 0,
   });
 
   const [metodosPago, setMetodosPago] = useState<DesgloseMetodosPago>({
@@ -155,24 +191,28 @@ export default function DashboardGerencialPage() {
       abortControllerRef.current = controller;
 
       try {
-        const res = await fetch(
-          `/api/dashboard/metrics?desde=${fechaDesde}&hasta=${fechaHasta}`,
-          {
-            cache: "no-store",
-            signal: controller.signal,
-          }
-        );
+        const queryParam =
+          periodoActivo !== "PERSONALIZADO"
+            ? `periodo=${periodoActivo.toLowerCase()}`
+            : `desde=${fechaDesde}&hasta=${fechaHasta}`;
+
+        const res = await fetch(`/api/dashboard/metrics?${queryParam}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
 
         if (!res.ok) throw new Error("Fallo en consulta de métricas");
         const data = await res.json();
 
         if (data.success) {
-          // Generar firma de cambio para evitar re-renderizados innecesarios
-          const firmaActual = `${data.metricas.ingresosNetos}-${data.metricas.cuentasPorCobrar}-${data.metricas.totalFacturas}-${data.ultimasFacturas?.[0]?.id || ""}`;
+          const firmaActual = `${data.metricas.ingresosNetos}-${data.metricas.cuentasPorCobrar}-${data.metricas.totalFacturas}-${data.dondeEstaElDinero?.depositosCustodia || 0}-${data.ultimasFacturas?.[0]?.id || ""}`;
 
           if (firmaActual !== ultimaFirmaDatosRef.current || mostrarSpinner) {
             ultimaFirmaDatosRef.current = firmaActual;
             setMetricas(data.metricas);
+            if (data.dondeEstaElDinero) {
+              setDondeEstaElDinero(data.dondeEstaElDinero);
+            }
             setMetodosPago(data.desgloseMetodos || data.desgloseMetodosPago);
             setLineasNegocio(data.desgloseLineas || data.desgloseLineasNegocio);
             setUltimasFacturas(data.ultimasFacturas || []);
@@ -192,10 +232,10 @@ export default function DashboardGerencialPage() {
         setActualizandoSilencioso(false);
       }
     },
-    [fechaDesde, fechaHasta]
+    [periodoActivo, fechaDesde, fechaHasta]
   );
 
-  // Carga inicial al montar o al cambiar fechas manualmente
+  // Carga inicial al montar o al cambiar filtros
   useEffect(() => {
     cargarMetricas(true);
   }, [cargarMetricas]);
@@ -267,12 +307,14 @@ export default function DashboardGerencialPage() {
 
   // Atajos rápidos de fecha
   const setRangoHoy = () => {
+    setPeriodoActivo("DIA");
     const hoy = new Date().toISOString().split("T")[0];
     setFechaDesde(hoy);
     setFechaHasta(hoy);
   };
 
   const setRango7Dias = () => {
+    setPeriodoActivo("PERSONALIZADO");
     const d = new Date();
     d.setDate(d.getDate() - 7);
     setFechaDesde(d.toISOString().split("T")[0]);
@@ -280,6 +322,7 @@ export default function DashboardGerencialPage() {
   };
 
   const setRangoEsteMes = () => {
+    setPeriodoActivo("MES");
     const now = new Date();
     const primerDia = new Date(now.getFullYear(), now.getMonth(), 1)
       .toISOString()
@@ -289,6 +332,7 @@ export default function DashboardGerencialPage() {
   };
 
   const setRangoAnoActual = () => {
+    setPeriodoActivo("ANIO");
     const now = new Date();
     const primerDiaAno = new Date(now.getFullYear(), 0, 1)
       .toISOString()
@@ -376,54 +420,65 @@ export default function DashboardGerencialPage() {
             <span>{enVivoActivo ? "Tiempo Real Activo" : "Reanudar En Vivo"}</span>
           </button>
 
-          {/* Rango de Fechas */}
+          {/* Botones de Selección Rápida de Periodo */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={setRangoHoy}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                periodoActivo === "DIA"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white"
+              }`}
+            >
+              Día (Hoy)
+            </button>
+            <button
+              type="button"
+              onClick={setRangoEsteMes}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                periodoActivo === "MES"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white"
+              }`}
+            >
+              Mes Actual
+            </button>
+            <button
+              type="button"
+              onClick={setRangoAnoActual}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                periodoActivo === "ANIO"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-white"
+              }`}
+            >
+              Año Actual
+            </button>
+          </div>
+
+          {/* Rango de Fechas Personalizado */}
           <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
             <Calendar className="w-4 h-4 text-blue-600 ml-1.5" />
             <input
               type="date"
               value={fechaDesde}
-              onChange={(e) => setFechaDesde(e.target.value)}
+              onChange={(e) => {
+                setPeriodoActivo("PERSONALIZADO");
+                setFechaDesde(e.target.value);
+              }}
               className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-800"
             />
             <span className="text-xs text-slate-400 font-bold">a</span>
             <input
               type="date"
               value={fechaHasta}
-              onChange={(e) => setFechaHasta(e.target.value)}
+              onChange={(e) => {
+                setPeriodoActivo("PERSONALIZADO");
+                setFechaHasta(e.target.value);
+              }}
               className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-800"
             />
-          </div>
-
-          {/* Botones de Atajo Rápido */}
-          <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
-            <button
-              type="button"
-              onClick={setRangoHoy}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition"
-            >
-              Hoy
-            </button>
-            <button
-              type="button"
-              onClick={setRango7Dias}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition"
-            >
-              7 Días
-            </button>
-            <button
-              type="button"
-              onClick={setRangoEsteMes}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition"
-            >
-              Mes
-            </button>
-            <button
-              type="button"
-              onClick={setRangoAnoActual}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white transition"
-            >
-              Año
-            </button>
           </div>
 
           {/* Botón de Refresco Manual */}
@@ -482,6 +537,126 @@ export default function DashboardGerencialPage() {
           </div>
         </div>
       )}
+
+      {/* SECCIÓN 1: ¿DÓNDE ESTÁ EL DINERO? (TRAZABILIDAD EXACTA DE LIQUIDEZ) */}
+      <div className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+              <Banknote className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                ¿Dónde está el Dinero? (Trazabilidad de Liquidez)
+              </h2>
+              <p className="text-xs text-slate-500">
+                Auditoría en tiempo real de billetes en gaveta, saldos digitales en bancos, depósitos en custodia y dinero en la calle
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 w-fit">
+            Período: <strong className="text-slate-900 uppercase">{periodoActivo === "DIA" ? "Día (Hoy)" : periodoActivo === "MES" ? "Mes Actual" : periodoActivo === "ANIO" ? "Año Actual" : "Personalizado"}</strong>
+          </span>
+        </div>
+
+        {/* 4 Tarjetas de Liquidez */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* 1. Efectivo Físico */}
+          <div className="bg-gradient-to-br from-emerald-50/60 to-white rounded-xl p-4 border border-emerald-200/80 shadow-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Banknote className="w-4 h-4 text-emerald-600" />
+                Efectivo Físico
+              </span>
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                En Caja
+              </span>
+            </div>
+            <div className="text-2xl font-black text-emerald-900 font-mono tracking-tight">
+              {formatearDinero(dondeEstaElDinero?.efectivoFisicoPeriodo ?? metodosPago.totalEfectivo)}
+            </div>
+            <div className="pt-2 border-t border-emerald-100 flex items-center justify-between text-xs text-emerald-800">
+              <span className="font-medium">En Gaveta (Turno):</span>
+              <span className="font-bold font-mono">
+                {formatearDinero(dondeEstaElDinero?.efectivoEnGavetaTurno ?? turnoActual?.efectivoEnGaveta ?? 0)}
+              </span>
+            </div>
+          </div>
+
+          {/* 2. Cuentas Digitales / Bancos */}
+          <div className="bg-gradient-to-br from-blue-50/60 to-white rounded-xl p-4 border border-blue-200/80 shadow-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Smartphone className="w-4 h-4 text-blue-600" />
+                Cuentas Digitales
+              </span>
+              <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                Bancos & Apps
+              </span>
+            </div>
+            <div className="text-2xl font-black text-blue-900 font-mono tracking-tight">
+              {formatearDinero(dondeEstaElDinero?.totalCuentasDigitales ?? (metodosPago.totalNequi + metodosPago.totalDaviplata + (metodosPago.totalBancolombia || 0) + (metodosPago.totalLlave || 0) + metodosPago.totalTransferencia))}
+            </div>
+            <div className="pt-2 border-t border-blue-100 flex flex-wrap gap-1 text-[11px]">
+              <span className="bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded">
+                Neq: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.nequi ?? metodosPago.totalNequi)}
+              </span>
+              <span className="bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">
+                Ban: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.bancolombia ?? metodosPago.totalBancolombia ?? 0)}
+              </span>
+              <span className="bg-rose-100 text-rose-800 font-bold px-1.5 py-0.5 rounded">
+                Dav: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.daviplata ?? metodosPago.totalDaviplata)}
+              </span>
+              {(dondeEstaElDinero?.desgloseDigital?.transferencia ?? metodosPago.totalTransferencia) > 0 && (
+                <span className="bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded">
+                  Transf: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.transferencia ?? metodosPago.totalTransferencia)}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Depósitos de Alquiler en Custodia */}
+          <div className="bg-gradient-to-br from-amber-50/60 to-white rounded-xl p-4 border border-amber-200/80 shadow-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                Depósitos Custodia
+              </span>
+              <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                Garantías
+              </span>
+            </div>
+            <div className="text-2xl font-black text-amber-900 font-mono tracking-tight">
+              {formatearDinero(dondeEstaElDinero?.depositosCustodia ?? metricas.depositosCustodia ?? 0)}
+            </div>
+            <p className="pt-2 border-t border-amber-100 text-xs text-amber-800 font-medium">
+              Efectivo retenido temporalmente por alquileres activos (no es ingreso propio)
+            </p>
+          </div>
+
+          {/* 4. Dinero en la Calle (Cuentas por Cobrar + Moras) */}
+          <div className="bg-gradient-to-br from-rose-50/60 to-white rounded-xl p-4 border border-rose-200/80 shadow-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
+                <ClockAlert className="w-4 h-4 text-rose-600" />
+                Dinero en la Calle
+              </span>
+              <span className="text-xs font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">
+                Cartera
+              </span>
+            </div>
+            <div className="text-2xl font-black text-rose-900 font-mono tracking-tight">
+              {formatearDinero(dondeEstaElDinero?.cuentasPorCobrar ?? metricas.cuentasPorCobrar)}
+            </div>
+            <div className="pt-2 border-t border-rose-100 flex items-center justify-between text-xs text-rose-800">
+              <span className="font-medium">Moras Liquidadas:</span>
+              <span className="font-bold font-mono">
+                {formatearDinero(dondeEstaElDinero?.morasRecaudadas ?? metricas.morasRecaudadas)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* 3. Cuadrícula de Métricas Principales (5 Columnas en Pantallas Grandes) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">

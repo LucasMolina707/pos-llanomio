@@ -230,6 +230,8 @@ export default function TerminalAlquileresPage() {
   // Documento e impresión
   const [datosImpresion, setDatosImpresion] = useState<DatosImpresionFactura | null>(null);
   const [facturaImpresionId, setFacturaImpresionId] = useState<string | null>(null);
+  // Control de sesión de transacción en curso (evita duplicar registros al retroceder entre pasos)
+  const [facturaEnCursoId, setFacturaEnCursoId] = useState<string | null>(null);
   const [empresaConfig, setEmpresaConfig] = useState<any>(null);
   const [usuarioSesion, setUsuarioSesion] = useState<any>(null);
 
@@ -692,10 +694,15 @@ export default function TerminalAlquileresPage() {
             : undefined,
       };
 
-      const res = await fetch("/api/facturas", {
-        method: "POST",
+      // Si ya existe una facturaEnCursoId para esta operación, actualizarla mediante PUT sin duplicar el registro
+      const method = facturaEnCursoId ? "PUT" : "POST";
+      const endpoint = facturaEnCursoId ? `/api/facturas/${facturaEnCursoId}` : "/api/facturas";
+      const payloadFinal = facturaEnCursoId ? { ...payload, reemplazarEnCurso: true } : payload;
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payloadFinal),
       });
 
       const data = await res.json();
@@ -714,6 +721,7 @@ export default function TerminalAlquileresPage() {
       const facturaFinal = data.factura || data;
       const fId = facturaFinal?.id || data?.id;
       if (fId) {
+        setFacturaEnCursoId(fId);
         setFacturaImpresionId(fId);
       }
 
@@ -739,6 +747,7 @@ export default function TerminalAlquileresPage() {
 
   // Reiniciar formulario para un Nuevo Alquiler
   const reiniciarNuevoAlquiler = () => {
+    setFacturaEnCursoId(null);
     setClienteSeleccionado(null);
     setBusquedaCliente("");
     setItemsCarrito([]);
@@ -757,6 +766,11 @@ export default function TerminalAlquileresPage() {
     setFacturaImpresionId(null);
     setPasoActual(1);
     setVistaPrincipal("NUEVO_ALQUILER");
+  };
+
+  // Cierre definitivo de la operación desde el Paso 4
+  const finalizarYCerrarOperacion = () => {
+    reiniciarNuevoAlquiler();
   };
 
   const handleFinalizarYCobrarAlquiler = registrarNuevoAlquiler;
@@ -2366,36 +2380,50 @@ export default function TerminalAlquileresPage() {
             {/* PASO 4: VISTA PREVIA, IMPRESIÓN Y EXPORTACIÓN PDF */}
             {pasoActual === 4 && (
               <div className="flex-1 flex flex-col overflow-hidden p-3 sm:p-6 max-w-5xl mx-auto w-full">
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+                <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl border border-slate-700 shadow-sm p-4 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 text-white">
                   <div>
-                    <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block">
-                      Paso 4 de 4 — Alquiler Registrado
-                    </span>
-                    <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      Comprobante / Contrato Exclusivo de Alquiler {datosImpresion?.factura?.numeroFactura ? `N° ${datosImpresion.factura.numeroFactura}` : ""}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">
+                        Paso 4 de 4 — Alquiler Registrado
+                      </span>
+                      {facturaEnCursoId && (
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold">
+                          Alquiler en curso / Editable
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="text-base font-black text-white flex items-center gap-2 mt-0.5">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                      Comprobante / Contrato de Alquiler {datosImpresion?.factura?.numeroFactura ? `N° ${datosImpresion.factura.numeroFactura}` : ""}
                     </h2>
+                    <p className="text-xs text-slate-300">
+                      {facturaEnCursoId
+                        ? "Puedes retroceder para corregir prendas, abonos o depósito sin duplicar el registro."
+                        : "Comprobante oficial emitido en tiempo real con respaldo documental completo."}
+                    </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    {/* Botón para retroceder al Paso 3 y corregir cobro o depósito sin duplicar */}
                     <button
                       type="button"
-                      onClick={() => {
-                        setVistaPrincipal("HISTORIAL_CENTRO");
-                        reiniciarNuevoAlquiler();
-                      }}
-                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 border border-slate-200 transition-all"
+                      onClick={() => setPasoActual(3)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-bold text-xs transition shadow-xs cursor-pointer"
+                      title="Volver al Paso 3 para modificar valores, método de pago o depósito (se sobrescribirá la misma factura)"
                     >
-                      <History className="w-4 h-4 text-slate-500" />
-                      <span>Ver en Historial de Alquileres</span>
+                      <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+                      <span>← Retroceder al Paso 3 (Corregir Cobro)</span>
                     </button>
+
+                    {/* Botón Definitivo Destacado: Finalizar y Cerrar Operación */}
                     <button
                       type="button"
-                      onClick={reiniciarNuevoAlquiler}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                      onClick={finalizarYCerrarOperacion}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm transition shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                      title="Finaliza el proceso, vacía la orden y regresa al Paso 1 para atender al siguiente cliente"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span>+ Iniciar Nuevo Alquiler</span>
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                      <span>Finalizar y Cerrar Operación</span>
                     </button>
                   </div>
                 </div>

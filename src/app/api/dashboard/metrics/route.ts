@@ -20,26 +20,34 @@ const NO_CACHE_HEADERS = {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+    const periodo = searchParams.get("periodo");
     const desdeStr = searchParams.get("desde");
     const hastaStr = searchParams.get("hasta");
 
     const fechaHoyLocal = obtenerFechaColombiaStr();
 
-    // Rango por defecto: últimos 30 días en hora Colombia
     let fechaDesde: Date;
     let fechaHasta: Date;
 
-    if (desdeStr) {
+    if (periodo === "dia" || periodo === "hoy") {
+      fechaDesde = new Date(`${fechaHoyLocal}T00:00:00.000`);
+      fechaHasta = new Date(`${fechaHoyLocal}T23:59:59.999`);
+    } else if (periodo === "mes") {
+      const now = new Date();
+      const primerDiaMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      fechaDesde = new Date(`${primerDiaMes}T00:00:00.000`);
+      fechaHasta = new Date(`${fechaHoyLocal}T23:59:59.999`);
+    } else if (periodo === "anio" || periodo === "ano") {
+      const now = new Date();
+      fechaDesde = new Date(`${now.getFullYear()}-01-01T00:00:00.000`);
+      fechaHasta = new Date(`${fechaHoyLocal}T23:59:59.999`);
+    } else if (desdeStr) {
       fechaDesde = new Date(`${desdeStr}T00:00:00.000`);
+      fechaHasta = hastaStr ? new Date(`${hastaStr}T23:59:59.999`) : new Date(`${fechaHoyLocal}T23:59:59.999`);
     } else {
       const d = new Date();
       d.setDate(d.getDate() - 30);
       fechaDesde = new Date(`${obtenerFechaColombiaStr(d)}T00:00:00.000`);
-    }
-
-    if (hastaStr) {
-      fechaHasta = new Date(`${hastaStr}T23:59:59.999`);
-    } else {
       fechaHasta = new Date(`${fechaHoyLocal}T23:59:59.999`);
     }
 
@@ -202,6 +210,21 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // 6. Depósitos de alquiler en garantía activa (custodia física en efectivo)
+    const depositosEnGarantia = await prisma.factura.aggregate({
+      _sum: { montoDeposito: true },
+      where: {
+        tipoOperacion: "ALQUILER",
+        estadoDeposito: "RECIBIDO_EN_GARANTIA",
+      },
+    });
+    const totalDepositosCustodia = depositosEnGarantia._sum.montoDeposito || 0;
+
+    // 7. Efectivo disponible en gaveta si el turno está abierto
+    const efectivoEnGavetaTurno = turnoActivo
+      ? Math.max(0, (turnoActivo.baseInicialEfectivo || 0) + (turnoActivo.totalEfectivo || 0))
+      : 0;
+
     const totalDigital = totalNequi + totalDaviplata + totalBancolombia + totalLlave + totalTransferencia + totalConsignacion;
 
     const desgloseMetodos = {
@@ -218,6 +241,22 @@ export async function GET(req: NextRequest) {
       alquileres: Math.round(rendimientoAlquileres * 100) / 100,
       ventas: Math.round(rendimientoVentas * 100) / 100,
       sastreria: Math.round(rendimientoSastreria * 100) / 100,
+    };
+
+    const dondeEstaElDinero = {
+      efectivoFisicoPeriodo: Math.round(totalEfectivo * 100) / 100,
+      efectivoEnGavetaTurno: Math.round(efectivoEnGavetaTurno * 100) / 100,
+      totalCuentasDigitales: Math.round(totalDigital * 100) / 100,
+      desgloseDigital: {
+        nequi: Math.round(totalNequi * 100) / 100,
+        bancolombia: Math.round(totalBancolombia * 100) / 100,
+        llave: Math.round(totalLlave * 100) / 100,
+        daviplata: Math.round(totalDaviplata * 100) / 100,
+        transferencia: Math.round((totalTransferencia + totalConsignacion) * 100) / 100,
+      },
+      depositosCustodia: Math.round(totalDepositosCustodia * 100) / 100,
+      cuentasPorCobrar: Math.round(cuentasPorCobrar * 100) / 100,
+      morasRecaudadas: Math.round(morasRecaudadas * 100) / 100,
     };
 
     return NextResponse.json(
@@ -241,7 +280,9 @@ export async function GET(req: NextRequest) {
           rendimientoAlquileres: Math.round(rendimientoAlquileres * 100) / 100,
           totalFacturas: facturas.length,
           totalAbonos: abonos.length,
+          depositosCustodia: Math.round(totalDepositosCustodia * 100) / 100,
         },
+        dondeEstaElDinero,
         desgloseMetodos,
         desgloseMetodosPago: desgloseMetodos,
         desgloseLineas,
@@ -252,6 +293,7 @@ export async function GET(req: NextRequest) {
               fechaApertura: turnoActivo.fechaApertura.toISOString(),
               baseInicial: turnoActivo.baseInicialEfectivo,
               cajero: turnoActivo.usuarioCajero.nombre,
+              efectivoEnGaveta: efectivoEnGavetaTurno,
             }
           : null,
         ultimasFacturas: facturas.slice(0, 10).map((f) => ({

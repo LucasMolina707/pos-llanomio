@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
 import { verificarEstadoCajaParaFacturacion, parsearCajerosParticipantes } from "@/lib/caja-control";
-import { EstadoFactura, MetodoPago, TipoProducto, EstadoPrenda, EstadoTurno } from "@prisma/client";
+import { EstadoFactura, MetodoPago, TipoProducto, EstadoPrenda, EstadoTurno, TipoOperacion } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -441,43 +441,327 @@ export async function PATCH(req: NextRequest, ctx: Params) {
 
 /**
  * PUT /api/facturas/[id]
- * Actualización general de la factura
+ * Actualización general de la factura o sobrescritura completa idempotente
+ * para transacciones en curso (evita duplicar registros al retroceder entre pasos).
  */
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { estado, notas } = body;
 
-    const dataUpdate: Record<string, unknown> = {};
-    if (estado && Object.values(EstadoFactura).includes(estado)) {
-      dataUpdate.estado = estado;
-    }
-    if (notas !== undefined) {
-      dataUpdate.notas = notas;
-    }
-
-    const facturaActualizada = await prisma.factura.update({
+    // 1. Verificar si la factura existe
+    const facturaPrevia = await prisma.factura.findUnique({
       where: { id },
-      data: dataUpdate,
       include: {
-        cliente: true,
         detalles: { include: { producto: true } },
-        abonos: { include: { cajero: true } },
+        abonos: true,
       },
+    });
+
+    if (!facturaPrevia) {
+      return NextResponse.json(
+        { success: false, error: "La factura a actualizar no existe en el sistema" },
+        { status: 404 }
+      );
+    }
+
+    const {
+      detalles = body.items || body.productos,
+      reemplazarEnCurso,
+      clienteId,
+      abonoInicial,
+      notas,
+      montoDeposito: montoDepositoInput,
+      metodoPagoDeposito,
+      efectivoRecibido: efectivoRecibidoInput,
+      cambioEntregado: cambioEntregadoInput,
+      fechaEntregaAlquiler,
+      fechaDevolucionPactada,
+      estado,
+    } = body;
+
+    // Si NO se envían detalles ni reemplazo en curso, realizar actualización simple de estado y notas
+    if (!detalles && !reemplazarEnCurso) {
+      const dataUpdate: Record<string, unknown> = {};
+      if (estado && Object.values(EstadoFactura).includes(estado)) {
+        dataUpdate.estado = estado;
+      }
+      if (notas !== undefined) {
+        dataUpdate.notas = notas;
+      }
+
+      const facturaActualizada = await prisma.factura.update({
+        where: { id },
+        data: dataUpdate,
+        include: {
+          cliente: true,
+          detalles: { include: { producto: true } },
+          abonos: { include: { cajero: true } },
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        ok: true,
+        id: facturaActualizada.id,
+        mensaje: "Factura actualizada correctamente",
+        factura: facturaActualizada,
+      });
+    }
+
+    // =========================================================================
+    // ACTUALIZACIÓN INTEGRAL DE FACTURA EN CURSO (IDEMPOTENCIA TOTAL)
+    // =========================================================================
+    if (!Array.isArray(detalles) || detalles.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "La factura debe incluir al menos un producto o servicio" },
+        { status: 400 }
+      );
+    }
+
+    const sesion = await obtenerSesionDesdeRequest(req);
+    let cajeroId = sesion?.userId || facturaPrevia.usuarioCajeroId;
+
+    const montoDeposito = montoDepositoInput !== undefined ? Math.max(0, Number(montoDepositoInput) || 0) : facturaPrevia.montoDeposito;
+    const efectivoRecibido = efectivoRecibidoInput !== undefined ? Math.max(0, Number(efectivoRecibidoInput) || 0) : facturaPrevia.efectivoRecibido;
+    const cambioEntregado = cambioEntregadoInput !== undefined ? Math.max(0, Number(cambioEntregadoInput) || 0) : facturaPrevia.cambioEntregado;
+
+    // Procesar y calcular subtotales de ítems
+    let subtotalProductos = 0;
+    let subtotalArreglosLibres = 0;
+    let tieneVenta = false;
+    let tieneAlquiler = false;
+    let tieneArreglo = false;
+
+    const detallesProcesados: {
+      productoId: string | null;
+      esServicioLibre: boolean;
+      descripcionLibre: string | null;
+      cantidad: number;
+      precioUnitario: number;
+      subtotal: number;
+      tipoProducto?: TipoProducto | null;
+    }[] = [];
+
+    for (const item of detalles) {
+      const cantidad = Math.max(1, Math.round(Number(item.cantidad) || 1));
+      const precioUnitario = Math.max(0, Number(item.precioUnitario) || 0);
+      const subtotalItem = Math.round(cantidad * precioUnitario * 100) / 100;
+
+      if (item.esServicioLibre || !item.productoId) {
+        const descripcionLibre = (item.descripcionLibre || item.nombre || "").trim();
+        const esArreglo = item.esServicioLibre || body.tipoOperacion === "ARREGLO";
+        if (esArreglo) {
+          tieneArreglo = true;
+          subtotalArreglosLibres += subtotalItem;
+        } else {
+          tieneVenta = true;
+          subtotalProductos += subtotalItem;
+        }
+
+        detallesProcesados.push({
+          productoId: null,
+          esServicioLibre: esArreglo,
+          descripcionLibre: descripcionLibre || "Servicio de sastrería",
+          cantidad,
+          precioUnitario,
+          subtotal: subtotalItem,
+          tipoProducto: null,
+        });
+      } else {
+        const producto = await prisma.producto.findUnique({
+          where: { id: item.productoId },
+        });
+
+        if (producto) {
+          if (producto.tipo === TipoProducto.ALQUILER) {
+            tieneAlquiler = true;
+          } else {
+            tieneVenta = true;
+          }
+          subtotalProductos += subtotalItem;
+          detallesProcesados.push({
+            productoId: producto.id,
+            esServicioLibre: false,
+            descripcionLibre: item.descripcionLibre?.trim() || null,
+            cantidad,
+            precioUnitario,
+            subtotal: subtotalItem,
+            tipoProducto: producto.tipo,
+          });
+        }
+      }
+    }
+
+    const totalFactura = Math.round((subtotalProductos + subtotalArreglosLibres) * 100) / 100;
+
+    // Procesar abono inicial corregido
+    const abonosInput: any[] = Array.isArray(body.abonos) && body.abonos.length > 0
+      ? body.abonos
+      : (typeof abonoInicial === "number" && abonoInicial > 0
+          ? [{ monto: abonoInicial, metodoPago: body.metodoPagoAbono || MetodoPago.EFECTIVO }]
+          : (abonoInicial && Number(abonoInicial.monto) > 0 ? [abonoInicial] : []));
+
+    const abonosDataCreacion: {
+      monto: number;
+      metodoPago: MetodoPago;
+      montoRecibido?: number | null;
+      vueltasEntregadas?: number | null;
+      cajeroId: string;
+      referenciaComprobante?: string | null;
+      notas?: string | null;
+    }[] = [];
+
+    let totalAbonado = 0;
+    for (const ab of abonosInput) {
+      const monto = Math.round((Number(ab.monto) || 0) * 100) / 100;
+      if (monto > 0) {
+        totalAbonado += monto;
+        let metodoPago: MetodoPago = MetodoPago.EFECTIVO;
+        if (ab.metodoPago && Object.values(MetodoPago).includes(ab.metodoPago as MetodoPago)) {
+          metodoPago = ab.metodoPago as MetodoPago;
+        }
+
+        abonosDataCreacion.push({
+          monto,
+          metodoPago,
+          montoRecibido: ab.montoRecibido ? Number(ab.montoRecibido) || null : null,
+          vueltasEntregadas: ab.vueltasEntregadas ? Number(ab.vueltasEntregadas) || null : null,
+          cajeroId,
+          referenciaComprobante: ab.referenciaComprobante ? String(ab.referenciaComprobante).trim() : null,
+          notas: ab.notas ? String(ab.notas).trim() : "Abono corregido en mostrador",
+        });
+      }
+    }
+
+    totalAbonado = Math.round(totalAbonado * 100) / 100;
+    const saldoPendiente = Math.max(0, Math.round((totalFactura - totalAbonado) * 100) / 100);
+
+    let estadoFinal: EstadoFactura = EstadoFactura.ACTIVA;
+    if (saldoPendiente <= 0) {
+      estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.CERRADA;
+    } else if (totalAbonado === 0) {
+      estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.EN_PROCESO;
+    } else {
+      estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.ACTIVA;
+    }
+
+    let tipoOpFinal = facturaPrevia.tipoOperacion;
+    let categoriasCount = (tieneVenta ? 1 : 0) + (tieneAlquiler ? 1 : 0) + (tieneArreglo ? 1 : 0);
+    if (categoriasCount > 1) {
+      tipoOpFinal = TipoOperacion.MIXTO;
+    } else if (tieneAlquiler) {
+      tipoOpFinal = TipoOperacion.ALQUILER;
+    } else if (tieneArreglo) {
+      tipoOpFinal = TipoOperacion.ARREGLO;
+    } else if (tieneVenta) {
+      tipoOpFinal = TipoOperacion.VENTA;
+    }
+
+    // Ejecutar transacción atómica de reemplazo sobre la misma factura
+    const facturaActualizada = await prisma.$transaction(async (tx) => {
+      // 1. Restaurar prendas previas de alquiler a DISPONIBLE
+      for (const d of facturaPrevia.detalles) {
+        if (d.productoId && d.producto?.tipo === TipoProducto.ALQUILER) {
+          try {
+            await tx.producto.update({
+              where: { id: d.productoId },
+              data: { estado: "DISPONIBLE", estadoPrenda: "DISPONIBLE" },
+            });
+          } catch {}
+        }
+      }
+
+      // 2. Eliminar detalles y abonos previos de esta factura en curso
+      await tx.detalleFactura.deleteMany({ where: { facturaId: id } });
+      await tx.abono.deleteMany({ where: { facturaId: id } });
+
+      // 3. Buscar turno abierto
+      const turnoAbierto = await tx.turnoCaja.findFirst({
+        where: { estado: "ABIERTO" },
+        orderBy: { fechaApertura: "desc" },
+      });
+
+      // 4. Crear los nuevos detalles
+      await tx.detalleFactura.createMany({
+        data: detallesProcesados.map((d) => ({
+          facturaId: id,
+          productoId: d.productoId,
+          esServicioLibre: d.esServicioLibre,
+          descripcionLibre: d.descripcionLibre,
+          cantidad: d.cantidad,
+          precioUnitario: d.precioUnitario,
+          subtotal: d.subtotal,
+        })),
+      });
+
+      // 5. Crear los nuevos abonos
+      if (abonosDataCreacion.length > 0) {
+        await tx.abono.createMany({
+          data: abonosDataCreacion.map((ab) => ({
+            ...ab,
+            facturaId: id,
+            turnoCajaId: turnoAbierto?.id || facturaPrevia.turnoCajaId || null,
+          })),
+        });
+      }
+
+      // 6. Actualizar la factura existente conservando id, consecutivo y numeroFactura
+      const fUpd = await tx.factura.update({
+        where: { id },
+        data: {
+          clienteId: clienteId || facturaPrevia.clienteId,
+          subtotalProductos,
+          subtotalArreglosLibres,
+          totalFactura,
+          totalAbonado,
+          saldoPendiente,
+          montoDeposito,
+          estadoDeposito: montoDeposito > 0 ? "RECIBIDO_EN_GARANTIA" : "SIN_DEPOSITO",
+          metodoPagoDeposito: montoDeposito > 0 ? (tipoOpFinal === TipoOperacion.ALQUILER ? "EFECTIVO" : (metodoPagoDeposito || "EFECTIVO")) : null,
+          efectivoRecibido,
+          cambioEntregado,
+          tipoOperacion: tipoOpFinal,
+          estado: estadoFinal,
+          notas: notas !== undefined ? (notas?.trim() || null) : facturaPrevia.notas,
+        },
+        include: {
+          cliente: true,
+          usuarioCajero: {
+            select: { id: true, username: true, nombre: true, rol: true },
+          },
+          detalles: { include: { producto: true } },
+          abonos: { include: { cajero: true }, orderBy: { fecha: "desc" } },
+        },
+      });
+
+      // 7. Marcar nuevas prendas alquiladas como ALQUILADO
+      for (const item of detallesProcesados) {
+        if (item.productoId && item.tipoProducto === TipoProducto.ALQUILER) {
+          try {
+            await tx.producto.update({
+              where: { id: item.productoId },
+              data: { estado: "ALQUILADO", estadoPrenda: "ALQUILADO" },
+            });
+          } catch {}
+        }
+      }
+
+      return fUpd;
     });
 
     return NextResponse.json({
       success: true,
       ok: true,
       id: facturaActualizada.id,
-      mensaje: "Factura actualizada correctamente",
+      mensaje: `Factura N° ${facturaActualizada.numeroFactura} actualizada en curso exitosamente (sin duplicar).`,
       factura: facturaActualizada,
     });
   } catch (error: unknown) {
-    console.error("Error al actualizar factura:", error);
+    console.error("Error al actualizar factura en curso:", error);
+    const mensajeError = error instanceof Error ? error.message : "Error interno al actualizar la factura";
     return NextResponse.json(
-      { success: false, error: "Error interno al actualizar la factura" },
+      { success: false, error: mensajeError },
       { status: 500 }
     );
   }

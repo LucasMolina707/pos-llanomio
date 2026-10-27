@@ -1728,4 +1728,72 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Restablecimiento de Fábrica (`scripts/reset-db-fabrica.ts`):** Base de datos `database/llanomio.db` restablecida a estado virgen (0 facturas, 0 clientes, 0 productos, 1 administrador inicial, 1 empresa configurada) y compactada con `VACUUM`.
 - **Servicio PM2:** Reactivado y en ejecución en modo fork (`online`).
 
+---
+
+## 38. Ciclo de Facturación Idempotente sin Duplicados al Retroceder (Paso 3 ↔ Paso 4), Botón "Finalizar y Cerrar Operación", Personalización del Sitio y Métricas en Vivo ("¿Dónde está el Dinero?")
+
+### 1. Diagnóstico y Objetivos de la Intervención
+1. **Ciclo de Facturación Idempotente sin Duplicados (`facturaEnCursoId`):**
+   - **Problema previo:** En `/caja/pos` y `/caja/alquileres`, si el usuario completaba el cobro (Paso 3 ➔ Paso 4) y luego decidía retroceder al Paso 3 (o Paso 2/1) para ajustar el abono, el método de pago o un artículo, al volver a presionar "Confirmar Cobro" el frontend realizaba un nuevo `POST /api/facturas`, clonando una segunda factura duplicada con nuevo consecutivo en la base de datos y en el historial.
+   - **Solución Arquitectural Idempotente:**
+     - Declaración del estado de sesión transaccional `const [facturaEnCursoId, setFacturaEnCursoId] = useState<string | null>(null)`.
+     - **Primera confirmación:** Si `facturaEnCursoId === null`, se ejecuta `POST /api/facturas`, se almacena el ID creado en `facturaEnCursoId` y se avanza al Paso 4.
+     - **Re-confirmación tras retroceder:** Si `facturaEnCursoId !== null`, está **estrictamente prohibido** ejecutar otro `POST`. Se ejecuta `PUT /api/facturas/[id]` con el payload corregido.
+     - **Transacción Atómica en Backend (`PUT /api/facturas/[id]/route.ts`):** Dentro de `prisma.$transaction`, se restablecen a `DISPONIBLE` las prendas previas, se eliminan los `detalles` y `abonos` antiguos vinculados a esa factura, y se recrean los nuevos detalles y abonos, actualizando los montos (`totalFactura`, `totalAbonado`, `saldoPendiente`, `montoDeposito`, etc.) conservando el **mismo ID y el mismo consecutivo / número de factura**.
+   - **Botón Definitivo "Finalizar y Cerrar Operación":**
+     - En el Paso 4 (vista de impresión), además de Imprimir y Descargar PDF, se incorpora un botón principal destacado: **`"Finalizar y Cerrar Operación"`** (con icono vectorial `CheckCircle2`).
+     - Al hacer clic en este botón, se limpian todos los estados de la orden (`facturaEnCursoId = null`, `facturaImpresionId = null`, carrito vacío, cliente deseleccionado, valores en $0) y el asistente regresa limpio al Paso 1 listo para el siguiente cliente.
+
+2. **Restauración Total del Acceso y Personalización Completa (`/admin/configuracion`):**
+   - Acceso directo visible y permanente para el rol `ADMIN` en el Panel de Inicio (`src/app/page.tsx`) y en el Menú Lateral (`src/components/layout/Sidebar.tsx`).
+   - Personalización 100% funcional de la empresa en SQLite (`ConfiguracionEmpresa`): Nombre de la tienda (`nombreTienda`), Eslogan comercial (`eslogan`), NIT / RUT (`nit`), Dirección física (`direccion`), Ciudad (`ciudad`), Teléfono / WhatsApp (`telefono`), Correo electrónico (`email`), Logotipo en DataURL Base64 optimizado con Canvas HTML5 (`logoUrl`), Formato de impresión predeterminado (`formatoPredeterminado`) y Políticas / Reglas de la factura (`politicasFactura`).
+   - Reactividad inmediata: Al guardar se emite el evento global `window.dispatchEvent(new Event('empresa-updated'))`, actualizando en vivo el encabezado del sistema, el login y los 3 formatos de `PlantillaImpresion.tsx` (`80mm`, `Media Carta` y `Carta`).
+
+3. **Restauración Total del Acceso y Panel de Métricas Financieras en Vivo (`/admin/dashboard` y `/api/admin/dashboard`):**
+   - Acceso directo para el rol `ADMIN` en `/` y en `Sidebar.tsx`.
+   - Selectores rápidos de período con estado visual activo de alto contraste: **"Día (Hoy)"**, **"Mes Actual"**, **"Año Actual"** y **Rango Personalizado de Fechas**.
+   - **Sección 1 — "¿Dónde está el Dinero? (Trazabilidad Exacta de Liquidez)":**
+     1. *Efectivo Físico en Caja:* Total recaudado en `EFECTIVO` en el período + saldo en gaveta física del turno abierto.
+     2. *Cuentas Digitales & Bancos:* Desglose exacto con badges individuales para `NEQUI`, `BANCOLOMBIA`, `LLAVE`, `DAVIPLATA` y `TRANSFERENCIA`.
+     3. *Depósitos de Alquiler en Custodia:* Dinero en efectivo retenido actualmente como garantía de alquileres activos (no computable como ingreso propio).
+     4. *Dinero en la Calle (Cuentas por Cobrar):* Total de saldos pendientes de facturas activas más moras acumuladas liquidadas.
+   - **Sección 2 — "Rendimiento del Sistema por Línea de Negocio":**
+     - Comparativo de ingresos y volumen entre Ventas Directas (`VENTA`), Arreglos / Sastrería (`ARREGLO`) y Alquileres (`ALQUILER`), junto con la tabla de transacciones recientes.
+
+### 2. Archivos Modificados
+1. `src/app/api/facturas/[id]/route.ts`:
+   - Implementado método `PUT` para actualización y reemplazo atómico en sesión en curso (`prisma.$transaction`), evitando duplicación de facturas, consecutivos y cobros.
+2. `src/app/caja/pos/page.tsx`:
+   - Incorporado estado `facturaEnCursoId`.
+   - Transición dinámica: `POST` (nuevo) o `PUT` (en curso).
+   - Paso 4 enriquecido con botón de retroceso seguro y botón definitivo **`"Finalizar y Cerrar Operación"`**.
+3. `src/app/caja/alquileres/page.tsx`:
+   - Incorporado estado `facturaEnCursoId`.
+   - Transición dinámica `POST` / `PUT` según estado de la sesión.
+   - Paso 4 enriquecido con botón de retroceso seguro y botón definitivo **`"Finalizar y Cerrar Operación"`**.
+4. `src/app/admin/dashboard/page.tsx`:
+   - Selectores sincronizados para Día, Mes, Año y Rango Personalizado.
+   - Incorporada la tarjeta y cuadrícula de 4 módulos de liquidez: **"¿Dónde está el Dinero? (Trazabilidad de Liquidez)"**.
+   - Tipado estricto en `MetricasData` con `depositosCustodia` y `periodoActivo`.
+5. `src/app/api/dashboard/metrics/route.ts`:
+   - Incorporados cálculos de `dondeEstaElDinero` con desglose digital, efectivo físico, depósitos en custodia y dinero en gaveta del turno abierto.
+6. `src/components/impresion/PlantillaImpresion.tsx`:
+   - Sincronizadas las políticas de factura (`politicasFactura`) en formato `MEDIA_CARTA`, `80mm` y `CARTA`.
+7. `src/app/page.tsx` & `src/components/layout/Sidebar.tsx`:
+   - Verificados y habilitados los accesos directos para `ADMIN` hacia `/admin/configuracion` y `/admin/dashboard`.
+
+### 3. Resultados de Calidad (QA) y Verificación
+- **Prueba Automatizada de Idempotencia y Métricas:**
+  - Creación de factura inicial `#001033` con abono en efectivo de $35.000.
+  - Retroceso al Paso 3, modificación a abono de $50.000 por Nequi y re-confirmación.
+  - **Resultado:** Conteo en base de datos idéntico (0 facturas duplicadas), conservando el mismo ID `cmvq1r8uk0002q6vg4d5r0r8w` y número `#001033`.
+  - Verificación de depósitos en custodia, desglose por método de pago y políticas de empresa: **100% Aprobado**.
+- **Compilación de Producción (`npm run build`):**
+  - Ejecución limpia con **código de salida 0, 0 errores de TypeScript y 22 rutas estáticas y dinámicas optimizadas**.
+- **Restablecimiento de Fábrica (`scripts/reset-db-fabrica.ts`):**
+  - Base de datos `database/llanomio.db` restablecida a estado virgen (0 facturas, 0 clientes, 0 productos, 1 administrador inicial, 1 empresa configurada) y compactada con `VACUUM`.
+- **Servicio PM2 (`pos-llanomio`):**
+  - Reiniciado y activo en estado `online` (PID 9012).
+
+
 
