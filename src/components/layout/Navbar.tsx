@@ -38,6 +38,7 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
     pathname === "/login" ||
     pathname?.startsWith("/caja/pos") ||
     pathname?.startsWith("/caja/alquileres") ||
+    pathname?.startsWith("/caja/apartados") ||
     pathname?.startsWith("/impresion")
   ) {
     return null;
@@ -50,6 +51,9 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
     }
     if (pathname === "/caja/alquileres") {
       return { titulo: "Sistema de Alquileres de Prendas", seccion: "Alquileres", icono: CalendarClock };
+    }
+    if (pathname === "/caja/apartados") {
+      return { titulo: "Sistema de Apartados y Reservas", seccion: "Apartados", icono: CalendarClock };
     }
     if (pathname === "/admin/dashboard") {
       return { titulo: "Dashboard Gerencial & Métricas", seccion: "Gerencia", icono: BarChart3 };

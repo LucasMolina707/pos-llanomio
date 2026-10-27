@@ -45,13 +45,15 @@ export async function GET(req: NextRequest) {
 
     if (moduloParam === "ALQUILERES" || tipoParam === "ALQUILER") {
       where.tipoOperacion = "ALQUILER";
+    } else if (moduloParam === "APARTADOS" || moduloParam === "SEPARE" || tipoParam === "SEPARE") {
+      where.tipoOperacion = "SEPARE";
     } else if (
       moduloParam === "POS" ||
       tipoParam === "VENTA" ||
       tipoParam === "POS" ||
       tipoParam === "VENTA_ARREGLO"
     ) {
-      where.tipoOperacion = { not: "ALQUILER" };
+      where.tipoOperacion = { notIn: ["ALQUILER", "SEPARE"] };
     }
 
     if (pendientes) {
@@ -461,8 +463,11 @@ export async function POST(req: NextRequest) {
     const saldoPendiente = Math.max(0, Math.round((totalFactura - totalAbonado) * 100) / 100);
 
     // 6. Determinar estado final según liquidación
+    const esSepare = tipoOperacion === "SEPARE" || body.tipoOperacion === "SEPARE";
     let estadoFinal: EstadoFactura = EstadoFactura.ACTIVA;
-    if (saldoPendiente <= 0) {
+    if (esSepare) {
+      estadoFinal = totalAbonado > 0 ? EstadoFactura.ACTIVA : EstadoFactura.EN_PROCESO;
+    } else if (saldoPendiente <= 0) {
       // Pago completo (100%)
       estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.CERRADA;
     } else if (totalAbonado === 0) {
@@ -473,14 +478,16 @@ export async function POST(req: NextRequest) {
       estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.ACTIVA;
     }
 
-    // 7. Determinar TipoOperacion con soporte para Mixto (Venta + Alquiler + Arreglo)
+    // 7. Determinar TipoOperacion con soporte para Mixto (Venta + Alquiler + Arreglo) y SEPARE
     let categoriasCount = 0;
     if (tieneVenta) categoriasCount++;
     if (tieneAlquiler) categoriasCount++;
     if (tieneArreglo) categoriasCount++;
 
     let tipoOpFinal: TipoOperacion = TipoOperacion.VENTA;
-    if (categoriasCount > 1) {
+    if (esSepare) {
+      tipoOpFinal = TipoOperacion.SEPARE;
+    } else if (categoriasCount > 1) {
       tipoOpFinal = TipoOperacion.MIXTO;
     } else if (tieneAlquiler) {
       tipoOpFinal = TipoOperacion.ALQUILER;
@@ -519,6 +526,9 @@ export async function POST(req: NextRequest) {
         turnoCajaId: turnoAbierto?.id || null,
       }));
 
+      const fechaRetiroApartado = parseFechaSegura(body.fechaRetiroApartado || body.fechaSalida || fechaEntregaCalculada);
+      const fechaDevolucionEstimada = parseFechaSegura(body.fechaDevolucionEstimada || body.fechaDevolucion || fechaDevolucionCalculada);
+
       const factura = await tx.factura.create({
         data: {
           consecutivo,
@@ -534,15 +544,18 @@ export async function POST(req: NextRequest) {
           totalAbonado,
           saldoPendiente,
           montoDeposito,
-          estadoDeposito: montoDeposito > 0 ? "RECIBIDO_EN_GARANTIA" : "SIN_DEPOSITO",
+          estadoDeposito: montoDeposito > 0 ? (body.depositoRecibidoHoy ? "RECIBIDO_EN_GARANTIA" : "ESTIPULADO_PARA_ENTREGA") : "SIN_DEPOSITO",
           montoRetenidoDeposito: 0,
           montoDevueltoDeposito: 0,
-          metodoPagoDeposito: montoDeposito > 0 ? (tipoOpFinal === TipoOperacion.ALQUILER ? "EFECTIVO" : (metodoPagoDeposito || "EFECTIVO")) : null,
+          metodoPagoDeposito: montoDeposito > 0 ? (metodoPagoDeposito || "EFECTIVO") : null,
           efectivoRecibido,
           cambioEntregado,
           notas: notas?.trim() || null,
-          fechaEntregaAlquiler: fechaEntregaCalculada,
-          fechaDevolucionPactada: fechaDevolucionCalculada,
+          observaciones: body.observaciones?.trim() || notas?.trim() || null,
+          fechaRetiroApartado,
+          fechaDevolucionEstimada,
+          fechaEntregaAlquiler: fechaEntregaCalculada || fechaRetiroApartado,
+          fechaDevolucionPactada: fechaDevolucionCalculada || fechaDevolucionEstimada,
           detalles: {
             create: detallesProcesados.map((d) => ({
               productoId: d.productoId,
@@ -589,19 +602,21 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Actualizar estado de prendas alquiladas en inventario
-      for (const item of detallesProcesados) {
-        if (item.productoId && item.tipoProducto === TipoProducto.ALQUILER) {
-          try {
-            await tx.producto.update({
-              where: { id: item.productoId },
-              data: {
-                estado: "ALQUILADO",
-                estadoPrenda: "ALQUILADO",
-              },
-            });
-          } catch (errProd) {
-            console.warn(`[INVENTARIO] No se pudo cambiar estado a ALQUILADO para producto ${item.productoId}:`, errProd);
+      // Actualizar estado de prendas alquiladas en inventario (SOLO si NO es un apartado/separe)
+      if (tipoOpFinal !== TipoOperacion.SEPARE) {
+        for (const item of detallesProcesados) {
+          if (item.productoId && item.tipoProducto === TipoProducto.ALQUILER) {
+            try {
+              await tx.producto.update({
+                where: { id: item.productoId },
+                data: {
+                  estado: "ALQUILADO",
+                  estadoPrenda: "ALQUILADO",
+                },
+              });
+            } catch (errProd) {
+              console.warn(`[INVENTARIO] No se pudo cambiar estado a ALQUILADO para producto ${item.productoId}:`, errProd);
+            }
           }
         }
       }

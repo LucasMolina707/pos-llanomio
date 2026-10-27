@@ -252,6 +252,9 @@ model Factura {
   cambioEntregado         Float          @default(0)
 
   notas                  String?
+  observaciones          String?
+  fechaRetiroApartado    DateTime?
+  fechaDevolucionEstimada DateTime?
   updatedAt              DateTime       @updatedAt
 
   detalles               DetalleFactura[]

@@ -55,11 +55,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setIsMobileOpen(false);
   }, [pathname]);
 
-  // Detección de consolas en pantalla completa (POS, Alquileres, Impresión, Login)
+  // Detección de consolas en pantalla completa (POS, Alquileres, Apartados, Impresión, Login)
   const isFullscreenTerminal =
     pathname === "/login" ||
     pathname?.startsWith("/caja/pos") ||
     pathname?.startsWith("/caja/alquileres") ||
+    pathname?.startsWith("/caja/apartados") ||
     pathname?.startsWith("/impresion");
 
   if (isFullscreenTerminal) {

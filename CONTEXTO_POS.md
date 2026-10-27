@@ -2006,5 +2006,67 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Compilación de Producción (`npm run build`):** Código de salida 0, 0 errores de TypeScript, 22 rutas estáticas y dinámicas compiladas.
 - **Servidor PM2:** Reiniciado en caliente y activo en puerto 3000.
 
+---
+
+## 44. Sistema Independiente de Apartados / Reservas (/caja/apartados), Formato Oficial de Comprobante y Puente Directo hacia Alquileres
+
+### 1. Diagnóstico y Objetivos de la Intervención
+1. **Necesidad Operativa de un Módulo Independiente de Apartados:**
+   - En el negocio de trajes y prendas de gala, los clientes con frecuencia acuden a separar sus prendas con semanas o meses de anticipación para eventos futuros.
+   - Requerían un sistema dedicado en pantalla completa (`100vw x 100vh`) conectado a la misma base de datos de clientes, productos y turnos de caja, pero que no bloqueara el stock físico inmediato de inventario si la prenda se encuentra actualmente alquilada o en taller, ya que el apartado es para una fecha futura.
+   - Se requería además la posibilidad de apartar trajes por catálogo o mediante **descripción libre** para prendas por llegar o ajustes especiales.
+2. **Formato Oficial de Comprobante ("FORMATO DE APARTADO"):**
+   - Implementado en `PlantillaImpresion.tsx` y `pdf-media-carta.ts` para los tres formatos: **Tirilla 80mm**, **Media Carta** y **Carta Completa**, con selector de 1 o 2 copias, impresión directa en iframe aislado y exportación vectorial a PDF, con **CERO códigos QR**.
+   - Encabezado corporativo 100% dinámico alimentado desde `ConfiguracionEmpresa` (logo, razón social, eslogan, NIT, dirección, teléfono).
+   - Bloque estructurado con líneas nítidas:
+     - `Nombre:` Nombre completo del cliente.
+     - `C.C. / NIT:` Documento del cliente.
+     - `Dirección:` Dirección registrada.
+     - `Descripción:` Detalle de los trajes o prendas separadas más fecha de retiro y devolución.
+     - `Celular:` Teléfono primario obligatorio y secundario opcional.
+     - `Alquiler:` Valor total pactado de la operación.
+     - `Depósito:` Depósito en garantía estipulado para la entrega.
+     - `Abono:` Dinero recibido hoy en caja para separar.
+     - `Saldo:` Saldo restante pendiente (`Alquiler - Abono`).
+     - `OBSERVACIONES:` Ajustes, tallas y notas del cliente.
+     - Leyenda legal destacada en negrita: **`PLATA DE TRAJES APARTADOS NO SE DEVUELVE`**.
+     - Renglón inferior: **`Firma del Cliente: ___________________________`**.
+3. **Puente Directo de Conversión en 1 Clic (Apartados <-> Alquileres):**
+   - **Desde `/caja/alquileres`:** Botón destacado en barra superior y en Pasos 1 y 2: `"Tomar desde Apartados / Reservas"`. Despliega un modal con buscador en vivo; al seleccionar un apartado, el sistema precarga cliente, prendas, depósito y **descuenta automáticamente el abono previo pagado**, para que el cajero solo cobre el saldo restante y el depósito en garantía al entregar las prendas.
+   - **Desde `/caja/apartados` (Historial):** Botón `"Entregar / Convertir en Alquiler"` que redirecciona a `/caja/alquileres?apartadoId=...` precargando todo en mostrador al instante.
+   - **Transacción atómica en Backend:** `PATCH /api/facturas/[id]` con `accion: "CONVERTIR_APARTADO_A_ALQUILER"` convierte la factura existente a `tipoOperacion: "ALQUILER"` y `estado: "ACTIVA_ALQUILADA"`, actualiza el inventario físico a `ALQUILADO` y registra en la caja de hoy **únicamente el dinero nuevo recibido hoy**, protegiendo la contabilidad contra duplicación de ingresos.
+
+### 2. Archivos Modificados y Creados
+1. `prisma/schema.prisma` y `database/schema.prisma`:
+   - Campos `observaciones String?`, `fechaRetiroApartado DateTime?`, `fechaDevolucionEstimada DateTime?` añadidos al modelo `Factura`. Sincronizados con SQLite mediante `npx prisma db push` y cliente regenerado con `npx prisma generate`.
+2. `src/app/caja/apartados/page.tsx`:
+   - Nueva terminal en pantalla completa (`100vw x 100vh`), sin Sidebar, con botón `"Regresar"` a `/`, barra de estado de cajón sincronizado, flujo lineal en 4 pasos (Cliente -> Prendas y Fechas -> Valores Financieros -> Comprobante) con idempotencia `facturaEnCursoId` y botón `"Finalizar y Cerrar Operación"`.
+   - Pestaña integrada de Historial de Apartados con filtros por estado, búsqueda en vivo, registro de abonos posteriores y conversión a alquiler.
+3. `src/app/caja/alquileres/page.tsx`:
+   - Integración de `CalendarClock`, estados `apartadoOrigen`, `modalCargarApartadoAbierto`.
+   - Botón `"Tomar desde Apartados"` en barra superior, Paso 1 y Paso 2.
+   - Detección de parámetro de URL `?apartadoId=...` para carga automática.
+   - Deducción transparente del abono previo en `valorAbonoAlquilerHoy`, `saldoFaltanteAlquiler` y desglose de caja en Sección C.
+   - Conversión atómica llamando a `accion: "CONVERTIR_APARTADO_A_ALQUILER"`.
+   - Modal interactivo `ModalCargarDesdeApartados` para búsqueda y selección en 1 clic.
+4. `src/app/api/facturas/route.ts` y `src/app/api/facturas/[id]/route.ts`:
+   - Soporte de `tipoOperacion: "SEPARE"`, omisión de cambio de stock a `ALQUILADO` para no bloquear inventario anticipadamente.
+   - Endpoint `POST`/`PATCH /api/facturas/[id]` con acción `CONVERTIR_APARTADO_A_ALQUILER` que actualiza prendas a `ALQUILADO`, crea el abono por el saldo recibido hoy e impacta el turno de caja abierto actual.
+   - Persistencia de `observaciones`, `fechaRetiroApartado` y `fechaDevolucionEstimada` en `PUT`.
+5. `src/components/impresion/PlantillaImpresion.tsx` y `src/lib/pdf-media-carta.ts`:
+   - Diseño oficial del **FORMATO DE APARTADO** en los 3 formatos (80mm, Media Carta, Carta).
+   - Encabezado dinámico de `ConfiguracionEmpresa`, campos tabulados exactos, aviso `"PLATA DE TRAJES APARTADOS NO SE DEVUELVE"`, firma del cliente y CERO códigos QR.
+6. `src/components/layout/AppLayout.tsx`, `Sidebar.tsx`, `Navbar.tsx` y `src/app/page.tsx`:
+   - `/caja/apartados` registrado en `isFullscreenTerminal`.
+   - Acceso a "Apartados y Reservas" (`/caja/apartados`) en menú lateral, barra superior y tarjeta oficial en el panel de inicio para roles `ADMIN` y `CAJERO`.
+7. `scripts/test-qa-apartados-y-alquileres.ts`:
+   - Suite de aseguramiento de calidad (QA) que prueba la creación de clientes, registro de apartado con abono parcial, verificación de stock disponible durante la reserva y conversión atómica a alquiler activo reconociendo el saldo y abono previo.
+
+### 3. Resultados de Calidad (QA) y Verificación
+- **Prueba QA Automatizada (`scripts/test-qa-apartados-y-alquileres.ts`):** 100% aprobada con código de salida 0.
+- **Compilación de Producción (`npm run build`):** 100% exitosa con código de salida 0 y 0 errores de TypeScript en las 23 rutas de la aplicación.
+- **Estado de Fábrica Limpio:** Ejecutado `npx tsx scripts/reset-db-fabrica.ts` dejando la base de datos `database/llanomio.db` virgen y compactada con `VACUUM`.
+- **Cero Emojis:** Cumplimiento estricto de las directrices del proyecto utilizando iconografía vectorial `lucide-react`.
+
 
 

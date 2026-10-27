@@ -137,6 +137,211 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
     cajeroId = usuarioCajero.id;
 
+    // =========================================================================
+    // ACCIÓN ESPECIAL: CONVERSIÓN DE APARTADO / SEPARE A ALQUILER ACTIVO
+    // =========================================================================
+    if (body.accion === "CONVERTIR_APARTADO_A_ALQUILER") {
+      const facturaPrevia = await prisma.factura.findFirst({
+        where: { OR: [{ id }, { numeroFactura: id }] },
+        include: {
+          detalles: { include: { producto: true } },
+          abonos: true,
+          cliente: true,
+        },
+      });
+
+      if (!facturaPrevia) {
+        return NextResponse.json(
+          { success: false, error: "El apartado a convertir no existe" },
+          { status: 404 }
+        );
+      }
+
+      const montoNuevo = Math.max(0, Math.round(Number(body.monto !== undefined ? body.monto : (body.nuevoAbono !== undefined ? body.nuevoAbono : 0)) * 100) / 100);
+      
+      // Control de caja si se recibe dinero en la entrega
+      if (montoNuevo > 0) {
+        const controlCaja = await verificarEstadoCajaParaFacturacion(prisma, cajeroId);
+        if (controlCaja.bloqueadoParaFacturar) {
+          const turnoAbiertoHoy = await prisma.turnoCaja.findFirst({
+            where: { estado: EstadoTurno.ABIERTO },
+            orderBy: { fechaApertura: "desc" },
+          });
+
+          if (!turnoAbiertoHoy || controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
+            return NextResponse.json(
+              {
+                success: false,
+                error: controlCaja.motivoBloqueo || "No existe un turno de caja iniciado para registrar el pago del saldo.",
+                codigoSeguridad: controlCaja.estado,
+              },
+              { status: 409 }
+            );
+          }
+        }
+      }
+
+      let metodoNuevo: MetodoPago = MetodoPago.EFECTIVO;
+      if (body.metodoPago && Object.values(MetodoPago).includes(body.metodoPago as MetodoPago)) {
+        metodoNuevo = body.metodoPago as MetodoPago;
+      }
+
+      const resultadoConversion = await prisma.$transaction(async (tx) => {
+        // 1. Obtener turno abierto para el nuevo abono
+        const turnosAbiertos = await tx.turnoCaja.findMany({
+          where: { estado: "ABIERTO" },
+          orderBy: { fechaApertura: "desc" },
+        });
+
+        let turnoAbierto = null;
+        if (turnoCajaId) {
+          turnoAbierto = turnosAbiertos.find((t) => t.id === turnoCajaId) || null;
+        }
+        if (!turnoAbierto && turnosAbiertos.length > 0) {
+          turnoAbierto = turnosAbiertos.find((t) => {
+            if (t.usuarioCajeroId === cajeroId) return true;
+            const participantes = parsearCajerosParticipantes(t.cajerosParticipantes);
+            return participantes.some((p) => p.id === cajeroId);
+          }) || turnosAbiertos[0];
+        }
+
+        // 2. Si hay nuevo abono, registrarlo
+        let nuevoAbono = null;
+        if (montoNuevo > 0) {
+          nuevoAbono = await tx.abono.create({
+            data: {
+              facturaId: facturaPrevia.id,
+              cajeroId,
+              turnoCajaId: turnoAbierto?.id || null,
+              monto: montoNuevo,
+              metodoPago: metodoNuevo,
+              montoRecibido: body.montoRecibido ? Number(body.montoRecibido) : null,
+              vueltasEntregadas: body.vueltasEntregadas ? Number(body.vueltasEntregadas) : null,
+              referenciaComprobante: body.referenciaComprobante?.trim() || null,
+              notas: body.notas?.trim() || "Pago de saldo al retirar prendas del apartado",
+            },
+          });
+
+          // Impactar turno activo
+          if (turnoAbierto) {
+            const campoMetodoMap: Record<MetodoPago, string> = {
+              [MetodoPago.EFECTIVO]: "totalEfectivo",
+              [MetodoPago.NEQUI]: "totalNequi",
+              [MetodoPago.BANCOLOMBIA]: "totalBancolombia",
+              [MetodoPago.LLAVE]: "totalLlave",
+              [MetodoPago.DAVIPLATA]: "totalDaviplata",
+              [MetodoPago.TRANSFERENCIA]: "totalTransferencia",
+              [MetodoPago.CONSIGNACION]: "totalConsignacion",
+            };
+            const campo = campoMetodoMap[metodoNuevo];
+            if (campo) {
+              await tx.turnoCaja.update({
+                where: { id: turnoAbierto.id },
+                data: {
+                  [campo]: { increment: montoNuevo },
+                  totalRecaudado: { increment: montoNuevo },
+                },
+              });
+            }
+          }
+        }
+
+        // 3. Si se enviaron detalles re-vinculados (por ejemplo asignando prendas físicas del inventario)
+        if (Array.isArray(body.detalles) && body.detalles.length > 0) {
+          await tx.detalleFactura.deleteMany({ where: { facturaId: facturaPrevia.id } });
+          for (const item of body.detalles) {
+            const cant = Math.max(1, Math.round(Number(item.cantidad) || 1));
+            const pUnit = Math.max(0, Number(item.precioUnitario) || 0);
+            await tx.detalleFactura.create({
+              data: {
+                facturaId: facturaPrevia.id,
+                productoId: item.productoId || null,
+                esServicioLibre: !item.productoId || Boolean(item.esServicioLibre),
+                descripcionLibre: item.descripcionLibre || item.nombre || "Prenda de alquiler",
+                cantidad: cant,
+                precioUnitario: pUnit,
+                subtotal: Math.round(cant * pUnit * 100) / 100,
+              },
+            });
+          }
+        }
+
+        // 4. Calcular nuevos totales y saldo
+        const totalAbonosActuales = await tx.abono.aggregate({
+          where: { facturaId: facturaPrevia.id },
+          _sum: { monto: true },
+        });
+        const nuevoTotalAbonado = Math.round((totalAbonosActuales._sum.monto || 0) * 100) / 100;
+        const nuevoSaldo = Math.max(0, Math.round((facturaPrevia.totalFactura - nuevoTotalAbonado) * 100) / 100);
+
+        // 5. Marcar en inventario como ALQUILADO las prendas asignadas
+        const detallesFinales = await tx.detalleFactura.findMany({
+          where: { facturaId: facturaPrevia.id },
+          include: { producto: true },
+        });
+
+        for (const det of detallesFinales) {
+          if (det.productoId && det.producto?.tipo === TipoProducto.ALQUILER) {
+            try {
+              await tx.producto.update({
+                where: { id: det.productoId },
+                data: { estado: "ALQUILADO", estadoPrenda: "ALQUILADO" },
+              });
+            } catch {}
+          }
+        }
+
+        // 6. Fechas y Depósito
+        const fechaEntrega = body.fechaEntregaAlquiler ? new Date(body.fechaEntregaAlquiler) : new Date();
+        const fechaDevolucion = body.fechaDevolucionPactada
+          ? new Date(body.fechaDevolucionPactada)
+          : (facturaPrevia.fechaDevolucionEstimada || new Date(Date.now() + 3 * 86400000));
+
+        const montoDep = body.montoDeposito !== undefined ? Math.max(0, Number(body.montoDeposito) || 0) : facturaPrevia.montoDeposito;
+        const estadoDep = montoDep > 0 ? "RECIBIDO_EN_GARANTIA" : "SIN_DEPOSITO";
+
+        // 7. Actualizar factura a ALQUILER y ACTIVA_ALQUILADA
+        const facturaConvertida = await tx.factura.update({
+          where: { id: facturaPrevia.id },
+          data: {
+            tipoOperacion: TipoOperacion.ALQUILER,
+            estado: EstadoFactura.ACTIVA_ALQUILADA,
+            totalAbonado: nuevoTotalAbonado,
+            saldoPendiente: nuevoSaldo,
+            fechaEntregaAlquiler: fechaEntrega,
+            fechaDevolucionPactada: fechaDevolucion,
+            montoDeposito: montoDep,
+            estadoDeposito: estadoDep,
+            metodoPagoDeposito: montoDep > 0 ? "EFECTIVO" : null,
+            observaciones: body.observaciones !== undefined ? body.observaciones : facturaPrevia.observaciones,
+            notas: body.notas !== undefined ? body.notas : facturaPrevia.notas,
+          },
+          include: {
+            cliente: true,
+            usuarioCajero: {
+              select: { id: true, username: true, nombre: true, rol: true },
+            },
+            detalles: { include: { producto: true } },
+            abonos: {
+              include: { cajero: { select: { id: true, username: true, nombre: true } } },
+              orderBy: { fecha: "desc" },
+            },
+          },
+        });
+
+        return { facturaConvertida, nuevoAbono };
+      });
+
+      return NextResponse.json({
+        success: true,
+        ok: true,
+        id: resultadoConversion.facturaConvertida.id,
+        mensaje: `Apartado N° ${resultadoConversion.facturaConvertida.numeroFactura} convertido en Alquiler Activo exitosamente.`,
+        factura: resultadoConversion.facturaConvertida,
+        abono: resultadoConversion.nuevoAbono,
+      });
+    }
+
     // Control de Caja: Si ingresa dinero, la caja no puede estar bloqueada por día anterior ni sin turno
     if (montoNumerico > 0) {
       const controlCaja = await verificarEstadoCajaParaFacturacion(prisma, cajeroId);
@@ -637,25 +842,31 @@ export async function PUT(req: NextRequest, { params }: Params) {
     totalAbonado = Math.round(totalAbonado * 100) / 100;
     const saldoPendiente = Math.max(0, Math.round((totalFactura - totalAbonado) * 100) / 100);
 
+    let tipoOpFinal = facturaPrevia.tipoOperacion;
+    if (body.tipoOperacion === TipoOperacion.SEPARE || body.tipoOperacion === "SEPARE" || facturaPrevia.tipoOperacion === TipoOperacion.SEPARE) {
+      tipoOpFinal = TipoOperacion.SEPARE;
+    } else {
+      let categoriasCount = (tieneVenta ? 1 : 0) + (tieneAlquiler ? 1 : 0) + (tieneArreglo ? 1 : 0);
+      if (categoriasCount > 1) {
+        tipoOpFinal = TipoOperacion.MIXTO;
+      } else if (tieneAlquiler) {
+        tipoOpFinal = TipoOperacion.ALQUILER;
+      } else if (tieneArreglo) {
+        tipoOpFinal = TipoOperacion.ARREGLO;
+      } else if (tieneVenta) {
+        tipoOpFinal = TipoOperacion.VENTA;
+      }
+    }
+
     let estadoFinal: EstadoFactura = EstadoFactura.ACTIVA;
-    if (saldoPendiente <= 0) {
+    if (tipoOpFinal === TipoOperacion.SEPARE) {
+      estadoFinal = totalAbonado > 0 ? EstadoFactura.ACTIVA : EstadoFactura.EN_PROCESO;
+    } else if (saldoPendiente <= 0) {
       estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.CERRADA;
     } else if (totalAbonado === 0) {
       estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.EN_PROCESO;
     } else {
       estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.ACTIVA;
-    }
-
-    let tipoOpFinal = facturaPrevia.tipoOperacion;
-    let categoriasCount = (tieneVenta ? 1 : 0) + (tieneAlquiler ? 1 : 0) + (tieneArreglo ? 1 : 0);
-    if (categoriasCount > 1) {
-      tipoOpFinal = TipoOperacion.MIXTO;
-    } else if (tieneAlquiler) {
-      tipoOpFinal = TipoOperacion.ALQUILER;
-    } else if (tieneArreglo) {
-      tipoOpFinal = TipoOperacion.ARREGLO;
-    } else if (tieneVenta) {
-      tipoOpFinal = TipoOperacion.VENTA;
     }
 
     // Ejecutar transacción atómica de reemplazo sobre la misma factura
@@ -724,6 +935,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
           tipoOperacion: tipoOpFinal,
           estado: estadoFinal,
           notas: notas !== undefined ? (notas?.trim() || null) : facturaPrevia.notas,
+          observaciones: body.observaciones !== undefined ? (body.observaciones?.trim() || null) : facturaPrevia.observaciones,
+          fechaRetiroApartado: body.fechaRetiroApartado ? new Date(body.fechaRetiroApartado) : facturaPrevia.fechaRetiroApartado,
+          fechaDevolucionEstimada: body.fechaDevolucionEstimada ? new Date(body.fechaDevolucionEstimada) : facturaPrevia.fechaDevolucionEstimada,
         },
         include: {
           cliente: true,
@@ -735,15 +949,17 @@ export async function PUT(req: NextRequest, { params }: Params) {
         },
       });
 
-      // 7. Marcar nuevas prendas alquiladas como ALQUILADO
-      for (const item of detallesProcesados) {
-        if (item.productoId && item.tipoProducto === TipoProducto.ALQUILER) {
-          try {
-            await tx.producto.update({
-              where: { id: item.productoId },
-              data: { estado: "ALQUILADO", estadoPrenda: "ALQUILADO" },
-            });
-          } catch {}
+      // 7. Marcar nuevas prendas alquiladas como ALQUILADO (Únicamente si NO es SEPARE)
+      if (tipoOpFinal !== TipoOperacion.SEPARE) {
+        for (const item of detallesProcesados) {
+          if (item.productoId && item.tipoProducto === TipoProducto.ALQUILER) {
+            try {
+              await tx.producto.update({
+                where: { id: item.productoId },
+                data: { estado: "ALQUILADO", estadoPrenda: "ALQUILADO" },
+              });
+            } catch {}
+          }
         }
       }
 

@@ -47,6 +47,9 @@ export interface DatosImpresionFactura {
     efectivoRecibido?: number;
     cambioEntregado?: number;
     notas?: string | null;
+    observaciones?: string | null;
+    fechaRetiroApartado?: string | null;
+    fechaDevolucionEstimada?: string | null;
     cliente: {
       nombre: string;
       documento: string;
@@ -341,11 +344,12 @@ export default function PlantillaImpresion({
   };
 
   const renderDocumento = (tipoCopiaTexto: string) => {
+    const esSepare = factura.tipoOperacion === "SEPARE";
     const esAlquiler =
-      factura.tipoOperacion === "ALQUILER" || safeNumber(factura.montoDeposito) > 0;
+      !esSepare && (factura.tipoOperacion === "ALQUILER" || safeNumber(factura.montoDeposito) > 0);
     const mostrarCajero = empresa.mostrarVendedorFactura !== false && Boolean(usuarioCajero?.nombre);
 
-    // 1. REGLA CONTABLE — SECCIÓN A: OPERACIÓN DE ALQUILER
+    // 1. REGLA CONTABLE — SECCIÓN A: OPERACIÓN DE ALQUILER O APARTADO
     const subtotalPrendas =
       safeNumber(factura.subtotalProductos) + safeNumber(factura.subtotalArreglosLibres);
     const totalOperacionAlquiler = safeNumber(factura.totalFactura) || subtotalPrendas;
@@ -391,7 +395,9 @@ export default function PlantillaImpresion({
       Boolean(factura.fechaDevolucionReal);
 
     let tituloComprobante = "FACTURA COMERCIAL";
-    if (esAlquiler) {
+    if (esSepare) {
+      tituloComprobante = "FORMATO DE APARTADO";
+    } else if (esAlquiler) {
       if (estaCerrada) {
         tituloComprobante = "COMPROBANTE DE PAZ Y SALVO FINAL DE ALQUILER";
       } else if (esPazYSalvo) {
@@ -433,6 +439,162 @@ export default function PlantillaImpresion({
     // FORMATO 1: TIRILLA POS TÉRMICA (80mm)
     // -------------------------------------------------------------
     if (formato === "TIRILLA") {
+      if (esSepare) {
+        return (
+          <div className="w-[80mm] max-w-[80mm] min-w-[80mm] mx-auto p-3 bg-white text-black font-mono text-[11px] leading-tight select-none shadow-md border border-slate-300">
+            {/* Cabecera Empresa Dinámica */}
+            <div className="text-center pb-2 border-b border-black space-y-0.5">
+              {empresa.logoUrl && (
+                <img
+                  src={empresa.logoUrl}
+                  alt={empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+                  className="max-h-14 mx-auto object-contain mb-1"
+                />
+              )}
+              <h1 className="text-sm font-black font-sans tracking-tight uppercase">
+                {empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+              </h1>
+              {empresa.eslogan && (
+                <p className="text-[9.5px] italic font-sans text-slate-700">{empresa.eslogan}</p>
+              )}
+              <p className="font-bold">NIT: {empresa.nit || "900.123.456-7"}</p>
+              {empresa.regimenFiscal && (
+                <p className="text-[9px] uppercase">{empresa.regimenFiscal}</p>
+              )}
+              <p className="text-[10px]">{empresa.direccion || "Calle 15 # 22-30"}</p>
+              <p className="text-[10px]">Tel: {empresa.telefono || "310 123 4567"}</p>
+              <p className="text-[9px] uppercase font-bold pt-1 text-slate-800">
+                ** {tipoCopiaTexto} **
+              </p>
+            </div>
+
+            {/* Título en Recuadro Central */}
+            <div className="py-2 border-b-2 border-black text-center space-y-1">
+              <div className="border-2 border-black py-1 px-2 font-black text-xs uppercase tracking-wider bg-slate-100">
+                FORMATO DE APARTADO
+              </div>
+              <div className="flex justify-between text-[10px] font-bold">
+                <span>N° APARTADO:</span>
+                <span className="font-mono">{factura.numeroFactura}</span>
+              </div>
+              <div className="flex justify-between text-[9.5px]">
+                <span>FECHA EMISIÓN:</span>
+                <span>{safeDate(factura.fechaCreacion, true)}</span>
+              </div>
+              {mostrarCajero && (
+                <div className="flex justify-between text-[9.5px]">
+                  <span>CAJERO:</span>
+                  <span className="font-semibold">{usuarioCajero?.nombre}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Bloque Estructurado del Cliente */}
+            <div className="py-2 border-b border-black text-[10px] space-y-1">
+              <div className="flex justify-between">
+                <span className="font-bold">Nombre:</span>
+                <span className="font-semibold text-right max-w-[50mm] break-words">{(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-bold">C.C. / NIT:</span>
+                <span className="font-mono">{cliente.documento || "—"}{cliente.digitoVerificacion ? `-${cliente.digitoVerificacion}` : ""}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-bold">Dirección:</span>
+                <span className="text-right max-w-[50mm] break-words">{cliente.direccion || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-bold">Celular:</span>
+                <span className="font-mono font-bold">{cliente.telefono || "—"}{cliente.telefonoSecundario ? ` / ${cliente.telefonoSecundario}` : ""}</span>
+              </div>
+            </div>
+
+            {/* Descripción de Prendas y Fechas */}
+            <div className="py-2 border-b border-black text-[10px] space-y-1">
+              <p className="font-black uppercase text-[9.5px] border-b border-black pb-0.5">Descripción de Prendas Separadas:</p>
+              <div className="space-y-1 pt-1">
+                {detalles.map((d, idx) => (
+                  <div key={idx} className="flex justify-between items-start text-[10px]">
+                    <span className="font-semibold max-w-[52mm] break-words">
+                      {safeNumber(d.cantidad)}x {d.esServicioLibre ? (d.descripcionLibre || "Traje libre") : (d.producto?.nombre || d.descripcionLibre || "Prenda")}
+                      {d.producto?.codigo ? ` [${d.producto.codigo}]` : ""}
+                    </span>
+                    <span className="font-mono font-bold">{formatCOP(d.subtotal)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2 mt-1 border-t border-dashed border-black text-[9.5px] space-y-0.5 bg-slate-50 p-1 rounded">
+                <div className="flex justify-between">
+                  <span className="font-bold">FECHA ESTIMADA RETIRO:</span>
+                  <span className="font-bold">{safeDate(factura.fechaRetiroApartado || factura.fechaEntregaAlquiler)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-bold">FECHA ESTIMADA DEVOLUCIÓN:</span>
+                  <span className="font-bold">{safeDate(factura.fechaDevolucionEstimada || factura.fechaDevolucionPactada)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bloque Financiero: Alquiler, Depósito, Abono, Saldo */}
+            <div className="py-2 border-b-2 border-black space-y-1.5 text-[10.5px]">
+              <div className="flex justify-between font-bold text-xs">
+                <span>Alquiler:</span>
+                <span className="font-mono">{formatCOP(totalOperacionAlquiler)}</span>
+              </div>
+              <div className="flex justify-between text-slate-800">
+                <span>Depósito:</span>
+                <span className="font-mono font-semibold">{formatCOP(montoDepositoEfectivo)} {montoDepositoEfectivo > 0 ? (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? "(Abonado hoy)" : "(A pagar al retirar)") : "$0"}</span>
+              </div>
+              <div className="flex justify-between text-emerald-800 font-bold">
+                <span>Abono:</span>
+                <span className="font-mono">-{formatCOP(totalAbonadoAlquiler)}</span>
+              </div>
+              <div className="flex justify-between font-black text-sm pt-1 border-t-2 border-black">
+                <span>Saldo:</span>
+                <span className={`font-mono ${saldoPendienteAlquiler <= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                  {saldoPendienteAlquiler <= 0 ? "$0 (PAGADO)" : formatCOP(saldoPendienteAlquiler)}
+                </span>
+              </div>
+            </div>
+
+            {/* OBSERVACIONES */}
+            <div className="py-2 border-b border-black text-[9.5px] space-y-0.5">
+              <p className="font-black uppercase text-[9px]">OBSERVACIONES:</p>
+              <p className="italic text-slate-800 bg-slate-50 p-1.5 rounded border border-slate-200">
+                {factura.observaciones || factura.notas || "Sin observaciones adicionales."}
+              </p>
+            </div>
+
+            {/* Aviso Legal Destacado */}
+            <div className="my-2 p-2 border-2 border-black bg-slate-100 text-center space-y-1">
+              <p className="font-black text-xs uppercase tracking-tight text-black">
+                PLATA DE TRAJES APARTADOS NO SE DEVUELVE
+              </p>
+              {empresa.politicasFactura && (
+                <p className="text-[8px] text-slate-700 leading-tight">
+                  {empresa.politicasFactura}
+                </p>
+              )}
+            </div>
+
+            {/* Pie y Firma del Cliente */}
+            <div className="py-3 text-center space-y-4 text-[9px]">
+              <div className="pt-4 border-t border-black w-4/5 mx-auto">
+                <p className="font-bold">Firma del Cliente: ___________________________</p>
+                <p className="text-[7.5px] text-slate-600 mt-0.5">C.C. {cliente.documento || "___________________"}</p>
+              </div>
+              {mostrarCajero && (
+                <p className="text-[8px] text-slate-500">Cajero: {usuarioCajero?.nombre}</p>
+              )}
+            </div>
+
+            <div className="text-center text-[8.5px] pt-1 text-slate-500">
+              {empresa.piePaginaFactura || "Sistema POS Local LLANOMIO — CERO códigos QR"}
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="w-[80mm] max-w-[80mm] min-w-[80mm] mx-auto p-3 bg-white text-black font-mono text-[11px] leading-tight select-none shadow-md border border-slate-300">
           {/* Cabecera Empresa */}
@@ -695,6 +857,157 @@ export default function PlantillaImpresion({
     // FORMATO 2: MEDIA CARTA (Horizontal: 215.9mm x 139.7mm)
     // -------------------------------------------------------------
     if (formato === "MEDIA_CARTA") {
+      if (esSepare) {
+        return (
+          <div className="hoja-media-carta-impresion w-full max-w-[215.9mm] min-h-[139.7mm] max-h-[139.7mm] mx-auto p-4 sm:p-5 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border">
+            <div>
+              {/* Cabecera Media Carta */}
+              <div className="flex items-start justify-between border-b-2 border-slate-900 pb-2 mb-2">
+                <div className="flex items-center gap-3">
+                  {empresa.logoUrl && (
+                    <img
+                      src={empresa.logoUrl}
+                      alt={empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+                      className="max-h-12 object-contain"
+                    />
+                  )}
+                  <div>
+                    <h1 className="text-base font-black tracking-tight text-slate-900 uppercase">
+                      {empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+                    </h1>
+                    {empresa.eslogan && (
+                      <p className="text-[9.5px] italic text-slate-600">{empresa.eslogan}</p>
+                    )}
+                    <p className="text-[10px] text-slate-700 font-bold">
+                      NIT: {empresa.nit || "900.123.456-7"} {empresa.regimenFiscal ? `| ${empresa.regimenFiscal}` : ""}
+                    </p>
+                    <p className="text-[9.5px] text-slate-500">
+                      {empresa.direccion} — {empresa.ciudad || "Villavicencio"} | Tel: {empresa.telefono}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Recuadro de Título y Folio */}
+                <div className="text-right">
+                  <div className="border-2 border-slate-900 rounded-xl px-3 py-1 bg-slate-50">
+                    <span className="text-[10px] uppercase font-black tracking-wider block text-slate-900">
+                      FORMATO DE APARTADO
+                    </span>
+                    <span className="text-sm font-black font-mono block text-slate-900">
+                      N° {factura.numeroFactura}
+                    </span>
+                    <span className="text-[8.5px] font-bold text-slate-600 uppercase block">
+                      {tipoCopiaTexto}
+                    </span>
+                  </div>
+                  <p className="text-[9px] text-slate-500 mt-0.5">
+                    Fecha: {safeDate(factura.fechaCreacion, true)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Ficha Estructurada del Cliente y Fechas */}
+              <div className="grid grid-cols-2 gap-3 mb-2 p-2 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                <div className="space-y-0.5">
+                  <p><strong className="text-slate-700">Nombre:</strong> <span className="font-bold text-slate-900">{(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}</span></p>
+                  <p><strong className="text-slate-700">C.C. / NIT:</strong> <span className="font-mono font-bold">{cliente.documento || "—"}</span></p>
+                  <p><strong className="text-slate-700">Dirección:</strong> <span>{cliente.direccion || "—"}</span></p>
+                  <p><strong className="text-slate-700">Celular:</strong> <span className="font-mono font-bold">{cliente.telefono || "—"}{cliente.telefonoSecundario ? ` / ${cliente.telefonoSecundario}` : ""}</span></p>
+                </div>
+
+                <div className="space-y-0.5">
+                  <p><strong className="text-slate-700">Fecha Estimada Retiro:</strong> <span className="font-bold text-blue-900">{safeDate(factura.fechaRetiroApartado || factura.fechaEntregaAlquiler)}</span></p>
+                  <p><strong className="text-slate-700">Fecha Estimada Devolución:</strong> <span className="font-bold text-rose-800">{safeDate(factura.fechaDevolucionEstimada || factura.fechaDevolucionPactada)}</span></p>
+                  {mostrarCajero && (
+                    <p><strong className="text-slate-700">Cajero Responsable:</strong> <span>{usuarioCajero?.nombre}</span></p>
+                  )}
+                </div>
+              </div>
+
+              {/* Tabla de Descripción de Prendas */}
+              <div className="mb-2">
+                <p className="font-bold text-[9px] uppercase text-slate-700 mb-1">Descripción de las Prendas Separadas:</p>
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-900 text-white text-[8.5px] font-bold uppercase">
+                    <tr>
+                      <th className="py-1 px-2 text-left w-10">Cant</th>
+                      <th className="py-1 px-2 text-left">Detalle / Traje Separado</th>
+                      <th className="py-1 px-2 text-right w-24">Precio Unit.</th>
+                      <th className="py-1 px-2 text-right w-24">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {detalles.map((d, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="py-0.5 px-2 text-center font-bold">{safeNumber(d.cantidad)}</td>
+                        <td className="py-0.5 px-2">
+                          <span className="font-bold text-slate-900">
+                            {d.esServicioLibre ? (d.descripcionLibre || "Traje libre") : (d.producto?.nombre || d.descripcionLibre || "Prenda")}
+                          </span>
+                          {d.producto?.codigo && (
+                            <span className="text-[9px] font-mono text-slate-500 ml-1.5">[{d.producto.codigo}]</span>
+                          )}
+                        </td>
+                        <td className="py-0.5 px-2 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
+                        <td className="py-0.5 px-2 text-right font-mono font-bold">{formatCOP(d.subtotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Bloque Financiero en 4 Columnas */}
+            <div className="grid grid-cols-4 gap-2 border-y-2 border-slate-900 py-1.5 text-center my-1">
+              <div className="p-1 bg-slate-50 rounded-lg border border-slate-200">
+                <p className="text-[8px] uppercase font-bold text-slate-600">Alquiler</p>
+                <p className="text-xs font-black font-mono">{formatCOP(totalOperacionAlquiler)}</p>
+              </div>
+              <div className="p-1 bg-amber-50 rounded-lg border border-amber-300">
+                <p className="text-[8px] uppercase font-bold text-amber-900">Depósito</p>
+                <p className="text-xs font-black font-mono text-amber-950">{formatCOP(montoDepositoEfectivo)}</p>
+                <span className="text-[7.5px] text-amber-800 block">{montoDepositoEfectivo > 0 ? (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? "Abonado hoy" : "Pagar al retirar") : "$0"}</span>
+              </div>
+              <div className="p-1 bg-emerald-50 rounded-lg border border-emerald-300">
+                <p className="text-[8px] uppercase font-bold text-emerald-800">Abono</p>
+                <p className="text-xs font-black font-mono text-emerald-900">{formatCOP(totalAbonadoAlquiler)}</p>
+              </div>
+              <div className="p-1 bg-rose-50 rounded-lg border border-rose-300">
+                <p className="text-[8px] uppercase font-bold text-rose-800">Saldo Restante</p>
+                <p className="text-xs font-black font-mono text-rose-900">{formatCOP(saldoPendienteAlquiler)}</p>
+              </div>
+            </div>
+
+            {/* OBSERVACIONES */}
+            <div className="text-[9.5px] mb-1">
+              <span className="font-bold text-slate-800">OBSERVACIONES: </span>
+              <span className="italic text-slate-700">{factura.observaciones || factura.notas || "Sin observaciones adicionales."}</span>
+            </div>
+
+            {/* Aviso Destacado: PLATA DE TRAJES APARTADOS NO SE DEVUELVE */}
+            <div className="p-1.5 bg-slate-100 rounded-lg border border-slate-400 text-center my-1">
+              <p className="text-xs font-black tracking-wide text-slate-900 uppercase">
+                PLATA DE TRAJES APARTADOS NO SE DEVUELVE
+              </p>
+              {empresa.politicasFactura && (
+                <p className="text-[8px] text-slate-600 leading-tight mt-0.5">{empresa.politicasFactura}</p>
+              )}
+            </div>
+
+            {/* Pie de Firma */}
+            <div className="grid grid-cols-2 gap-4 text-center pt-2 border-t border-slate-800">
+              <div>
+                <p className="font-bold text-[10px]">Firma del Cliente: ________________________________________</p>
+                <p className="text-[8px] text-slate-500">C.C. {cliente.documento || "________________________"}</p>
+              </div>
+              <div>
+                <p className="font-bold text-[10px]">Cajero Responsable: ________________________________________</p>
+                <p className="text-[8px] text-slate-500">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+              </div>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="hoja-media-carta-impresion w-full max-w-[215.9mm] min-h-[139.7mm] max-h-[139.7mm] mx-auto p-4 sm:p-5 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border">
           <div>
@@ -901,6 +1214,165 @@ export default function PlantillaImpresion({
     // -------------------------------------------------------------
     // FORMATO 3: CARTA COMPLETA (Letter Portrait: 215.9mm x 279.4mm)
     // -------------------------------------------------------------
+    if (esSepare) {
+      return (
+        <div className="hoja-carta-impresion w-full max-w-[215.9mm] min-h-[255mm] max-h-[258mm] mx-auto p-6 sm:p-7 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border">
+          <div>
+            {/* Cabecera Carta */}
+            <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3 mb-3">
+              <div className="flex items-center gap-4">
+                {empresa.logoUrl && (
+                  <img
+                    src={empresa.logoUrl}
+                    alt={empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+                    className="max-h-16 object-contain"
+                  />
+                )}
+                <div>
+                  <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
+                    {empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+                  </h1>
+                  {empresa.eslogan && (
+                    <p className="text-xs italic text-slate-600">{empresa.eslogan}</p>
+                  )}
+                  <p className="text-xs text-slate-700 font-bold mt-0.5">
+                    NIT: {empresa.nit || "900.123.456-7"} {empresa.regimenFiscal ? `| ${empresa.regimenFiscal}` : ""}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    {empresa.direccion} — {empresa.ciudad || "Villavicencio"} | Tel: {empresa.telefono}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <div className="border-2 border-slate-900 rounded-xl px-4 py-2 bg-slate-50">
+                  <span className="text-[11px] uppercase font-black tracking-wider block text-slate-900">
+                    FORMATO DE APARTADO
+                  </span>
+                  <span className="text-lg font-black font-mono block text-slate-900">
+                    N° {factura.numeroFactura}
+                  </span>
+                  <span className="text-[9px] font-bold text-slate-600 uppercase block">
+                    {tipoCopiaTexto}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Fecha Emisión: {safeDate(factura.fechaCreacion, true)}
+                </p>
+              </div>
+            </div>
+
+            {/* Ficha Cliente & Fechas */}
+            <div className="grid grid-cols-2 gap-4 mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="space-y-1">
+                <p className="text-xs"><strong className="text-slate-700">Nombre:</strong> <span className="font-bold text-sm text-slate-900">{(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}</span></p>
+                <p className="text-xs"><strong className="text-slate-700">C.C. / NIT:</strong> <span className="font-mono font-bold">{cliente.documento || "—"}</span></p>
+                <p className="text-xs"><strong className="text-slate-700">Dirección:</strong> <span>{cliente.direccion || "—"}</span></p>
+                <p className="text-xs"><strong className="text-slate-700">Celular:</strong> <span className="font-mono font-bold">{cliente.telefono || "—"}{cliente.telefonoSecundario ? ` / ${cliente.telefonoSecundario}` : ""}</span></p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs"><strong className="text-slate-700">Modalidad:</strong> <span className="font-bold uppercase text-blue-900">APARTADO / RESERVA</span></p>
+                <p className="text-xs"><strong className="text-slate-700">Fecha Estimada Retiro:</strong> <span className="font-bold text-blue-900">{safeDate(factura.fechaRetiroApartado || factura.fechaEntregaAlquiler)}</span></p>
+                <p className="text-xs"><strong className="text-slate-700">Fecha Estimada Devolución:</strong> <span className="font-bold text-rose-800">{safeDate(factura.fechaDevolucionEstimada || factura.fechaDevolucionPactada)}</span></p>
+                {mostrarCajero && (
+                  <p className="text-xs"><strong className="text-slate-700">Cajero Responsable:</strong> <span>{usuarioCajero?.nombre}</span></p>
+                )}
+              </div>
+            </div>
+
+            {/* Tabla Completa de Ítems */}
+            <table className="w-full text-xs mb-4">
+              <thead className="bg-slate-900 text-white text-[9.5px] font-bold uppercase">
+                <tr>
+                  <th className="py-2 px-3 text-left w-12">Cant</th>
+                  <th className="py-2 px-3 text-left">Descripción de la Prenda o Servicio Separado</th>
+                  <th className="py-2 px-3 text-right w-28">Precio Unitario</th>
+                  <th className="py-2 px-3 text-right w-28">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {detalles.map((d, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50">
+                    <td className="py-1 px-3 text-center font-bold">{safeNumber(d.cantidad)}</td>
+                    <td className="py-1 px-3">
+                      <span className="font-bold text-slate-900">
+                        {d.esServicioLibre
+                          ? (d.descripcionLibre || "Traje libre")
+                          : d.producto?.nombre || d.descripcionLibre || "Prenda"}
+                      </span>
+                      {d.producto?.codigo && (
+                        <span className="text-[10px] font-mono text-slate-500 ml-2">
+                          [{d.producto.codigo}] {d.producto.talla ? `| Talla: ${d.producto.talla}` : ""}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-1 px-3 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
+                    <td className="py-1 px-3 text-right font-mono font-bold">{formatCOP(d.subtotal)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Cuadrícula Financiera en 4 Bloques */}
+            <div className="grid grid-cols-4 gap-3 mb-4 text-center">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <p className="text-[9px] font-bold uppercase text-slate-600">Alquiler</p>
+                <p className="text-sm font-black font-mono text-slate-900 mt-1">{formatCOP(totalOperacionAlquiler)}</p>
+              </div>
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-300">
+                <p className="text-[9px] font-bold uppercase text-amber-900">Depósito en Garantía</p>
+                <p className="text-sm font-black font-mono text-amber-950 mt-1">{formatCOP(montoDepositoEfectivo)}</p>
+                <span className="text-[8.5px] text-amber-800 block mt-0.5">{montoDepositoEfectivo > 0 ? (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? "Abonado hoy en custodia" : "A pagar el día de entrega") : "$0"}</span>
+              </div>
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-300">
+                <p className="text-[9px] font-bold uppercase text-emerald-800">Abono Inicial</p>
+                <p className="text-sm font-black font-mono text-emerald-900 mt-1">{formatCOP(totalAbonadoAlquiler)}</p>
+              </div>
+              <div className="p-3 bg-rose-50 rounded-xl border border-rose-300">
+                <p className="text-[9px] font-bold uppercase text-rose-800">Saldo Restante</p>
+                <p className="text-sm font-black font-mono text-rose-900 mt-1">{formatCOP(saldoPendienteAlquiler)}</p>
+              </div>
+            </div>
+
+            {/* OBSERVACIONES */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs mb-3">
+              <span className="font-bold text-slate-900">OBSERVACIONES: </span>
+              <span className="italic text-slate-800">{factura.observaciones || factura.notas || "Sin observaciones adicionales."}</span>
+            </div>
+
+            {/* Aviso Destacado: PLATA DE TRAJES APARTADOS NO SE DEVUELVE */}
+            <div className="p-3 bg-slate-100 rounded-xl border-2 border-slate-900 text-center mb-3">
+              <p className="text-sm font-black tracking-wide text-slate-900 uppercase">
+                PLATA DE TRAJES APARTADOS NO SE DEVUELVE
+              </p>
+              {empresa.politicasFactura && (
+                <p className="text-[9.5px] text-slate-600 leading-tight mt-1">{empresa.politicasFactura}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Firmas */}
+          <div>
+            <div className="grid grid-cols-2 gap-8 text-center pt-6 border-t-2 border-slate-800">
+              <div>
+                <p className="font-bold text-xs">Firma del Cliente: ________________________________________</p>
+                <p className="text-[9.5px] text-slate-500 mt-1">C.C. {cliente.documento || "________________________"}</p>
+              </div>
+              <div>
+                <p className="font-bold text-xs">Firma Vendedor / Cajero Responsable: ________________________________________</p>
+                <p className="text-[9.5px] text-slate-500 mt-1">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+              </div>
+            </div>
+
+            <div className="text-center text-[9px] text-slate-400 mt-3 font-mono">
+              {empresa.piePaginaFactura || "Comprobante Oficial LLANOMIO POS — CERO códigos QR externos"}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="hoja-carta-impresion w-full max-w-[215.9mm] min-h-[255mm] max-h-[258mm] mx-auto p-6 sm:p-7 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border">
         <div>

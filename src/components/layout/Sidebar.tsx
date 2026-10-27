@@ -47,6 +47,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
     pathname === "/login" ||
     pathname?.startsWith("/caja/pos") ||
     pathname?.startsWith("/caja/alquileres") ||
+    pathname?.startsWith("/caja/apartados") ||
     pathname?.startsWith("/impresion")
   ) {
     return null;
@@ -57,7 +58,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
     usuario?.username === "admin" ||
     !usuario?.rol; // Fallback seguro mientras hidrata si ya pasó middleware
 
-  // Definición de las secciones base con los 10 módulos oficiales
+  // Definición de las secciones base con los módulos oficiales
   const todasLasSecciones: { title: string; items: MenuItem[] }[] = [
     {
       title: "PANEL DE CONTROL",
@@ -89,6 +90,12 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
           href: "/caja/alquileres",
           icon: Clock,
           badge: "Alquiler",
+        },
+        {
+          name: "Apartados y Reservas",
+          href: "/caja/apartados",
+          icon: CalendarClock,
+          badge: "Separe",
         },
         {
           name: "Control y Arqueo de Caja",

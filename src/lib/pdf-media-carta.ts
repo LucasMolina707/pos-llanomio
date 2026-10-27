@@ -126,7 +126,8 @@ function dibujarPaginaMediaCarta(
   const margenDerecho = ANCHO_MEDIA_CARTA_MM - 8;
   let cursorY = 7;
 
-  const esAlquiler = factura.tipoOperacion === "ALQUILER";
+  const esSepare = factura.tipoOperacion === "SEPARE";
+  const esAlquiler = !esSepare && factura.tipoOperacion === "ALQUILER";
   const esPazYSalvo = factura.saldoPendiente <= 0;
 
   // 1. ENCABEZADO: LOGO + DATOS DE EMPRESA + RECUADRO DE FACTURA
@@ -171,7 +172,10 @@ function dibujarPaginaMediaCarta(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.5);
-  if (esAlquiler) {
+  if (esSepare) {
+    doc.setTextColor(15, 23, 42);
+    doc.text("FORMATO DE APARTADO", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
+  } else if (esAlquiler) {
     const infoEst = obtenerInfoEstadosAlquiler(factura);
     if (infoEst.estaCerrada) {
       doc.setTextColor(5, 150, 105);
@@ -481,7 +485,8 @@ function dibujarPaginaCarta(
   const margenDerecho = anchoCartaMm - 12;
   let cursorY = 12;
 
-  const esAlquiler = factura.tipoOperacion === "ALQUILER";
+  const esSepare = factura.tipoOperacion === "SEPARE";
+  const esAlquiler = !esSepare && factura.tipoOperacion === "ALQUILER";
   const esPazYSalvo = factura.saldoPendiente <= 0;
 
   // 1. ENCABEZADO: LOGO + DATOS FISCALES + RECUADRO DE FACTURA
@@ -526,7 +531,10 @@ function dibujarPaginaCarta(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
-  if (esAlquiler) {
+  if (esSepare) {
+    doc.setTextColor(15, 23, 42);
+    doc.text("FORMATO DE APARTADO - PRODUCTOS SEPARADOS", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+  } else if (esAlquiler) {
     if (factura.estado === "CERRADA") {
       doc.setTextColor(5, 150, 105);
       doc.text("CERTIFICADO DE PAZ Y SALVO FINAL DE ALQUILER Y DEPÓSITO", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
@@ -864,10 +872,10 @@ function dibujarContenidoTirilla(
   const anchoMm = 80;
   const margen = 4;
   const margenDer = anchoMm - 4;
-  let cursorY = startY;
-
-  const esAlquiler = factura.tipoOperacion === "ALQUILER";
+  const esSepare = factura.tipoOperacion === "SEPARE";
+  const esAlquiler = !esSepare && factura.tipoOperacion === "ALQUILER";
   const esPazYSalvo = factura.saldoPendiente <= 0;
+  let cursorY = startY;
 
   // Logo centrado si existe
   const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, (anchoMm - 24) / 2, cursorY, 24, 14);
@@ -909,7 +917,9 @@ function dibujarContenidoTirilla(
   cursorY += 3.5;
   doc.setFont("helvetica", "bold");
   let tituloTirilla = "FACTURA:";
-  if (esAlquiler) {
+  if (esSepare) {
+    tituloTirilla = "FORMATO APARTADO:";
+  } else if (esAlquiler) {
     if (factura.estado === "CERRADA") {
       tituloTirilla = "CERTIFICADO PAZ Y SALVO ALQUILER:";
     } else if (factura.saldoPendiente <= 0) {
@@ -1117,8 +1127,9 @@ export function descargarPdfSegunFormato(
     doc = crearDocumentoPdfMediaCarta(datos, opciones);
   }
 
+  const esSepare = datos.factura.tipoOperacion === "SEPARE";
   const esAlquiler = datos.factura.tipoOperacion === "ALQUILER";
-  const prefijo = esAlquiler ? "Comprobante_Alquiler" : "Factura";
+  const prefijo = esSepare ? "Formato_Apartado" : (esAlquiler ? "Comprobante_Alquiler" : "Factura");
   const clienteLimpio = (datos.factura.cliente.nombre || "Cliente")
     .replace(/[^a-zA-Z0-9]/g, "_")
     .substring(0, 20);

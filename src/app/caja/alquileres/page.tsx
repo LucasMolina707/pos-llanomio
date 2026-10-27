@@ -20,6 +20,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Calendar,
+  CalendarClock,
   DollarSign,
   AlertTriangle,
   RotateCcw,
@@ -266,6 +267,20 @@ export default function TerminalAlquileresPage() {
   const [datosComprobanteModal, setDatosComprobanteModal] = useState<DatosImpresionFactura | null>(null);
   const [cargandoComprobante, setCargandoComprobante] = useState(false);
 
+  // Carga y vinculación directa desde Apartados / Reservas
+  const [modalCargarApartadoAbierto, setModalCargarApartadoAbierto] = useState(false);
+  const [apartadosDisponibles, setApartadosDisponibles] = useState<any[]>([]);
+  const [cargandoApartadosModal, setCargandoApartadosModal] = useState(false);
+  const [busquedaApartadoModal, setBusquedaApartadoModal] = useState("");
+  const [apartadoOrigen, setApartadoOrigen] = useState<{
+    id: string;
+    numeroFactura: string;
+    abonoPrevio: number;
+    totalAlquiler: number;
+    saldoPendiente: number;
+    observaciones?: string;
+  } | null>(null);
+
   // Mensajería y Feedback
   const [mensajeError, setMensajeError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
@@ -366,7 +381,121 @@ export default function TerminalAlquileresPage() {
     cargarClientes();
     cargarPrendas();
     cargarHistorialAlquileres();
+
+    // Detectar si se envió un apartadoId desde la consola de apartados para agilizar la entrega
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const aptId = params.get("apartadoId");
+      if (aptId) {
+        cargarApartadoPorId(aptId);
+      }
+    }
   }, []);
+
+  const cargarApartadosActivos = async () => {
+    try {
+      setCargandoApartadosModal(true);
+      const res = await fetch("/api/facturas/monitoreo?modulo=APARTADOS&tipo=SEPARE", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        const lista = (data.facturas || []).filter(
+          (f: any) => f.tipoOperacion === "SEPARE" && f.estado !== "CERRADA"
+        );
+        setApartadosDisponibles(lista);
+      }
+    } catch (err) {
+      console.error("Error al cargar apartados:", err);
+    } finally {
+      setCargandoApartadosModal(false);
+    }
+  };
+
+  const seleccionarApartadoParaAlquilar = (apt: any) => {
+    if (!apt) return;
+
+    // 1. Asignar cliente del apartado
+    if (apt.cliente) {
+      setClienteSeleccionado({
+        id: apt.cliente.id,
+        nombre: apt.cliente.nombre,
+        documento: apt.cliente.documento || apt.cliente.identificacion || "",
+        telefono: apt.cliente.telefono || "",
+        telefonoSecundario: apt.cliente.telefonoSecundario || null,
+        direccion: apt.cliente.direccion || null,
+        email: apt.cliente.email || null,
+      });
+    }
+
+    // 2. Mapear prendas en el carrito
+    const items: ItemCarritoAlquiler[] = (apt.detalles || []).map((d: any, idx: number) => ({
+      idTemporal: `apt_${d.id || idx}_${Date.now()}`,
+      productoId: d.productoId || "",
+      codigo: d.producto?.codigo || "SEPARE",
+      nombre: d.producto?.nombre || d.descripcionLibre || "Prenda apartada",
+      talla: d.producto?.talla || null,
+      color: d.producto?.color || null,
+      cantidad: d.cantidad || 1,
+      precioUnitario: d.precioUnitario || 0,
+      subtotal: d.subtotal || 0,
+    }));
+    setItemsCarrito(items);
+
+    // 3. Registrar información del apartado de origen
+    const abonoPrev = Number(apt.totalAbonado) || 0;
+    const totalAlq = Number(apt.totalFactura || apt.total) || 0;
+    const saldoPend = Math.max(0, totalAlq - abonoPrev);
+
+    setApartadoOrigen({
+      id: apt.id,
+      numeroFactura: apt.numeroFactura,
+      abonoPrevio: abonoPrev,
+      totalAlquiler: totalAlq,
+      saldoPendiente: saldoPend,
+      observaciones: apt.observaciones || apt.notas || "",
+    });
+
+    if (apt.montoDeposito !== undefined && apt.montoDeposito !== null && Number(apt.montoDeposito) > 0) {
+      setMontoDeposito(Number(apt.montoDeposito));
+      setMontoDepositoPersonalizado(String(apt.montoDeposito));
+    }
+
+    if (apt.observaciones || apt.notas) {
+      setNotasAlquiler(apt.observaciones || apt.notas);
+    }
+
+    if (apt.fechaDevolucionEstimada) {
+      try {
+        const d = new Date(apt.fechaDevolucionEstimada);
+        const pad = (n: number) => String(n).padStart(2, "0");
+        setFechaDevolucion(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T18:00`);
+      } catch {}
+    }
+
+    // Modalidad de cobro del canon hoy
+    if (saldoPend <= 0) {
+      setModalidadPago("PENDIENTE");
+    } else {
+      setModalidadPago("COMPLETO");
+    }
+
+    setModalCargarApartadoAbierto(false);
+    setPasoActual(2);
+    setMensajeExito(`Apartado N° ${apt.numeroFactura} cargado. Abono previo: $${abonoPrev.toLocaleString("es-CO")}`);
+  };
+
+  const cargarApartadoPorId = async (id: string) => {
+    try {
+      const res = await fetch(`/api/facturas/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.factura) {
+          seleccionarApartadoParaAlquilar(data.factura);
+        }
+      }
+    } catch (err) {
+      console.error("Error al cargar apartado por ID:", err);
+    }
+  };
 
   const cargarSesion = async () => {
     try {
@@ -460,22 +589,31 @@ export default function TerminalAlquileresPage() {
     return itemsCarrito.reduce((acc, it) => acc + it.subtotal, 0);
   }, [itemsCarrito]);
 
+  // Saldo base del alquiler a cubrir (descontando abono previo si viene de un apartado)
+  const saldoAlquilerPendienteBase = useMemo(() => {
+    if (apartadoOrigen) {
+      return Math.max(0, subtotalPrendas - apartadoOrigen.abonoPrevio);
+    }
+    return subtotalPrendas;
+  }, [subtotalPrendas, apartadoOrigen]);
+
   // Abono que el cliente realiza hoy al canon de alquiler
   const valorAbonoAlquilerHoy = useMemo(() => {
     if (modalidadPago === "COMPLETO") {
-      return subtotalPrendas;
+      return saldoAlquilerPendienteBase;
     }
     if (modalidadPago === "ADELANTO") {
       const val = parseFloat(montoAbonoManual) || 0;
-      return Math.min(subtotalPrendas, Math.max(0, val));
+      return Math.min(saldoAlquilerPendienteBase, Math.max(0, val));
     }
     return 0; // PENDIENTE ($0 hoy)
-  }, [modalidadPago, subtotalPrendas, montoAbonoManual]);
+  }, [modalidadPago, saldoAlquilerPendienteBase, montoAbonoManual]);
 
   // Saldo faltante por pagar del alquiler (El depósito NO suma ni altera este saldo)
   const saldoFaltanteAlquiler = useMemo(() => {
-    return Math.max(0, subtotalPrendas - valorAbonoAlquilerHoy);
-  }, [subtotalPrendas, valorAbonoAlquilerHoy]);
+    const abonoPrev = apartadoOrigen ? apartadoOrigen.abonoPrevio : 0;
+    return Math.max(0, subtotalPrendas - (abonoPrev + valorAbonoAlquilerHoy));
+  }, [subtotalPrendas, apartadoOrigen, valorAbonoAlquilerHoy]);
 
   // REGLA CONTABLE ESTRICTA:
   // Total Exigido Hoy en Caja = Abono al Alquiler Hoy (Efectivo) + Depósito de Respaldo (Efectivo)
@@ -660,66 +798,109 @@ export default function TerminalAlquileresPage() {
       setGuardandoAlquiler(true);
       setMensajeError(null);
 
-      const payload = {
-        clienteId: clienteSeleccionado.id,
-        turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
-        tipoOperacion: "ALQUILER",
-        fechaEntregaAlquiler: fechaSalida,
-        fechaDevolucionPactada: new Date(fechaDevolucion).toISOString(),
-        notas: notasAlquiler.trim() || undefined,
-        montoDeposito: montoDeposito,
-        metodoPagoDeposito: "EFECTIVO", // Fijado estrictamente en EFECTIVO en gaveta
-        efectivoRecibido: efectivoRecibidoNum,
-        cambioEntregado: vueltasCambioFinal,
-        detalles: itemsCarrito.map((it) => ({
-          productoId: it.productoId,
-          cantidad: it.cantidad,
-          precioUnitario: it.precioUnitario,
-          fechaEntrega: fechaSalida,
-          fechaDevolucion: new Date(fechaDevolucion).toISOString(),
-        })),
-        abonoInicial:
-          valorAbonoAlquilerHoy > 0
-            ? {
-                monto: valorAbonoAlquilerHoy,
-                metodoPago: "EFECTIVO",
-                montoRecibido: efectivoRecibidoNum,
-                vueltasEntregadas: vueltasCambioFinal,
-                referenciaComprobante: referenciaPago.trim() || undefined,
-                notas:
-                  modalidadPago === "COMPLETO"
-                    ? "Pago completo del canon de alquiler (Efectivo)"
-                    : "Abono / Anticipo de canon de alquiler (Efectivo)",
-              }
-            : undefined,
-      };
+      let facturaFinal: any = null;
 
-      // Si ya existe una facturaEnCursoId para esta operación, actualizarla mediante PUT sin duplicar el registro
-      const method = facturaEnCursoId ? "PUT" : "POST";
-      const endpoint = facturaEnCursoId ? `/api/facturas/${facturaEnCursoId}` : "/api/facturas";
-      const payloadFinal = facturaEnCursoId ? { ...payload, reemplazarEnCurso: true } : payload;
+      if (apartadoOrigen) {
+        // Conversión atómica del Apartado / Separe existente a Alquiler Activo
+        const payloadConversion = {
+          accion: "CONVERTIR_APARTADO_A_ALQUILER",
+          turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
+          monto: valorAbonoAlquilerHoy,
+          metodoPago: "EFECTIVO",
+          montoRecibido: efectivoRecibidoNum,
+          vueltasEntregadas: vueltasCambioFinal,
+          referenciaComprobante: referenciaPago.trim() || undefined,
+          montoDeposito: montoDeposito,
+          fechaEntregaAlquiler: fechaSalida,
+          fechaDevolucionPactada: new Date(fechaDevolucion).toISOString(),
+          notas: notasAlquiler.trim() || undefined,
+          detalles: itemsCarrito.map((it) => ({
+            productoId: it.productoId || undefined,
+            esServicioLibre: !it.productoId,
+            descripcionLibre: it.nombre,
+            cantidad: it.cantidad,
+            precioUnitario: it.precioUnitario,
+            subtotal: it.subtotal,
+          })),
+        };
 
-      const res = await fetch(endpoint, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payloadFinal),
-      });
+        const res = await fetch(`/api/facturas/${apartadoOrigen.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payloadConversion),
+        });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        if (res.status === 409 && (data.requiereAperturaHoy || data.requiereCierreAnterior)) {
-          await cajon.actualizarCajon(false);
-          cajon.abrirModal();
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          if (res.status === 409 && (data.requiereAperturaHoy || data.requiereCierreAnterior)) {
+            await cajon.actualizarCajon(false);
+            cajon.abrirModal();
+          }
+          throw new Error(data.error || "No se pudo convertir el apartado en alquiler activo.");
         }
-        throw new Error(data.error || "No se pudo registrar el alquiler.");
+        facturaFinal = data.factura || data;
+      } else {
+        const payload = {
+          clienteId: clienteSeleccionado.id,
+          turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
+          tipoOperacion: "ALQUILER",
+          fechaEntregaAlquiler: fechaSalida,
+          fechaDevolucionPactada: new Date(fechaDevolucion).toISOString(),
+          notas: notasAlquiler.trim() || undefined,
+          montoDeposito: montoDeposito,
+          metodoPagoDeposito: "EFECTIVO", // Fijado estrictamente en EFECTIVO en gaveta
+          efectivoRecibido: efectivoRecibidoNum,
+          cambioEntregado: vueltasCambioFinal,
+          detalles: itemsCarrito.map((it) => ({
+            productoId: it.productoId,
+            cantidad: it.cantidad,
+            precioUnitario: it.precioUnitario,
+            fechaEntrega: fechaSalida,
+            fechaDevolucion: new Date(fechaDevolucion).toISOString(),
+          })),
+          abonoInicial:
+            valorAbonoAlquilerHoy > 0
+              ? {
+                  monto: valorAbonoAlquilerHoy,
+                  metodoPago: "EFECTIVO",
+                  montoRecibido: efectivoRecibidoNum,
+                  vueltasEntregadas: vueltasCambioFinal,
+                  referenciaComprobante: referenciaPago.trim() || undefined,
+                  notas:
+                    modalidadPago === "COMPLETO"
+                      ? "Pago completo del canon de alquiler (Efectivo)"
+                      : "Abono / Anticipo de canon de alquiler (Efectivo)",
+                }
+              : undefined,
+        };
+
+        // Si ya existe una facturaEnCursoId para esta operación, actualizarla mediante PUT sin duplicar el registro
+        const method = facturaEnCursoId ? "PUT" : "POST";
+        const endpoint = facturaEnCursoId ? `/api/facturas/${facturaEnCursoId}` : "/api/facturas";
+        const payloadFinal = facturaEnCursoId ? { ...payload, reemplazarEnCurso: true } : payload;
+
+        const res = await fetch(endpoint, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payloadFinal),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          if (res.status === 409 && (data.requiereAperturaHoy || data.requiereCierreAnterior)) {
+            await cajon.actualizarCajon(false);
+            cajon.abrirModal();
+          }
+          throw new Error(data.error || "No se pudo registrar el alquiler.");
+        }
+        facturaFinal = data.factura || data;
       }
 
       // Sincronizar en vivo el cajón
       cajon.actualizarCajon(true);
       cajon.notificarCajaActualizada();
 
-      const facturaFinal = data.factura || data;
-      const fId = facturaFinal?.id || data?.id;
+      const fId = facturaFinal?.id || apartadoOrigen?.id;
       if (fId) {
         setFacturaEnCursoId(fId);
         setFacturaImpresionId(fId);
@@ -748,6 +929,7 @@ export default function TerminalAlquileresPage() {
   // Reiniciar formulario para un Nuevo Alquiler
   const reiniciarNuevoAlquiler = () => {
     setFacturaEnCursoId(null);
+    setApartadoOrigen(null);
     setClienteSeleccionado(null);
     setBusquedaCliente("");
     setItemsCarrito([]);
@@ -1149,6 +1331,21 @@ export default function TerminalAlquileresPage() {
 
         {/* Acciones de Cabecera */}
         <div className="flex items-center gap-2">
+          {/* Botón Tomar desde Apartados / Reservas */}
+          <button
+            type="button"
+            onClick={() => {
+              cargarApartadosActivos();
+              setModalCargarApartadoAbierto(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all shrink-0 shadow-2xs"
+            title="Cargar cliente y prendas desde una reserva o apartado existente"
+          >
+            <CalendarClock className="w-4 h-4 text-indigo-600" />
+            <span className="hidden md:inline">Tomar desde Apartados</span>
+            <span className="md:hidden">Apartados</span>
+          </button>
+
           {/* Botón Centro de Historial y Llegadas */}
           <button
             onClick={() => {
@@ -1178,6 +1375,16 @@ export default function TerminalAlquileresPage() {
               </span>
             )}
           </button>
+
+          {/* Enlace rápido al Sistema de Apartados */}
+          <Link
+            href="/caja/apartados"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 transition-all shrink-0"
+            title="Ir a Terminal de Apartados y Reservas"
+          >
+            <CalendarClock className="w-4 h-4 text-slate-600" />
+            <span className="hidden sm:inline">Apartados</span>
+          </Link>
 
           {/* Enlace rápido a la Terminal POS */}
           <Link
@@ -1591,13 +1798,28 @@ export default function TerminalAlquileresPage() {
                       </p>
                     </div>
 
-                    <button
-                      onClick={() => setModalCrearClienteAbierto(true)}
-                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span>+ Crear Nuevo Cliente</span>
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          cargarApartadosActivos();
+                          setModalCargarApartadoAbierto(true);
+                        }}
+                        className="px-3.5 py-2 rounded-xl bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all"
+                        title="Buscar clientes que ya tienen prendas apartadas"
+                      >
+                        <CalendarClock className="w-4 h-4 text-indigo-600" />
+                        <span>Cargar desde Apartado / Reserva</span>
+                      </button>
+
+                      <button
+                        onClick={() => setModalCrearClienteAbierto(true)}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>+ Crear Nuevo Cliente</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Buscador de clientes */}
@@ -1728,14 +1950,53 @@ export default function TerminalAlquileresPage() {
                           Catálogo de Prendas para Alquiler
                         </h2>
                       </div>
-                      <button
-                        onClick={() => setModalCrearPrendaAbierto(true)}
-                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>+ Nueva Prenda</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            cargarApartadosActivos();
+                            setModalCargarApartadoAbierto(true);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs flex items-center gap-1 shadow-2xs transition-all"
+                          title="Cargar productos desde una reserva o apartado"
+                        >
+                          <CalendarClock className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Tomar de Apartados</span>
+                        </button>
+
+                        <button
+                          onClick={() => setModalCrearPrendaAbierto(true)}
+                          className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Nueva Prenda</span>
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Banner de Apartado de Origen si existe */}
+                    {apartadoOrigen && (
+                      <div className="mb-3 p-3 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <CalendarClock className="w-5 h-5 text-indigo-600 shrink-0" />
+                          <div>
+                            <span className="font-black text-indigo-950">Prendas cargadas desde Apartado N° {apartadoOrigen.numeroFactura}</span>
+                            <div className="text-[11px] text-indigo-800 flex items-center gap-2 mt-0.5">
+                              <span>Abono pagado: <strong className="text-emerald-800 font-mono">${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}</strong></span>
+                              <span>•</span>
+                              <span>Saldo restante: <strong className="text-indigo-950 font-mono">${apartadoOrigen.saldoPendiente.toLocaleString("es-CO")}</strong></span>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setApartadoOrigen(null)}
+                          className="px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-700 font-bold text-[11px] hover:bg-rose-50"
+                        >
+                          Desvincular
+                        </button>
+                      </div>
+                    )}
 
                     {/* Buscador y categorías */}
                     <div className="flex gap-2">
@@ -2111,6 +2372,35 @@ export default function TerminalAlquileresPage() {
                           </span>
                         </div>
 
+                        {/* Banner de Apartado Origen si existe */}
+                        {apartadoOrigen && (
+                          <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200 text-xs mb-3 text-indigo-950">
+                            <div className="flex items-center justify-between font-black">
+                              <span className="flex items-center gap-1.5">
+                                <CalendarClock className="w-4 h-4 text-indigo-700" />
+                                Apartado N° {apartadoOrigen.numeroFactura}
+                              </span>
+                              <span className="bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded text-[10px]">
+                                Abono Previo Reconocido
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-indigo-200/80 text-[11px]">
+                              <div>
+                                <span className="text-slate-500 block">Total Prendas:</span>
+                                <strong className="text-slate-900">${subtotalPrendas.toLocaleString("es-CO")}</strong>
+                              </div>
+                              <div>
+                                <span className="text-emerald-700 block">Abono Ya Pagado:</span>
+                                <strong className="text-emerald-800 font-mono">-${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}</strong>
+                              </div>
+                              <div>
+                                <span className="text-indigo-700 block">Saldo Canon Hoy:</span>
+                                <strong className="text-indigo-950 font-mono">${saldoAlquilerPendienteBase.toLocaleString("es-CO")}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         <p className="text-[11px] text-slate-500 mb-3">
                           Total correspondiente a las {itemsCarrito.length} prendas seleccionadas. Puede cobrarse completo de contado, con abono inicial o dejarse pendiente.
                         </p>
@@ -2130,7 +2420,7 @@ export default function TerminalAlquileresPage() {
                             }`}
                           >
                             <span className="font-black text-xs block">100% Contado</span>
-                            <span className="text-[10px] opacity-90">${subtotalPrendas.toLocaleString("es-CO")}</span>
+                            <span className="text-[10px] opacity-90">${saldoAlquilerPendienteBase.toLocaleString("es-CO")}</span>
                           </button>
 
                           <button
@@ -2238,6 +2528,14 @@ export default function TerminalAlquileresPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                       {/* Desglose de Cobro */}
                       <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs space-y-1.5">
+                        {apartadoOrigen && (
+                          <div className="flex justify-between text-indigo-300">
+                            <span>(-) Abono Previo Apartado:</span>
+                            <span className="font-mono font-bold text-emerald-400">
+                              -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
+                            </span>
+                          </div>
+                        )}
                         <div className="flex justify-between text-slate-300">
                           <span>Abono/Pago Alquiler Hoy:</span>
                           <span className="font-mono font-bold text-blue-300">
@@ -3000,6 +3298,178 @@ export default function TerminalAlquileresPage() {
                 datos={datosComprobanteModal || undefined}
                 onCerrar={() => setModalComprobanteAbierto(false)}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. MODAL DE CARGA RÁPIDA DESDE APARTADOS / RESERVAS PENDIENTES */}
+      {modalCargarApartadoAbierto && (
+        <div className="fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Cabecera del Modal */}
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center">
+                  <CalendarClock className="w-4 h-4 text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Tomar Prenda / Reserva desde el Sistema de Apartados
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Seleccione un apartado activo para precargar cliente, prendas y descontar el abono previo pagado.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalCargarApartadoAbierto(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                title="Cerrar ventana"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Barra de búsqueda y recarga */}
+            <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por cliente, documento o N° de apartado..."
+                  value={busquedaApartadoModal}
+                  onChange={(e) => setBusquedaApartadoModal(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={cargarApartadosActivos}
+                className="p-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-700"
+                title="Recargar apartados activos"
+              >
+                <RefreshCw className={`w-4 h-4 ${cargandoApartadosModal ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+
+            {/* Lista de Apartados Activos */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFC]">
+              {cargandoApartadosModal ? (
+                <div className="p-12 text-center text-xs text-slate-400">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+                  Cargando apartados activos del sistema...
+                </div>
+              ) : (
+                (() => {
+                  const query = busquedaApartadoModal.trim().toLowerCase();
+                  const filtrados = apartadosDisponibles.filter((apt) => {
+                    if (!query) return true;
+                    const num = (apt.numeroFactura || "").toLowerCase();
+                    const cli = (apt.cliente?.nombre || "").toLowerCase();
+                    const doc = (apt.cliente?.documento || apt.cliente?.identificacion || "").toLowerCase();
+                    const tel = (apt.cliente?.telefono || "").toLowerCase();
+                    return num.includes(query) || cli.includes(query) || doc.includes(query) || tel.includes(query);
+                  });
+
+                  if (filtrados.length === 0) {
+                    return (
+                      <div className="p-12 text-center text-slate-400">
+                        <CalendarClock className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                        <p className="font-bold text-xs text-slate-600">No se encontraron apartados pendientes</p>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          {busquedaApartadoModal ? "Ningún apartado coincide con el texto de búsqueda." : "No hay apartados activos pendientes por entregar."}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return filtrados.map((apt) => {
+                    const prendasTexto = (apt.detalles || [])
+                      .map((d: any) => `${d.cantidad}x ${d.producto?.nombre || d.descripcionLibre || "Prenda"}`)
+                      .join(", ");
+
+                    return (
+                      <div
+                        key={apt.id}
+                        className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-indigo-400 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-black text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+                              Apartado N° {apt.numeroFactura}
+                            </span>
+                            <span className="text-[11px] text-slate-500">
+                              {new Date(apt.fechaCreacion).toLocaleDateString("es-CO")}
+                            </span>
+                            {apt.fechaRetiroApartado && (
+                              <span className="text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full">
+                                Retiro: {new Date(apt.fechaRetiroApartado).toLocaleDateString("es-CO")}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="font-bold text-xs text-slate-900 flex items-center gap-2 mt-1">
+                            <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span>{apt.cliente?.nombre || "Cliente ocasional"}</span>
+                            <span className="text-slate-400">|</span>
+                            <span className="text-slate-600">Doc: {apt.cliente?.documento || apt.cliente?.identificacion || "—"}</span>
+                            <span className="text-slate-400">|</span>
+                            <span className="text-slate-600">Tel: {apt.cliente?.telefono || "—"}</span>
+                          </div>
+
+                          <p className="text-[11px] text-slate-600 mt-1.5 line-clamp-2">
+                            <strong className="text-slate-700">Prenda(s):</strong> {prendasTexto || "Sin detalle"}
+                          </p>
+
+                          {apt.observaciones && (
+                            <p className="text-[10px] text-slate-500 mt-0.5 italic">
+                              <strong>Obs:</strong> {apt.observaciones}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Valores financieros y botón */}
+                        <div className="flex flex-row md:flex-col items-end justify-between md:justify-center gap-2 shrink-0 border-t md:border-t-0 pt-2 md:pt-0 border-slate-100">
+                          <div className="text-right text-xs">
+                            <div className="text-slate-500 text-[10px]">
+                              Total Alquiler: <strong>${(apt.totalFactura || apt.total || 0).toLocaleString("es-CO")}</strong>
+                            </div>
+                            <div className="text-emerald-700 font-bold text-[11px]">
+                              Abono Pagado: -${(apt.totalAbonado || 0).toLocaleString("es-CO")}
+                            </div>
+                            <div className="text-slate-900 font-black text-sm">
+                              Saldo Restante: ${(apt.saldoPendiente || 0).toLocaleString("es-CO")}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => seleccionarApartadoParaAlquilar(apt)}
+                            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                          >
+                            <CalendarClock className="w-4 h-4" />
+                            <span>Cargar en Alquiler</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()
+              )}
+            </div>
+
+            {/* Pie del modal */}
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+              <span>{apartadosDisponibles.length} apartados pendientes registrados</span>
+              <button
+                type="button"
+                onClick={() => setModalCargarApartadoAbierto(false)}
+                className="px-4 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-100 text-xs transition"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>

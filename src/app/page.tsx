@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ShoppingBag,
   CalendarCheck,
+  CalendarClock,
   Package,
   ShieldCheck,
   BarChart3,
@@ -79,6 +80,15 @@ export default function HomePage() {
       etiqueta: "Alquiler Exclusivo",
       colorBadge: "bg-emerald-50 text-emerald-700 border-emerald-200",
       href: "/caja/alquileres",
+    },
+    {
+      titulo: "Sistema de Apartados y Reservas",
+      descripcion: "Terminal completa para separar prendas y trajes con anticipación, registro de abonos y control de entrega futura.",
+      icono: CalendarClock,
+      colorIcono: "bg-amber-50 text-amber-600 border-amber-200",
+      etiqueta: "Apartados y Separes",
+      colorBadge: "bg-amber-50 text-amber-700 border-amber-200",
+      href: "/caja/apartados",
     },
     {
       titulo: "Control y Arqueo de Caja",
