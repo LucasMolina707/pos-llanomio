@@ -15,8 +15,8 @@ echo Presione cualquier tecla para iniciar la preparacion del sistema...
 pause > nul
 echo.
 
-:: 1. Posicionamiento en la raiz del repositorio
-cd /d "%~dp0.."
+:: 1. Posicionamiento dinamico en la raiz del repositorio
+cd /d "%~dp0..\.."
 
 :: 2. Verificacion de Node.js
 echo [1/8] Verificando instalacion de Node.js en este equipo...
@@ -45,17 +45,18 @@ if %errorlevel% neq 0 (
 )
 echo.
 
-:: 4. Creacion de directorios de respaldo
+:: 4. Creacion de directorios de respaldo portables
 echo [3/8] Preparando directorios locales y de respaldo...
-if not exist "C:\POS_LLANOMIO_BACKUPS" (
-    mkdir "C:\POS_LLANOMIO_BACKUPS"
-    echo [CREADO] Carpeta central de respaldos: C:\POS_LLANOMIO_BACKUPS
-)
+set "CARPETA_RESPALDO=%SYSTEMDRIVE%\POS_LLANOMIO_BACKUPS"
+if not exist "%CARPETA_RESPALDO%" mkdir "%CARPETA_RESPALDO%" 2>nul
+if not exist "%CARPETA_RESPALDO%" set "CARPETA_RESPALDO=%USERPROFILE%\POS_LLANOMIO_BACKUPS"
+if not exist "%CARPETA_RESPALDO%" mkdir "%CARPETA_RESPALDO%" 2>nul
+
 if not exist "database\backups_locales" (
     mkdir "database\backups_locales"
     echo [CREADO] Carpeta local de respaldos: database\backups_locales
 )
-echo [OK] Directorios listos.
+echo [OK] Directorios listos (%CARPETA_RESPALDO%).
 echo.
 
 :: 5. Inicializacion preliminar de .env si no existe
@@ -69,7 +70,7 @@ if not exist ".env" (
         echo NODE_ENV="production" >> .env
         echo JWT_SECRET="pos-llanomio-secreto-seguro-token-local-2026" >> .env
         echo APP_NAME="Sistema POS Local LLANOMIO" >> .env
-        echo CARPETA_RESPALDO_DEFAULT="C:\\POS_LLANOMIO_BACKUPS" >> .env
+        echo CARPETA_RESPALDO_DEFAULT="%CARPETA_RESPALDO%" >> .env
         echo [INFO] Archivo .env base generado.
     )
 )
@@ -77,7 +78,11 @@ if not exist ".env" (
 :: 6. Escaneo Real y Seleccion Interactiva de Puertos
 echo [4/8] Iniciando Asistente de Escaneo y Seleccion de Puertos Libres...
 echo -------------------------------------------------------------------------------
-call node scripts/escanear-y-elegir-puertos.js
+if exist "scripts\escanear-y-elegir-puertos.js" (
+    call node scripts\escanear-y-elegir-puertos.js
+) else (
+    call node "%~dp0escanear-y-elegir-puertos.js"
+)
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Ocurrio un inconveniente durante la seleccion de puertos.
@@ -106,7 +111,7 @@ if %errorlevel% neq 0 (
         echo [OK] Regla de Firewall creada con exito.
     ) else (
         echo [AVISO] No se pudo crear la regla de Firewall automaticamente (se requieren permisos de Administrador).
-        echo        Si otros dispositivos no pueden conectarse por Wi-Fi, ejecute el instalador como Administrador.
+        echo        Si otros dispositivos no pueden conectarse por Wi-Fi, ejecute el script 6_ABRIR_FIREWALL_LAN_ADMIN.bat.
     )
 ) else (
     echo [OK] Regla de Firewall preexistente detectada.
@@ -197,7 +202,7 @@ start http://localhost:%PUERTO_APP%/login
 
 echo.
 echo Puede administrar el servidor, cambiar puertos o detenerlo en cualquier momento
-echo utilizando el script: instalador_tienda\2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat
+echo utilizando el script: 2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat
 echo ===============================================================================
 echo.
 pause

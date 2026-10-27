@@ -4,7 +4,7 @@ title POS LLANOMIO - Gestor de Servidor y Selector de Puertos
 color 0A
 
 :: 1. Posicionamiento en la raiz del proyecto
-cd /d "%~dp0.."
+cd /d "%~dp0..\.."
 
 :MENU
 cls
@@ -53,7 +53,11 @@ echo ===========================================================================
 echo            RE-ESCANEO Y ASIGNACION INTERACTIVA DE PUERTOS LIBRES
 echo ===============================================================================
 echo.
-call node scripts/escanear-y-elegir-puertos.js
+if exist "scripts\escanear-y-elegir-puertos.js" (
+    call node scripts\escanear-y-elegir-puertos.js
+) else (
+    call node "%~dp0escanear-y-elegir-puertos.js"
+)
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] El asistente de puertos no pudo completar la asignacion.
@@ -103,7 +107,7 @@ call %PM2_CMD% start ecosystem.config.js
 if %errorlevel% neq 0 (
     echo [AVISO] PM2 no pudo iniciar directamente en modo servicio.
     echo Levantando servidor directo con Node.js...
-    start "POS LLANOMIO SERVIDOR DIRECTO" cmd /k "cd /d %~dp0.. && node start-pos.js"
+    start "POS LLANOMIO SERVIDOR DIRECTO" cmd /k "cd /d %~dp0..\.. && node start-pos.js"
 ) else (
     call %PM2_CMD% save >nul 2>nul
     echo [OK] Servicios iniciados con PM2 en segundo plano.

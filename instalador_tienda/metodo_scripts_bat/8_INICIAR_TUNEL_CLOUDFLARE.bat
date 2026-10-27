@@ -2,7 +2,7 @@
 TITLE LLANOMIO POS - Iniciar Tunel Seguro de Cloudflare (Acceso Remoto)
 COLOR 0B
 
-cd /d "%~dp0.."
+cd /d "%~dp0..\.."
 
 echo ===============================================================================
 echo                SISTEMA POS LOCAL LLANOMIO - TUNEL CLOUDFLARE
@@ -18,8 +18,8 @@ if %errorlevel% neq 0 (
         set "CLOUDFLARED_EXE=C:\Program Files (x86)\cloudflared\cloudflared.exe"
     ) else if exist "C:\Program Files\cloudflared\cloudflared.exe" (
         set "CLOUDFLARED_EXE=C:\Program Files\cloudflared\cloudflared.exe"
-    ) else if exist "%~dp0cloudflared.exe" (
-        set "CLOUDFLARED_EXE=%~dp0cloudflared.exe"
+    ) else if exist "%~dp0..\..\cloudflared.exe" (
+        set "CLOUDFLARED_EXE=%~dp0..\..\cloudflared.exe"
     ) else (
         echo [ERROR] No se encontro cloudflared.exe instalado en el sistema.
         echo Por favor instale Cloudflared o descarguelo en esta carpeta.

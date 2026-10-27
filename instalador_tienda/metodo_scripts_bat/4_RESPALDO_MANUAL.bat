@@ -9,7 +9,7 @@ echo ===========================================================================
 echo.
 
 :: 1. Posicionarse en la raiz del proyecto
-cd /d "%~dp0.."
+cd /d "%~dp0..\.."
 
 :: 2. Verificar existencia de la base de datos
 if not exist "database\llanomio.db" (
@@ -25,8 +25,12 @@ for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set da
 set TIMESTAMP=%datetime:~0,8%_%datetime:~8,6%
 set NOMBRE_RESPALDO=llanomio_manual_%TIMESTAMP%.db
 
-:: 4. Garantizar existencia de carpetas de destino
-if not exist "C:\POS_LLANOMIO_BACKUPS" mkdir "C:\POS_LLANOMIO_BACKUPS"
+:: 4. Carpetas de destino portables
+set "CARPETA_RESPALDO=%SYSTEMDRIVE%\POS_LLANOMIO_BACKUPS"
+if not exist "%CARPETA_RESPALDO%" mkdir "%CARPETA_RESPALDO%" 2>nul
+if not exist "%CARPETA_RESPALDO%" set "CARPETA_RESPALDO=%USERPROFILE%\POS_LLANOMIO_BACKUPS"
+if not exist "%CARPETA_RESPALDO%" mkdir "%CARPETA_RESPALDO%" 2>nul
+
 if not exist "database\backups_locales" mkdir "database\backups_locales"
 
 :: 5. Opcion de mantenimiento y compactacion previa (VACUUM)
@@ -43,12 +47,10 @@ if "%OPC_VACUUM%"=="1" (
 )
 
 :: 6. Copia de respaldo en ambas ubicaciones
-echo [1/2] Generando copia en carpeta central C:\POS_LLANOMIO_BACKUPS...
-copy /y "database\llanomio.db" "C:\POS_LLANOMIO_BACKUPS\%NOMBRE_RESPALDO%" >nul
+echo [1/2] Generando copia en carpeta central (%CARPETA_RESPALDO%)...
+copy /y "database\llanomio.db" "%CARPETA_RESPALDO%\%NOMBRE_RESPALDO%" >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [ERROR] Fallo la copia a C:\POS_LLANOMIO_BACKUPS.
-    pause
-    exit /b 1
+    echo [AVISO] No se pudo escribir en la carpeta central, procediendo con carpeta local...
 )
 
 echo [2/2] Generando copia en carpeta local database\backups_locales...
@@ -64,7 +66,7 @@ echo ===========================================================================
 echo                     RESPALDO COMPLETADO EXITOSAMENTE
 echo ===============================================================================
 echo Archivo generado:   %NOMBRE_RESPALDO%
-echo Ubicacion 1:        C:\POS_LLANOMIO_BACKUPS\%NOMBRE_RESPALDO%
+echo Ubicacion 1:        %CARPETA_RESPALDO%\%NOMBRE_RESPALDO%
 echo Ubicacion 2 (Local): database\backups_locales\%NOMBRE_RESPALDO%
 echo ===============================================================================
 echo.

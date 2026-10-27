@@ -15,7 +15,21 @@ const os = require("os");
 const readline = require("readline");
 const { execSync } = require("child_process");
 
-const RUTA_RAIZ = path.resolve(__dirname, "..");
+/**
+ * Localiza la raiz del proyecto de forma dinamica buscando package.json
+ */
+function localizarRaizProyecto() {
+  let dir = __dirname;
+  while (dir && dir !== path.parse(dir).root) {
+    if (fs.existsSync(path.join(dir, "package.json"))) {
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  return process.cwd();
+}
+
+const RUTA_RAIZ = localizarRaizProyecto();
 const RUTA_ENV = path.join(RUTA_RAIZ, ".env");
 
 // Puertos candidatos para aplicacion web y servicios de red

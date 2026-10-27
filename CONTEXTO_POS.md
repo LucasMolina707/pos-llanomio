@@ -58,17 +58,29 @@ pos-llanomio/
 │   │   └── .gitkeep
 │   └── migrations/                   # Historial de migraciones automáticas de Prisma
 ├── instalador_tienda/
-│   ├── 1_INSTALAR_POS_GITHUB.bat            # Instalador maestro paso a paso con escaneo de puertos y build
-│   ├── 2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat # Arranque rapido y cambio interactivo de puertos sin reinstalar
-│   ├── 3_ACTUALIZAR_SISTEMA.bat             # Actualizador desde GitHub con respaldo preventivo y opcion de puerto
-│   ├── 4_RESPALDO_MANUAL.bat                # Respaldo en caliente y mantenimiento VACUUM de SQLite
-│   ├── 5_RESTAURAR_RESPALDO.bat             # Restaurador seguro guiado con salvaguarda automatica
-│   ├── 6_ABRIR_FIREWALL_LAN_ADMIN.bat       # Configurador elevado de reglas de Firewall de Windows
-│   ├── 7_OPTIMIZAR_BASE_DATOS.bat           # Compactacion VACUUM y optimizacion WAL directa
-│   ├── 8_INICIAR_TUNEL_CLOUDFLARE.bat       # Enlace con tunel seguro perimetral de Cloudflare
-│   ├── 9_INSTALAR_SERVICIO_CLOUDFLARE_ADMIN.bat # Instalador de Cloudflare como servicio de Windows
-│   ├── CONFIGURAR_PUERTOS_RED.bat           # Lanzador directo del asistente interactivo de puertos
-│   └── LEEME_GUIA_INSTALACION_TIENDA.md     # Documentacion y manual completo de la suite para la tienda
+│   ├── MENU_DE_INSTALACION.bat               # Menu interactivo general para abrir o elegir metodos
+│   ├── LEEME_GUIA_INSTALACION_TIENDA.md      # Manual maestro de referencia y seleccion de metodos
+│   ├── metodo_scripts_bat/                   # Metodo 1: Automatizacion mediante scripts .bat y escaner
+│   │   ├── GUIA_INSTALACION_SCRIPTS.md       # Manual operativo del metodo asistido
+│   │   ├── escanear-y-elegir-puertos.js      # Motor interactivo de escaneo nativo de puertos
+│   │   ├── 1_INSTALAR_POS_GITHUB.bat         # Instalador maestro paso a paso
+│   │   ├── 2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat # Gestor de arranque y cambio de puerto en caliente
+│   │   ├── 3_ACTUALIZAR_SISTEMA.bat          # Actualizador seguro desde GitHub con respaldo previo
+│   │   ├── 4_RESPALDO_MANUAL.bat             # Respaldo manual y mantenimiento VACUUM
+│   │   ├── 5_RESTAURAR_RESPALDO.bat          # Restaurador seguro con salvaguarda automatica
+│   │   ├── 6_ABRIR_FIREWALL_LAN_ADMIN.bat    # Configurador de Firewall de Windows
+│   │   ├── 7_OPTIMIZAR_BASE_DATOS.bat        # Optimizador y compactador SQLite
+│   │   ├── 8_INICIAR_TUNEL_CLOUDFLARE.bat    # Tunel seguro para acceso remoto
+│   │   ├── 9_INSTALAR_SERVICIO_CLOUDFLARE_ADMIN.bat # Servicio Cloudflare de Windows
+│   │   └── CONFIGURAR_PUERTOS_RED.bat        # Lanzador directo de escaneo de puertos
+│   ├── metodo_github/                        # Metodo 2: Clonacion directa desde GitHub
+│   │   ├── GUIA_INSTALACION_GITHUB.md        # Guia para clonar e instalar en la ruta actual
+│   │   └── CLONAR_E_INSTALAR_AQUI.bat        # Script de clonacion y despliegue rapido en %CD%
+│   ├── metodo_usb_zip/                       # Metodo 3: Instalacion portable via memoria USB o ZIP
+│   │   ├── GUIA_INSTALACION_USB.md           # Guia de extraccion e instalacion offline/portable
+│   │   └── INSTALAR_DESDE_USB_AQUI.bat       # Script instalador para paquetes descomprimidos
+│   └── metodo_comandos/                      # Metodo 4: Manual detallado de consola (CLI)
+│       └── GUIA_INSTALACION_COMANDOS.md      # Guia paso a paso de comandos Node.js, Prisma y PM2
 ├── migracion_excel/
 │   ├── importar_excel.ts             # Redirección rápida al motor central de migración
 │   ├── origen/                       # Carpeta activa para depositar archivos Excel a migrar
@@ -1884,3 +1896,30 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Prueba QA de Puertos (`scripts/test-qa-puertos-suite.ts`):** 100% de aserciones aprobadas (detección de colisión de puerto, rechazo de puerto ocupado, aceptación de puerto libre y persistencia en `.env`).
 - **Compilacion de Produccion (`npm run build`):** Codigo 0, **0 errores de TypeScript**, 22 rutas estáticas y dinámicas optimizadas.
 - **Base de Datos Limpia de Fabrica (`scripts/reset-db-fabrica.ts`):** Ejecutado con exito (0 clientes, 0 productos, 0 facturas, 1 admin inicial, 1 empresa configurada, compactada con VACUUM).
+
+---
+
+## 41. Modularizacion y Aislamiento de Manuales de Instalacion por Carpetas Metodologicas y Autonomia de Rutas (%CD% / %~dp0)
+
+### 1. Diagnostico y Objetivos de la Intervencion
+1. **Aislamiento por Metodos Independientes:**
+   - Previamente, todos los manuales y scripts residian mezclados en la raiz de `instalador_tienda/`, lo que podia generar confusion en usuarios no tecnicos que unicamente requerian un metodo especifico (ej. memoria USB o comandos directos).
+   - **Solucion Implementada:** Creacion de 4 carpetas metodologicas totalmente autosuficientes:
+     - `metodo_scripts_bat/`: Contiene la suite completa de asistentes numerados `.bat`, su guia `GUIA_INSTALACION_SCRIPTS.md` y una copia autonoma del motor de escaneo de puertos `escanear-y-elegir-puertos.js`.
+     - `metodo_github/`: Contiene `GUIA_INSTALACION_GITHUB.md` y el script rapido `CLONAR_E_INSTALAR_AQUI.bat` para clonacion y despliegue directo en `%CD%`.
+     - `metodo_usb_zip/`: Contiene `GUIA_INSTALACION_USB.md` y el script `INSTALAR_DESDE_USB_AQUI.bat` para despliegues portables y offline.
+     - `metodo_comandos/`: Contiene `GUIA_INSTALACION_COMANDOS.md` con el paso a paso exhaustivo de consola para administradores de sistemas y DevOps.
+2. **Autonomia de Rutas Relativas y Portabilidad Universal:**
+   - Se eliminaron por completo las dependencias rigidas de disco `C:\Proyectos` o rutas absolutas prefijadas.
+   - Los scripts `.bat` fijan dinamicamente el directorio de trabajo a la raiz del proyecto mediante `cd /d "%~dp0..\.."`.
+   - Las carpetas de respaldo implementan una estrategia tolerante a fallos: `%SYSTEMDRIVE%\POS_LLANOMIO_BACKUPS`, `%USERPROFILE%\POS_LLANOMIO_BACKUPS` y siempre la carpeta local `database\backups_locales`.
+   - El script de escaneo interactivo `escanear-y-elegir-puertos.js` localiza dinamicamente el archivo `package.json` hacia arriba desde `__dirname`, operando de forma identica en cualquier subdirectorio.
+3. **Selector General de Metodos (`instalador_tienda/MENU_DE_INSTALACION.bat`):**
+   - Menu interactivo que permite al usuario seleccionar visualmente el metodo que desea utilizar, abriendo la carpeta correspondiente.
+
+### 2. Resultados de Calidad (QA) y Verificacion
+- **Verificacion de Scripts y Rutas:** Probada la ejecucion de `escanear-y-elegir-puertos.js` y de los scripts `.bat` desde `metodo_scripts_bat/` con resolucion de raiz exitosa.
+- **Compilacion de Produccion (`npm run build`):** Codigo de salida 0, 0 errores de TypeScript, 22 rutas estáticas y dinámicas optimizadas.
+- **Base de Datos SQLite:** Estado virgen de fabrica confirmado (`scripts/reset-db-fabrica.ts`).
+- **Servicios PM2:** `pos-llanomio` y `pos-mdns-proxy` activos y estables (`online`).
+

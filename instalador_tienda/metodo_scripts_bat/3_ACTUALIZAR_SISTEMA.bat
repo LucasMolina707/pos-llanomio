@@ -16,20 +16,24 @@ pause > nul
 echo.
 
 :: 1. Posicionamiento en la raiz del proyecto
-cd /d "%~dp0.."
+cd /d "%~dp0..\.."
 
 :: 2. Generar timestamp para respaldo previo
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
 set TIMESTAMP=%datetime:~0,8%_%datetime:~8,6%
 
 echo [1/7] Generando copia de seguridad preventiva obligatoria...
-if not exist "C:\POS_LLANOMIO_BACKUPS" mkdir "C:\POS_LLANOMIO_BACKUPS"
+set "CARPETA_RESPALDO=%SYSTEMDRIVE%\POS_LLANOMIO_BACKUPS"
+if not exist "%CARPETA_RESPALDO%" mkdir "%CARPETA_RESPALDO%" 2>nul
+if not exist "%CARPETA_RESPALDO%" set "CARPETA_RESPALDO=%USERPROFILE%\POS_LLANOMIO_BACKUPS"
+if not exist "%CARPETA_RESPALDO%" mkdir "%CARPETA_RESPALDO%" 2>nul
+
 if not exist "database\backups_locales" mkdir "database\backups_locales"
 
 if exist "database\llanomio.db" (
-    copy /y "database\llanomio.db" "C:\POS_LLANOMIO_BACKUPS\llanomio_pre_actualizacion_%TIMESTAMP%.db" >nul
+    copy /y "database\llanomio.db" "%CARPETA_RESPALDO%\llanomio_pre_actualizacion_%TIMESTAMP%.db" >nul 2>nul
     copy /y "database\llanomio.db" "database\backups_locales\llanomio_pre_actualizacion_%TIMESTAMP%.db" >nul
-    echo [OK] Copia preventiva guardada en C:\POS_LLANOMIO_BACKUPS\llanomio_pre_actualizacion_%TIMESTAMP%.db
+    echo [OK] Copia preventiva guardada en database\backups_locales\llanomio_pre_actualizacion_%TIMESTAMP%.db
 ) else (
     echo [AVISO] No se detecto base de datos previa para respaldar.
 )
@@ -58,7 +62,11 @@ set /p RESP_PUERTOS=">> Seleccione una opcion [1 o 2]: "
 if "%RESP_PUERTOS%"=="2" (
     echo.
     echo Ejecutando asistente de puertos...
-    call node scripts/escanear-y-elegir-puertos.js
+    if exist "scripts\escanear-y-elegir-puertos.js" (
+        call node scripts\escanear-y-elegir-puertos.js
+    ) else (
+        call node "%~dp0escanear-y-elegir-puertos.js"
+    )
 ) else (
     echo [INFO] Se mantienen los puertos actuales de .env.
 )
@@ -130,8 +138,7 @@ echo.
 echo ===============================================================================
 echo                SISTEMA ACTUALIZADO Y REINICIADO EXITOSAMENTE
 echo ===============================================================================
-echo Respaldo de seguridad: C:\POS_LLANOMIO_BACKUPS\llanomio_pre_actualizacion_%TIMESTAMP%.db
-echo Servidor operando en:  http://localhost:%PUERTO_APP%
+echo Servidor operando en: http://localhost:%PUERTO_APP%
 echo ===============================================================================
 echo.
 pause

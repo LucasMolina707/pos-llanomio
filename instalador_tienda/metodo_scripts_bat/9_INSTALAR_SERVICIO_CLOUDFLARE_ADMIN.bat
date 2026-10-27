@@ -10,7 +10,7 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-cd /d "%~dp0.."
+cd /d "%~dp0..\.."
 
 echo ===============================================================================
 echo        SISTEMA POS LOCAL LLANOMIO - INSTALADOR DE SERVICIO CLOUDFLARE

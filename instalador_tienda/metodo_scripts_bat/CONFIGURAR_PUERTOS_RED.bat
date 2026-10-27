@@ -3,7 +3,7 @@ chcp 65001 > nul
 title POS LLANOMIO - Configuracion y Seleccion de Puertos de Red
 color 0B
 
-cd /d "%~dp0.."
+cd /d "%~dp0..\.."
 
 echo ===============================================================================
 echo        SISTEMA POS LOCAL LLANOMIO - ESCANEO Y CONFIGURACION DE PUERTOS
@@ -11,7 +11,11 @@ echo ===========================================================================
 echo.
 
 :: 1. Ejecutar el asistente interactivo de puertos
-call node scripts/escanear-y-elegir-puertos.js
+if exist "scripts\escanear-y-elegir-puertos.js" (
+    call node scripts\escanear-y-elegir-puertos.js
+) else (
+    call node "%~dp0escanear-y-elegir-puertos.js"
+)
 
 :: 2. Si PM2 esta activo, reiniciar los servicios para aplicar los nuevos puertos
 where pm2 >nul 2>nul

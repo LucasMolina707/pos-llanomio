@@ -16,7 +16,7 @@ pause > nul
 echo.
 
 :: 1. Posicionamiento en la raiz del proyecto
-cd /d "%~dp0.."
+cd /d "%~dp0..\.."
 
 :: 2. Detener servicios para liberar el archivo de base de datos
 echo [1/4] Deteniendo servicios para liberar el archivo de base de datos...
@@ -38,10 +38,16 @@ echo.
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
 set TIMESTAMP=%datetime:~0,8%_%datetime:~8,6%
 
+set "CARPETA_RESPALDO=%SYSTEMDRIVE%\POS_LLANOMIO_BACKUPS"
+if not exist "%CARPETA_RESPALDO%" set "CARPETA_RESPALDO=%USERPROFILE%\POS_LLANOMIO_BACKUPS"
+
 if exist "database\llanomio.db" (
     echo [2/4] Creando salvaguarda automatica de la base de datos activa...
-    if not exist "C:\POS_LLANOMIO_BACKUPS" mkdir "C:\POS_LLANOMIO_BACKUPS"
-    copy /y "database\llanomio.db" "C:\POS_LLANOMIO_BACKUPS\llanomio_antes_de_restaurar_%TIMESTAMP%.db" >nul
+    if not exist "database\backups_locales" mkdir "database\backups_locales"
+    copy /y "database\llanomio.db" "database\backups_locales\llanomio_antes_de_restaurar_%TIMESTAMP%.db" >nul
+    if exist "%CARPETA_RESPALDO%" (
+        copy /y "database\llanomio.db" "%CARPETA_RESPALDO%\llanomio_antes_de_restaurar_%TIMESTAMP%.db" >nul 2>nul
+    )
     echo [OK] Salvaguarda generada: llanomio_antes_de_restaurar_%TIMESTAMP%.db
 )
 echo.
@@ -49,16 +55,14 @@ echo.
 :: 4. Listar respaldos disponibles
 echo [3/4] Respaldos encontrados en el sistema:
 echo -------------------------------------------------------------------------------
-echo Ubicacion principal: C:\POS_LLANOMIO_BACKUPS
-if exist "C:\POS_LLANOMIO_BACKUPS" (
-    dir /b /o-d "C:\POS_LLANOMIO_BACKUPS\*.db" 2>nul
-) else (
-    echo   (No se encontro la carpeta C:\POS_LLANOMIO_BACKUPS)
-)
-echo.
 echo Ubicacion local: database\backups_locales
 if exist "database\backups_locales" (
     dir /b /o-d "database\backups_locales\*.db" 2>nul
+)
+if exist "%CARPETA_RESPALDO%" (
+    echo.
+    echo Ubicacion secundaria: %CARPETA_RESPALDO%
+    dir /b /o-d "%CARPETA_RESPALDO%\*.db" 2>nul
 )
 echo -------------------------------------------------------------------------------
 echo.
@@ -68,10 +72,10 @@ set /p ARCHIVO_ELEGIDO=">> Escriba el nombre del archivo .db a restaurar (o ruta
 
 set ARCHIVO_FINAL=%ARCHIVO_ELEGIDO%
 if not exist "%ARCHIVO_FINAL%" (
-    if exist "C:\POS_LLANOMIO_BACKUPS\%ARCHIVO_ELEGIDO%" (
-        set ARCHIVO_FINAL=C:\POS_LLANOMIO_BACKUPS\%ARCHIVO_ELEGIDO%
-    ) else if exist "database\backups_locales\%ARCHIVO_ELEGIDO%" (
+    if exist "database\backups_locales\%ARCHIVO_ELEGIDO%" (
         set ARCHIVO_FINAL=database\backups_locales\%ARCHIVO_ELEGIDO%
+    ) else if exist "%CARPETA_RESPALDO%\%ARCHIVO_ELEGIDO%" (
+        set ARCHIVO_FINAL=%CARPETA_RESPALDO%\%ARCHIVO_ELEGIDO%
     )
 )
 

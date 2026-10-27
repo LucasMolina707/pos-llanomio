@@ -19,7 +19,7 @@ if %errorLevel% neq 0 (
 )
 
 :: Cambiar directorio a la raiz del proyecto
-cd /d "%~dp0.."
+cd /d "%~dp0..\.."
 
 cls
 echo ===============================================================================
@@ -33,6 +33,7 @@ echo.
 
 :: 1. Eliminar reglas previas de LLANOMIO para evitar duplicados
 echo [1/4] Limpiando reglas anteriores del Firewall...
+netsh advfirewall firewall delete rule name="POS_LLANOMIO_PUERTOS_WEB" >nul 2>&1
 netsh advfirewall firewall delete rule name="LLANOMIO_POS_WEB_LAN" >nul 2>&1
 netsh advfirewall firewall delete rule name="LLANOMIO_POS_MDNS" >nul 2>&1
 netsh advfirewall firewall delete rule name="LLANOMIO_NODE_APP" >nul 2>&1
@@ -49,7 +50,7 @@ if exist ".env" (
 )
 
 echo [2/4] Abriendo puertos TCP !PORT_HTTP! y !PORT_NEXT! (Servidor Web POS)...
-netsh advfirewall firewall add rule name="LLANOMIO_POS_WEB_LAN" dir=in action=allow protocol=TCP localport=!PORT_HTTP!,!PORT_NEXT! profile=any description="Permite acceso web a LLANOMIO POS desde la red local LAN"
+netsh advfirewall firewall add rule name="POS_LLANOMIO_PUERTOS_WEB" dir=in action=allow protocol=TCP localport=!PORT_HTTP!,!PORT_NEXT! profile=any description="Permite acceso web a LLANOMIO POS desde la red local LAN"
 if %errorlevel% equ 0 (
     echo       [OK] Regla TCP !PORT_HTTP!,!PORT_NEXT! creada exitosamente en perfiles Privado y Publico.
 ) else (
