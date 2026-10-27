@@ -236,10 +236,14 @@ export async function POST(req: NextRequest) {
       notas,
       montoDeposito: montoDepositoInput = 0,
       metodoPagoDeposito,
+      efectivoRecibido: efectivoRecibidoInput = 0,
+      cambioEntregado: cambioEntregadoInput = 0,
     } = body;
 
     // Sanitización segura de montos principales
     const montoDeposito = Math.max(0, Number(montoDepositoInput) || 0);
+    const efectivoRecibido = Math.max(0, Number(efectivoRecibidoInput) || 0);
+    const cambioEntregado = Math.max(0, Number(cambioEntregadoInput) || 0);
 
     // 1. Determinar y validar el cajero autenticado obligatoriamente (Blindaje Anti-P2003)
     let cajeroId = sesion?.userId || cajeroIdBody;
@@ -534,6 +538,8 @@ export async function POST(req: NextRequest) {
           montoRetenidoDeposito: 0,
           montoDevueltoDeposito: 0,
           metodoPagoDeposito: montoDeposito > 0 ? (tipoOpFinal === TipoOperacion.ALQUILER ? "EFECTIVO" : (metodoPagoDeposito || "EFECTIVO")) : null,
+          efectivoRecibido,
+          cambioEntregado,
           notas: notas?.trim() || null,
           fechaEntregaAlquiler: fechaEntregaCalculada,
           fechaDevolucionPactada: fechaDevolucionCalculada,

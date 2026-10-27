@@ -40,10 +40,30 @@ function insertarLogoSeguro(
   }
 }
 
+// Helpers Defensivos Anti-Crash
+const safeNum = (val: unknown): number => {
+  const n = Number(val);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const formatCOP = (val: unknown): string => {
+  return `$${Math.round(safeNum(val)).toLocaleString("es-CO")}`;
+};
+
+const safeDate = (val: unknown, withTime = false): string => {
+  if (!val) return "—";
+  const d = new Date(val as string | number | Date);
+  if (isNaN(d.getTime())) return "—";
+  return withTime
+    ? d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })
+    : d.toLocaleDateString("es-CO");
+};
+
 /**
  * Calcula con rigor técnico el estado general de orden, estado financiero y estado de tiempo/entrega
  */
 export function obtenerInfoEstadosAlquiler(factura: DatosImpresionFactura["factura"]) {
+  const saldoPendiente = safeNum(factura.saldoPendiente);
   const estaCerrada =
     factura.estado === "FINALIZADA" ||
     factura.estado === "CERRADA" ||
@@ -52,10 +72,10 @@ export function obtenerInfoEstadosAlquiler(factura: DatosImpresionFactura["factu
     ? "CERRADA (FINALIZADA / PAZ Y SALVO)"
     : "ABIERTA (EN CURSO / PENDIENTE)";
 
-  const esPazYSalvo = factura.saldoPendiente <= 0;
+  const esPazYSalvo = saldoPendiente <= 0;
   const textoEstadoFinanciero = esPazYSalvo
     ? "PAGÓ COMPLETAMENTE ($0 Pendiente)"
-    : `QUEDÓ FALTANDO PLATA (Saldo: $${factura.saldoPendiente.toLocaleString("es-CO")})`;
+    : `QUEDÓ FALTANDO PLATA (Saldo: ${formatCOP(saldoPendiente)})`;
 
   let textoTiempoYDevolucion = "ESTÁ EN PLAZO / AL DÍA";
   let estaEnMora = false;

@@ -1,7 +1,19 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Printer, FileText, CheckCircle2, X, FileDown, ExternalLink, RefreshCw, AlertTriangle } from "lucide-react";
+import {
+  Printer,
+  FileText,
+  CheckCircle2,
+  X,
+  FileDown,
+  ExternalLink,
+  RefreshCw,
+  AlertTriangle,
+  ShieldCheck,
+  Receipt,
+  Banknote,
+} from "lucide-react";
 import {
   descargarPdfMediaCarta,
   abrirPdfMediaCarta,
@@ -32,6 +44,8 @@ export interface DatosImpresionFactura {
     montoDevueltoDeposito?: number;
     motivoRetencionDeposito?: string | null;
     metodoPagoDeposito?: string | null;
+    efectivoRecibido?: number;
+    cambioEntregado?: number;
     notas?: string | null;
     cliente: {
       nombre: string;
@@ -107,7 +121,32 @@ interface PlantillaImpresionProps {
   onCerrar?: () => void;
 }
 
-export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerrar }: PlantillaImpresionProps) {
+// ---------------------------------------------------------------------------
+// Helpers Defensivos Anti-Crash Client-Side
+// ---------------------------------------------------------------------------
+const safeNumber = (val: unknown): number => {
+  const n = Number(val);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const formatCOP = (val: unknown): string => {
+  return `$${Math.round(safeNumber(val)).toLocaleString("es-CO")}`;
+};
+
+const safeDate = (val: unknown, withTime = false): string => {
+  if (!val) return "—";
+  const d = new Date(val as string | number | Date);
+  if (isNaN(d.getTime())) return "—";
+  return withTime
+    ? d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })
+    : d.toLocaleDateString("es-CO");
+};
+
+export default function PlantillaImpresion({
+  datos: datosProp,
+  facturaId,
+  onCerrar,
+}: PlantillaImpresionProps) {
   const [datosCargados, setDatosCargados] = useState<DatosImpresionFactura | null>(null);
   const [cargandoRemoto, setCargandoRemoto] = useState<boolean>(!datosProp && Boolean(facturaId));
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
@@ -125,10 +164,12 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
         })
         .then((data) => {
           if (isMounted) {
-            if (data.success && data.factura) {
+            const facturaObj = data.factura || data;
+            const empresaObj = data.empresa || {};
+            if (facturaObj && facturaObj.id) {
               setDatosCargados({
-                factura: data.factura,
-                empresa: data.empresa,
+                factura: facturaObj,
+                empresa: empresaObj,
               });
             } else {
               setErrorCarga(data.error || "No se encontraron datos de la factura.");
@@ -152,17 +193,24 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
 
   const datos = datosProp || datosCargados;
 
-  // Formato activo sincronizado 1:1 entre vista, iframe de impresión y descarga PDF
   const [formato, setFormato] = useState<FormatoImpresionTipo>(() => {
     if (datos?.empresa) {
-      return datos.empresa.formatoPredeterminado || datos.empresa.formatoImpresionDefault || "MEDIA_CARTA";
+      return (
+        datos.empresa.formatoPredeterminado ||
+        datos.empresa.formatoImpresionDefault ||
+        "MEDIA_CARTA"
+      );
     }
     return "MEDIA_CARTA";
   });
 
   useEffect(() => {
     if (datos?.empresa) {
-      setFormato(datos.empresa.formatoPredeterminado || datos.empresa.formatoImpresionDefault || "MEDIA_CARTA");
+      setFormato(
+        datos.empresa.formatoPredeterminado ||
+          datos.empresa.formatoImpresionDefault ||
+          "MEDIA_CARTA"
+      );
     }
   }, [datos?.empresa]);
 
@@ -183,7 +231,9 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
     return (
       <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-sm border border-rose-200 text-center">
         <AlertTriangle className="w-8 h-8 text-rose-600 mb-2" />
-        <p className="text-sm font-bold text-slate-900">{errorCarga || "No hay datos disponibles para imprimir"}</p>
+        <p className="text-sm font-bold text-slate-900">
+          {errorCarga || "No hay datos disponibles para imprimir"}
+        </p>
         {onCerrar && (
           <button
             type="button"
@@ -197,14 +247,14 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
     );
   }
 
-  const { factura, empresa } = datos;
+  // Normalización defensiva absoluta de datos
+  const factura: any = datos.factura || datos;
+  const empresa: any = datos.empresa || {};
+  const detalles: any[] = Array.isArray(factura?.detalles) ? factura.detalles : [];
+  const abonos: any[] = Array.isArray(factura?.abonos) ? factura.abonos : [];
+  const cliente: any = factura?.cliente || {};
+  const usuarioCajero: any = factura?.usuarioCajero || null;
 
-  /**
-   * Imprime exclusivamente el documento generado dentro de un iframe aislado,
-   * aplicando reglas CSS @page geométricas exactas para TIRILLA (80mm),
-   * MEDIA CARTA (215.9mm x 139.7mm) y CARTA (letter portrait con max-height 258mm
-   * anti-hoja en blanco).
-   */
   const imprimirDocumentoAislado = () => {
     const contenedor = areaImprimibleRef.current;
     if (!contenedor) {
@@ -231,87 +281,27 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
       return;
     }
 
-    // Reglas CSS específicas por formato físico
     let pageCss = "";
     if (formato === "TIRILLA") {
       pageCss = `
-        @page {
-          size: 80mm auto;
-          margin: 0mm;
-        }
-        html, body {
-          width: 80mm !important;
-          margin: 0 auto !important;
-          padding: 0 !important;
-          background: white !important;
-          color: black !important;
-        }
-        body {
-          width: 76mm !important;
-          margin: 0 auto !important;
-          padding: 2mm 1mm !important;
-        }
+        @page { size: 80mm auto; margin: 0mm; }
+        html, body { width: 80mm !important; margin: 0 auto !important; padding: 0 !important; background: white !important; color: black !important; }
+        body { width: 76mm !important; }
       `;
     } else if (formato === "MEDIA_CARTA") {
       pageCss = `
-        @page {
-          size: 215.9mm 139.7mm landscape;
-          margin: 6mm;
-        }
-        html, body {
-          width: 100%;
-          height: auto !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          background: white !important;
-          color: black !important;
-          overflow: hidden !important;
-        }
-        .hoja-media-carta-impresion {
-          width: 100%;
-          max-height: 127mm !important;
-          box-sizing: border-box;
-          page-break-after: avoid !important;
-          page-break-inside: avoid !important;
-          break-after: avoid !important;
-          break-inside: avoid !important;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-        }
+        @page { size: 215.9mm 139.7mm landscape; margin: 4mm; }
+        html, body { width: 215.9mm !important; height: 139.7mm !important; margin: 0 !important; padding: 0 !important; background: white !important; color: black !important; }
+        .hoja-media-carta-impresion { width: 207mm !important; height: 131mm !important; max-height: 131mm !important; box-sizing: border-box; page-break-after: avoid !important; break-after: avoid !important; }
       `;
     } else {
-      // FORMATO CARTA COMPLETA: Solución Quirúrgica Anti-Hoja en Blanco
       pageCss = `
-        @page {
-          size: letter portrait;
-          margin: 8mm;
-        }
-        html, body {
-          width: 100%;
-          height: auto !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          background: white !important;
-          color: black !important;
-          overflow: hidden !important;
-        }
-        .hoja-carta-impresion {
-          width: 100%;
-          max-height: 258mm !important;
-          box-sizing: border-box;
-          page-break-after: avoid !important;
-          page-break-before: avoid !important;
-          break-after: avoid !important;
-          break-inside: avoid !important;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-        }
+        @page { size: letter portrait; margin: 6mm; }
+        html, body { width: 215.9mm !important; margin: 0 !important; padding: 0 !important; background: white !important; color: black !important; }
+        .hoja-carta-impresion { width: 100%; max-height: 258mm !important; box-sizing: border-box; page-break-after: avoid !important; break-after: avoid !important; }
       `;
     }
 
-    // Copiar estilos CSS cargados en el documento
     const styleTags = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
       .map((el) => el.outerHTML)
       .join("\n");
@@ -321,18 +311,12 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
       <html lang="es">
       <head>
         <meta charset="utf-8">
-        <title>Factura ${factura.numeroFactura} - LLANOMIO</title>
+        <title>Factura ${factura.numeroFactura || ""} - LLANOMIO</title>
         ${styleTags}
         <style>
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            box-sizing: border-box;
-          }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
           ${pageCss}
-          .no-print {
-            display: none !important;
-          }
+          .no-print { display: none !important; }
         </style>
       </head>
       <body>
@@ -356,35 +340,77 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
     }, 350);
   };
 
-  // Renderizador individual de documento según el formato seleccionado
   const renderDocumento = (tipoCopiaTexto: string) => {
-    const esAlquiler = factura.tipoOperacion === "ALQUILER";
-    const esPazYSalvo = factura.saldoPendiente <= 0;
-    const tieneAbono = factura.totalAbonado > 0;
-    const mostrarCajero = empresa.mostrarVendedorFactura !== false && factura.usuarioCajero?.nombre;
+    const esAlquiler =
+      factura.tipoOperacion === "ALQUILER" || safeNumber(factura.montoDeposito) > 0;
+    const mostrarCajero = empresa.mostrarVendedorFactura !== false && Boolean(usuarioCajero?.nombre);
 
-    // 1. Estado General de la Orden / Petición
+    // 1. REGLA CONTABLE — SECCIÓN A: OPERACIÓN DE ALQUILER
+    const subtotalPrendas =
+      safeNumber(factura.subtotalProductos) + safeNumber(factura.subtotalArreglosLibres);
+    const totalOperacionAlquiler = safeNumber(factura.totalFactura) || subtotalPrendas;
+    const recargoMora = safeNumber(factura.recargoMoraAcumulado);
+    const totalAbonadoAlquiler = safeNumber(factura.totalAbonado);
+    const saldoPendienteAlquiler = Math.max(0, safeNumber(factura.saldoPendiente));
+    const esPazYSalvo = saldoPendienteAlquiler <= 0;
+
+    // 2. REGLA CONTABLE — SECCIÓN B: APARTADO INDEPENDIENTE DE DEPÓSITO (NO SUMA A LA OPERACIÓN)
+    const montoDepositoEfectivo = safeNumber(factura.montoDeposito);
+    let textoEstadoDeposito =
+      "RECIBIDO EN CUSTODIA (Se devuelve el 100% al entregar las prendas completas y sin daños)";
+    if (factura.estadoDeposito === "DEVUELTO_COMPLETO") {
+      const devuelto = safeNumber(factura.montoDevueltoDeposito) || montoDepositoEfectivo;
+      textoEstadoDeposito = `DEPÓSITO DEVUELTO 100% AL CLIENTE (${formatCOP(devuelto)}) — Prendas recibidas a conformidad`;
+    } else if (
+      factura.estadoDeposito === "RETENIDO_PARCIAL" ||
+      factura.estadoDeposito === "RETENIDO_TOTAL"
+    ) {
+      const ret = safeNumber(factura.montoRetenidoDeposito);
+      const dev = safeNumber(factura.montoDevueltoDeposito);
+      const motivo = factura.motivoRetencionDeposito || "Daño o deterioro en prendas";
+      textoEstadoDeposito = `DEPÓSITO RETENIDO (${formatCOP(ret)} Retenido / ${formatCOP(dev)} Devuelto al cliente) — Motivo: ${motivo}`;
+    }
+
+    // 3. REGLA CONTABLE — SECCIÓN C: CUADRE DE EFECTIVO RECIBIDO Y VUELTAS (DONDE SÍ SUMAN)
+    // Total exigido hoy en caja = Abono al alquiler recibido hoy + Depósito en garantía
+    const cobroAlquilerHoy = totalAbonadoAlquiler;
+    const totalCobradoEnCajaHoy = cobroAlquilerHoy + montoDepositoEfectivo;
+    const efectivoRecibidoCliente =
+      safeNumber(factura.efectivoRecibido) > 0
+        ? safeNumber(factura.efectivoRecibido)
+        : totalCobradoEnCajaHoy;
+    const vueltasCambioFinal =
+      safeNumber(factura.cambioEntregado) > 0
+        ? safeNumber(factura.cambioEntregado)
+        : Math.max(0, efectivoRecibidoCliente - totalCobradoEnCajaHoy);
+
+    // 4. Estados y textos dinámicos
     const estaCerrada =
       factura.estado === "FINALIZADA" ||
       factura.estado === "CERRADA" ||
       Boolean(factura.fechaDevolucionReal);
-    const textoEstadoOrden = estaCerrada
-      ? "CERRADA (FINALIZADA / PAZ Y SALVO)"
-      : "ABIERTA (EN CURSO / PENDIENTE)";
 
-    // 2. Estado Financiero Claro
-    const textoEstadoFinanciero = esPazYSalvo
-      ? "PAGÓ COMPLETAMENTE ($0 Pendiente)"
-      : `QUEDÓ FALTANDO PLATA (Saldo Pendiente por Pagar: $${factura.saldoPendiente.toLocaleString("es-CO")})`;
+    let tituloComprobante = "FACTURA COMERCIAL";
+    if (esAlquiler) {
+      if (estaCerrada) {
+        tituloComprobante = "COMPROBANTE DE PAZ Y SALVO FINAL DE ALQUILER";
+      } else if (esPazYSalvo) {
+        tituloComprobante = "FACTURA / COMPROBANTE DE ALQUILER — PAGO COMPLETO";
+      } else {
+        tituloComprobante = "COMPROBANTE DE ALQUILER — CON ABONO Y SALDO PENDIENTE";
+      }
+    } else if (esPazYSalvo) {
+      tituloComprobante = "COMPROBANTE DE PAGO FINAL (PAZ Y SALVO)";
+    }
 
-    // 3. Estado de Tiempo y Devolución de Prendas
-    let textoTiempoYDevolucion = "ESTÁ EN PLAZO / AL DÍA";
+    // Estado de Plazo y Llegada
+    let textoPlazoYDevolucion = "ESTÁ EN PLAZO / AL DÍA";
     let estaEnMora = false;
     let diasRetraso = 0;
     let horasRetraso = 0;
 
     if (factura.fechaDevolucionReal) {
-      textoTiempoYDevolucion = "PRENDAS DEVUELTAS A CONFORMIDAD";
+      textoPlazoYDevolucion = "PRENDAS DEVUELTAS A CONFORMIDAD";
     } else if (factura.fechaDevolucionPactada) {
       const ahora = new Date();
       const limite = new Date(factura.fechaDevolucionPactada);
@@ -393,48 +419,15 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
         const diffMs = ahora.getTime() - limite.getTime();
         diasRetraso = Math.floor(diffMs / (1000 * 60 * 60 * 24));
         horasRetraso = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const detalleMora = diasRetraso > 0 ? `${diasRetraso} día(s) y ${horasRetraso} hora(s)` : `${horasRetraso} hora(s)`;
-        const recargoTexto = factura.recargoMoraAcumulado > 0 ? ` | Recargo mora: $${factura.recargoMoraAcumulado.toLocaleString("es-CO")}` : "";
-        textoTiempoYDevolucion = `YA SE PASÓ DE LA FECHA DE ENTREGA (EN MORA — ${detalleMora} de retraso${recargoTexto})`;
+        const detalleMora =
+          diasRetraso > 0 ? `${diasRetraso} d y ${horasRetraso} h` : `${horasRetraso} h`;
+        textoPlazoYDevolucion = `YA SE PASÓ DE LA FECHA DE ENTREGA (EN MORA — ${detalleMora} de retraso)`;
       } else {
-        if (!esPazYSalvo) {
-          textoTiempoYDevolucion = "ESTÁ EN PLAZO / AL DÍA (Prendas en posesión del cliente — Saldo pendiente por pagar)";
-        } else {
-          textoTiempoYDevolucion = "ESTÁ EN PLAZO / AL DÍA (Prendas en posesión del cliente — Pago completo)";
-        }
+        textoPlazoYDevolucion = esPazYSalvo
+          ? "ESTÁ EN PLAZO / AL DÍA (Prendas en custodia — Pago completo)"
+          : "ESTÁ EN PLAZO / AL DÍA (Prendas en custodia — Saldo pendiente)";
       }
     }
-
-    // Estado del Pago del Alquiler (Badge visible)
-    const estadoPagoBadge = esPazYSalvo
-      ? { texto: "PAGO COMPLETO", bg: "bg-emerald-600", text: "text-white", border: "border-emerald-700" }
-      : tieneAbono
-      ? { texto: "PAGO PARCIAL / CON ABONO", bg: "bg-amber-600", text: "text-white", border: "border-amber-700" }
-      : { texto: "PENDIENTE POR PAGAR", bg: "bg-rose-600", text: "text-white", border: "border-rose-700" };
-
-    // Estado del Depósito en Garantía
-    let textoEstadoDeposito = "RECIBIDO EN CUSTODIA (Se devuelve el 100% al entregar las prendas completas y sin daños)";
-    if (factura.estadoDeposito === "DEVUELTO_COMPLETO") {
-      const devuelto = (factura.montoDevueltoDeposito || factura.montoDeposito || 0).toLocaleString("es-CO");
-      textoEstadoDeposito = `DEPÓSITO DEVUELTO 100% AL CLIENTE ($${devuelto}) — Prendas recibidas a conformidad`;
-    } else if (factura.estadoDeposito === "RETENIDO_PARCIAL" || factura.estadoDeposito === "RETENIDO_TOTAL") {
-      const ret = (factura.montoRetenidoDeposito || 0).toLocaleString("es-CO");
-      const dev = (factura.montoDevueltoDeposito || 0).toLocaleString("es-CO");
-      const motivo = factura.motivoRetencionDeposito || "Daño o avería en prendas";
-      textoEstadoDeposito = `DEPÓSITO RETENIDO ($${ret} Retenido / $${dev} Devuelto al cliente) — Motivo: ${motivo}`;
-    }
-
-    const montoDepositoVal = factura.montoDeposito || 0;
-    const totalEnManoHoy = (factura.totalAbonado || 0) + montoDepositoVal;
-
-    const obtenerConceptoAbono = (idx: number, totalAbonos: number) => {
-      if (totalAbonos === 1) {
-        return esPazYSalvo ? "Cancelación Total" : "Abono Inicial";
-      }
-      if (idx === 0) return "Abono Inicial";
-      if (idx === totalAbonos - 1 && esPazYSalvo) return "Cancelación Total";
-      return `Pago Parcial #${idx + 1}`;
-    };
 
     // -------------------------------------------------------------
     // FORMATO 1: TIRILLA POS TÉRMICA (80mm)
@@ -447,89 +440,73 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
             {empresa.logoUrl && (
               <img
                 src={empresa.logoUrl}
-                alt={empresa.nombreComercial}
-                className="max-h-14 mx-auto object-contain mb-1.5"
+                alt={empresa.nombreComercial || "LLANOMIO"}
+                className="max-h-14 mx-auto object-contain mb-1"
               />
             )}
             <h1 className="text-sm font-black font-sans tracking-tight uppercase">
-              {empresa.nombreComercial}
+              {empresa.nombreComercial || "LLANOMIO"}
             </h1>
             {empresa.eslogan && (
               <p className="text-[9.5px] italic font-sans text-slate-700">{empresa.eslogan}</p>
             )}
-            <p className="font-bold">NIT: {empresa.nit}</p>
+            <p className="font-bold">NIT: {empresa.nit || "900.123.456-7"}</p>
             {empresa.regimenFiscal && (
               <p className="text-[9px] uppercase">{empresa.regimenFiscal}</p>
             )}
-            <p className="text-[10px]">{empresa.direccion}</p>
-            <p className="text-[10px]">Tel: {empresa.telefono}</p>
+            <p className="text-[10px]">{empresa.direccion || "Calle 15 # 22-30"}</p>
+            <p className="text-[10px]">Tel: {empresa.telefono || "310 123 4567"}</p>
             <p className="text-[9px] uppercase font-bold pt-1 text-slate-800">
               ** {tipoCopiaTexto} **
             </p>
           </div>
 
-          {/* Datos Factura / Contrato */}
-          <div className="py-2 border-b border-dashed border-black space-y-0.5 text-[10px]">
+          {/* Datos Factura / Título Dinámico */}
+          <div className="py-2 border-b border-dashed border-black space-y-1 text-[10px]">
+            <div className="font-black text-center text-[10.5px] uppercase border-b border-black pb-1">
+              {tituloComprobante}
+            </div>
             <div className="flex justify-between font-bold">
-              <span>
-                {esAlquiler
-                  ? (factura.estado === "CERRADA"
-                      ? "CERTIFICADO PAZ Y SALVO ALQUILER:"
-                      : factura.saldoPendiente <= 0
-                      ? "FACTURA ALQUILER (PAGO COMPLETO):"
-                      : "COMPROBANTE ALQUILER (CON SALDO):")
-                  : (esPazYSalvo ? "PAGO FINAL (PAZ Y SALVO):" : "FACTURA:")}
-              </span>
+              <span>FOLIO / N°:</span>
               <span>{factura.numeroFactura}</span>
             </div>
             <div className="flex justify-between">
               <span>FECHA EMISIÓN:</span>
-              <span>{new Date(factura.fechaCreacion).toLocaleDateString("es-CO")} {new Date(factura.fechaCreacion).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}</span>
+              <span>{safeDate(factura.fechaCreacion, true)}</span>
             </div>
             <div className="flex justify-between">
               <span>OPERACIÓN:</span>
-              <span className="uppercase font-semibold">{factura.tipoOperacion}</span>
+              <span className="uppercase font-semibold">{factura.tipoOperacion || "ALQUILER"}</span>
             </div>
             {mostrarCajero && (
               <div className="flex justify-between">
                 <span>CAJERO:</span>
-                <span className="font-semibold">{factura.usuarioCajero?.nombre}</span>
+                <span className="font-semibold">{usuarioCajero?.nombre}</span>
               </div>
             )}
           </div>
 
-          {/* Datos Cliente */}
+          {/* Datos Cliente (con 2 Teléfonos) */}
           <div className="py-2 border-b border-dashed border-black space-y-0.5 text-[10px]">
-            <p className="font-bold uppercase text-[9px] text-slate-600">CLIENTE:</p>
-            {factura.cliente.esResponsableIVA ? (
-              <>
-                <p className="font-bold text-[11px] font-sans">
-                  {(factura.cliente.razonSocial || factura.cliente.nombre).toUpperCase()}
-                </p>
-                <p>
-                  {factura.cliente.tipoIdentificacion || "NIT"}: {factura.cliente.documento}
-                  {factura.cliente.digitoVerificacion ? `-${factura.cliente.digitoVerificacion}` : ""}
-                </p>
-                <p>RESP. FISCAL: {factura.cliente.responsabilidadFiscal || "O-48"}</p>
-                {factura.cliente.email && <p>EMAIL: {factura.cliente.email}</p>}
-                {factura.cliente.direccion && (
-                  <p>
-                    DIR: {factura.cliente.direccion}
-                    {factura.cliente.municipio ? ` — ${factura.cliente.municipio}` : ""}
-                  </p>
-                )}
-                {factura.cliente.telefono && <p>TEL. 1°: {factura.cliente.telefono}</p>}
-                {factura.cliente.telefonoSecundario && <p>TEL. 2°: {factura.cliente.telefonoSecundario}</p>}
-              </>
-            ) : (
-              <>
-                <p className="font-bold text-[11px] font-sans">{factura.cliente.nombre.toUpperCase()}</p>
-                <p>DOC: {factura.cliente.documento}</p>
-                {factura.cliente.telefono && <p>TEL. 1°: {factura.cliente.telefono}</p>}
-                {factura.cliente.telefonoSecundario && <p>TEL. 2°: {factura.cliente.telefonoSecundario}</p>}
-                {factura.cliente.direccion && <p>DIR: {factura.cliente.direccion}</p>}
-              </>
+            <p className="font-bold uppercase text-[9px] text-slate-600">DATOS DEL CLIENTE:</p>
+            <p className="font-bold text-[11px] font-sans">
+              {(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}
+            </p>
+            <p>
+              {cliente.tipoIdentificacion || "CC"}: {cliente.documento || "—"}
+              {cliente.digitoVerificacion ? `-${cliente.digitoVerificacion}` : ""}
+            </p>
+            {cliente.telefono && (
+              <p>
+                TEL. PRIMARIO (1°): <span className="font-bold">{cliente.telefono}</span>
+              </p>
             )}
+            {cliente.telefonoSecundario && (
+              <p>
+                TEL. SECUNDARIO (2°): <span className="font-bold">{cliente.telefonoSecundario}</span>
+              </p>
+            )}
+            {cliente.direccion && <p>DIR: {cliente.direccion}</p>}
           </div>
 
           {/* Fechas de Alquiler */}
@@ -537,53 +514,25 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
             <div className="py-1.5 border-b border-dashed border-black text-[9.5px] space-y-0.5 bg-slate-50 p-1 rounded">
               <div className="flex justify-between">
                 <span className="font-bold">FECHA SALIDA:</span>
-                <span>{new Date(factura.fechaEntregaAlquiler || factura.fechaCreacion).toLocaleDateString("es-CO")}</span>
+                <span>{safeDate(factura.fechaEntregaAlquiler || factura.fechaCreacion)}</span>
               </div>
               {factura.fechaDevolucionPactada && (
                 <div className="flex justify-between font-bold text-rose-800">
                   <span>LÍMITE DEVOLUCIÓN:</span>
-                  <span>
-                    {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    })}
-                  </span>
+                  <span>{safeDate(factura.fechaDevolucionPactada, true)}</span>
                 </div>
               )}
               {factura.fechaDevolucionReal && (
                 <div className="flex justify-between text-emerald-800 font-bold">
                   <span>DEVUELTO EL:</span>
-                  <span>
-                    {new Date(factura.fechaDevolucionReal).toLocaleString("es-CO", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    })}
-                  </span>
+                  <span>{safeDate(factura.fechaDevolucionReal, true)}</span>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* ESTADO GENERAL DE LA PETICIÓN / TRANSACCIÓN (TIRILLA 80mm) */}
-          {esAlquiler && (
-            <div className="py-1.5 px-2 my-1 border-2 border-black bg-slate-50 text-[9.5px] space-y-1">
-              <div className="flex justify-between items-center border-b border-black pb-0.5 font-bold">
-                <span>ESTADO ORDEN:</span>
-                <span className={`px-1 py-0.2 rounded text-[8px] font-black uppercase ${estaCerrada ? "bg-emerald-100 text-emerald-900 border border-emerald-300" : "bg-amber-100 text-amber-900 border border-amber-300"}`}>
-                  {textoEstadoOrden}
-                </span>
-              </div>
-              <div className="flex justify-between items-center border-b border-black pb-0.5 font-bold">
-                <span>ESTADO FINANCIERO:</span>
-                <span className={`text-[8.5px] font-black ${esPazYSalvo ? "text-emerald-800" : "text-rose-800"}`}>
-                  {textoEstadoFinanciero}
-                </span>
-              </div>
-              <div className="pt-0.5">
-                <span className="font-bold block text-[8px] text-slate-700">PLAZO Y ENTREGA:</span>
-                <span className={`text-[8.5px] font-bold leading-tight block ${estaEnMora ? "text-rose-800" : "text-slate-900"}`}>
-                  {textoTiempoYDevolucion}
-                </span>
+              <div className="pt-0.5 text-[8.5px] text-slate-700">
+                <span>ESTADO PLAZO: </span>
+                <strong className={estaEnMora ? "text-rose-800" : "text-slate-900"}>
+                  {textoPlazoYDevolucion}
+                </strong>
               </div>
             </div>
           )}
@@ -595,22 +544,20 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
               <span>SUBTOTAL</span>
             </div>
             <div className="divide-y divide-slate-200 space-y-1 pt-1">
-              {factura.detalles.map((d, idx) => (
+              {detalles.map((d, idx) => (
                 <div key={idx} className="pt-1">
                   <div className="flex justify-between font-sans text-[10.5px]">
                     <span className="font-bold">
-                      {d.cantidad}x{" "}
+                      {safeNumber(d.cantidad)}x{" "}
                       {d.esServicioLibre
                         ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
-                        : d.producto?.nombre}
+                        : d.producto?.nombre || "Prenda de Alquiler"}
                     </span>
-                    <span className="font-mono font-bold">
-                      ${d.subtotal.toLocaleString("es-CO")}
-                    </span>
+                    <span className="font-mono font-bold">{formatCOP(d.subtotal)}</span>
                   </div>
                   {d.producto?.codigo && (
                     <p className="text-[9px] text-slate-600">
-                      Cód: {d.producto.codigo} {d.producto.talla ? `| T: ${d.producto.talla}` : ""} {d.producto.color ? `| C: ${d.producto.color}` : ""}
+                      Cód: {d.producto.codigo} {d.producto.talla ? `| T: ${d.producto.talla}` : ""}
                     </p>
                   )}
                 </div>
@@ -618,467 +565,325 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
             </div>
           </div>
 
-          {/* Sección 1: Liquidación del Alquiler */}
+          {/* ========================================================================= */}
+          {/* SECCIÓN A: LIQUIDACIÓN DE LA OPERACIÓN DE ALQUILER (PRENDAS)              */}
+          {/* ========================================================================= */}
           <div className="py-2 border-b border-black space-y-1 text-[10.5px]">
-            {esAlquiler && (
-              <div className="text-center pb-1">
-                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${estadoPagoBadge.bg} ${estadoPagoBadge.text}`}>
-                  {estadoPagoBadge.texto}
-                </span>
-              </div>
-            )}
+            <p className="text-[9px] font-black uppercase tracking-wider text-slate-700 border-b border-black pb-0.5">
+              SECCIÓN A — LIQUIDACIÓN DE LA OPERACIÓN DE ALQUILER
+            </p>
             <div className="flex justify-between">
-              <span>{esAlquiler ? "Valor Alquiler:" : "Subtotal:"}</span>
-              <span>
-                ${(factura.subtotalProductos + factura.subtotalArreglosLibres).toLocaleString("es-CO")}
-              </span>
+              <span>Total Prendas Alquiler:</span>
+              <span>{formatCOP(subtotalPrendas)}</span>
             </div>
-            {factura.recargoMoraAcumulado > 0 && (
+            {recargoMora > 0 && (
               <div className="flex justify-between text-rose-700 font-bold">
                 <span>Recargo por Mora:</span>
-                <span>+${factura.recargoMoraAcumulado.toLocaleString("es-CO")}</span>
+                <span>+{formatCOP(recargoMora)}</span>
               </div>
             )}
             <div className="flex justify-between text-xs font-black font-sans pt-1 border-t border-black">
-              <span>{esAlquiler ? "VALOR TOTAL ALQUILER:" : "TOTAL FACTURA:"}</span>
-              <span>${factura.totalFactura.toLocaleString("es-CO")}</span>
+              <span>TOTAL OPERACIÓN ALQUILER:</span>
+              <span>{formatCOP(totalOperacionAlquiler + recargoMora)}</span>
             </div>
             <div className="flex justify-between font-bold text-emerald-800">
-              <span>{esAlquiler ? "TOTAL PAGADO ALQUILER:" : "TOTAL ABONADO:"}</span>
-              <span>-${factura.totalAbonado.toLocaleString("es-CO")}</span>
+              <span>(-) ABONADO A LA OPERACIÓN:</span>
+              <span>-{formatCOP(totalAbonadoAlquiler)}</span>
             </div>
             <div className="flex justify-between text-xs font-black font-sans pt-1 border-t border-dashed border-black">
-              <span>{esAlquiler ? "SALDO PENDIENTE ALQUILER:" : "SALDO PENDIENTE:"}</span>
+              <span>(=) SALDO FALTANTE POR PAGAR:</span>
               <span className={esPazYSalvo ? "text-emerald-700 font-black" : "text-rose-700 font-black"}>
-                {esPazYSalvo ? "$0 (PAZ Y SALVO)" : `$${factura.saldoPendiente.toLocaleString("es-CO")}`}
+                {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteAlquiler)}
               </span>
             </div>
           </div>
 
-          {/* Historial Detallado de Pagos / Abonos en Tirilla */}
-          {factura.abonos && factura.abonos.length > 0 && (
+          {/* ========================================================================= */}
+          {/* SECCIÓN B: APARTADO INDEPENDIENTE DE DEPÓSITO / ABONO (NO SUMA A LA OPER.) */}
+          {/* ========================================================================= */}
+          {montoDepositoEfectivo > 0 && (
+            <div className="py-2 border-y-2 border-black space-y-1 text-[9.5px] bg-slate-50 p-2 rounded my-1.5">
+              <div className="font-black text-[9px] text-black border-b border-black pb-0.5 uppercase tracking-tight">
+                SECCIÓN B — APARTADO DE DEPÓSITO EN EFECTIVO (NO SUMA AL ALQUILER)
+              </div>
+              <div className="flex justify-between font-black text-[10px] pt-0.5">
+                <span>DEPÓSITO DE RESPALDO EN GAVETA:</span>
+                <span className="font-mono text-emerald-800">{formatCOP(montoDepositoEfectivo)}</span>
+              </div>
+              <p className="text-[8.5px] text-slate-700 leading-tight">
+                Estado: <strong>{textoEstadoDeposito}</strong>
+              </p>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* SECCIÓN C: CUADRE DE EFECTIVO RECIBIDO Y VUELTAS / CAMBIO FINAL (DONDE SÍ)  */}
+          {/* ========================================================================= */}
+          <div className="py-2 border-2 border-black bg-slate-100 p-2 rounded my-1.5 text-[10px] space-y-1">
+            <p className="text-[9px] font-black uppercase text-slate-900 border-b border-black pb-0.5">
+              SECCIÓN C — CUADRE DE EFECTIVO Y VUELTAS / CAMBIO FINAL
+            </p>
+            <div className="flex justify-between">
+              <span>Cobro Alquiler Recibido Hoy:</span>
+              <span>{formatCOP(cobroAlquilerHoy)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>(+) Apartado Depósito en Efectivo:</span>
+              <span>{formatCOP(montoDepositoEfectivo)}</span>
+            </div>
+            <div className="flex justify-between font-black pt-0.5 border-t border-black text-[10.5px]">
+              <span>(=) TOTAL A COBRAR EN CAJA HOY:</span>
+              <span>{formatCOP(totalCobradoEnCajaHoy)}</span>
+            </div>
+            <div className="flex justify-between font-bold text-slate-900 pt-0.5 border-t border-dashed border-black">
+              <span>EFECTIVO RECIBIDO DEL CLIENTE:</span>
+              <span>{formatCOP(efectivoRecibidoCliente)}</span>
+            </div>
+            <div className="flex justify-between font-black text-emerald-800 text-[11px] pt-0.5 border-t border-black">
+              <span>VUELTAS / CAMBIO ENTREGADO:</span>
+              <span>{formatCOP(vueltasCambioFinal)}</span>
+            </div>
+          </div>
+
+          {/* Historial Detallado de Abonos */}
+          {abonos.length > 0 && (
             <div className="py-1.5 border-b border-dashed border-black text-[9px] space-y-1">
-              <p className="font-bold uppercase text-[8.5px] text-slate-700">HISTORIAL DETALLADO DE PAGOS / ABONOS:</p>
-              {factura.abonos.map((a, idx) => (
+              <p className="font-bold uppercase text-[8.5px] text-slate-700">HISTORIAL DE PAGOS REGISTRADOS:</p>
+              {abonos.map((a, idx) => (
                 <div key={idx} className="space-y-0.5 pb-0.5 border-b border-dotted border-slate-300 last:border-none">
                   <div className="flex justify-between font-bold">
-                    <span>
-                      {obtenerConceptoAbono(idx, factura.abonos?.length || 1)} ({a.metodoPago})
-                    </span>
-                    <span>${a.monto.toLocaleString("es-CO")}</span>
+                    <span>Abono #{idx + 1} ({a.metodoPago || "EFECTIVO"})</span>
+                    <span>{formatCOP(a.monto)}</span>
                   </div>
                   <div className="flex justify-between text-[8px] text-slate-600">
-                    <span>{new Date(a.fecha).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}</span>
+                    <span>{safeDate(a.fecha, true)}</span>
                     {a.cajero?.nombre && <span>Cajero: {a.cajero.nombre}</span>}
                   </div>
-                  {a.montoRecibido && a.montoRecibido > 0 ? (
-                    <div className="flex justify-between text-[7.5px] text-slate-500 pl-1">
-                      <span>Efectivo: ${a.montoRecibido.toLocaleString("es-CO")}</span>
-                      <span>Vueltas: ${(a.vueltasEntregadas || 0).toLocaleString("es-CO")}</span>
-                    </div>
-                  ) : null}
                 </div>
               ))}
             </div>
           )}
 
-          {/* CONSTANCIA DE COBRO SEPARADO (EFECTIVO) */}
-          {(esAlquiler || montoDepositoVal > 0) && (
-            <div className="py-2 border-y-2 border-black space-y-1 text-[9.5px] bg-slate-50 p-2 rounded my-1">
-              <div className="font-black text-[9.5px] text-black border-b border-black pb-0.5 uppercase tracking-tight">
-                CONSTANCIA DE COBRO SEPARADO (EFECTIVO)
-              </div>
-              <p className="text-[9px] text-black font-semibold leading-tight pt-0.5">
-                Se recibió en EFECTIVO la suma de <span className="font-mono font-black">${montoDepositoVal.toLocaleString("es-CO")}</span> por concepto de Abono / Depósito establecido en este documento.
-              </p>
-              <div className="pt-1 mt-1 border-t border-dashed border-black/40 space-y-0.5 text-[8.5px]">
-                <div className="flex justify-between">
-                  <span>Estado Depósito:</span>
-                  <span className="font-bold">{textoEstadoDeposito}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Valor Canon Alquiler:</span>
-                  <span className="font-mono font-bold">${factura.totalFactura.toLocaleString("es-CO")}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Monto Abonado al Canon:</span>
-                  <span className="font-mono font-bold text-emerald-800">${factura.totalAbonado.toLocaleString("es-CO")}</span>
-                </div>
-                <div className="flex justify-between font-bold">
-                  <span>Saldo Pendiente por Cobrar:</span>
-                  <span className={`font-mono ${esPazYSalvo ? "text-emerald-700" : "text-rose-700"}`}>
-                    {esPazYSalvo ? "$0 (PAZ Y SALVO)" : `$${factura.saldoPendiente.toLocaleString("es-CO")}`}
-                  </span>
-                </div>
-                {factura.fechaDevolucionPactada && (
-                  <div className="flex justify-between text-rose-800 font-bold">
-                    <span>Límite Devolución:</span>
-                    <span>{new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}</span>
-                  </div>
-                )}
-                {totalEnManoHoy > 0 && (
-                  <div className="pt-1 mt-1 border-t border-black flex justify-between font-bold text-[9px] text-black">
-                    <span>Total Efectivo en Gaveta:</span>
-                    <span className="font-mono font-black">${totalEnManoHoy.toLocaleString("es-CO")}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Requisitos y Políticas */}
           {empresa.politicasFactura && (
-            <div className="pt-2 text-[8.5px] text-center leading-normal text-slate-700">
-              <p className="font-bold uppercase mb-0.5">TÉRMINOS Y CONDICIONES:</p>
+            <div className="py-2 border-b border-black text-[8px] text-slate-700 leading-tight">
+              <p className="font-bold uppercase text-[8.5px] mb-0.5">NORMAS Y POLÍTICAS:</p>
               <p>{empresa.politicasFactura}</p>
             </div>
           )}
 
-          {/* Firmas de Respaldo Físico */}
-          <div className="pt-4 space-y-4 text-center text-[9px] font-sans">
-            <div className="pt-3 border-t border-black">
+          {/* Firmas de Respaldo */}
+          <div className="py-3 space-y-4 text-center text-[8px]">
+            <div className="border-t border-black pt-1 w-3/4 mx-auto">
               <p className="font-bold">Firma y C.C. del Cliente</p>
-              <p className="text-[7.5px] text-slate-600">(Acepto estado de prendas, fechas y condiciones de depósito)</p>
+              <p className="text-[7.5px] text-slate-600">(Acepto estado de prendas y condiciones)</p>
             </div>
-            <div className="pt-3 border-t border-black">
-              <p className="font-bold">Firma Vendedor / Cajero Responsable</p>
-              <p className="text-[7.5px] text-slate-600">{factura.usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+            <div className="border-t border-black pt-1 w-3/4 mx-auto">
+              <p className="font-bold">Firma Cajero Responsable</p>
+              <p className="text-[7.5px] text-slate-600">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
             </div>
           </div>
 
-          <div className="pt-3 pb-1 text-center text-[9px] font-sans">
-            <p className="font-bold">¡GRACIAS POR SU PREFERENCIA!</p>
-            <p className="text-[8px] text-slate-500">
-              {empresa.piePaginaFactura || "Sistema POS Local LLANOMIO — Cero QR"}
-            </p>
+          <div className="text-center text-[8.5px] pt-1 text-slate-500">
+            {empresa.piePaginaFactura || "¡Gracias por su preferencia! LLANOMIO POS"}
           </div>
         </div>
       );
     }
 
     // -------------------------------------------------------------
-    // FORMATO 2: MEDIA CARTA (Half Letter Landscape: 215.9mm x 139.7mm)
+    // FORMATO 2: MEDIA CARTA (Horizontal: 215.9mm x 139.7mm)
     // -------------------------------------------------------------
     if (formato === "MEDIA_CARTA") {
       return (
-        <div className="hoja-media-carta-impresion w-full max-w-[215.9mm] mx-auto p-4 sm:p-5 bg-white text-black font-sans border border-slate-300 shadow-md rounded-xl text-xs flex flex-col justify-between">
+        <div className="hoja-media-carta-impresion w-full max-w-[215.9mm] min-h-[139.7mm] max-h-[139.7mm] mx-auto p-4 sm:p-5 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border">
           <div>
-            {/* Cabecera Documental */}
+            {/* Cabecera Media Carta */}
             <div className="flex items-start justify-between border-b-2 border-slate-900 pb-2 mb-2">
               <div className="flex items-center gap-3">
                 {empresa.logoUrl && (
                   <img
                     src={empresa.logoUrl}
-                    alt={empresa.nombreComercial}
-                    className="max-h-14 object-contain"
+                    alt={empresa.nombreComercial || "LLANOMIO"}
+                    className="max-h-12 object-contain"
                   />
                 )}
                 <div>
-                  <h1 className="text-lg font-black tracking-tight uppercase text-slate-900">
-                    {empresa.nombreComercial}
+                  <h1 className="text-base font-black tracking-tight text-slate-900 uppercase">
+                    {empresa.nombreComercial || "LLANOMIO"}
                   </h1>
                   {empresa.eslogan && (
-                    <p className="text-[9.5px] text-slate-600 italic font-semibold">
-                      {empresa.eslogan}
-                    </p>
+                    <p className="text-[9.5px] italic text-slate-600">{empresa.eslogan}</p>
                   )}
-                  <p className="text-[10px] font-bold text-slate-700">
-                    NIT: {empresa.nit} {empresa.regimenFiscal ? `| ${empresa.regimenFiscal}` : ""}
+                  <p className="text-[10px] text-slate-700 font-bold">
+                    NIT: {empresa.nit || "900.123.456-7"} {empresa.regimenFiscal ? `| ${empresa.regimenFiscal}` : ""}
                   </p>
-                  <p className="text-[10px] text-slate-500">{empresa.direccion} — {empresa.ciudad || "Villavicencio, Meta"}</p>
-                  <p className="text-[10px] text-slate-500">
-                    Tel: {empresa.telefono} {empresa.email ? `| ${empresa.email}` : ""}
+                  <p className="text-[9.5px] text-slate-500">
+                    {empresa.direccion} — {empresa.ciudad || "Villavicencio"} | Tel: {empresa.telefono}
                   </p>
                 </div>
               </div>
 
+              {/* Recuadro de Título y Folio */}
               <div className="text-right">
-                <div
-                  className={`border-2 rounded-xl p-2 ${
-                    esPazYSalvo
-                      ? "border-emerald-600 bg-emerald-50/70"
-                      : "border-slate-900 bg-slate-50"
-                  }`}
-                >
-                  <span
-                    className={`text-[9px] uppercase font-bold tracking-wider block ${
-                      esPazYSalvo ? "text-emerald-700 font-black" : "text-slate-500"
-                    }`}
-                  >
-                    {esAlquiler
-                      ? (factura.estado === "CERRADA"
-                          ? "CERTIFICADO DE PAZ Y SALVO FINAL DE ALQUILER Y DEPÓSITO"
-                          : factura.saldoPendiente <= 0
-                          ? "FACTURA DE ALQUILER - PAGO COMPLETO (PRENDA EN ALQUILER)"
-                          : "COMPROBANTE DE ALQUILER - SALDO PENDIENTE / ABONO PARCIAL")
-                      : (esPazYSalvo
-                          ? "COMPROBANTE DE PAGO FINAL (PAZ Y SALVO)"
-                          : "FACTURA COMERCIAL")}
+                <div className="border-2 border-slate-900 rounded-xl px-3 py-1 bg-slate-50">
+                  <span className="text-[9px] uppercase font-black tracking-wider block text-slate-800">
+                    {tituloComprobante}
                   </span>
-                  <span className="text-base font-black font-mono block text-slate-900">
-                    {factura.numeroFactura}
+                  <span className="text-sm font-black font-mono block text-slate-900">
+                    N° {factura.numeroFactura}
                   </span>
-                  <span className="text-[9px] font-bold text-slate-700 uppercase mt-0.5 block">
+                  <span className="text-[8.5px] font-bold text-slate-600 uppercase block">
                     {tipoCopiaTexto}
                   </span>
                 </div>
-                <p className="text-[9.5px] text-slate-500 mt-1">
-                  Fecha: {new Date(factura.fechaCreacion).toLocaleDateString("es-CO")} {new Date(factura.fechaCreacion).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}
+                <p className="text-[9px] text-slate-500 mt-0.5">
+                  Fecha: {safeDate(factura.fechaCreacion, true)}
                 </p>
               </div>
             </div>
-
-            {/* Panel de Estado General de la Petición / Transacción (Media Carta) */}
-            {esAlquiler ? (
-              <div className="mb-2 p-2 bg-slate-50 rounded-xl border-2 border-slate-900 text-xs shadow-xs space-y-1">
-                <div className="flex items-center justify-between pb-1 border-b border-slate-200">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-black uppercase text-slate-600">1. Estado Orden:</span>
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${estaCerrada ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}>
-                      {textoEstadoOrden}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-black uppercase text-slate-600">2. Estado Financiero:</span>
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${esPazYSalvo ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}`}>
-                      {textoEstadoFinanciero}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between text-[10px] pt-0.5">
-                  <span className="font-bold text-slate-700">
-                    <strong className="text-slate-900">3. Estado de Tiempo y Llegada:</strong>{" "}
-                    <span className={estaEnMora ? "text-rose-700 font-black" : "text-emerald-700 font-bold"}>
-                      {textoTiempoYDevolucion}
-                    </span>
-                  </span>
-                  <span className="font-mono text-[9.5px] font-bold text-slate-500">
-                    Total: ${factura.totalFactura.toLocaleString("es-CO")} | Pagado: ${factura.totalAbonado.toLocaleString("es-CO")} | Saldo: ${factura.saldoPendiente.toLocaleString("es-CO")}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className={`mb-2 px-3 py-1 rounded-lg text-white flex items-center justify-between text-xs font-black shadow-xs ${estadoPagoBadge.bg}`}>
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-white/90" />
-                  <span>
-                    {esPazYSalvo
-                      ? "FACTURA AL DÍA (SALDO $0)"
-                      : "FACTURA CON SALDO PENDIENTE"}
-                  </span>
-                </div>
-                <span className="bg-black/20 px-2 py-0.5 rounded text-[10px] font-mono">
-                  {esPazYSalvo ? "SALDO: $0" : `SALDO: $${factura.saldoPendiente.toLocaleString("es-CO")}`}
-                </span>
-              </div>
-            )}
 
             {/* Ficha Cliente & Operación */}
             <div className="grid grid-cols-2 gap-3 mb-2 p-2 bg-slate-50 rounded-xl border border-slate-200 text-xs">
               <div>
-                <p className="font-bold uppercase text-slate-500 text-[9px]">CLIENTE:</p>
-                {factura.cliente.esResponsableIVA ? (
-                  <>
-                    <p className="font-bold text-slate-900 text-xs">
-                      {(factura.cliente.razonSocial || factura.cliente.nombre).toUpperCase()}
-                    </p>
-                    <p className="text-[10.5px]">
-                      {factura.cliente.tipoIdentificacion || "NIT"}:{" "}
-                      <span className="font-mono font-bold">
-                        {factura.cliente.documento}
-                        {factura.cliente.digitoVerificacion ? `-${factura.cliente.digitoVerificacion}` : ""}
-                      </span>
-                    </p>
-                    <p className="text-[10px]">
-                      Resp. Fiscal: {factura.cliente.responsabilidadFiscal || "O-48"}
-                    </p>
-                    {factura.cliente.telefono && (
-                      <p className="text-[10px]">Tel. 1°: <span className="font-mono font-bold">{factura.cliente.telefono}</span></p>
-                    )}
-                    {factura.cliente.telefonoSecundario && (
-                      <p className="text-[10px]">Tel. 2°: <span className="font-mono font-bold">{factura.cliente.telefonoSecundario}</span></p>
-                    )}
-                    {factura.cliente.direccion && (
-                      <p className="text-[9.5px] truncate">Dir: {factura.cliente.direccion}</p>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <p className="font-bold text-slate-900 text-xs">{factura.cliente.nombre.toUpperCase()}</p>
-                    <p className="text-[10.5px]">
-                      Cédula / NIT: <span className="font-mono font-bold">{factura.cliente.documento}</span>
-                    </p>
-                    {factura.cliente.telefono && <p className="text-[10.5px]">Tel. 1°: <span className="font-mono font-bold">{factura.cliente.telefono}</span></p>}
-                    {factura.cliente.telefonoSecundario && <p className="text-[10.5px]">Tel. 2°: <span className="font-mono font-bold">{factura.cliente.telefonoSecundario}</span></p>}
-                    {factura.cliente.direccion && <p className="text-[9.5px]">Dir: {factura.cliente.direccion}</p>}
-                  </>
+                <p className="font-bold uppercase text-slate-500 text-[8.5px]">DATOS DEL CLIENTE:</p>
+                <p className="font-bold text-slate-900 text-xs">
+                  {(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}
+                </p>
+                <p className="text-[10px]">
+                  {cliente.tipoIdentificacion || "CC"}: <span className="font-mono font-bold">{cliente.documento || "—"}</span>
+                  {cliente.digitoVerificacion ? `-${cliente.digitoVerificacion}` : ""}
+                </p>
+                {cliente.telefono && (
+                  <p className="text-[10px]">Tel. Primario (1°): <span className="font-mono font-bold">{cliente.telefono}</span></p>
+                )}
+                {cliente.telefonoSecundario && (
+                  <p className="text-[10px]">Tel. Secundario (2°): <span className="font-mono font-bold">{cliente.telefonoSecundario}</span></p>
                 )}
               </div>
 
               <div>
-                <p className="font-bold uppercase text-slate-500 text-[9px]">OPERACIÓN Y FECHAS:</p>
-                <p className="text-[10.5px]">
-                  Operación: <strong className="uppercase">{factura.tipoOperacion}</strong>
-                  {mostrarCajero && <span> | Cajero: <strong>{factura.usuarioCajero?.nombre}</strong></span>}
+                <p className="font-bold uppercase text-slate-500 text-[8.5px]">OPERACIÓN Y FECHAS:</p>
+                <p className="text-[10px]">
+                  Operación: <strong className="uppercase">{factura.tipoOperacion || "ALQUILER"}</strong>
+                  {mostrarCajero && <span> | Cajero: <strong>{usuarioCajero?.nombre}</strong></span>}
                 </p>
                 {esAlquiler && (
-                  <div className="mt-1 pt-1 border-t border-slate-200 text-[10px] space-y-0.5">
-                    <p>
-                      Fecha Salida: <strong>{new Date(factura.fechaEntregaAlquiler || factura.fechaCreacion).toLocaleDateString("es-CO")}</strong>
-                    </p>
+                  <div className="mt-0.5 text-[9.5px] space-y-0.5">
+                    <p>Fecha Salida: <strong>{safeDate(factura.fechaEntregaAlquiler || factura.fechaCreacion)}</strong></p>
                     {factura.fechaDevolucionPactada && (
-                      <p className="font-bold text-rose-700 bg-rose-50 px-1 py-0.5 rounded">
-                        Límite Devolución: {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                      <p className="font-bold text-rose-700">
+                        Límite Devolución: {safeDate(factura.fechaDevolucionPactada, true)}
                       </p>
                     )}
-                    {factura.fechaDevolucionReal && (
-                      <p className="font-bold text-emerald-700">
-                        Devuelto el: {new Date(factura.fechaDevolucionReal).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
-                      </p>
-                    )}
+                    <p className="text-[9px] text-slate-600">
+                      Plazo: <strong className={estaEnMora ? "text-rose-700" : "text-emerald-700"}>{textoPlazoYDevolucion}</strong>
+                    </p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* CONSTANCIA DE COBRO SEPARADO (EFECTIVO) — MEDIA CARTA */}
-            {(esAlquiler || montoDepositoVal > 0) && (
-              <div className="p-2 mb-2 bg-amber-50/90 rounded-xl border-2 border-amber-400 text-xs shadow-xs">
-                <div className="flex justify-between items-center font-bold text-amber-950">
-                  <span className="text-[10px] font-black tracking-wide uppercase">
-                    CONSTANCIA DE COBRO SEPARADO (EFECTIVO):
-                  </span>
-                  <span className="font-mono font-black text-sm text-emerald-800">
-                    Depósito en Custodia: ${montoDepositoVal.toLocaleString("es-CO")}
-                  </span>
-                </div>
-                <p className="text-[10.5px] text-amber-950 font-bold mt-1 leading-snug">
-                  Se recibió en EFECTIVO la suma de <span className="font-mono font-black">${montoDepositoVal.toLocaleString("es-CO")}</span> por concepto de Abono / Depósito establecido en este documento.
-                </p>
-                <div className="text-[9.5px] text-slate-700 mt-1 pt-1 border-t border-amber-300/80 flex flex-wrap justify-between items-center gap-2">
-                  <span><strong>Estado Depósito:</strong> {textoEstadoDeposito}</span>
-                  <span><strong>Valor Alquiler:</strong> ${factura.totalFactura.toLocaleString("es-CO")}</span>
-                  <span><strong>Abonado al Canon:</strong> ${factura.totalAbonado.toLocaleString("es-CO")}</span>
-                  <span className="font-bold text-slate-900">
-                    <strong>Saldo Pendiente:</strong>{" "}
-                    <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
-                      {esPazYSalvo ? "$0 (PAZ Y SALVO)" : `$${factura.saldoPendiente.toLocaleString("es-CO")}`}
-                    </span>
-                  </span>
-                  {factura.fechaDevolucionPactada && (
-                    <span className="text-rose-800 font-bold">
-                      <strong>Límite Devolución:</strong> {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
-                    </span>
-                  )}
-                  {totalEnManoHoy > 0 && (
-                    <span className="font-black text-slate-950 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
-                      Total Recibido en Gaveta: ${totalEnManoHoy.toLocaleString("es-CO")}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Tabla de Ítems */}
+            {/* Tabla Compacta de Prendas */}
             <table className="w-full text-xs mb-2">
-              <thead className="bg-slate-900 text-white text-[9px] font-bold uppercase">
+              <thead className="bg-slate-900 text-white text-[8.5px] font-bold uppercase">
                 <tr>
                   <th className="py-1 px-2 text-left w-10">Cant</th>
-                  <th className="py-1 px-2 text-left w-16">Tipo</th>
-                  <th className="py-1 px-2 text-left">Descripción del Ítem / Prenda</th>
-                  <th className="py-1 px-2 text-right w-20">Valor Unit.</th>
-                  <th className="py-1 px-2 text-right w-20">Subtotal</th>
+                  <th className="py-1 px-2 text-left">Descripción de la Prenda o Servicio</th>
+                  <th className="py-1 px-2 text-right w-24">Valor Unit.</th>
+                  <th className="py-1 px-2 text-right w-24">Subtotal</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {factura.detalles.slice(0, 5).map((d, idx) => {
-                  const esAlq = d.producto?.tipo === "ALQUILER" || factura.tipoOperacion === "ALQUILER";
-                  return (
-                    <tr key={idx} className="hover:bg-slate-50">
-                      <td className="py-0.5 px-2 text-center font-bold">{d.cantidad}</td>
-                      <td className="py-0.5 px-2">
-                        <span className="px-1.5 py-0.2 rounded text-[8px] font-bold uppercase bg-slate-100 text-slate-800 border">
-                          {d.esServicioLibre ? "SERVICIO" : esAlq ? "ALQUILER" : "VENTA"}
+                {detalles.slice(0, 4).map((d, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50">
+                    <td className="py-0.5 px-2 text-center font-bold">{safeNumber(d.cantidad)}</td>
+                    <td className="py-0.5 px-2">
+                      <span className="font-bold text-slate-900">
+                        {d.esServicioLibre
+                          ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
+                          : d.producto?.nombre || "Prenda de Alquiler"}
+                      </span>
+                      {d.producto?.codigo && (
+                        <span className="text-[9px] font-mono text-slate-500 ml-1.5">
+                          [{d.producto.codigo}]
                         </span>
-                      </td>
-                      <td className="py-0.5 px-2">
-                        <span className="font-bold text-slate-900">
-                          {d.esServicioLibre
-                            ? `[Arreglo] ${d.descripcionLibre || "Servicio de Sastrería"}`
-                            : d.producto?.nombre}
-                        </span>
-                        {d.producto?.codigo && (
-                          <span className="text-[9px] font-mono text-slate-500 ml-1.5">
-                            [{d.producto.codigo}]
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-0.5 px-2 text-right font-mono">${d.precioUnitario.toLocaleString("es-CO")}</td>
-                      <td className="py-0.5 px-2 text-right font-mono font-bold">${d.subtotal.toLocaleString("es-CO")}</td>
-                    </tr>
-                  );
-                })}
+                      )}
+                    </td>
+                    <td className="py-0.5 px-2 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
+                    <td className="py-0.5 px-2 text-right font-mono font-bold">{formatCOP(d.subtotal)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
 
-          {/* Pie Media Carta: Políticas & Totales lado a lado + Firmas */}
-          <div className="flex justify-between items-start gap-4 border-t-2 border-slate-900 pt-2">
-            <div className="flex-1 text-[9px] text-slate-600 space-y-1">
-              {empresa.politicasFactura && (
-                <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="font-bold uppercase text-[8px] text-slate-700 mb-0.5">
-                    TÉRMINOS Y POLÍTICAS DE ALQUILER:
-                  </p>
-                  <p className="text-[8.5px] leading-tight text-slate-500 line-clamp-2">
-                    {empresa.politicasFactura}
-                  </p>
-                </div>
-              )}
-              {/* Sección de Firmas de Respaldo Físico */}
-              <div className="grid grid-cols-2 gap-4 text-center pt-2">
-                <div className="border-t border-slate-700 pt-1 text-[8px] font-semibold text-slate-800">
-                  <p className="font-bold">Firma y C.C. del Cliente</p>
-                  <p className="text-[7px] text-slate-500">(Acepto estado de prendas, fechas y condiciones de depósito)</p>
-                </div>
-                <div className="border-t border-slate-700 pt-1 text-[8px] font-semibold text-slate-800">
-                  <p className="font-bold">Firma Vendedor / Cajero Responsable</p>
-                  <p className="text-[7px] text-slate-500">{factura.usuarioCajero?.nombre || "Atención en Mostrador"}</p>
-                </div>
+          {/* Bloques Contables Secciones A, B y C + Firmas */}
+          <div className="grid grid-cols-3 gap-2 border-t-2 border-slate-900 pt-1.5 text-[9.5px]">
+            {/* SECCIÓN A: OPERACIÓN */}
+            <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-200 space-y-0.5">
+              <p className="font-black text-[8px] uppercase text-slate-700 border-b border-slate-300 pb-0.5">
+                SECCIÓN A — OPERACIÓN
+              </p>
+              <div className="flex justify-between">
+                <span>Total Alquiler:</span>
+                <span className="font-bold">{formatCOP(totalOperacionAlquiler)}</span>
+              </div>
+              <div className="flex justify-between text-emerald-800">
+                <span>(-) Abonado:</span>
+                <span>-{formatCOP(totalAbonadoAlquiler)}</span>
+              </div>
+              <div className="flex justify-between font-black border-t border-slate-300 pt-0.5">
+                <span>(=) Saldo Faltante:</span>
+                <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
+                  {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteAlquiler)}
+                </span>
               </div>
             </div>
 
-            <div className="w-60 space-y-0.5 text-xs font-mono">
-              <div className="flex justify-between text-[10.5px]">
-                <span className="font-sans text-slate-500">{esAlquiler ? "Total Alquiler:" : "Subtotal:"}</span>
-                <span>${(factura.subtotalProductos + factura.subtotalArreglosLibres).toLocaleString("es-CO")}</span>
+            {/* SECCIÓN B: APARTADO DEPÓSITO */}
+            <div className="p-1.5 bg-amber-50 rounded-lg border border-amber-300 space-y-0.5">
+              <p className="font-black text-[8px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
+                SECCIÓN B — DEPÓSITO (SEPARADO)
+              </p>
+              <div className="flex justify-between font-bold text-amber-950">
+                <span>Depósito en Custodia:</span>
+                <span className="font-black text-emerald-800">{formatCOP(montoDepositoEfectivo)}</span>
               </div>
-              {factura.recargoMoraAcumulado > 0 && (
-                <div className="flex justify-between text-[10.5px] text-rose-700 font-bold">
-                  <span className="font-sans">Recargo Mora:</span>
-                  <span>+${factura.recargoMoraAcumulado.toLocaleString("es-CO")}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-xs font-black font-sans pt-0.5 border-t border-slate-900">
-                <span>{esAlquiler ? "VALOR TOTAL ALQUILER:" : "TOTAL FACTURA:"}</span>
-                <span>${factura.totalFactura.toLocaleString("es-CO")}</span>
+              <p className="text-[7.5px] text-amber-900 leading-tight">
+                {textoEstadoDeposito}
+              </p>
+            </div>
+
+            {/* SECCIÓN C: CUADRE EFECTIVO Y VUELTAS */}
+            <div className="p-1.5 bg-slate-100 rounded-lg border border-slate-300 space-y-0.5">
+              <p className="font-black text-[8px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+                SECCIÓN C — CUADRE EFECTIVO Y VUELTAS
+              </p>
+              <div className="flex justify-between">
+                <span>Total a Cobrar Hoy:</span>
+                <span className="font-black">{formatCOP(totalCobradoEnCajaHoy)}</span>
               </div>
-              <div className="flex justify-between text-[10.5px] text-emerald-700 font-bold">
-                <span className="font-sans">{esAlquiler ? "Total Pagado Alquiler:" : "Total Abonado:"}</span>
-                <span>-${factura.totalAbonado.toLocaleString("es-CO")}</span>
+              <div className="flex justify-between">
+                <span>Efectivo Recibido:</span>
+                <span>{formatCOP(efectivoRecibidoCliente)}</span>
               </div>
-              <div
-                className={`flex justify-between text-xs font-black font-sans pt-0.5 p-1 rounded border ${
-                  esPazYSalvo
-                    ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                    : "bg-slate-100 text-rose-600 border-slate-300"
-                }`}
-              >
-                <span>{esAlquiler ? "SALDO PENDIENTE ALQUILER:" : "SALDO:"}</span>
-                <span>
-                  {esPazYSalvo ? "$0 (PAZ Y SALVO)" : `$${factura.saldoPendiente.toLocaleString("es-CO")}`}
-                </span>
+              <div className="flex justify-between font-black text-emerald-800 border-t border-slate-300 pt-0.5">
+                <span>Vueltas Finales:</span>
+                <span>{formatCOP(vueltasCambioFinal)}</span>
               </div>
+            </div>
+          </div>
+
+          {/* Firmas de Respaldo */}
+          <div className="grid grid-cols-2 gap-6 text-center pt-1.5 border-t border-slate-200 text-[8px]">
+            <div className="border-t border-slate-700 pt-0.5">
+              <p className="font-bold">Firma y C.C. del Cliente</p>
+              <p className="text-[7px] text-slate-500">(Acepto estado de prendas y condiciones)</p>
+            </div>
+            <div className="border-t border-slate-700 pt-0.5">
+              <p className="font-bold">Firma Vendedor / Cajero Responsable</p>
+              <p className="text-[7px] text-slate-500">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
             </div>
           </div>
         </div>
@@ -1091,362 +896,224 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
     return (
       <div className="hoja-carta-impresion w-full max-w-[215.9mm] min-h-[255mm] max-h-[258mm] mx-auto p-6 sm:p-7 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border">
         <div>
-          {/* Cabecera Documental Carta */}
+          {/* Cabecera Carta */}
           <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3 mb-3">
             <div className="flex items-center gap-4">
               {empresa.logoUrl && (
                 <img
                   src={empresa.logoUrl}
-                  alt={empresa.nombreComercial}
-                  className="max-h-20 object-contain"
+                  alt={empresa.nombreComercial || "LLANOMIO"}
+                  className="max-h-16 object-contain"
                 />
               )}
               <div>
-                <h1 className="text-2xl font-black tracking-tight uppercase text-slate-900">
-                  {empresa.nombreComercial}
+                <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
+                  {empresa.nombreComercial || "LLANOMIO"}
                 </h1>
                 {empresa.eslogan && (
-                  <p className="text-xs text-slate-600 italic font-semibold">
-                    {empresa.eslogan}
-                  </p>
+                  <p className="text-xs italic text-slate-600">{empresa.eslogan}</p>
                 )}
-                <p className="text-xs font-bold text-slate-700">
-                  NIT: {empresa.nit} {empresa.regimenFiscal ? `| ${empresa.regimenFiscal}` : ""}
+                <p className="text-xs text-slate-700 font-bold mt-0.5">
+                  NIT: {empresa.nit || "900.123.456-7"} {empresa.regimenFiscal ? `| ${empresa.regimenFiscal}` : ""}
                 </p>
-                <p className="text-xs text-slate-500">{empresa.direccion} — {empresa.ciudad || "Villavicencio, Meta"}</p>
-                <p className="text-xs text-slate-500">
-                  Teléfono / WhatsApp: {empresa.telefono} {empresa.email ? `| ${empresa.email}` : ""}
+                <p className="text-[11px] text-slate-500">
+                  {empresa.direccion} — {empresa.ciudad || "Villavicencio"} | Tel: {empresa.telefono}
                 </p>
               </div>
             </div>
 
             <div className="text-right">
-              <div
-                className={`border-2 rounded-xl p-3 ${
-                  esPazYSalvo
-                    ? "border-emerald-600 bg-emerald-50/70"
-                    : "border-slate-900 bg-slate-50"
-                }`}
-              >
-                <span
-                  className={`text-[10px] uppercase font-bold tracking-wider block ${
-                    esPazYSalvo ? "text-emerald-700 font-black" : "text-slate-500"
-                  }`}
-                >
-                  {esAlquiler
-                    ? (factura.estado === "CERRADA"
-                        ? "CERTIFICADO DE PAZ Y SALVO FINAL DE ALQUILER Y DEPÓSITO"
-                        : factura.saldoPendiente <= 0
-                        ? "FACTURA DE ALQUILER - PAGO COMPLETO (PRENDA EN ALQUILER)"
-                        : "COMPROBANTE DE ALQUILER - SALDO PENDIENTE / ABONO PARCIAL")
-                    : (esPazYSalvo
-                        ? "COMPROBANTE DE PAGO FINAL (PAZ Y SALVO)"
-                        : "FACTURA COMERCIAL")}
+              <div className="border-2 border-slate-900 rounded-xl px-4 py-2 bg-slate-50">
+                <span className="text-[10px] uppercase font-black tracking-wider block text-slate-800">
+                  {tituloComprobante}
                 </span>
                 <span className="text-lg font-black font-mono block text-slate-900">
-                  {factura.numeroFactura}
+                  N° {factura.numeroFactura}
                 </span>
-                <span className="text-[10px] font-bold text-slate-700 uppercase mt-0.5 block">
+                <span className="text-[9px] font-bold text-slate-600 uppercase block">
                   {tipoCopiaTexto}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Fecha Emisión: {new Date(factura.fechaCreacion).toLocaleDateString("es-CO")} {new Date(factura.fechaCreacion).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}
+              <p className="text-[10px] text-slate-500 mt-1">
+                Fecha Emisión: {safeDate(factura.fechaCreacion, true)}
               </p>
             </div>
           </div>
 
-          {/* Panel de Estado General de la Petición / Transacción (Carta Completa) */}
-          {esAlquiler ? (
-            <div className="mb-3 p-3 bg-slate-50 rounded-xl border-2 border-slate-900 text-xs shadow-xs space-y-2">
-              <div className="grid grid-cols-2 gap-3 pb-2 border-b border-slate-200">
-                <div>
-                  <span className="text-[10px] font-black uppercase text-slate-500 block mb-0.5">1. Estado de la Orden / Petición:</span>
-                  <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider ${estaCerrada ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"}`}>
-                    {textoEstadoOrden}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-black uppercase text-slate-500 block mb-0.5">2. Estado Financiero de la Petición:</span>
-                  <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider ${esPazYSalvo ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}`}>
-                    {textoEstadoFinanciero}
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-0.5">
-                <div>
-                  <strong className="text-slate-700">3. Estado de Tiempo y Llegada:</strong>{" "}
-                  <span className={estaEnMora ? "text-rose-700 font-black" : "text-emerald-700 font-bold"}>
-                    {textoTiempoYDevolucion}
-                  </span>
-                </div>
-                <div className="font-mono text-xs font-bold text-slate-600 bg-white px-2.5 py-0.5 rounded border border-slate-200">
-                  Canon: ${factura.totalFactura.toLocaleString("es-CO")} | Pagado: ${factura.totalAbonado.toLocaleString("es-CO")} | Saldo: ${factura.saldoPendiente.toLocaleString("es-CO")}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className={`mb-3 px-3 py-1.5 rounded-lg text-white flex items-center justify-between text-xs font-black shadow-xs ${estadoPagoBadge.bg}`}>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-white/90" />
-                <span>
-                  {esPazYSalvo
-                    ? "FACTURA PAGADA AL 100% — PAZ Y SALVO DE OBLIGACIÓN"
-                    : "FACTURA CON SALDO PENDIENTE POR COBRAR"}
-                </span>
-              </div>
-              <span className="bg-black/20 px-2 py-0.5 rounded text-[11px] font-mono">
-                {esPazYSalvo ? "SALDO: $0" : `SALDO: $${factura.saldoPendiente.toLocaleString("es-CO")}`}
-              </span>
-            </div>
-          )}
-
-          {/* Ficha Cliente y Operación */}
-          <div className="grid grid-cols-2 gap-4 mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+          {/* Ficha Cliente & Operación */}
+          <div className="grid grid-cols-2 gap-4 mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
             <div>
-              <p className="font-bold uppercase text-slate-500 text-[10px] mb-1">
-                Información del Cliente / Arrendatario:
+              <p className="font-bold uppercase text-slate-500 text-[9px] mb-1">DATOS DEL CLIENTE:</p>
+              <p className="font-bold text-slate-900 text-sm">
+                {(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}
               </p>
-              {factura.cliente.esResponsableIVA ? (
-                <>
-                  <p className="font-bold text-slate-900 text-sm">
-                    {(factura.cliente.razonSocial || factura.cliente.nombre).toUpperCase()}
-                  </p>
-                  <p>
-                    {factura.cliente.tipoIdentificacion || "NIT"}:{" "}
-                    <span className="font-mono font-bold">
-                      {factura.cliente.documento}
-                      {factura.cliente.digitoVerificacion ? `-${factura.cliente.digitoVerificacion}` : ""}
-                    </span>
-                  </p>
-                  <p>
-                    Responsabilidad Fiscal:{" "}
-                    <span className="font-semibold">{factura.cliente.responsabilidadFiscal || "O-48"}</span>
-                  </p>
-                  {factura.cliente.email && <p>Correo Electrónico: {factura.cliente.email}</p>}
-                  {factura.cliente.direccion && (
-                    <p>
-                      Dirección: {factura.cliente.direccion} — {factura.cliente.municipio || "Villavicencio - Meta"}
-                    </p>
-                  )}
-                  {factura.cliente.telefono && <p>Teléfono Primario *: <span className="font-mono font-bold">{factura.cliente.telefono}</span></p>}
-                  {factura.cliente.telefonoSecundario && <p>Teléfono Secundario: <span className="font-mono font-bold">{factura.cliente.telefonoSecundario}</span></p>}
-                </>
-              ) : (
-                <>
-                  <p className="font-bold text-slate-900 text-sm">{factura.cliente.nombre.toUpperCase()}</p>
-                  <p>
-                    Cédula / Documento: <span className="font-mono font-bold">{factura.cliente.documento}</span>
-                  </p>
-                  {factura.cliente.telefono && <p>Teléfono Primario *: <span className="font-mono font-bold">{factura.cliente.telefono}</span></p>}
-                  {factura.cliente.telefonoSecundario && <p>Teléfono Secundario: <span className="font-mono font-bold">{factura.cliente.telefonoSecundario}</span></p>}
-                  {factura.cliente.direccion && <p>Dirección: {factura.cliente.direccion}</p>}
-                </>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <p className="font-bold uppercase text-slate-500 text-[10px] mb-1">
-                Detalles de la Operación y Fechas:
+              <p className="text-xs text-slate-700">
+                {cliente.tipoIdentificacion || "CC"}: <span className="font-mono font-bold">{cliente.documento || "—"}</span>
+                {cliente.digitoVerificacion ? `-${cliente.digitoVerificacion}` : ""}
               </p>
-              <p>
-                Tipo de Operación: <strong className="uppercase">{factura.tipoOperacion}</strong>
-              </p>
-              <p>
-                Estado de la Factura: <strong className="uppercase">{factura.estado}</strong>
-              </p>
-              {mostrarCajero && (
-                <p className="text-slate-600">
-                  Atendido por Cajero: <strong>{factura.usuarioCajero?.nombre}</strong>
+              {cliente.telefono && (
+                <p className="text-xs text-slate-700">
+                  Teléfono Primario (1°): <span className="font-mono font-bold">{cliente.telefono}</span>
                 </p>
               )}
+              {cliente.telefonoSecundario && (
+                <p className="text-xs text-slate-700">
+                  Teléfono Secundario (2°): <span className="font-mono font-bold">{cliente.telefonoSecundario}</span>
+                </p>
+              )}
+              {cliente.direccion && <p className="text-xs text-slate-500">Dirección: {cliente.direccion}</p>}
+            </div>
+
+            <div>
+              <p className="font-bold uppercase text-slate-500 text-[9px] mb-1">DETALLES DE LA ORDEN:</p>
+              <p className="text-xs">
+                Modalidad: <strong className="uppercase">{factura.tipoOperacion || "ALQUILER"}</strong>
+              </p>
+              {mostrarCajero && (
+                <p className="text-xs">Cajero Responsable: <strong>{usuarioCajero?.nombre}</strong></p>
+              )}
               {esAlquiler && (
-                <div className="mt-1 pt-1 border-t border-slate-200 text-xs space-y-0.5">
-                  <p>
-                    Fecha Salida: <strong>{new Date(factura.fechaEntregaAlquiler || factura.fechaCreacion).toLocaleDateString("es-CO")}</strong>
-                  </p>
+                <div className="mt-1 space-y-0.5 text-xs">
+                  <p>Fecha Salida: <strong>{safeDate(factura.fechaEntregaAlquiler || factura.fechaCreacion)}</strong></p>
                   {factura.fechaDevolucionPactada && (
-                    <p className="font-bold text-rose-700 bg-rose-50 p-1 rounded inline-block text-xs">
-                      Límite Devolución: {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                    <p className="font-bold text-rose-700">
+                      Fecha Límite Devolución: {safeDate(factura.fechaDevolucionPactada, true)}
                     </p>
                   )}
-                  {factura.fechaDevolucionReal && (
-                    <p className="font-bold text-emerald-700 ml-2 inline-block">
-                      Devuelto el: {new Date(factura.fechaDevolucionReal).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
-                    </p>
-                  )}
+                  <p className="text-[11px] text-slate-600">
+                    Plazo: <strong className={estaEnMora ? "text-rose-700" : "text-emerald-700"}>{textoPlazoYDevolucion}</strong>
+                  </p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* CONSTANCIA DE COBRO SEPARADO (EFECTIVO) — CARTA COMPLETA */}
-          {(esAlquiler || montoDepositoVal > 0) && (
-            <div className="mb-3 p-3 bg-amber-50/90 rounded-xl border-2 border-amber-400 text-xs shadow-xs">
-              <div className="flex justify-between items-center font-bold text-amber-950">
-                <span className="text-xs font-black tracking-wider uppercase">
-                  CONSTANCIA DE COBRO SEPARADO (EFECTIVO):
-                </span>
-                <span className="font-mono text-base font-black text-emerald-800">
-                  Depósito en Custodia: ${montoDepositoVal.toLocaleString("es-CO")}
-                </span>
-              </div>
-              <p className="text-xs text-amber-950 font-bold mt-1.5 leading-relaxed">
-                Se recibió en EFECTIVO la suma de <span className="font-mono font-black">${montoDepositoVal.toLocaleString("es-CO")}</span> por concepto de Abono / Depósito establecido en este documento.
-              </p>
-              <div className="text-[11px] text-slate-700 mt-2 pt-2 border-t border-amber-300 flex flex-wrap justify-between items-center gap-2">
-                <span><strong>Estado del Depósito:</strong> {textoEstadoDeposito}</span>
-                <span><strong>Valor Total Alquiler:</strong> ${factura.totalFactura.toLocaleString("es-CO")}</span>
-                <span><strong>Monto Abonado:</strong> ${factura.totalAbonado.toLocaleString("es-CO")}</span>
-                <span>
-                  <strong>Saldo Pendiente:</strong>{" "}
-                  <span className={esPazYSalvo ? "text-emerald-700 font-black" : "text-rose-700 font-black"}>
-                    {esPazYSalvo ? "$0 (PAZ Y SALVO)" : `$${factura.saldoPendiente.toLocaleString("es-CO")}`}
-                  </span>
-                </span>
-                {factura.fechaDevolucionPactada && (
-                  <span className="text-rose-800 font-bold">
-                    <strong>Fecha Límite Devolución:</strong> {new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
-                  </span>
-                )}
-                {totalEnManoHoy > 0 && (
-                  <span className="font-black text-slate-950 bg-amber-100 px-2.5 py-1 rounded border border-amber-300">
-                    Total Efectivo Recibido en Gaveta Hoy: ${totalEnManoHoy.toLocaleString("es-CO")}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Tabla de Prendas / Ítems */}
-          <table className="w-full text-xs mb-3">
-            <thead className="bg-slate-900 text-white text-[10px] font-bold uppercase">
+          {/* Tabla Completa de Ítems */}
+          <table className="w-full text-xs mb-4">
+            <thead className="bg-slate-900 text-white text-[9.5px] font-bold uppercase">
               <tr>
-                <th className="py-1.5 px-2 text-left w-12">Cant</th>
-                <th className="py-1.5 px-2 text-left w-20">Tipo</th>
-                <th className="py-1.5 px-2 text-left">Descripción del Ítem / Prenda</th>
-                <th className="py-1.5 px-2 text-right w-24">Precio Unit.</th>
-                <th className="py-1.5 px-2 text-right w-24">Subtotal</th>
+                <th className="py-2 px-3 text-left w-12">Cant</th>
+                <th className="py-2 px-3 text-left">Descripción de la Prenda o Servicio</th>
+                <th className="py-2 px-3 text-right w-28">Precio Unitario</th>
+                <th className="py-2 px-3 text-right w-28">Subtotal</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {factura.detalles.slice(0, 8).map((d, idx) => {
-                const esAlq = d.producto?.tipo === "ALQUILER" || factura.tipoOperacion === "ALQUILER";
-                return (
-                  <tr key={idx} className="hover:bg-slate-50">
-                    <td className="py-1.5 px-2 font-bold text-center">{d.cantidad}</td>
-                    <td className="py-1.5 px-2">
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase border bg-slate-100 text-slate-800">
-                        {d.esServicioLibre ? "SERVICIO" : esAlq ? "ALQUILER" : "VENTA"}
+              {detalles.map((d, idx) => (
+                <tr key={idx} className="hover:bg-slate-50">
+                  <td className="py-1 px-3 text-center font-bold">{safeNumber(d.cantidad)}</td>
+                  <td className="py-1 px-3">
+                    <span className="font-bold text-slate-900">
+                      {d.esServicioLibre
+                        ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
+                        : d.producto?.nombre || "Prenda de Alquiler"}
+                    </span>
+                    {d.producto?.codigo && (
+                      <span className="text-[10px] font-mono text-slate-500 ml-2">
+                        [{d.producto.codigo}] {d.producto.talla ? `| Talla: ${d.producto.talla}` : ""}
                       </span>
-                    </td>
-                    <td className="py-1.5 px-2">
-                      <p className="font-bold text-slate-900 text-xs">
-                        {d.esServicioLibre
-                          ? `[Arreglo de Sastrería] ${d.descripcionLibre || "Servicio"}`
-                          : d.producto?.nombre}
-                      </p>
-                      {d.producto?.codigo && (
-                        <p className="text-[10px] font-mono text-slate-500">
-                          Cód: {d.producto.codigo} {d.producto.talla ? `| Talla: ${d.producto.talla}` : ""} {d.producto.color ? `| Color: ${d.producto.color}` : ""}
-                        </p>
-                      )}
-                    </td>
-                    <td className="py-1.5 px-2 text-right font-mono text-xs">
-                      ${d.precioUnitario.toLocaleString("es-CO")}
-                    </td>
-                    <td className="py-1.5 px-2 text-right font-mono font-bold text-xs">
-                      ${d.subtotal.toLocaleString("es-CO")}
-                    </td>
-                  </tr>
-                );
-              })}
+                    )}
+                  </td>
+                  <td className="py-1 px-3 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
+                  <td className="py-1 px-3 text-right font-mono font-bold">{formatCOP(d.subtotal)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
 
-          {/* Historial Detallado de Pagos & Abonos Recibidos */}
-          {factura.abonos && factura.abonos.length > 0 && (
-            <div className="mb-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-              <p className="font-bold uppercase text-[9.5px] text-slate-700 mb-1.5 flex items-center justify-between">
-                <span>Historial Detallado de Pagos / Abonos Registrados:</span>
-                <span className="font-mono text-emerald-700 font-bold">
-                  Total Pagado: ${factura.totalAbonado.toLocaleString("es-CO")}
-                </span>
+          {/* ========================================================================= */}
+          {/* SECCIONES CONTABLES A, B Y C EN FORMATO CARTA                             */}
+          {/* ========================================================================= */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {/* SECCIÓN A */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+              <p className="font-black text-[9px] uppercase text-slate-800 border-b border-slate-300 pb-1">
+                SECCIÓN A — OPERACIÓN ALQUILER
               </p>
-              <div className="space-y-1">
-                {factura.abonos.map((abono, aIdx) => (
-                  <div
-                    key={aIdx}
-                    className="flex items-center justify-between bg-white px-2.5 py-1 rounded border border-slate-200/80 font-mono text-[10.5px]"
-                  >
-                    <span>
-                      <strong>{obtenerConceptoAbono(aIdx, factura.abonos?.length || 1)}</strong> — {new Date(abono.fecha).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })} ({abono.metodoPago})
-                      {abono.cajero?.nombre ? ` [Cajero: ${abono.cajero.nombre}]` : ""}
-                    </span>
-                    <strong className="text-emerald-700 font-bold">
-                      ${abono.monto.toLocaleString("es-CO")}
-                    </strong>
-                  </div>
-                ))}
+              <div className="flex justify-between text-xs">
+                <span>Subtotal Prendas:</span>
+                <span className="font-bold">{formatCOP(subtotalPrendas)}</span>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sección Inferior de Carta: Políticas & Totales + Firmas */}
-        <div className="border-t-2 border-slate-900 pt-3">
-          <div className="flex justify-between items-start gap-4 mb-3">
-            <div className="flex-1 text-[10px] text-slate-600 space-y-1">
-              {empresa.politicasFactura && (
-                <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="font-bold uppercase text-[9px] text-slate-700 mb-0.5">
-                    TÉRMINOS Y POLÍTICAS DE ALQUILER / VENTA:
-                  </p>
-                  <p className="text-[9.5px] leading-relaxed text-slate-500">
-                    {empresa.politicasFactura}
-                  </p>
+              {recargoMora > 0 && (
+                <div className="flex justify-between text-xs text-rose-700 font-bold">
+                  <span>Recargo por Mora:</span>
+                  <span>+{formatCOP(recargoMora)}</span>
                 </div>
               )}
-            </div>
-
-            <div className="w-68 space-y-1 text-xs font-mono">
-              <div className="flex justify-between text-[11px]">
-                <span className="font-sans text-slate-500">{esAlquiler ? "Total Alquiler:" : "Subtotal Prendas:"}</span>
-                <span>${(factura.subtotalProductos + factura.subtotalArreglosLibres).toLocaleString("es-CO")}</span>
+              <div className="flex justify-between text-xs font-black border-t border-slate-300 pt-1">
+                <span>Total Operación:</span>
+                <span>{formatCOP(totalOperacionAlquiler + recargoMora)}</span>
               </div>
-              {factura.recargoMoraAcumulado > 0 && (
-                <div className="flex justify-between text-[11px] text-rose-700 font-bold">
-                  <span className="font-sans">Recargo Mora:</span>
-                  <span>+${factura.recargoMoraAcumulado.toLocaleString("es-CO")}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-xs font-black font-sans pt-1 border-t border-slate-900">
-                <span>{esAlquiler ? "VALOR TOTAL ALQUILER:" : "TOTAL FACTURA:"}</span>
-                <span>${factura.totalFactura.toLocaleString("es-CO")}</span>
+              <div className="flex justify-between text-xs text-emerald-800 font-bold">
+                <span>(-) Abonado al Alquiler:</span>
+                <span>-{formatCOP(totalAbonadoAlquiler)}</span>
               </div>
-              <div className="flex justify-between text-[11px] text-emerald-700 font-bold">
-                <span className="font-sans">{esAlquiler ? "Total Pagado Alquiler:" : "Total Abonado:"}</span>
-                <span>-${factura.totalAbonado.toLocaleString("es-CO")}</span>
-              </div>
-              <div
-                className={`flex justify-between text-xs font-black font-sans pt-1 p-1.5 rounded border ${
-                  esPazYSalvo
-                    ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                    : "bg-slate-100 text-rose-600 border-slate-300"
-                }`}
-              >
-                <span>{esAlquiler ? "SALDO PENDIENTE ALQUILER:" : "SALDO PENDIENTE:"}</span>
-                <span>
-                  {esPazYSalvo ? "$0 (PAZ Y SALVO)" : `$${factura.saldoPendiente.toLocaleString("es-CO")}`}
+              <div className="flex justify-between text-xs font-black border-t border-slate-300 pt-1">
+                <span>(=) Saldo Faltante:</span>
+                <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
+                  {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteAlquiler)}
                 </span>
+              </div>
+            </div>
+
+            {/* SECCIÓN B */}
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 space-y-1">
+              <p className="font-black text-[9px] uppercase text-amber-950 border-b border-amber-300 pb-1">
+                SECCIÓN B — DEPÓSITO EN EFECTIVO (SEPARADO)
+              </p>
+              <div className="flex justify-between font-black text-sm text-amber-950">
+                <span>Depósito en Custodia:</span>
+                <span className="font-mono text-emerald-800">{formatCOP(montoDepositoEfectivo)}</span>
+              </div>
+              <p className="text-[10px] text-amber-950/90 leading-snug">
+                {textoEstadoDeposito}
+              </p>
+              <p className="text-[9px] text-slate-500 italic pt-1">
+                * Este apartado no suma a la operación de alquiler; se reintegra al devolver las prendas a conformidad.
+              </p>
+            </div>
+
+            {/* SECCIÓN C */}
+            <div className="p-3 bg-slate-100 rounded-xl border border-slate-300 space-y-1">
+              <p className="font-black text-[9px] uppercase text-slate-900 border-b border-slate-300 pb-1">
+                SECCIÓN C — CUADRE EFECTIVO Y VUELTAS
+              </p>
+              <div className="flex justify-between text-xs">
+                <span>Cobro Alquiler Hoy:</span>
+                <span>{formatCOP(cobroAlquilerHoy)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span>(+) Depósito en Efectivo:</span>
+                <span>{formatCOP(montoDepositoEfectivo)}</span>
+              </div>
+              <div className="flex justify-between text-xs font-black border-t border-slate-300 pt-1">
+                <span>(=) Total a Cobrar Hoy:</span>
+                <span>{formatCOP(totalCobradoEnCajaHoy)}</span>
+              </div>
+              <div className="flex justify-between text-xs font-bold text-slate-900 pt-1">
+                <span>Efectivo Recibido Cliente:</span>
+                <span>{formatCOP(efectivoRecibidoCliente)}</span>
+              </div>
+              <div className="flex justify-between text-sm font-black text-emerald-800 border-t border-slate-300 pt-1">
+                <span>Vueltas / Cambio Final:</span>
+                <span>{formatCOP(vueltasCambioFinal)}</span>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Bloque de Firmas de Respaldo Físico */}
-          <div className="grid grid-cols-2 gap-10 text-center pt-3 border-t border-dashed border-slate-300">
+        {/* Políticas y Firmas */}
+        <div>
+          {empresa.politicasFactura && (
+            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-[10px] text-slate-600 mb-3">
+              <p className="font-bold uppercase text-[9px] text-slate-700 mb-0.5">TÉRMINOS Y CONDICIONES:</p>
+              <p className="leading-relaxed">{empresa.politicasFactura}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-8 text-center pt-4 border-t-2 border-slate-800">
             <div>
-              <div className="w-64 border-t-2 border-slate-800 mx-auto pt-1 text-xs font-bold text-slate-900">
+              <div className="w-64 border-t border-slate-700 mx-auto pt-1 font-bold text-xs">
                 Firma y C.C. del Cliente
               </div>
               <p className="text-[9.5px] text-slate-500 mt-0.5">
@@ -1454,18 +1121,17 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
               </p>
             </div>
             <div>
-              <div className="w-64 border-t-2 border-slate-800 mx-auto pt-1 text-xs font-bold text-slate-900">
+              <div className="w-64 border-t border-slate-700 mx-auto pt-1 font-bold text-xs">
                 Firma Vendedor / Cajero Responsable
               </div>
               <p className="text-[9.5px] text-slate-500 mt-0.5">
-                {factura.usuarioCajero?.nombre || "Atención en Mostrador"}
+                {usuarioCajero?.nombre || "Atención en Mostrador"}
               </p>
             </div>
           </div>
 
-          {/* Pie Institucional sin QR */}
-          <div className="text-center text-[9px] text-slate-400 mt-2 font-mono">
-            {empresa.piePaginaFactura || "Comprobante Oficial LLANOMIO POS — Impreso sin códigos QR externos"}
+          <div className="text-center text-[9px] text-slate-400 mt-3 font-mono">
+            {empresa.piePaginaFactura || "Comprobante Oficial LLANOMIO POS — CERO códigos QR externos"}
           </div>
         </div>
       </div>
@@ -1474,7 +1140,7 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
 
   return (
     <div className="space-y-6">
-      {/* Barra Superior de Control de Impresión (Se oculta en @media print) */}
+      {/* Barra Superior de Control de Impresión */}
       <div className="print:hidden bg-slate-900 text-white p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-lg">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-white/10 text-white">
@@ -1482,7 +1148,7 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
           </div>
           <div>
             <h2 className="text-sm font-bold">
-              Impresión Documental — Factura {factura.numeroFactura}
+              Impresión Documental — Factura {factura.numeroFactura || ""}
             </h2>
             <p className="text-xs text-slate-400">
               Formato seleccionado: <strong>{formato}</strong> — Coherencia 1:1 entre vista, impresión y PDF
@@ -1552,7 +1218,7 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
             </button>
           </div>
 
-          {/* Botón Exportar / Descargar PDF Oficial según Formato y Copias */}
+          {/* Botón Descargar PDF */}
           <button
             type="button"
             onClick={() => descargarPdfSegunFormato(datos, formato, undefined, { numCopias })}
@@ -1598,15 +1264,13 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
         </div>
       </div>
 
-      {/* Área Imprimible Aislada (Se sincroniza 1:1 con el formato seleccionado) */}
+      {/* Área Imprimible Aislada */}
       <div
         ref={areaImprimibleRef}
         className="bg-slate-200 dark:bg-slate-900/60 p-4 sm:p-8 rounded-2xl print:p-0 print:bg-white print:m-0 flex flex-col items-center"
       >
-        {/* Copia 1: Original Cliente */}
         {renderDocumento(numCopias === 2 ? "EJEMPLAR 1: COPIA CLIENTE" : "COPIA CLIENTE")}
 
-        {/* Copia 2: Respaldo Físico Tienda / Archivo (si está seleccionada) */}
         {numCopias === 2 && (
           <>
             <div className="w-full my-6 border-t-2 border-dashed border-slate-400 text-center relative print:my-4">
@@ -1619,7 +1283,7 @@ export default function PlantillaImpresion({ datos: datosProp, facturaId, onCerr
         )}
       </div>
 
-      {/* Estilos CSS Globales @media print para impresión de respaldo */}
+      {/* Estilos CSS Globales @media print */}
       <style jsx global>{`
         @media print {
           body {

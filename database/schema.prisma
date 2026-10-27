@@ -247,6 +247,10 @@ model Factura {
   motivoRetencionDeposito String?
   metodoPagoDeposito      String?
 
+  // Liquidación de Efectivo y Vueltas
+  efectivoRecibido        Float          @default(0)
+  cambioEntregado         Float          @default(0)
+
   notas                  String?
   updatedAt              DateTime       @updatedAt
 

@@ -172,8 +172,8 @@ export type ModalidadPagoAlquiler = "COMPLETO" | "ADELANTO" | "PENDIENTE";
 export type VistaPrincipalAlquiler = "NUEVO_ALQUILER" | "HISTORIAL_CENTRO";
 export type PestanaHistorialAlquiler = "ACTIVAS" | "EN_MORA" | "POR_COBRAR" | "CERRADAS";
 
-const DEPOSITOS_SUGERIDOS = [0, 20000, 50000, 100000, 150000];
-const BILLETES_COLOMBIANOS = [20000, 50000, 100000];
+const DEPOSITOS_SUGERIDOS = [0, 20000, 40000, 50000, 100000, 150000];
+const BILLETES_COLOMBIANOS = [20000, 50000, 100000, 200000];
 
 export default function TerminalAlquileresPage() {
   // Navegación principal y pasos
@@ -212,19 +212,20 @@ export default function TerminalAlquileresPage() {
   });
 
   // Bloque 1: Cobro Obligatorio de Abono / Depósito de Respaldo (EXCLUSIVO EN EFECTIVO)
-  const [montoDeposito, setMontoDeposito] = useState<number>(50000);
-  const [montoDepositoPersonalizado, setMontoDepositoPersonalizado] = useState<string>("50000");
-  const [efectivoDepositoRecibido, setEfectivoDepositoRecibido] = useState<string>("50000");
+  const [montoDeposito, setMontoDeposito] = useState<number>(40000);
+  const [montoDepositoPersonalizado, setMontoDepositoPersonalizado] = useState<string>("40000");
   const [abonoEfectivoConfirmado, setAbonoEfectivoConfirmado] = useState<boolean>(true);
 
   // Bloque 2: Valor del Canon de Alquiler y Saldo
   const [modalidadPago, setModalidadPago] = useState<ModalidadPagoAlquiler>("COMPLETO");
   const [montoAbonoManual, setMontoAbonoManual] = useState<string>("");
   const [metodoPagoPrincipal, setMetodoPagoPrincipal] = useState<MetodoPagoAlquiler>("EFECTIVO");
-  const [efectivoCanonRecibido, setEfectivoCanonRecibido] = useState<string>("");
   const [referenciaPago, setReferenciaPago] = useState("");
   const [notasAlquiler, setNotasAlquiler] = useState("");
   const [guardandoAlquiler, setGuardandoAlquiler] = useState(false);
+
+  // Bloque 3: Efectivo Total Recibido del Cliente y Vueltas / Cambio Final
+  const [efectivoRecibidoCliente, setEfectivoRecibidoCliente] = useState<string>("");
 
   // Documento e impresión
   const [datosImpresion, setDatosImpresion] = useState<DatosImpresionFactura | null>(null);
@@ -452,23 +453,12 @@ export default function TerminalAlquileresPage() {
   }, [mensajeError, mensajeExito]);
 
   // Cálculos financieros del alquiler y liquidación por bloques
-  const montoRecibidoEfectivoDeposito = useMemo(() => {
-    return parseFloat(efectivoDepositoRecibido) || 0;
-  }, [efectivoDepositoRecibido]);
-
-  const vueltasDepositoCalculadas = useMemo(() => {
-    return Math.max(0, montoRecibidoEfectivoDeposito - montoDeposito);
-  }, [montoRecibidoEfectivoDeposito, montoDeposito]);
-
-  const depositoEfectivoValido = useMemo(() => {
-    if (montoDeposito <= 0) return true;
-    return abonoEfectivoConfirmado && montoRecibidoEfectivoDeposito >= montoDeposito;
-  }, [montoDeposito, abonoEfectivoConfirmado, montoRecibidoEfectivoDeposito]);
-
+  // Subtotal exclusivo de prendas del alquiler (TOTAL OPERACIÓN)
   const subtotalPrendas = useMemo(() => {
     return itemsCarrito.reduce((acc, it) => acc + it.subtotal, 0);
   }, [itemsCarrito]);
 
+  // Abono que el cliente realiza hoy al canon de alquiler
   const valorAbonoAlquilerHoy = useMemo(() => {
     if (modalidadPago === "COMPLETO") {
       return subtotalPrendas;
@@ -480,29 +470,33 @@ export default function TerminalAlquileresPage() {
     return 0; // PENDIENTE ($0 hoy)
   }, [modalidadPago, subtotalPrendas, montoAbonoManual]);
 
+  // Saldo faltante por pagar del alquiler (El depósito NO suma ni altera este saldo)
   const saldoFaltanteAlquiler = useMemo(() => {
     return Math.max(0, subtotalPrendas - valorAbonoAlquilerHoy);
   }, [subtotalPrendas, valorAbonoAlquilerHoy]);
 
-  const efectivoCanonRecibidoNum = useMemo(() => {
-    if (efectivoCanonRecibido !== "") {
-      return parseFloat(efectivoCanonRecibido) || 0;
+  // REGLA CONTABLE ESTRICTA:
+  // Total Exigido Hoy en Caja = Abono al Alquiler Hoy (Efectivo) + Depósito de Respaldo (Efectivo)
+  const totalExigidoHoyEnCaja = useMemo(() => {
+    return valorAbonoAlquilerHoy + montoDeposito;
+  }, [valorAbonoAlquilerHoy, montoDeposito]);
+
+  // Monto físico de billetes recibido del cliente
+  const efectivoRecibidoNum = useMemo(() => {
+    if (efectivoRecibidoCliente !== "") {
+      return parseFloat(efectivoRecibidoCliente) || 0;
     }
-    return valorAbonoAlquilerHoy;
-  }, [efectivoCanonRecibido, valorAbonoAlquilerHoy]);
+    return totalExigidoHoyEnCaja;
+  }, [efectivoRecibidoCliente, totalExigidoHoyEnCaja]);
 
-  const vueltasCanonCalculadas = useMemo(() => {
-    if (valorAbonoAlquilerHoy <= 0) return 0;
-    return Math.max(0, efectivoCanonRecibidoNum - valorAbonoAlquilerHoy);
-  }, [efectivoCanonRecibidoNum, valorAbonoAlquilerHoy]);
+  // Vueltas / Cambio Final = Efectivo Recibido - Total Exigido Hoy
+  const vueltasCambioFinal = useMemo(() => {
+    return Math.max(0, efectivoRecibidoNum - totalExigidoHoyEnCaja);
+  }, [efectivoRecibidoNum, totalExigidoHoyEnCaja]);
 
-  const totalEfectivoEnGavetaHoy = useMemo(() => {
-    return montoDeposito + valorAbonoAlquilerHoy;
-  }, [montoDeposito, valorAbonoAlquilerHoy]);
-
-  const totalVueltasEntregar = useMemo(() => {
-    return vueltasDepositoCalculadas + (valorAbonoAlquilerHoy > 0 ? vueltasCanonCalculadas : 0);
-  }, [vueltasDepositoCalculadas, vueltasCanonCalculadas, valorAbonoAlquilerHoy]);
+  const depositoEfectivoValido = useMemo(() => {
+    return abonoEfectivoConfirmado && efectivoRecibidoNum >= totalExigidoHoyEnCaja;
+  }, [abonoEfectivoConfirmado, efectivoRecibidoNum, totalExigidoHoyEnCaja]);
 
   const puedeExpedirAlquiler = useMemo(() => {
     if (!clienteSeleccionado || !clienteSeleccionado.telefono || clienteSeleccionado.telefono.trim().length < 7) {
@@ -511,17 +505,12 @@ export default function TerminalAlquileresPage() {
     if (itemsCarrito.length === 0) return false;
     if (!fechaDevolucion) return false;
     if (!depositoEfectivoValido) return false;
-    if (valorAbonoAlquilerHoy > 0 && efectivoCanonRecibidoNum < valorAbonoAlquilerHoy) {
-      return false;
-    }
     return true;
   }, [
     clienteSeleccionado,
     itemsCarrito.length,
     fechaDevolucion,
     depositoEfectivoValido,
-    valorAbonoAlquilerHoy,
-    efectivoCanonRecibidoNum,
   ]);
 
   // Filtrado de clientes para Selección Paso 1
@@ -657,15 +646,11 @@ export default function TerminalAlquileresPage() {
       return;
     }
 
-    // Regla Estricta: El depósito/abono establecido en el documento debe cobrarse en EFECTIVO y estar confirmado
+    // Regla Estricta: El depósito y abono en caja deben confirmarse con efectivo suficiente
     if (!depositoEfectivoValido) {
-      setMensajeError("Para generar el comprobante de alquiler, primero debe confirmarse el cobro en EFECTIVO del abono/depósito establecido en el documento.");
-      return;
-    }
-
-    // Validación de cobro de canon de alquiler si se cobra hoy
-    if (valorAbonoAlquilerHoy > 0 && efectivoCanonRecibidoNum < valorAbonoAlquilerHoy) {
-      setMensajeError("El efectivo recibido para el canon de alquiler debe ser igual o superior al valor a abonar hoy.");
+      setMensajeError(
+        `El efectivo recibido debe ser igual o superior al total a cobrar hoy en caja ($${totalExigidoHoyEnCaja.toLocaleString("es-CO")}) y estar confirmado en gaveta.`
+      );
       return;
     }
 
@@ -682,6 +667,8 @@ export default function TerminalAlquileresPage() {
         notas: notasAlquiler.trim() || undefined,
         montoDeposito: montoDeposito,
         metodoPagoDeposito: "EFECTIVO", // Fijado estrictamente en EFECTIVO en gaveta
+        efectivoRecibido: efectivoRecibidoNum,
+        cambioEntregado: vueltasCambioFinal,
         detalles: itemsCarrito.map((it) => ({
           productoId: it.productoId,
           cantidad: it.cantidad,
@@ -694,8 +681,8 @@ export default function TerminalAlquileresPage() {
             ? {
                 monto: valorAbonoAlquilerHoy,
                 metodoPago: "EFECTIVO",
-                montoRecibido: efectivoCanonRecibidoNum,
-                vueltasEntregadas: vueltasCanonCalculadas,
+                montoRecibido: efectivoRecibidoNum,
+                vueltasEntregadas: vueltasCambioFinal,
                 referenciaComprobante: referenciaPago.trim() || undefined,
                 notas:
                   modalidadPago === "COMPLETO"
@@ -730,63 +717,9 @@ export default function TerminalAlquileresPage() {
         setFacturaImpresionId(fId);
       }
 
-      if (facturaFinal && facturaFinal.cliente) {
-        setDatosImpresion({
-          factura: {
-            id: facturaFinal.id,
-            numeroFactura: facturaFinal.numeroFactura,
-            fechaCreacion: facturaFinal.fechaCreacion,
-            fechaEntregaAlquiler: facturaFinal.fechaEntregaAlquiler,
-            fechaDevolucionPactada: facturaFinal.fechaDevolucionPactada,
-            fechaDevolucionReal: facturaFinal.fechaDevolucionReal,
-            tipoOperacion: facturaFinal.tipoOperacion,
-            estado: facturaFinal.estado,
-            subtotalProductos: facturaFinal.subtotalProductos,
-            subtotalArreglosLibres: facturaFinal.subtotalArreglosLibres,
-            recargoMoraAcumulado: facturaFinal.recargoMoraAcumulado || 0,
-            totalFactura: facturaFinal.totalFactura,
-            totalAbonado: facturaFinal.totalAbonado,
-            saldoPendiente: facturaFinal.saldoPendiente,
-            montoDeposito: facturaFinal.montoDeposito || 0,
-            estadoDeposito: facturaFinal.estadoDeposito || "RECIBIDO_EN_GARANTIA",
-            montoRetenidoDeposito: facturaFinal.montoRetenidoDeposito || 0,
-            montoDevueltoDeposito: facturaFinal.montoDevueltoDeposito || 0,
-            motivoRetencionDeposito: facturaFinal.motivoRetencionDeposito,
-            metodoPagoDeposito: facturaFinal.metodoPagoDeposito,
-            notas: facturaFinal.notas,
-            cliente: {
-              nombre: facturaFinal.cliente.nombre,
-              documento: facturaFinal.cliente.documento,
-              telefono: facturaFinal.cliente.telefono,
-              telefonoSecundario: facturaFinal.cliente.telefonoSecundario,
-              direccion: facturaFinal.cliente.direccion,
-              esResponsableIVA: facturaFinal.cliente.esResponsableIVA,
-              razonSocial: facturaFinal.cliente.razonSocial,
-            },
-            usuarioCajero: facturaFinal.usuarioCajero,
-            detalles: (facturaFinal.detalles || []).map((d: any) => ({
-              id: d.id,
-              cantidad: d.cantidad,
-              precioUnitario: d.precioUnitario,
-              subtotal: d.subtotal,
-              esServicioLibre: d.esServicioLibre,
-              descripcionLibre: d.descripcionLibre,
-              producto: d.producto,
-            })),
-            abonos: (facturaFinal.abonos || []).map((a: any) => ({
-              id: a.id,
-              fecha: a.fecha,
-              monto: a.monto,
-              metodoPago: a.metodoPago,
-              montoRecibido: a.montoRecibido,
-              vueltasEntregadas: a.vueltasEntregadas,
-              referenciaComprobante: a.referenciaComprobante,
-              cajero: a.cajero,
-            })),
-          },
-          empresa: empresaConfig,
-        });
-      }
+      // Dejar datosImpresion en null para que PlantillaImpresion consulte /api/impresion/[id]
+      // garantizando consistencia absoluta de clientes, empresa, detalles y abonos sin errores client-side
+      setDatosImpresion(null);
 
       setMensajeExito(`¡Alquiler N° ${facturaFinal.numeroFactura || ""} registrado con éxito!`);
       setVistaPrincipal("NUEVO_ALQUILER");
@@ -815,11 +748,10 @@ export default function TerminalAlquileresPage() {
     setMontoAbonoManual("");
     setMetodoPagoPrincipal("EFECTIVO");
     setReferenciaPago("");
-    setMontoDeposito(50000);
-    setMontoDepositoPersonalizado("50000");
-    setEfectivoDepositoRecibido("50000");
+    setMontoDeposito(40000);
+    setMontoDepositoPersonalizado("40000");
+    setEfectivoRecibidoCliente("");
     setAbonoEfectivoConfirmado(true);
-    setEfectivoCanonRecibido("");
     setNotasAlquiler("");
     setDatosImpresion(null);
     setFacturaImpresionId(null);
@@ -2094,9 +2026,6 @@ export default function TerminalAlquileresPage() {
                               onClick={() => {
                                 setMontoDeposito(sug);
                                 setMontoDepositoPersonalizado(String(sug));
-                                if (parseFloat(efectivoDepositoRecibido) < sug || efectivoDepositoRecibido === "") {
-                                  setEfectivoDepositoRecibido(String(sug));
-                                }
                               }}
                               className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                                 montoDeposito === sug
@@ -2122,9 +2051,6 @@ export default function TerminalAlquileresPage() {
                                 setMontoDepositoPersonalizado(valStr);
                                 const num = parseFloat(valStr) || 0;
                                 setMontoDeposito(num);
-                                if (parseFloat(efectivoDepositoRecibido) < num || efectivoDepositoRecibido === "") {
-                                  setEfectivoDepositoRecibido(String(num));
-                                }
                               }}
                               className="w-full px-3 py-2 text-sm font-black bg-white border border-amber-400 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
                             />
@@ -2132,82 +2058,25 @@ export default function TerminalAlquileresPage() {
 
                           <div>
                             <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                              Método de Cobro (Fijado)
+                              Método de Custodia
                             </label>
                             <div className="px-3 py-2 rounded-xl bg-amber-100/80 border border-amber-300 text-xs font-black text-amber-950 flex items-center gap-1.5">
                               <Lock className="w-3.5 h-3.5 text-amber-700" />
-                              <span>EFECTIVO — Dinero Físico</span>
+                              <span>EFECTIVO — En Gaveta</span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Calculadora de efectivo recibido para el depósito */}
-                        {montoDeposito > 0 && (
-                          <div className="p-3 rounded-xl bg-white/90 border border-amber-200 mb-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <label className="text-[11px] font-bold text-slate-700">
-                                Efectivo Recibido para Depósito:
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => setEfectivoDepositoRecibido(String(montoDeposito))}
-                                className="text-[10px] font-bold text-amber-700 hover:underline"
-                              >
-                                Monto Exacto (${montoDeposito.toLocaleString("es-CO")})
-                              </button>
-                            </div>
-
-                            <input
-                              type="number"
-                              value={efectivoDepositoRecibido}
-                              onChange={(e) => setEfectivoDepositoRecibido(e.target.value)}
-                              placeholder="Efectivo en billetes recibido"
-                              className="w-full px-3 py-1.5 text-sm font-black bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-amber-500"
-                            />
-
-                            <div className="flex gap-1.5 pt-0.5">
-                              {BILLETES_COLOMBIANOS.map((den) => (
-                                <button
-                                  key={den}
-                                  type="button"
-                                  onClick={() => setEfectivoDepositoRecibido(String(den))}
-                                  className="flex-1 py-1 px-1 rounded-md bg-slate-100 hover:bg-amber-100 border border-slate-200 text-slate-700 text-[10px] font-bold transition-all"
-                                >
-                                  ${(den / 1000).toFixed(0)}k
-                                </button>
-                              ))}
-                            </div>
-
-                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
-                              <span>Vueltas de Depósito:</span>
-                              <span className="font-black text-emerald-700 text-sm">
-                                ${vueltasDepositoCalculadas.toLocaleString("es-CO")}
-                              </span>
-                            </div>
-                          </div>
-                        )}
+                        <div className="p-3 rounded-xl bg-amber-100/50 border border-amber-200 text-[11px] text-amber-950 leading-relaxed">
+                          <strong>Regla Contable:</strong> El depósito de ${montoDeposito.toLocaleString("es-CO")} figura en un apartado separado en el documento y <u>NO suma al valor de la operación de alquiler</u>. Se devuelve íntegramente al reintegrar las prendas sin averías.
+                        </div>
                       </div>
 
-                      {/* Confirmación explícita de recepción en efectivo */}
-                      <div className="pt-3 border-t border-amber-200">
-                        <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={abonoEfectivoConfirmado}
-                            onChange={(e) => setAbonoEfectivoConfirmado(e.target.checked)}
-                            className="mt-0.5 w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-amber-300"
-                          />
-                          <span className="text-[11px] font-bold text-amber-950 leading-tight">
-                            Confirmo haber recibido físicamente en <span className="underline">EFECTIVO</span> la suma de ${montoDeposito.toLocaleString("es-CO")} en gaveta para este contrato.
-                          </span>
-                        </label>
-
-                        {!depositoEfectivoValido && (
-                          <div className="mt-2 p-2 rounded-lg bg-rose-50 border border-rose-200 flex items-center gap-1.5 text-[11px] font-bold text-rose-700">
-                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                            <span>El monto recibido debe ser mayor o igual a ${montoDeposito.toLocaleString("es-CO")} y estar confirmado.</span>
-                          </div>
-                        )}
+                      <div className="pt-3 border-t border-amber-200 text-xs font-bold text-amber-950 flex items-center justify-between">
+                        <span>Depósito Acordado:</span>
+                        <span className="font-mono text-sm text-emerald-800 font-black">
+                          ${montoDeposito.toLocaleString("es-CO")}
+                        </span>
                       </div>
                     </div>
 
@@ -2224,25 +2093,22 @@ export default function TerminalAlquileresPage() {
                             </h3>
                           </div>
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-200">
-                            SUBTOTAL: ${subtotalPrendas.toLocaleString("es-CO")}
+                            TOTAL OPERACIÓN: ${subtotalPrendas.toLocaleString("es-CO")}
                           </span>
                         </div>
 
                         <p className="text-[11px] text-slate-500 mb-3">
-                          Total correspondiente al servicio de las {itemsCarrito.length} prendas seleccionadas. Puede cobrarse de contado, con abono o dejarse pendiente.
+                          Total correspondiente a las {itemsCarrito.length} prendas seleccionadas. Puede cobrarse completo de contado, con abono inicial o dejarse pendiente.
                         </p>
 
                         {/* Modalidad de Pago del Canon */}
                         <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                          Modalidad de Cobro del Canon Hoy:
+                          Modalidad de Cobro del Alquiler Hoy:
                         </label>
                         <div className="grid grid-cols-3 gap-2 mb-3">
                           <button
                             type="button"
-                            onClick={() => {
-                              setModalidadPago("COMPLETO");
-                              setEfectivoCanonRecibido(String(subtotalPrendas));
-                            }}
+                            onClick={() => setModalidadPago("COMPLETO")}
                             className={`p-2.5 rounded-xl border text-center transition-all ${
                               modalidadPago === "COMPLETO"
                                 ? "bg-blue-600 text-white border-blue-700 shadow-sm"
@@ -2257,9 +2123,10 @@ export default function TerminalAlquileresPage() {
                             type="button"
                             onClick={() => {
                               setModalidadPago("ADELANTO");
-                              const mitad = Math.round(subtotalPrendas / 2);
-                              setMontoAbonoManual(String(mitad));
-                              setEfectivoCanonRecibido(String(mitad));
+                              if (!montoAbonoManual) {
+                                const sugerido = Math.round(subtotalPrendas / 2);
+                                setMontoAbonoManual(String(sugerido));
+                              }
                             }}
                             className={`p-2.5 rounded-xl border text-center transition-all ${
                               modalidadPago === "ADELANTO"
@@ -2275,7 +2142,6 @@ export default function TerminalAlquileresPage() {
                             type="button"
                             onClick={() => {
                               setModalidadPago("PENDIENTE");
-                              setEfectivoCanonRecibido("0");
                             }}
                             className={`p-2.5 rounded-xl border text-center transition-all ${
                               modalidadPago === "PENDIENTE"
@@ -2292,54 +2158,18 @@ export default function TerminalAlquileresPage() {
                         {modalidadPago === "ADELANTO" && (
                           <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 mb-3">
                             <label className="text-[11px] font-bold text-blue-900 block mb-1">
-                              Monto de Abono al Canon Hoy ($):
+                              Monto de Abono al Alquiler Hoy ($):
                             </label>
                             <input
                               type="number"
                               value={montoAbonoManual}
-                              onChange={(e) => {
-                                setMontoAbonoManual(e.target.value);
-                                setEfectivoCanonRecibido(e.target.value);
-                              }}
+                              onChange={(e) => setMontoAbonoManual(e.target.value)}
                               className="w-full px-3 py-1.5 text-sm font-black bg-white border border-blue-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="Ej: 30000"
                             />
                             <div className="flex justify-between items-center text-[11px] text-blue-900 mt-1.5 font-bold">
-                              <span>Abona: ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}</span>
+                              <span>Abona hoy: ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}</span>
                               <span>Resta por cobrar: ${saldoFaltanteAlquiler.toLocaleString("es-CO")}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Calculadora de Efectivo de Canon si se cobra algo hoy */}
-                        {valorAbonoAlquilerHoy > 0 && (
-                          <div className="p-3 rounded-xl bg-white border border-slate-200 mb-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <label className="text-[11px] font-bold text-slate-700">
-                                Efectivo Recibido para Canon ($):
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => setEfectivoCanonRecibido(String(valorAbonoAlquilerHoy))}
-                                className="text-[10px] font-bold text-blue-600 hover:underline"
-                              >
-                                Monto Exacto (${valorAbonoAlquilerHoy.toLocaleString("es-CO")})
-                              </button>
-                            </div>
-
-                            <input
-                              type="number"
-                              value={efectivoCanonRecibido}
-                              onChange={(e) => setEfectivoCanonRecibido(e.target.value)}
-                              placeholder={String(valorAbonoAlquilerHoy)}
-                              className="w-full px-3 py-1.5 text-sm font-black bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-blue-500"
-                            />
-
-                            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-700">
-                              <span>Vueltas de Canon:</span>
-                              <span className="font-black text-emerald-700 text-sm">
-                                ${vueltasCanonCalculadas.toLocaleString("es-CO")}
-                              </span>
                             </div>
                           </div>
                         )}
@@ -2353,7 +2183,7 @@ export default function TerminalAlquileresPage() {
                             rows={2}
                             value={notasAlquiler}
                             onChange={(e) => setNotasAlquiler(e.target.value)}
-                            placeholder="Ej: Evento de gala el sábado. Prenda entallada de hombros."
+                            placeholder="Ej: Evento el fin de semana. Ajuste de bastilla acordado."
                             className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
                         </div>
@@ -2361,7 +2191,7 @@ export default function TerminalAlquileresPage() {
 
                       {/* Resumen de Canon */}
                       <div className="pt-3 border-t border-slate-200 mt-3 flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-600">Saldo Pendiente a Cobrar Posterior:</span>
+                        <span className="font-bold text-slate-600">Saldo Pendiente del Alquiler (Posterior):</span>
                         <span className={`font-black ${saldoFaltanteAlquiler > 0 ? "text-amber-700" : "text-emerald-700"}`}>
                           ${saldoFaltanteAlquiler.toLocaleString("es-CO")}
                         </span>
@@ -2370,34 +2200,118 @@ export default function TerminalAlquileresPage() {
                   </div>
 
                   {/* ========================================================================= */}
-                  {/* RESUMEN CONSOLIDADO DE CAJA Y LIQUIDACIÓN EN VIVO                         */}
+                  {/* SECCIÓN C: CUADRE DE EFECTIVO Y VUELTAS / CAMBIO FINAL (DONDE SÍ SUMAN)   */}
                   {/* ========================================================================= */}
-                  <div className="mt-6 p-4 rounded-2xl bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
+                  <div className="mt-6 p-5 rounded-2xl bg-slate-900 text-white shadow-md">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
                       <div>
-                        <span className="text-[10px] font-bold text-slate-400 block uppercase">1. Depósito en Efectivo</span>
-                        <span className="text-base font-black text-amber-400">
-                          ${montoDeposito.toLocaleString("es-CO")}
+                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+                          SECCIÓN C — CUADRE DE CAJA Y VUELTAS
+                        </span>
+                        <h3 className="text-sm font-black text-white flex items-center gap-2">
+                          <Banknote className="w-4 h-4 text-emerald-400" />
+                          Cobro Total de Efectivo y Cálculo de Vueltas Final
+                        </h3>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 block uppercase">Total Exigido Hoy en Caja</span>
+                        <span className="text-xl font-black text-emerald-400 font-mono">
+                          ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
                         </span>
                       </div>
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 block uppercase">2. Abono Canon Hoy</span>
-                        <span className="text-base font-black text-blue-400">
-                          ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                      {/* Desglose de Cobro */}
+                      <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs space-y-1.5">
+                        <div className="flex justify-between text-slate-300">
+                          <span>Abono/Pago Alquiler Hoy:</span>
+                          <span className="font-mono font-bold text-blue-300">
+                            ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-slate-300">
+                          <span>(+) Depósito de Respaldo:</span>
+                          <span className="font-mono font-bold text-amber-300">
+                            ${montoDeposito.toLocaleString("es-CO")}
+                          </span>
+                        </div>
+                        <div className="flex justify-between font-black pt-1 border-t border-slate-700 text-white text-sm">
+                          <span>(=) TOTAL A COBRAR HOY:</span>
+                          <span className="font-mono text-emerald-400">
+                            ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Campo de Efectivo Recibido del Cliente */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                          <label>Efectivo Recibido del Cliente ($):</label>
+                          <button
+                            type="button"
+                            onClick={() => setEfectivoRecibidoCliente(String(totalExigidoHoyEnCaja))}
+                            className="text-[10px] text-amber-400 hover:underline"
+                          >
+                            Monto Exacto (${totalExigidoHoyEnCaja.toLocaleString("es-CO")})
+                          </button>
+                        </div>
+                        <input
+                          type="number"
+                          value={efectivoRecibidoCliente}
+                          onChange={(e) => setEfectivoRecibidoCliente(e.target.value)}
+                          placeholder={String(totalExigidoHoyEnCaja)}
+                          className="w-full px-3 py-2 text-base font-black bg-white border border-slate-400 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                        <div className="flex gap-1.5 pt-0.5">
+                          {BILLETES_COLOMBIANOS.map((den) => (
+                            <button
+                              key={den}
+                              type="button"
+                              onClick={() => setEfectivoRecibidoCliente(String(den))}
+                              className="flex-1 py-1 px-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[10px] font-bold transition-all text-center"
+                            >
+                              ${(den / 1000).toFixed(0)}k
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Vueltas / Cambio Final */}
+                      <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-center flex flex-col justify-center">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block mb-0.5">
+                          Vueltas / Cambio Final a Entregar
+                        </span>
+                        <span className="text-2xl font-black text-emerald-400 font-mono">
+                          ${vueltasCambioFinal.toLocaleString("es-CO")}
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-0.5">
+                          {efectivoRecibidoNum >= totalExigidoHoyEnCaja
+                            ? `Dinero recibido: $${efectivoRecibidoNum.toLocaleString("es-CO")}`
+                            : `Faltan $${(totalExigidoHoyEnCaja - efectivoRecibidoNum).toLocaleString("es-CO")}`}
                         </span>
                       </div>
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 block uppercase">Total Efectivo a Gaveta</span>
-                        <span className="text-lg font-black text-emerald-400">
-                          ${totalEfectivoEnGavetaHoy.toLocaleString("es-CO")}
+                    </div>
+
+                    {/* Checkbox de Confirmación en Efectivo */}
+                    <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={abonoEfectivoConfirmado}
+                          onChange={(e) => setAbonoEfectivoConfirmado(e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-600"
+                        />
+                        <span className="text-xs font-bold text-slate-200">
+                          Confirmo haber recibido en <span className="underline text-emerald-400">EFECTIVO</span> la suma de ${efectivoRecibidoNum.toLocaleString("es-CO")} en gaveta y entregar ${vueltasCambioFinal.toLocaleString("es-CO")} de cambio final.
                         </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 block uppercase">Total Vueltas a Cliente</span>
-                        <span className="text-base font-black text-slate-200">
-                          ${totalVueltasEntregar.toLocaleString("es-CO")}
+                      </label>
+
+                      {efectivoRecibidoNum < totalExigidoHoyEnCaja && (
+                        <span className="text-xs font-black text-rose-400">
+                          Efectivo insuficiente para cubrir el total a cobrar hoy.
                         </span>
-                      </div>
+                      )}
                     </div>
                   </div>
 

@@ -1672,3 +1672,60 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Limpieza de Fábrica (`scripts/reset-db-fabrica.ts`):** Base de datos `database/llanomio.db` restablecida a estado virgen y compactada con `VACUUM`.
 - **Compilación de Producción (`npm run build`):** Ejecución exitosa con **código 0, 0 errores de TypeScript y 22 rutas estáticas y dinámicas optimizadas** (incluyendo `ƒ /impresion/[id]`).
 
+---
+
+## 37. Erradicación Radical del Crash Client-Side en Alquileres, Regla Contable Estricta de 3 Secciones y Homologación de Terminales POS
+
+### 1. Diagnóstico y Objetivos de la Intervención
+1. **Erradicación Radical del Crash Client-Side (`Application error: a client-side exception has occurred`):**
+   - **Causa Raíz Identificada:** En React/Next.js 15, invocar funciones nativas `.toLocaleString()` o `new Date()` sobre campos `undefined` o `null` (ej. `factura.saldoPendiente`, `factura.recargoMoraAcumulado`, arrays `detalles`/`abonos` no cargados aún) durante el renderizado inicial de `PlantillaImpresion.tsx` tras confirmar cobro causaba una excepción fatal irrecuperable en el hilo de renderizado del cliente.
+   - **Solución Defensiva:** Implementación de helpers a prueba de fallos (`safeNumber`, `formatCOP`, `safeDate`) utilizados en el 100% del JSX, normalización de arrays y objetos (`detalles = Array.isArray(factura?.detalles) ? factura.detalles : []`), y auto-hidratación remota con spinner limpio (`cache: 'no-store'`) al recibir `facturaId`.
+
+2. **Regla Contable Estricta del Apartado de Depósito / Abono vs. Vueltas / Cambio Final:**
+   - **El Depósito NO altera la Operación de Alquiler:**
+     $$\text{Total Operación Alquiler} = \text{Suma exclusiva de prendas alquiladas}$$
+     $$\text{Saldo Pendiente} = \text{Total Operación Alquiler} - \text{Abono Aplicado al Alquiler Hoy}$$
+     El depósito de garantía **NUNCA** se suma al valor de las prendas ni altera el saldo pendiente del contrato de alquiler.
+   - **El Depósito SÍ suma en el Dinero Físico Exigido en Caja y en el Cuadre de Vueltas:**
+     $$\text{Total Exigido Hoy en Caja} = \text{Abono al Alquiler Hoy (Efectivo)} + \text{Depósito en Garantía (Efectivo)}$$
+     $$\text{Vueltas / Cambio Final} = \text{Efectivo Recibido del Cliente} - \text{Total Exigido Hoy en Caja}$$
+   - **Estructuración Documental del Comprobante en 3 Secciones Claras:**
+     - **SECCIÓN A — Liquidación de la Operación de Alquiler (Prendas):** Desglose de prendas, Total Operación de Alquiler, (-) Abonado a la Operación, (=) Saldo Faltante por Pagar (o Saldo $0 - Pagado Completo).
+     - **SECCIÓN B — Apartado Independiente de Abono / Depósito en Efectivo (No suma al alquiler):** Recuadro con borde distintivo especificando el depósito en garantía recibido en custodia física, devuelto 100% o retenido parcial/total con su respectivo motivo.
+     - **SECCIÓN C — Cuadre de Efectivo Recibido y Vueltas / Cambio Final:** Desglose donde SÍ suman lo recibido hoy por alquiler + depósito recibido en efectivo contra el billete entregado por el cliente, reflejando el cambio final exacto.
+   - **Títulos Dinámicos según Estado del Alquiler:**
+     - Si `estado === 'CERRADA'`: **`COMPROBANTE DE PAZ Y SALVO FINAL DE ALQUILER`**
+     - Si `estado !== 'CERRADA'` y `saldoPendiente === 0`: **`FACTURA / COMPROBANTE DE ALQUILER — PAGO COMPLETO`**
+     - Si `estado !== 'CERRADA'` y `saldoPendiente > 0`: **`COMPROBANTE DE ALQUILER — CON ABONO Y SALDO PENDIENTE`**
+
+3. **Homologación de Consolas a Ventana Completa (100vw x 100vh) y Base de Datos Única:**
+   - `/caja/pos` y `/caja/alquileres` operan en pantalla completa sin menús laterales (`Sidebar`) ni barras administrativas (`Navbar`), con botón **"Regresar"** en esquina superior izquierda.
+   - Comparten el mismo turno de caja abierto en `database/llanomio.db` y la tabla única de `Cliente` con Teléfono Primario obligatorio y Teléfono Secundario opcional.
+
+### 2. Archivos Modificados
+1. `prisma/schema.prisma` y `database/schema.prisma`:
+   - Agregados a `Factura`: `efectivoRecibido Float @default(0)` y `cambioEntregado Float @default(0)`.
+   - Sincronizados esquemas con `npx prisma db push` y regenerado el cliente con `npx prisma generate`.
+2. `src/components/impresion/PlantillaImpresion.tsx`:
+   - Programación 100% defensiva: `safeNumber`, `formatCOP`, `safeDate` en todo el JSX.
+   - Renderizado en 3 formatos (`80mm`, `Media Carta`, `Carta` con 1 o 2 copias, CERO códigos QR).
+   - Estructuración estricta de las tres secciones contables (A, B y C).
+3. `src/app/api/facturas/route.ts`:
+   - Sanitización y persistencia de `efectivoRecibido`, `cambioEntregado`, `montoDeposito` y enlace automático al turno de caja abierto compartido.
+4. `src/app/api/impresion/[id]/route.ts`:
+   - Grafo completo de relaciones Prisma (`cliente`, `usuarioCajero`, `detalles.producto`, `abonos.cajero`).
+   - Normalización de retorno `{ ...factura, success: true, ok: true, id, factura, empresa }`.
+5. `src/app/caja/alquileres/page.tsx`:
+   - Reestructuración contable en `useMemo` del Paso 3.
+   - Transición directa e instantánea al Paso 4 (`<PlantillaImpresion />`) sin pantalla en blanco ni recargas de página.
+   - Sincronización del modal de Paz y Salvo e historial.
+6. `scripts/test-qa-crash-y-contabilidad-alquileres.ts`:
+   - Script de prueba automatizada integral QA con simulación exacta: alquiler $70.000, abono $30.000, depósito $40.000, billete $100.000 -> Vueltas $30.000 y saldo pendiente $40.000.
+
+### 3. Resultados de Calidad (QA) y Verificación
+- **Prueba QA Automatizada (`scripts/test-qa-crash-y-contabilidad-alquileres.ts`):** 100% de aserciones aprobadas con código 0.
+- **Compilación de Producción (`npm run build`):** Ejecución exitosa con **código 0, 0 errores de TypeScript y 22 rutas estáticas y dinámicas optimizadas**.
+- **Restablecimiento de Fábrica (`scripts/reset-db-fabrica.ts`):** Base de datos `database/llanomio.db` restablecida a estado virgen (0 facturas, 0 clientes, 0 productos, 1 administrador inicial, 1 empresa configurada) y compactada con `VACUUM`.
+- **Servicio PM2:** Reactivado y en ejecución en modo fork (`online`).
+
+

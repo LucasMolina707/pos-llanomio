@@ -122,7 +122,10 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     return NextResponse.json(
       {
+        ...factura,
         success: true,
+        ok: true,
+        id: factura.id,
         factura,
         empresa: datosEmpresa,
       },
