@@ -7,9 +7,9 @@
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "dev:lan": "next dev -p 80 -H 0.0.0.0",
     "build": "next build",
-    "start": "next start -H 0.0.0.0 -p 3000",
-    "start:prod": "next start -H 0.0.0.0 -p 3000",
-    "proxy:mdns": "tsx src/server-mdns.ts",
+    "start": "node start-pos.js",
+    "start:prod": "node start-pos.js",
+    "proxy:mdns": "node scripts/servidor-lan-mdns.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
@@ -19,8 +19,9 @@
     "db:mantenimiento": "tsx scripts/mantenimiento_db.ts",
     "db:vacuum": "tsx scripts/mantenimiento_db.ts",
     "db:reset-fabrica": "tsx scripts/reset-db-fabrica.ts",
-    "verificar:puertos": "node scripts/verificar-puertos.js",
-    "configurar:puertos": "node scripts/verificar-puertos.js --interactivo"
+    "escanear:puertos": "node scripts/escanear-y-elegir-puertos.js",
+    "verificar:puertos": "node scripts/escanear-y-elegir-puertos.js",
+    "configurar:puertos": "node scripts/escanear-y-elegir-puertos.js"
   },
   "prisma": {
     "schema": "database/schema.prisma",

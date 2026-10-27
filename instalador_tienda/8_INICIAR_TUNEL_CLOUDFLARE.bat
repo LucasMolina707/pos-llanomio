@@ -2,7 +2,6 @@
 TITLE LLANOMIO POS - Iniciar Tunel Seguro de Cloudflare (Acceso Remoto)
 COLOR 0B
 
-:: Asegurar directorio raiz
 cd /d "%~dp0.."
 
 echo ===============================================================================

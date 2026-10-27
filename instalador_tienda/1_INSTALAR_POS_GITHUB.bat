@@ -1,126 +1,203 @@
 @echo off
 chcp 65001 > nul
-title POS LLANOMIO - Instalador y Configuracion Inicial
+title POS LLANOMIO - Instalador Maestro desde GitHub
+color 0B
 
-echo ======================================================================
-echo           SISTEMA POS LOCAL LLANOMIO - INSTALADOR OFICIAL
-echo ======================================================================
+echo ===============================================================================
+echo                SISTEMA POS LOCAL LLANOMIO - INSTALADOR MAESTRO
+echo ===============================================================================
+echo.
+echo Este asistente guiara la instalacion completa del servidor POS en este computador.
+echo No se impondran puertos predeterminados: se escaneara el sistema en busca de
+echo puertos libres y usted podra elegir exactamente que puerto asignar.
+echo.
+echo Presione cualquier tecla para iniciar la preparacion del sistema...
+pause > nul
 echo.
 
-:: 1. Posicionarse en la raiz del proyecto
-cd /d "%~dp0\.."
+:: 1. Posicionamiento en la raiz del repositorio
+cd /d "%~dp0.."
 
-:: 2. Verificar instalacion de Node.js
+:: 2. Verificacion de Node.js
+echo [1/8] Verificando instalacion de Node.js en este equipo...
 where node >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [ERROR] Node.js no esta instalado en este equipo.
-    echo Por favor instale Node.js LTS (v20 o superior) desde https://nodejs.org/
+    echo.
+    echo [ERROR CRITICO] Node.js no esta instalado o no se encuentra en el PATH.
+    echo Por favor descargue e instale Node.js LTS (v20 o superior) desde https://nodejs.org/
+    echo y vuelva a ejecutar este instalador.
+    echo.
     pause
     exit /b 1
 )
-
-:: 3. Verificar instalacion de Git
-where git >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [ERROR] Git no esta instalado en este equipo.
-    echo Por favor instale Git para Windows desde https://git-scm.com/
-    pause
-    exit /b 1
-)
-
-echo [1/7] Verificacion de dependencias de entorno exitosa (Node.js y Git detectados).
+node -v
+echo [OK] Node.js detectado correctamente.
 echo.
 
-:: 4. Crear carpetas de respaldo local
-echo [2/7] Verificando carpetas de respaldo...
+:: 3. Verificacion de Git
+echo [2/8] Verificando instalacion de Git...
+where git >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [AVISO] Git no se encuentra en el PATH. Para recibir actualizaciones automaticas
+    echo se recomienda instalar Git para Windows desde https://git-scm.com/
+) else (
+    echo [OK] Git detectado correctamente.
+)
+echo.
+
+:: 4. Creacion de directorios de respaldo
+echo [3/8] Preparando directorios locales y de respaldo...
 if not exist "C:\POS_LLANOMIO_BACKUPS" (
     mkdir "C:\POS_LLANOMIO_BACKUPS"
-    echo Carpeta C:\POS_LLANOMIO_BACKUPS creada.
+    echo [CREADO] Carpeta central de respaldos: C:\POS_LLANOMIO_BACKUPS
 )
 if not exist "database\backups_locales" (
     mkdir "database\backups_locales"
-    echo Carpeta database\backups_locales creada.
+    echo [CREADO] Carpeta local de respaldos: database\backups_locales
 )
+echo [OK] Directorios listos.
 echo.
 
-:: 5. Configurar archivo base de variables de entorno si no existe
-echo [3/7] Verificando archivo de entorno (.env)...
+:: 5. Inicializacion preliminar de .env si no existe
 if not exist ".env" (
     if exist ".env.example" (
         copy ".env.example" ".env" >nul
-        echo Archivo .env inicializado desde .env.example.
+        echo [INFO] Archivo .env base creado a partir de .env.example.
     ) else (
-        echo # Configuracion de Base de Datos SQLite Local para POS LLANOMIO > .env
+        echo # Configuracion de Entorno POS LLANOMIO > .env
         echo DATABASE_URL="file:./llanomio.db" >> .env
         echo NODE_ENV="production" >> .env
-        echo PORT=3000 >> .env
-        echo HTTP_PORT=80 >> .env
-        echo PORT_PROXY=80 >> .env
+        echo JWT_SECRET="pos-llanomio-secreto-seguro-token-local-2026" >> .env
         echo APP_NAME="Sistema POS Local LLANOMIO" >> .env
         echo CARPETA_RESPALDO_DEFAULT="C:\\POS_LLANOMIO_BACKUPS" >> .env
-        echo MASTER_RECOVERY_KEY="LLANOMIO-ADMIN-2026" >> .env
-        echo Archivo .env generado automaticamente.
+        echo [INFO] Archivo .env base generado.
     )
-) else (
-    echo Archivo .env detectado correctamente.
 )
-echo.
 
-:: 6. Verificacion y Seleccion Dinamica de Puertos de Red
-echo [4/7] Analizando disponibilidad de puertos de red en este computador...
-call node scripts/verificar-puertos.js
+:: 6. Escaneo Real y Seleccion Interactiva de Puertos
+echo [4/8] Iniciando Asistente de Escaneo y Seleccion de Puertos Libres...
+echo -------------------------------------------------------------------------------
+call node scripts/escanear-y-elegir-puertos.js
 if %errorlevel% neq 0 (
-    echo [ADVERTENCIA] La verificacion de puertos requirio ajuste interactivo.
-)
-echo.
-
-:: 7. Instalar paquetes npm
-echo [5/7] Instalando dependencias del sistema (npm install)...
-call npm install
-if %errorlevel% neq 0 (
-    echo [ERROR] Fallo la instalacion de dependencias npm.
+    echo.
+    echo [ERROR] Ocurrio un inconveniente durante la seleccion de puertos.
     pause
     exit /b 1
 )
 echo.
 
-:: 8. Inicializar Prisma y Base de Datos SQLite
-echo [6/7] Generando cliente y migrando base de datos SQLite...
+:: 7. Leer puertos seleccionados desde .env
+set PUERTO_APP=3000
+set PUERTO_HTTP=3000
+if exist ".env" (
+    for /f "usebackq tokens=1,2 delims==" %%A in (".env") do (
+        if "%%A"=="PORT" set PUERTO_APP=%%B
+        if "%%A"=="HTTP_PORT" set PUERTO_HTTP=%%B
+    )
+)
+
+:: 8. Apertura automatica en el Firewall de Windows para el puerto elegido
+echo [5/8] Verificando regla de red en Firewall de Windows (Puertos TCP %PUERTO_APP%, %PUERTO_HTTP%)...
+netsh advfirewall firewall show rule name="POS_LLANOMIO_PUERTOS_WEB" >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [INFO] Registrando regla de entrada en Firewall de Windows...
+    netsh advfirewall firewall add rule name="POS_LLANOMIO_PUERTOS_WEB" dir=in action=allow protocol=TCP localport=%PUERTO_APP%,%PUERTO_HTTP% >nul 2>nul
+    if %errorlevel% equ 0 (
+        echo [OK] Regla de Firewall creada con exito.
+    ) else (
+        echo [AVISO] No se pudo crear la regla de Firewall automaticamente (se requieren permisos de Administrador).
+        echo        Si otros dispositivos no pueden conectarse por Wi-Fi, ejecute el instalador como Administrador.
+    )
+) else (
+    echo [OK] Regla de Firewall preexistente detectada.
+)
+echo.
+
+:: 9. Instalacion de dependencias npm
+echo [6/8] Instalando dependencias del sistema (npm install)...
+echo Esto puede tomar 1 o 2 minutos mientras se descargan las librerias...
+call npm install
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR CRITICO] Fallo la instalacion de dependencias con npm install.
+    pause
+    exit /b 1
+)
+echo [OK] Dependencias instaladas exitosamente.
+echo.
+
+:: 10. Estructura de Base de Datos SQLite y Seed inicial
+echo [7/8] Configurando Base de Datos SQLite (Prisma ORM)...
 call npx prisma generate
 call npx prisma db push --skip-generate
 if %errorlevel% neq 0 (
-    echo [ERROR] Fallo la sincronizacion de la base de datos con Prisma.
+    echo.
+    echo [ERROR CRITICO] Fallo la sincronizacion de la base de datos con Prisma.
     pause
     exit /b 1
 )
 
-echo Ejecutando sembrado de datos inicial (Seed limpio de fabrica)...
-call npm run db:seed
-if %errorlevel% neq 0 (
-    echo [ADVERTENCIA] El seed inicial reporto un aviso o ya estaba aplicado.
+:: Verificar si la base de datos requiere sembrado de fabrica
+if not exist "database\llanomio.db" (
+    echo [INFO] Creando datos de fabrica y usuario Administrador inicial...
+    call npm run db:seed
+) else (
+    echo [INFO] Sincronizando datos de inicio en la base de datos...
+    call npm run db:seed
 )
+echo [OK] Base de datos SQLite lista y sincronizada.
 echo.
 
-:: 9. Compilar proyecto para produccion
-echo [7/7] Compilando aplicacion Next.js para produccion local...
+:: 11. Compilacion de produccion
+echo [8/8] Compilando aplicacion Next.js para produccion (npm run build)...
 call npm run build
 if %errorlevel% neq 0 (
-    echo [ERROR] Fallo la compilacion de produccion.
+    echo.
+    echo [ERROR CRITICO] Fallo la compilacion de la aplicacion Next.js.
     pause
     exit /b 1
 )
+echo [OK] Compilacion completada con 0 errores.
 echo.
 
-echo ======================================================================
-echo   INSTALACION COMPLETADA CON EXITO
-echo ======================================================================
-echo - Base de datos local lista en: database\llanomio.db (Limpia de fabrica)
-echo - Carpeta de respaldos lista en: C:\POS_LLANOMIO_BACKUPS
-echo - Usuario inicial: admin  ^|  Clave inicial: admin123
-echo - Puertos configurados guardados en .env
+:: 12. Arranque del Servidor
+echo ===============================================================================
+echo                INSTALACION FINALIZADA SATISFACTORIAMENTE
+echo ===============================================================================
 echo.
-echo Para iniciar el sistema como servicio continuo en segundo plano ejecute:
-echo   instalador_tienda\2_iniciar_sistema_pm2.bat
-echo ======================================================================
+echo Configuracion de salida:
+echo   - Servidor Principal: Puerto TCP %PUERTO_APP%
+echo   - Salida Red / Proxy: Puerto TCP %PUERTO_HTTP%
+echo   - Base de Datos:      database\llanomio.db (Limpia y estructurada)
+echo   - Usuario Administrador Inicial: admin
+echo   - Contrasena Inicial:            admin123
+echo.
+
+:: Detectar PM2
+set PM2_CMD=pm2
+where pm2 >nul 2>nul
+if %errorlevel% neq 0 (
+    if exist "node_modules\.bin\pm2.cmd" (
+        set PM2_CMD=node_modules\.bin\pm2.cmd
+    ) else (
+        set PM2_CMD=npx pm2
+    )
+)
+
+echo Iniciando servicios en segundo plano con PM2...
+call %PM2_CMD% delete pos-llanomio >nul 2>nul
+call %PM2_CMD% delete pos-mdns-proxy >nul 2>nul
+call %PM2_CMD% start ecosystem.config.js
+call %PM2_CMD% save >nul 2>nul
+
+echo [OK] Servidor POS activo en segundo plano.
+echo.
+echo Abriendo navegador en la direccion local: http://localhost:%PUERTO_APP%/login
+start http://localhost:%PUERTO_APP%/login
+
+echo.
+echo Puede administrar el servidor, cambiar puertos o detenerlo en cualquier momento
+echo utilizando el script: instalador_tienda\2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat
+echo ===============================================================================
 echo.
 pause

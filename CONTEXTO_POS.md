@@ -58,10 +58,17 @@ pos-llanomio/
 │   │   └── .gitkeep
 │   └── migrations/                   # Historial de migraciones automáticas de Prisma
 ├── instalador_tienda/
-│   ├── 1_instalar_dependencias.bat   # Paso 1: Instalación de Node.js, dependencias, BD y build
-│   ├── 2_iniciar_sistema_pm2.bat     # Paso 2: Arranque persistente PM2, Firewall 80 y auto-arranque
-│   ├── 3_actualizar_sistema.bat      # Paso 3: Respaldo preventivo, pull Git, build y reload PM2
-│   └── 4_respaldar_manual.bat        # Paso 4: Respaldo manual en caliente SQLite (VACUUM INTO)
+│   ├── 1_INSTALAR_POS_GITHUB.bat            # Instalador maestro paso a paso con escaneo de puertos y build
+│   ├── 2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat # Arranque rapido y cambio interactivo de puertos sin reinstalar
+│   ├── 3_ACTUALIZAR_SISTEMA.bat             # Actualizador desde GitHub con respaldo preventivo y opcion de puerto
+│   ├── 4_RESPALDO_MANUAL.bat                # Respaldo en caliente y mantenimiento VACUUM de SQLite
+│   ├── 5_RESTAURAR_RESPALDO.bat             # Restaurador seguro guiado con salvaguarda automatica
+│   ├── 6_ABRIR_FIREWALL_LAN_ADMIN.bat       # Configurador elevado de reglas de Firewall de Windows
+│   ├── 7_OPTIMIZAR_BASE_DATOS.bat           # Compactacion VACUUM y optimizacion WAL directa
+│   ├── 8_INICIAR_TUNEL_CLOUDFLARE.bat       # Enlace con tunel seguro perimetral de Cloudflare
+│   ├── 9_INSTALAR_SERVICIO_CLOUDFLARE_ADMIN.bat # Instalador de Cloudflare como servicio de Windows
+│   ├── CONFIGURAR_PUERTOS_RED.bat           # Lanzador directo del asistente interactivo de puertos
+│   └── LEEME_GUIA_INSTALACION_TIENDA.md     # Documentacion y manual completo de la suite para la tienda
 ├── migracion_excel/
 │   ├── importar_excel.ts             # Redirección rápida al motor central de migración
 │   ├── origen/                       # Carpeta activa para depositar archivos Excel a migrar
@@ -1834,6 +1841,46 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Compilación de Producción (`npm run build`):** Ejecución exitosa con **código 0, 0 errores de TypeScript y 22 rutas estáticas y dinámicas optimizadas**.
 - **Servicio PM2 (`pos-llanomio`):** Reiniciado y en ejecución en modo fork (`online`, PID 11348).
 
+---
 
+## 40. Infraestructura Windows, Redes LAN y Motor de Escaneo y Asignacion Interactiva de Puertos Libres
 
+### 1. Diagnostico y Objetivos de la Intervencion
+1. **Eliminacion de Puertos Impuestos Arbitrariamente:**
+   - Anteriormente, el instalador o scripts de despliegue asumian puertos predeterminados como el 3000 o el 80. En entornos Windows reales de clientes o tiendas, estos puertos frecuentemente estan ocupados por servicios del sistema, IIS, software contable o instancias previas huerfanas de Node.js.
+   - **Solucion Implementada:** Diseno y construccion de un asistente interactivo en Node.js puro (`scripts/escanear-y-elegir-puertos.js`) que:
+     - Utiliza unicamente modulos nativos (`net`, `readline`, `fs`, `path`, `os`, `child_process`) sin requerir `npm install` previo.
+     - Realiza un escaneo TCP real sobre un amplio espectro de puertos candidatos para web y proxy (`80, 81, 3000, 3001, 3002, 3005, 3010, 3020, 4000, 4040, 5000, 5050, 7000, 8000, 8080, 8081, 8888, 9000`).
+     - Detecta la IP local LAN / Wi-Fi del equipo y muestra de forma clara los puertos **OCUPADOS** (con PID y nombre de proceso) y los puertos **100% LIBRES**.
+     - **Pregunta obligatoria e interactiva al usuario:** Solicita ingresar el puerto principal para Next.js y opcionalmente un puerto secundario/proxy HTTP. Valida en caliente con `net.createServer()` que el puerto digitado este libre antes de permitir continuar.
+     - Escribe y persiste la configuracion en `.env` (`PORT`, `HTTP_PORT`, `PORT_PROXY`, `NEXT_PUBLIC_PORT`, `HOSTNAME=0.0.0.0`).
+2. **Servicio Ligero de Red LAN y mDNS (`scripts/servidor-lan-mdns.js`):**
+   - Servicio que anuncia dinamicamente el nombre `llanomio.local` en toda la red local mediante Bonjour / mDNS.
+   - Si `HTTP_PORT !== PORT`, habilita un proxy inverso HTTP para enrutar el trafico del puerto secundario al servidor Next.js.
+   - Si `HTTP_PORT === PORT`, opera en modo directo sin capas intermedias.
+3. **Orquestacion PM2 Dinamica (`ecosystem.config.js` y `start-pos.js`):**
+   - Lectura transparente de variables de entorno desde `.env` sin dependencias externas.
+   - Binding obligatorio en `-H 0.0.0.0` para que el servidor atienda peticiones no solo en `localhost`, sino desde cualquier celular, tablet o PC conectado al Wi-Fi o red cableada.
+4. **Reestructuracion Completa y Numerada de `/instalador_tienda`:**
+   - `1_INSTALAR_POS_GITHUB.bat`: Instalador maestro paso a paso para repositorios recien clonados (escaneo de puertos, regla de firewall, dependencias, prisma, seed, build y auto-inicio con apertura de navegador).
+   - `2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat`: Menu de gestion directa para iniciar o cambiar de puerto en cualquier momento sin reinstalar ni perder datos.
+   - `3_ACTUALIZAR_SISTEMA.bat`: Actualizador desde GitHub con copia de seguridad preventiva obligatoria de `database/llanomio.db`, opcion de puertos, build y recarga de servicios.
+   - `4_RESPALDO_MANUAL.bat`: Respaldo en caliente y mantenimiento `VACUUM` de SQLite en `C:\POS_LLANOMIO_BACKUPS` y `database\backups_locales`.
+   - `5_RESTAURAR_RESPALDO.bat`: Restaurador guiado con salvaguarda automatica de la base activa y verificacion de Prisma.
+   - `6_ABRIR_FIREWALL_LAN_ADMIN.bat`, `7_OPTIMIZAR_BASE_DATOS.bat`, `8_INICIAR_TUNEL_CLOUDFLARE.bat`, `9_INSTALAR_SERVICIO_CLOUDFLARE_ADMIN.bat` y `CONFIGURAR_PUERTOS_RED.bat`.
+   - `LEEME_GUIA_INSTALACION_TIENDA.md`: Manual tecnico y operativo completo para el cliente final.
 
+### 2. Archivos Creados y Modificados
+1. `scripts/escanear-y-elegir-puertos.js` (Nuevo asistente interactivo de puertos en Node.js nativo).
+2. `scripts/servidor-lan-mdns.js` (Servicio mDNS y proxy LAN dinámico).
+3. `scripts/test-qa-puertos-suite.ts` (Suite de pruebas automatizadas de QA para puertos).
+4. `server-mdns.js` y `start-pos.js` (Sincronización de lectura dinámica de `.env`).
+5. `ecosystem.config.js` (Orquestación PM2 con lectura de puertos configurados).
+6. `package.json` (Scripts `start`, `escanear:puertos` y `configurar:puertos`).
+7. `instalador_tienda/1_INSTALAR_POS_GITHUB.bat` a `9_INSTALAR_SERVICIO_CLOUDFLARE_ADMIN.bat` (Suite completa numerada).
+8. `instalador_tienda/LEEME_GUIA_INSTALACION_TIENDA.md` (Guía de instalación para la tienda).
+
+### 3. Resultados de Calidad (QA) y Verificacion
+- **Prueba QA de Puertos (`scripts/test-qa-puertos-suite.ts`):** 100% de aserciones aprobadas (detección de colisión de puerto, rechazo de puerto ocupado, aceptación de puerto libre y persistencia en `.env`).
+- **Compilacion de Produccion (`npm run build`):** Codigo 0, **0 errores de TypeScript**, 22 rutas estáticas y dinámicas optimizadas.
+- **Base de Datos Limpia de Fabrica (`scripts/reset-db-fabrica.ts`):** Ejecutado con exito (0 clientes, 0 productos, 0 facturas, 1 admin inicial, 1 empresa configurada, compactada con VACUUM).

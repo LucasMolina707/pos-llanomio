@@ -27,11 +27,11 @@ const puertoProxy =
   process.env.PORT_PROXY ||
   envConfig.HTTP_PORT ||
   envConfig.PORT_PROXY ||
-  "80";
+  String(puertoNext);
 
 const tunnelToken = process.env.CLOUDFLARE_TUNNEL_TOKEN || envConfig.CLOUDFLARE_TUNNEL_TOKEN;
 
-// Localizar ejecutable cloudflared si está instalado
+// Localizar ejecutable cloudflared si esta instalado
 let cloudflaredBin = null;
 const posiblesRutasCloudflared = [
   "C:\\Program Files (x86)\\cloudflared\\cloudflared.exe",
@@ -63,7 +63,7 @@ const apps = [
   },
   {
     name: "pos-mdns-proxy",
-    script: path.join(__dirname, "server-mdns.js"),
+    script: path.join(__dirname, "scripts", "servidor-lan-mdns.js"),
     cwd: __dirname,
     exec_mode: "fork",
     instances: 1,
@@ -72,8 +72,10 @@ const apps = [
     max_memory_restart: "200M",
     env: {
       NODE_ENV: "production",
-      PORT_PROXY: String(puertoProxy),
+      PORT: String(puertoNext),
       PORT_NEXT: String(puertoNext),
+      PORT_PROXY: String(puertoProxy),
+      HTTP_PORT: String(puertoProxy),
     },
   },
 ];
