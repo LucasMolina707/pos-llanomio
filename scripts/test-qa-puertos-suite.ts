@@ -90,8 +90,20 @@ async function ejecutarTest() {
     setTimeout(() => {
       console.log("[QA SIMULACION] 4. Confirmando puerto secundario con ENTER");
       proceso.stdin.write("\r\n");
-      proceso.stdin.end();
     }, 6000);
+
+    // 5. Configurar base de datos con ENTER (default llanomio.db)
+    setTimeout(() => {
+      console.log("[QA SIMULACION] 5. Confirmando base de datos con ENTER");
+      proceso.stdin.write("\r\n");
+    }, 7000);
+
+    // 6. Configurar dominio mDNS con ENTER (default llanomio.local)
+    setTimeout(() => {
+      console.log("[QA SIMULACION] 6. Confirmando dominio local con ENTER");
+      proceso.stdin.write("\r\n");
+      proceso.stdin.end();
+    }, 8000);
 
     const codigoSalida = await new Promise<number>((resolve) => {
       proceso.on("exit", (code) => resolve(code ?? 0));

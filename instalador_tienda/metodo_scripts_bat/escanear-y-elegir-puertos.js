@@ -1,5 +1,5 @@
 /**
- * Asistente Interactivo de Escaneo y Seleccion de Puertos de Red
+ * Asistente Interactivo de Red, Puertos y Multi-Instancia
  * POS LLANOMIO - Automatizacion de Infraestructura Windows (Agentes 1, 4 y 5)
  *
  * NOTA DE ARQUITECTURA:
@@ -50,7 +50,6 @@ function obtenerIpLocal() {
     if (!lista) continue;
     for (const iface of lista) {
       if (iface.family === "IPv4" && !iface.internal) {
-        // Priorizar rangos tipicos de LAN de tienda (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
         if (
           iface.address.startsWith("192.168.") ||
           iface.address.startsWith("10.") ||
@@ -120,13 +119,13 @@ function obtenerInfoProcesoEnPuerto(puerto) {
             proceso = partes[0].replace(/"/g, "").trim();
           }
         } catch {
-          // Si tasklist no responde
+          // Ignorar fallo de tasklist
         }
         return { pid, proceso };
       }
     }
   } catch {
-    // Si netstat falla en entornos restringidos
+    // Si netstat falla
   }
   return null;
 }
@@ -224,6 +223,43 @@ function guardarVariablesEnv(nuevasVars) {
 }
 
 /**
+ * Normaliza el nombre del archivo de base de datos SQLite
+ */
+function normalizarNombreBd(input) {
+  if (!input || input.trim() === "") {
+    return "llanomio.db";
+  }
+  let str = input.trim().toLowerCase();
+  if (str.endsWith(".db")) {
+    str = str.slice(0, -3);
+  }
+  let limpio = str.replace(/[^a-z0-9_-]/g, "_").replace(/^_+|_+$/g, "");
+  if (!limpio || limpio === "llanomio") {
+    return "llanomio.db";
+  }
+  if (!limpio.startsWith("llanomio")) {
+    limpio = `llanomio_${limpio}`;
+  }
+  return `${limpio}.db`;
+}
+
+/**
+ * Normaliza el nombre de dominio local mDNS (.local)
+ */
+function normalizarDominioLocal(input) {
+  if (!input || input.trim() === "") {
+    return "llanomio.local";
+  }
+  let str = input.trim().toLowerCase();
+  if (str.endsWith(".local")) {
+    str = str.slice(0, -6);
+  }
+  let limpio = str.replace(/[^a-z0-9-]/g, "-").replace(/^-+|-+$/g, "");
+  if (!limpio) return "llanomio.local";
+  return `${limpio}.local`;
+}
+
+/**
  * Crea una interfaz readline para interactuar con el usuario
  */
 function crearPrompt() {
@@ -247,17 +283,28 @@ function preguntar(rl, texto) {
 async function main() {
   const args = process.argv.slice(2);
   const esNoInteractivo = args.includes("--no-interactive");
+  const esForzado = args.includes("--force");
+
   const argPuertoParam = args.find((a) => a.startsWith("--port="));
   const argPuertoForzado = argPuertoParam ? parseInt(argPuertoParam.split("=")[1], 10) : null;
 
+  const argProxyParam = args.find((a) => a.startsWith("--proxy="));
+  const argProxyForzado = argProxyParam ? parseInt(argProxyParam.split("=")[1], 10) : null;
+
+  const argDbParam = args.find((a) => a.startsWith("--db="));
+  const argDbForzado = argDbParam ? argDbParam.split("=")[1] : null;
+
+  const argDomainParam = args.find((a) => a.startsWith("--domain="));
+  const argDomainForzado = argDomainParam ? argDomainParam.split("=")[1] : null;
+
   console.log("===============================================================================");
-  console.log("        SISTEMA POS LLANOMIO - ASISTENTE DE ESCANEO Y CONFIGURACION DE PUERTOS ");
+  console.log("   SISTEMA POS LLANOMIO - ASISTENTE MULTI-INSTANCIA Y PUERTOS DE RED LOCAL    ");
   console.log("===============================================================================");
   console.log("");
 
   const ipLocal = obtenerIpLocal();
   console.log(`[RED LOCAL] Direccion IP LAN detectada en este equipo: ${ipLocal}`);
-  console.log("[SISTEMA]   Escaneando puertos en el sistema operativo Windows...");
+  console.log("[SISTEMA]   Escaneando disponibilidad de puertos TCP en Windows...");
   console.log("");
 
   // Combinar y deduplicar puertos de prueba
@@ -269,7 +316,7 @@ async function main() {
 
   // Presentar Puertos Ocupados
   console.log("-------------------------------------------------------------------------------");
-  console.log("PUERTOS DETECTADOS COMO OCUPADOS EN ESTE EQUIPO (NO UTILIZAR SIN LIBERAR):");
+  console.log("PUERTOS DETECTADOS COMO OCUPADOS EN ESTE EQUIPO (NO ASIGNAR SIN LIBERAR):");
   console.log("-------------------------------------------------------------------------------");
   if (ocupados.length === 0) {
     console.log("  (Ninguno de los puertos comunes analizados esta ocupado actualmente)");
@@ -303,31 +350,42 @@ async function main() {
   const envActual = leerVariablesEnv();
   const puertoEnvActual = envActual.PORT ? parseInt(envActual.PORT, 10) : null;
   const proxyEnvActual = envActual.HTTP_PORT ? parseInt(envActual.HTTP_PORT, 10) : null;
+  const dbEnvActual = envActual.DATABASE_URL
+    ? envActual.DATABASE_URL.replace(/file:\.\/|file:/g, "")
+    : "llanomio.db";
+  const domainEnvActual = envActual.LOCAL_DOMAIN || "llanomio.local";
 
   if (puertoEnvActual) {
-    console.log(`[CONFIGURACION ACTUAL .ENV] Puerto Principal configurado previamente: ${puertoEnvActual}`);
-    if (proxyEnvActual) {
-      console.log(`[CONFIGURACION ACTUAL .ENV] Puerto Secundario/Proxy configurado previamente: ${proxyEnvActual}`);
-    }
+    console.log("[CONFIGURACION ACTUAL PREVIA EN .ENV]");
+    console.log(`  - Puerto Principal Next.js: ${puertoEnvActual}`);
+    console.log(`  - Puerto Proxy LAN / HTTP:  ${proxyEnvActual || puertoEnvActual}`);
+    console.log(`  - Base de Datos SQLite:     ${dbEnvActual}`);
+    console.log(`  - Dominio Local mDNS:       ${domainEnvActual}`);
     console.log("");
   }
 
   let puertoSeleccionado = null;
   let puertoProxySeleccionado = null;
+  let nombreBdSeleccionada = null;
+  let dominioLocalSeleccionado = null;
 
-  // Si se ejecuta en modo forzado no interactivo (ej. tests automatizados)
+  // Si se ejecuta en modo no interactivo (ej. tests automatizados de QA)
   if (esNoInteractivo && argPuertoForzado) {
-    const estaLibre = await verificarPuertoDisponible(argPuertoForzado);
-    if (!estaLibre) {
-      console.error(`[ERROR] El puerto forzado ${argPuertoForzado} no esta disponible.`);
-      process.exit(1);
+    if (!esForzado) {
+      const estaLibre = await verificarPuertoDisponible(argPuertoForzado);
+      if (!estaLibre) {
+        console.error(`[ERROR] El puerto forzado ${argPuertoForzado} no esta disponible.`);
+        process.exit(1);
+      }
     }
     puertoSeleccionado = argPuertoForzado;
-    puertoProxySeleccionado = argPuertoForzado;
+    puertoProxySeleccionado = argProxyForzado || argPuertoForzado;
+    nombreBdSeleccionada = normalizarNombreBd(argDbForzado);
+    dominioLocalSeleccionado = normalizarDominioLocal(argDomainForzado);
   } else {
     const rl = crearPrompt();
 
-    // Bucle interactivo para el PUERTO PRINCIPAL NEXT.JS
+    // 1. Pregunta Puerto Principal Next.js
     while (!puertoSeleccionado) {
       console.log("Por favor indique el puerto que desea asignar.");
       const respuesta = await preguntar(
@@ -378,7 +436,7 @@ async function main() {
       }
     }
 
-    // Bucle interactivo para el PUERTO SECUNDARIO / PROXY HTTP
+    // 2. Pregunta Puerto Secundario / Proxy HTTP
     console.log("-------------------------------------------------------------------------------");
     console.log("CONFIGURACION DE SALIDA LOCAL / PROXY HTTP SECUNDARIO:");
     console.log("-------------------------------------------------------------------------------");
@@ -426,12 +484,47 @@ async function main() {
       }
     }
 
+    // 3. Pregunta Nombre de Base de Datos SQLite (Aislamiento Multi-Instancia)
+    console.log("-------------------------------------------------------------------------------");
+    console.log("CONFIGURACION DE BASE DE DATOS SQLITE (MULTI-INSTANCIA):");
+    console.log("-------------------------------------------------------------------------------");
+    console.log("Permite separar los datos contables de distintas tiendas o sedes en el mismo PC.");
+    console.log("Ejemplos: presione ENTER para 'llanomio.db' o escriba 'tienda1', 'llanomio_norte', etc.");
+    console.log("");
+
+    const respBd = await preguntar(
+      rl,
+      `>> Ingrese el NOMBRE O SUFIJO de Base de Datos [Enter para '${dbEnvActual}']: `
+    );
+    nombreBdSeleccionada = respBd && respBd !== "" ? normalizarNombreBd(respBd) : dbEnvActual;
+    console.log(`[SELECCION] Base de datos asignada: database/${nombreBdSeleccionada}\n`);
+
+    // 4. Pregunta Dominio Local mDNS (Bonjour Zero-Config)
+    console.log("-------------------------------------------------------------------------------");
+    console.log("CONFIGURACION DE DOMINIO LOCAL EN RED WI-FI (mDNS / BONJOUR):");
+    console.log("-------------------------------------------------------------------------------");
+    console.log("Permite que celulares y tablets ingresen por nombre en lugar de recordar la IP.");
+    console.log("Ejemplos: presione ENTER para 'llanomio.local' o escriba 'tienda1', 'pos-sur.local', etc.");
+    console.log("");
+
+    const respDomain = await preguntar(
+      rl,
+      `>> Ingrese el DOMINIO LOCAL mDNS [Enter para '${domainEnvActual}']: `
+    );
+    dominioLocalSeleccionado =
+      respDomain && respDomain !== "" ? normalizarDominioLocal(respDomain) : domainEnvActual;
+    console.log(`[SELECCION] Dominio local asignado: http://${dominioLocalSeleccionado}\n`);
+
     rl.close();
   }
 
+  // Generar identificador de instancia único para procesos PM2
+  const baseId = dominioLocalSeleccionado.replace(/\.local$/i, "").replace(/[^a-z0-9_-]/g, "-");
+  const instanceId = baseId.startsWith("pos-") ? baseId : `pos-${baseId}`;
+
   // Guardar en .env
   console.log("-------------------------------------------------------------------------------");
-  console.log("APLICANDO Y GUARDANDO CONFIGURACION EN .ENV...");
+  console.log("APLICANDO Y PERSISTIENDO CONFIGURACION EN .ENV...");
   console.log("-------------------------------------------------------------------------------");
 
   const nuevasVariables = {
@@ -439,6 +532,9 @@ async function main() {
     HTTP_PORT: String(puertoProxySeleccionado),
     PORT_PROXY: String(puertoProxySeleccionado),
     NEXT_PUBLIC_PORT: String(puertoSeleccionado),
+    DATABASE_URL: `file:./${nombreBdSeleccionada}`,
+    LOCAL_DOMAIN: dominioLocalSeleccionado,
+    INSTANCE_ID: instanceId,
     HOSTNAME: "0.0.0.0",
   };
 
@@ -446,14 +542,19 @@ async function main() {
   console.log(`[GUARDADO] Variables actualizadas en: ${RUTA_ENV}`);
   console.log(`           - PORT = ${puertoSeleccionado}`);
   console.log(`           - HTTP_PORT = ${puertoProxySeleccionado}`);
-  console.log(`           - NEXT_PUBLIC_PORT = ${puertoSeleccionado}`);
+  console.log(`           - DATABASE_URL = file:./${nombreBdSeleccionada}`);
+  console.log(`           - LOCAL_DOMAIN = ${dominioLocalSeleccionado}`);
+  console.log(`           - INSTANCE_ID = ${instanceId}`);
   console.log(`           - HOSTNAME = 0.0.0.0`);
   console.log("");
 
   // Resumen visual de accesos
   console.log("===============================================================================");
-  console.log("        CONFIGURACION DE PUERTOS COMPLETADA EXITOSAMENTE");
+  console.log("        CONFIGURACION MULTI-INSTANCIA COMPLETADA EXITOSAMENTE");
   console.log("===============================================================================");
+  console.log("");
+  console.log(`ID Instancia Servidor (PM2): ${instanceId}`);
+  console.log(`Archivo de Base de Datos:    database/${nombreBdSeleccionada}`);
   console.log("");
   console.log("DIRECCIONES DE ACCESO AL SISTEMA POS:");
   console.log("");
@@ -471,20 +572,19 @@ async function main() {
   console.log("2. Desde celulares, tablets o terminales en la misma red Wi-Fi / Ethernet:");
   if (puertoProxySeleccionado === 80) {
     console.log(`   - http://${ipLocal}`);
+    console.log(`   - http://${dominioLocalSeleccionado}`);
     console.log(`   - http://${ipLocal}:${puertoSeleccionado}`);
-    console.log("   - http://llanomio.local");
   } else if (puertoProxySeleccionado !== puertoSeleccionado) {
     console.log(`   - http://${ipLocal}:${puertoProxySeleccionado}`);
+    console.log(`   - http://${dominioLocalSeleccionado}:${puertoProxySeleccionado}`);
     console.log(`   - http://${ipLocal}:${puertoSeleccionado}`);
-    console.log(`   - http://llanomio.local:${puertoProxySeleccionado}`);
   } else {
     console.log(`   - http://${ipLocal}:${puertoSeleccionado}`);
-    console.log(`   - http://llanomio.local:${puertoSeleccionado}`);
+    console.log(`   - http://${dominioLocalSeleccionado}:${puertoSeleccionado}`);
   }
   console.log("===============================================================================");
   console.log("");
 
-  // Retornar codigo 0 de exito
   process.exit(0);
 }
 

@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 > nul
-title POS LLANOMIO - Gestor de Servidor y Selector de Puertos
+title POS LLANOMIO - Gestor de Servidor y Selector de Puertos Multi-Instancia
 color 0A
 
 :: 1. Posicionamiento en la raiz del proyecto
@@ -9,35 +9,44 @@ cd /d "%~dp0..\.."
 :MENU
 cls
 echo ===============================================================================
-echo                SISTEMA POS LOCAL LLANOMIO - CONTROL DEL SERVIDOR
+echo        SISTEMA POS LOCAL LLANOMIO - CONTROL DEL SERVIDOR MULTI-INSTANCIA
 echo ===============================================================================
 echo.
 
-:: Leer puertos actuales desde .env
+:: Leer configuracion actual desde .env
 set PUERTO_ACTUAL=3000
 set PUERTO_PROXY=3000
+set INSTANCE_ID=pos-llanomio
+set DOMINIO_LOCAL=llanomio.local
+set DB_NAME=llanomio.db
 if exist ".env" (
     for /f "usebackq tokens=1,2 delims==" %%A in (".env") do (
         if "%%A"=="PORT" set PUERTO_ACTUAL=%%B
         if "%%A"=="HTTP_PORT" set PUERTO_PROXY=%%B
+        if "%%A"=="INSTANCE_ID" set INSTANCE_ID=%%B
+        if "%%A"=="LOCAL_DOMAIN" set DOMINIO_LOCAL=%%B
+        if "%%A"=="DATABASE_URL" set DB_NAME=%%B
     )
 )
 
-echo Estado de configuracion actual (.env):
+echo Estado de configuracion actual de esta instancia (.env):
+echo   - Identificador Instancia PM2:       %INSTANCE_ID%
 echo   - Puerto Servidor Principal Next.js: %PUERTO_ACTUAL%
 echo   - Puerto Salida Red / Proxy HTTP:   %PUERTO_PROXY%
+echo   - Dominio Local Wi-Fi (mDNS):        http://%DOMINIO_LOCAL%
+echo   - Base de Datos Activa:              %DB_NAME%
 echo.
 echo Seleccione una opcion:
 echo   [1] Iniciar servidor en el puerto actual (%PUERTO_ACTUAL%)
-echo   [2] Escanear puertos libres y CAMBIAR el puerto de salida
+echo   [2] Re-escanear puertos libres y CAMBIAR puerto / dominio / base de datos
 echo   [3] Ver estado y monitoreo de procesos (PM2)
-echo   [4] Detener servidor completamente
+echo   [4] Detener esta instancia del servidor
 echo   [5] Salir
 echo.
 set /p OPCION=">> Ingrese su opcion [1-5]: "
 
 if "%OPCION%"=="1" goto INICIAR_ACTUAL
-if "%OPCION%"=="2" goto CAMBIAR_PUERTO
+if "%OPCION%"=="2" goto CAMBIAR_CONFIG
 if "%OPCION%"=="3" goto VER_ESTADO
 if "%OPCION%"=="4" goto DETENER_SERVIDOR
 if "%OPCION%"=="5" goto SALIR
@@ -47,10 +56,10 @@ echo [ERROR] Opcion no valida. Intente de nuevo.
 timeout /t 2 > nul
 goto MENU
 
-:CAMBIAR_PUERTO
+:CAMBIAR_CONFIG
 cls
 echo ===============================================================================
-echo            RE-ESCANEO Y ASIGNACION INTERACTIVA DE PUERTOS LIBRES
+echo     RE-ESCANEO Y ASIGNACION INTERACTIVA DE PUERTOS, DOMINIO Y BASE DE DATOS
 echo ===============================================================================
 echo.
 if exist "scripts\escanear-y-elegir-puertos.js" (
@@ -60,16 +69,19 @@ if exist "scripts\escanear-y-elegir-puertos.js" (
 )
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] El asistente de puertos no pudo completar la asignacion.
+    echo [ERROR] El asistente de configuracion no pudo completar la asignacion.
     pause
     goto MENU
 )
 
-:: Releer puertos recien guardados
+:: Releer configuracion recien guardada
 if exist ".env" (
     for /f "usebackq tokens=1,2 delims==" %%A in (".env") do (
         if "%%A"=="PORT" set PUERTO_ACTUAL=%%B
         if "%%A"=="HTTP_PORT" set PUERTO_PROXY=%%B
+        if "%%A"=="INSTANCE_ID" set INSTANCE_ID=%%B
+        if "%%A"=="LOCAL_DOMAIN" set DOMINIO_LOCAL=%%B
+        if "%%A"=="DATABASE_URL" set DB_NAME=%%B
     )
 )
 
@@ -77,13 +89,14 @@ if exist ".env" (
 netsh advfirewall firewall add rule name="POS_LLANOMIO_PUERTOS_WEB" dir=in action=allow protocol=TCP localport=%PUERTO_ACTUAL%,%PUERTO_PROXY% >nul 2>nul
 
 echo.
-echo [OK] Nuevos puertos configurados: Principal=%PUERTO_ACTUAL%, Proxy=%PUERTO_PROXY%
-echo Procediendo a reiniciar el servidor con los nuevos puertos...
+echo [OK] Nuevos parametros configurados:
+echo      Instancia: %INSTANCE_ID% | Principal: %PUERTO_ACTUAL% | Dominio: %DOMINIO_LOCAL%
+echo Procediendo a reiniciar los servicios con la nueva configuracion...
 echo.
 
 :INICIAR_ACTUAL
 echo ===============================================================================
-echo                   INICIANDO SERVICIOS DE POS LLANOMIO
+echo                INICIANDO SERVICIOS DE LA INSTANCIA: %INSTANCE_ID%
 echo ===============================================================================
 echo.
 
@@ -98,19 +111,19 @@ if %errorlevel% neq 0 (
     )
 )
 
-echo Deteniendo instancias previas...
-call %PM2_CMD% delete pos-llanomio >nul 2>nul
-call %PM2_CMD% delete pos-mdns-proxy >nul 2>nul
+echo Deteniendo instancias previas de %INSTANCE_ID%...
+call %PM2_CMD% delete %INSTANCE_ID% >nul 2>nul
+call %PM2_CMD% delete %INSTANCE_ID%-mdns >nul 2>nul
 
 echo Levantando procesos con PM2 en puerto %PUERTO_ACTUAL%...
 call %PM2_CMD% start ecosystem.config.js
 if %errorlevel% neq 0 (
     echo [AVISO] PM2 no pudo iniciar directamente en modo servicio.
     echo Levantando servidor directo con Node.js...
-    start "POS LLANOMIO SERVIDOR DIRECTO" cmd /k "cd /d %~dp0..\.. && node start-pos.js"
+    start "POS LLANOMIO - %INSTANCE_ID%" cmd /k "cd /d %~dp0..\.. && node start-pos.js"
 ) else (
     call %PM2_CMD% save >nul 2>nul
-    echo [OK] Servicios iniciados con PM2 en segundo plano.
+    echo [OK] Servicios de la instancia %INSTANCE_ID% iniciados con exito.
 )
 
 echo.
@@ -144,7 +157,7 @@ goto MENU
 :DETENER_SERVIDOR
 cls
 echo ===============================================================================
-echo                      DETENIENDO SERVICIOS DEL POS
+echo             DETENIENDO SERVICIOS DE LA INSTANCIA: %INSTANCE_ID%
 echo ===============================================================================
 echo.
 set PM2_CMD=pm2
@@ -156,13 +169,13 @@ if %errorlevel% neq 0 (
         set PM2_CMD=npx pm2
     )
 )
-call %PM2_CMD% stop pos-llanomio >nul 2>nul
-call %PM2_CMD% stop pos-mdns-proxy >nul 2>nul
-call %PM2_CMD% delete pos-llanomio >nul 2>nul
-call %PM2_CMD% delete pos-mdns-proxy >nul 2>nul
+call %PM2_CMD% stop %INSTANCE_ID% >nul 2>nul
+call %PM2_CMD% stop %INSTANCE_ID%-mdns >nul 2>nul
+call %PM2_CMD% delete %INSTANCE_ID% >nul 2>nul
+call %PM2_CMD% delete %INSTANCE_ID%-mdns >nul 2>nul
 call %PM2_CMD% save >nul 2>nul
 
-echo [OK] Todos los servicios del POS fueron detenidos.
+echo [OK] Los servicios de la instancia %INSTANCE_ID% fueron detenidos.
 echo.
 pause
 goto MENU

@@ -71,12 +71,17 @@ const PUERTO_PROXY = parseInt(
     String(PUERTO_DESTINO),
   10
 );
+const DOMINIO_LOCAL = process.env.LOCAL_DOMAIN || configEnv.LOCAL_DOMAIN || "llanomio.local";
+const INSTANCIA_ID = process.env.INSTANCE_ID || configEnv.INSTANCE_ID || "pos-llanomio";
+const nombreServicioBonjour = DOMINIO_LOCAL.replace(/\.local$/i, "");
 const ipLocal = obtenerIpLocal();
 
 console.log("===============================================================================");
 console.log("      INICIANDO SERVICIO mDNS (BONJOUR) Y ENLACE DE RED LAN - POS LLANOMIO     ");
 console.log("===============================================================================");
-console.log(`[RED]   IP Local detectada en red: ${ipLocal}`);
+console.log(`[RED]   IP Local detectada en red:         ${ipLocal}`);
+console.log(`[RED]   Dominio Local mDNS (Bonjour):      ${DOMINIO_LOCAL}`);
+console.log(`[RED]   Identificador de Instancia:        ${INSTANCIA_ID}`);
 console.log(`[RED]   Puerto Servidor Next.js (Destino): ${PUERTO_DESTINO}`);
 console.log(`[RED]   Puerto de Salida Proxy HTTP:       ${PUERTO_PROXY}`);
 
@@ -85,19 +90,19 @@ let bonjourInstance = null;
 try {
   bonjourInstance = new Bonjour();
   const servicioMdns = bonjourInstance.publish({
-    name: "llanomio",
+    name: nombreServicioBonjour,
     type: "http",
     port: PUERTO_PROXY,
-    host: "llanomio.local",
+    host: DOMINIO_LOCAL,
     txt: {
-      app: "pos-llanomio",
+      app: INSTANCIA_ID,
       version: "1.0.0",
-      description: "Punto de Venta Local LLANOMIO",
+      description: `Punto de Venta Local ${nombreServicioBonjour}`,
     },
   });
 
   servicioMdns.on("up", () => {
-    console.log(`[mDNS]  Anuncio de red activo: http://llanomio.local${PUERTO_PROXY === 80 ? "" : ":" + PUERTO_PROXY}`);
+    console.log(`[mDNS]  Anuncio de red activo: http://${DOMINIO_LOCAL}${PUERTO_PROXY === 80 ? "" : ":" + PUERTO_PROXY}`);
     console.log(`[mDNS]  Cualquier dispositivo en la red Wi-Fi puede acceder por nombre de dominio local.`);
   });
 
@@ -118,9 +123,9 @@ if (PUERTO_PROXY !== PUERTO_DESTINO) {
       method: req.method,
       headers: {
         ...req.headers,
-        host: req.headers.host || `llanomio.local:${PUERTO_PROXY}`,
+        host: req.headers.host || `${DOMINIO_LOCAL}:${PUERTO_PROXY}`,
         "x-forwarded-for": req.socket.remoteAddress || "",
-        "x-forwarded-host": req.headers.host || "llanomio.local",
+        "x-forwarded-host": req.headers.host || DOMINIO_LOCAL,
         "x-forwarded-proto": "http",
       },
     };

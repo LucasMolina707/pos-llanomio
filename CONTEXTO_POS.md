@@ -1923,3 +1923,49 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Base de Datos SQLite:** Estado virgen de fabrica confirmado (`scripts/reset-db-fabrica.ts`).
 - **Servicios PM2:** `pos-llanomio` y `pos-mdns-proxy` activos y estables (`online`).
 
+---
+
+## 42. Soporte Completo de Multi-Instancia y Dominios Locales Personalizados mDNS (Bonjour Zero-Config)
+
+### 1. Diagnostico y Objetivos de la Intervencion
+1. **Necesidad de Coexistencia de Multiples Tiendas en un Mismo Computador:**
+   - Previamente, el sistema utilizaba un único nombre de dominio fijo (`llanomio.local`), una base de datos única fija (`database/llanomio.db`), puertos fijos y nombres de procesos PM2 estáticos (`pos-llanomio`, `pos-mdns-proxy`).
+   - Si un comercio requería correr dos o más tiendas/sucursales independientes en el mismo equipo Windows, colisionaban en puertos de red (Next.js y proxy HTTP), en el almacenamiento SQLite (pisándose los datos contables) y en los registros de PM2.
+2. **Solución Integral de Aislamiento de Red y Almacenamiento:**
+   - **Puertos Libres Verificados en Tiempo Real:** El asistente interactivo escanea los puertos TCP del sistema operativo, detecta ocupados con sus PIDs y ofrece puertos 100% libres para el servidor principal Next.js y el proxy HTTP secundario.
+   - **Bases de Datos SQLite Aisladas:** Permite definir un sufijo o nombre personalizado (ej. `tienda1`, `llanomio_sur`), configurando automáticamente `DATABASE_URL="file:./[nombre].db"` para aislar por completo el catálogo, clientes, inventario y registros contables.
+   - **Dominios Locales mDNS Personalizados:** Permite definir nombres amigables en la red Wi-Fi (ej. `tienda1.local`, `pos-norte.local`), anunciados dinámicamente mediante Bonjour sin necesidad de servidores DNS dedicados.
+   - **Identificador de Instancia Único en PM2 (`INSTANCE_ID`):** Orquestación dinámica de procesos PM2 (`[instanceId]`, `[instanceId]-mdns`, `[instanceId]-tunnel`), permitiendo arrancar, reiniciar o detener tiendas de forma independiente en el mismo PC sin interferencias.
+
+### 2. Archivos Modificados y Creados
+1. `scripts/escanear-y-elegir-puertos.js` y `instalador_tienda/metodo_scripts_bat/escanear-y-elegir-puertos.js`:
+   - Ampliado con preguntas interactivas para nombre/sufijo de base de datos SQLite y dominio local mDNS.
+   - Funciones robustas de normalización: `normalizarNombreBd` (gestiona prefijos `llanomio_` y extensión `.db`) y `normalizarDominioLocal` (gestiona extensión `.local`).
+   - Persistencia automática de `PORT`, `HTTP_PORT`, `PORT_PROXY`, `NEXT_PUBLIC_PORT`, `DATABASE_URL`, `LOCAL_DOMAIN`, `INSTANCE_ID` y `HOSTNAME=0.0.0.0` en `.env`.
+   - Soporte para ejecución no interactiva con banderas `--port=`, `--proxy=`, `--db=`, `--domain=` y `--force`.
+2. `scripts/servidor-lan-mdns.js`:
+   - Lectura dinámica de `LOCAL_DOMAIN`, `INSTANCE_ID`, `PORT` y `HTTP_PORT`.
+   - Publicación del servicio Bonjour con nombre de host y nombre de servicio únicos por tienda.
+   - Proxy HTTP inverso dinámico que redirige tráfico al puerto específico de Next.js de la instancia.
+3. `ecosystem.config.js`:
+   - Lectura reactiva de `INSTANCE_ID` y `LOCAL_DOMAIN` desde `.env`.
+   - Asignación dinámica de nombres de procesos en PM2: `[instanceId]`, `[instanceId]-mdns` y `[instanceId]-tunnel`.
+   - Inyección de variables de entorno específicas a cada proceso hijo.
+4. `instalador_tienda/1_INSTALAR_POS_GITHUB.bat` y `instalador_tienda/2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat`:
+   - Creados como lanzadores maestros en la raíz de `instalador_tienda/` que delegan limpiamente a `metodo_scripts_bat/`.
+   - Actualizados para leer `INSTANCE_ID`, `DOMINIO_LOCAL`, `DB_NAME` y gestionar procesos PM2 únicos sin pisar otras tiendas activas.
+5. `scripts/test-qa-multi-instancia.ts`:
+   - Suite de pruebas de aseguramiento de calidad (QA) que simula la configuración sucesiva de dos instancias independientes en el mismo equipo (Instancia 1: `3000`, `llanomio.db`, `llanomio.local`; Instancia 2: `3001`, `llanomio_tienda2.db`, `tienda2.local`).
+   - Valida la ausencia de colisiones en puertos, archivos SQLite, dominios mDNS y nombres de procesos PM2.
+   - Restaura automáticamente la configuración `.env` de producción tras finalizar.
+6. `scripts/test-qa-puertos-suite.ts`:
+   - Actualizado para cubrir las preguntas de base de datos y dominio mDNS del asistente interactivo.
+
+### 3. Resultados de Calidad (QA) y Verificacion
+- **Prueba QA Multi-Instancia (`scripts/test-qa-multi-instancia.ts`):** 100% aprobada. Simulación de 2 instancias completada con verificación de no-colisión de recursos.
+- **Prueba QA de Puertos en Tiempo Real (`scripts/test-qa-puertos-suite.ts`):** 100% aprobada con simulación de puerto ocupado y asignación de puerto libre.
+- **Compilacion de Produccion (`npm run build`):** Código de salida 0, 0 errores de TypeScript, 22 páginas estáticas y dinámicas optimizadas.
+- **Estado de Base de Datos SQLite:** Virgen y lista de fábrica (`scripts/reset-db-fabrica.ts`).
+- **Compatibilidad de Plataforma:** 100% funcional en Windows con rutas relativas portables, cero rutas absolutas fijas y CERO emojis en código o scripts.
+
+

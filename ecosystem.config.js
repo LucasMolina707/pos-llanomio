@@ -29,6 +29,8 @@ const puertoProxy =
   envConfig.PORT_PROXY ||
   String(puertoNext);
 
+const instanceId = process.env.INSTANCE_ID || envConfig.INSTANCE_ID || "pos-llanomio";
+const localDomain = process.env.LOCAL_DOMAIN || envConfig.LOCAL_DOMAIN || "llanomio.local";
 const tunnelToken = process.env.CLOUDFLARE_TUNNEL_TOKEN || envConfig.CLOUDFLARE_TUNNEL_TOKEN;
 
 // Localizar ejecutable cloudflared si esta instalado
@@ -47,7 +49,7 @@ for (const ruta of posiblesRutasCloudflared) {
 
 const apps = [
   {
-    name: "pos-llanomio",
+    name: instanceId,
     script: path.join(__dirname, "start-pos.js"),
     cwd: __dirname,
     exec_mode: "fork",
@@ -59,10 +61,13 @@ const apps = [
       NODE_ENV: "production",
       PORT: String(puertoNext),
       HOSTNAME: "0.0.0.0",
+      INSTANCE_ID: String(instanceId),
+      LOCAL_DOMAIN: String(localDomain),
+      DATABASE_URL: envConfig.DATABASE_URL || "file:./llanomio.db",
     },
   },
   {
-    name: "pos-mdns-proxy",
+    name: `${instanceId}-mdns`,
     script: path.join(__dirname, "scripts", "servidor-lan-mdns.js"),
     cwd: __dirname,
     exec_mode: "fork",
@@ -76,13 +81,15 @@ const apps = [
       PORT_NEXT: String(puertoNext),
       PORT_PROXY: String(puertoProxy),
       HTTP_PORT: String(puertoProxy),
+      LOCAL_DOMAIN: String(localDomain),
+      INSTANCE_ID: String(instanceId),
     },
   },
 ];
 
 if (tunnelToken && cloudflaredBin) {
   apps.push({
-    name: "pos-tunnel-cloudflare",
+    name: `${instanceId}-tunnel`,
     script: cloudflaredBin,
     args: `tunnel run --token ${tunnelToken}`,
     cwd: __dirname,

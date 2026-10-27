@@ -1,15 +1,15 @@
 @echo off
 chcp 65001 > nul
-title POS LLANOMIO - Instalador Maestro desde GitHub
+title POS LLANOMIO - Instalador Maestro Multi-Instancia y Puertos
 color 0B
 
 echo ===============================================================================
-echo                SISTEMA POS LOCAL LLANOMIO - INSTALADOR MAESTRO
+echo        SISTEMA POS LOCAL LLANOMIO - INSTALADOR MAESTRO MULTI-INSTANCIA
 echo ===============================================================================
 echo.
 echo Este asistente guiara la instalacion completa del servidor POS en este computador.
 echo No se impondran puertos predeterminados: se escaneara el sistema en busca de
-echo puertos libres y usted podra elegir exactamente que puerto asignar.
+echo puertos libres y usted podra elegir exactamente el puerto, base de datos y dominio mDNS.
 echo.
 echo Presione cualquier tecla para iniciar la preparacion del sistema...
 pause > nul
@@ -75,8 +75,8 @@ if not exist ".env" (
     )
 )
 
-:: 6. Escaneo Real y Seleccion Interactiva de Puertos
-echo [4/8] Iniciando Asistente de Escaneo y Seleccion de Puertos Libres...
+:: 6. Escaneo Real y Seleccion Interactiva de Puertos, Base de Datos y Dominio
+echo [4/8] Iniciando Asistente de Escaneo, Puertos Libres y Multi-Instancia...
 echo -------------------------------------------------------------------------------
 if exist "scripts\escanear-y-elegir-puertos.js" (
     call node scripts\escanear-y-elegir-puertos.js
@@ -85,19 +85,25 @@ if exist "scripts\escanear-y-elegir-puertos.js" (
 )
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] Ocurrio un inconveniente durante la seleccion de puertos.
+    echo [ERROR] Ocurrio un inconveniente durante la seleccion de puertos y dominio.
     pause
     exit /b 1
 )
 echo.
 
-:: 7. Leer puertos seleccionados desde .env
+:: 7. Leer configuracion seleccionada desde .env
 set PUERTO_APP=3000
 set PUERTO_HTTP=3000
+set INSTANCE_ID=pos-llanomio
+set DOMINIO_LOCAL=llanomio.local
+set DB_NAME=llanomio.db
 if exist ".env" (
     for /f "usebackq tokens=1,2 delims==" %%A in (".env") do (
         if "%%A"=="PORT" set PUERTO_APP=%%B
         if "%%A"=="HTTP_PORT" set PUERTO_HTTP=%%B
+        if "%%A"=="INSTANCE_ID" set INSTANCE_ID=%%B
+        if "%%A"=="LOCAL_DOMAIN" set DOMINIO_LOCAL=%%B
+        if "%%A"=="DATABASE_URL" set DB_NAME=%%B
     )
 )
 
@@ -142,14 +148,8 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Verificar si la base de datos requiere sembrado de fabrica
-if not exist "database\llanomio.db" (
-    echo [INFO] Creando datos de fabrica y usuario Administrador inicial...
-    call npm run db:seed
-) else (
-    echo [INFO] Sincronizando datos de inicio en la base de datos...
-    call npm run db:seed
-)
+echo [INFO] Ejecutando sembrado de datos inicial (Seed)...
+call npm run db:seed
 echo [OK] Base de datos SQLite lista y sincronizada.
 echo.
 
@@ -165,15 +165,17 @@ if %errorlevel% neq 0 (
 echo [OK] Compilacion completada con 0 errores.
 echo.
 
-:: 12. Arranque del Servidor
+:: 12. Arranque del Servidor con Identificador Unico de Instancia en PM2
 echo ===============================================================================
 echo                INSTALACION FINALIZADA SATISFACTORIAMENTE
 echo ===============================================================================
 echo.
 echo Configuracion de salida:
+echo   - Instancia PM2:      %INSTANCE_ID%
 echo   - Servidor Principal: Puerto TCP %PUERTO_APP%
 echo   - Salida Red / Proxy: Puerto TCP %PUERTO_HTTP%
-echo   - Base de Datos:      database\llanomio.db (Limpia y estructurada)
+echo   - Dominio mDNS Wi-Fi: http://%DOMINIO_LOCAL%
+echo   - Base de Datos:      %DB_NAME%
 echo   - Usuario Administrador Inicial: admin
 echo   - Contrasena Inicial:            admin123
 echo.
@@ -190,19 +192,19 @@ if %errorlevel% neq 0 (
 )
 
 echo Iniciando servicios en segundo plano con PM2...
-call %PM2_CMD% delete pos-llanomio >nul 2>nul
-call %PM2_CMD% delete pos-mdns-proxy >nul 2>nul
+call %PM2_CMD% delete %INSTANCE_ID% >nul 2>nul
+call %PM2_CMD% delete %INSTANCE_ID%-mdns >nul 2>nul
 call %PM2_CMD% start ecosystem.config.js
 call %PM2_CMD% save >nul 2>nul
 
-echo [OK] Servidor POS activo en segundo plano.
+echo [OK] Servidor POS (%INSTANCE_ID%) activo en segundo plano.
 echo.
 echo Abriendo navegador en la direccion local: http://localhost:%PUERTO_APP%/login
 start http://localhost:%PUERTO_APP%/login
 
 echo.
-echo Puede administrar el servidor, cambiar puertos o detenerlo en cualquier momento
-echo utilizando el script: 2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat
+echo Puede administrar esta instancia o cambiar sus puertos con:
+echo   instalador_tienda\metodo_scripts_bat\2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat
 echo ===============================================================================
 echo.
 pause
