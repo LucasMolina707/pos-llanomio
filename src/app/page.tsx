@@ -26,7 +26,15 @@ interface UsuarioSesion {
 }
 
 export default function HomePage() {
-  const [usuario, setUsuario] = useState<UsuarioSesion | null>(null);
+  const [usuario, setUsuario] = useState<UsuarioSesion | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem("pos_llanomio_user");
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return null;
+  });
   const [mostrarModalQR, setMostrarModalQR] = useState(false);
 
   useEffect(() => {
@@ -35,6 +43,18 @@ export default function HomePage() {
       .then((data) => {
         if (data?.ok && data?.user) {
           setUsuario(data.user);
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.setItem("pos_llanomio_user", JSON.stringify(data.user));
+            } catch {}
+          }
+        } else {
+          setUsuario(null);
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.removeItem("pos_llanomio_user");
+            } catch {}
+          }
         }
       })
       .catch(() => {});
@@ -42,7 +62,7 @@ export default function HomePage() {
 
   const modulos = [
     {
-      titulo: "Terminal POS (Ventas y Arreglos)",
+      titulo: "Terminal POS — Ventas y Arreglos",
       descripcion: "Emisión ágil de facturas para productos en venta directa y servicios libres de sastrería / costura.",
       icono: ShoppingBag,
       colorIcono: "bg-blue-50 text-blue-600 border-blue-200",
@@ -60,7 +80,7 @@ export default function HomePage() {
       href: "/caja/alquileres",
     },
     {
-      titulo: "Control de Caja & Arqueos",
+      titulo: "Control y Arqueo de Caja",
       descripcion: "Apertura con base inicial en efectivo, arqueo físico en gaveta y cierre diario por métodos de pago.",
       icono: Vault,
       colorIcono: "bg-emerald-50 text-emerald-600 border-emerald-200",
@@ -69,16 +89,27 @@ export default function HomePage() {
       href: "/admin/caja",
     },
     {
-      titulo: "Historial de Facturas y Moras",
-      descripcion: "Centro unificado de cartera: facturas pendientes, cobro de moras acumuladas, prendas fuera de inventario y reimpresión de Paz y Salvos.",
-      icono: CalendarCheck,
-      colorIcono: "bg-rose-50 text-rose-600 border-rose-200",
-      etiqueta: "Cartera y Auditoría",
-      colorBadge: "bg-rose-50 text-rose-700 border-rose-200",
-      href: "/admin/monitoreo",
+      titulo: "Métricas y Rendimiento Financiero",
+      descripcion: "Visualización en vivo de liquidez, efectivo en gaveta vs. bancos digitales, cuentas por cobrar, depósitos en garantía y rendimiento de ventas, arreglos y alquileres.",
+      icono: BarChart3,
+      colorIcono: "bg-indigo-50 text-indigo-600 border-indigo-200",
+      etiqueta: "Inteligencia Gerencial",
+      colorBadge: "bg-indigo-50 text-indigo-700 border-indigo-200",
+      href: "/admin/dashboard",
+      adminOnly: true,
     },
     {
-      titulo: "Directorio de Clientes",
+      titulo: "Inventario de Productos y Prendas",
+      descripcion: "Control de stock, prendas por talla y color, estados de disponibilidad y tarifas de penalización.",
+      icono: Package,
+      colorIcono: "bg-amber-50 text-amber-600 border-amber-200",
+      etiqueta: "Catálogo y Stock",
+      colorBadge: "bg-amber-50 text-amber-700 border-amber-200",
+      href: "/admin/inventario",
+      adminOnly: true,
+    },
+    {
+      titulo: "Galería y Directorio de Clientes",
       descripcion: "Consulta de clientes, saldos pendientes consolidados, historial de prendas alquiladas y compras registradas.",
       icono: ShieldCheck,
       colorIcono: "bg-cyan-50 text-cyan-600 border-cyan-200",
@@ -87,26 +118,16 @@ export default function HomePage() {
       href: "/admin/clientes",
     },
     {
-      titulo: "Inventario Especializado",
-      descripcion: "Control de stock, prendas por talla y color, estados de disponibilidad y tarifas de penalización.",
-      icono: Package,
-      colorIcono: "bg-amber-50 text-amber-600 border-amber-200",
-      etiqueta: "Catálogo",
-      colorBadge: "bg-amber-50 text-amber-700 border-amber-200",
-      href: "/admin/inventario",
+      titulo: "Historial y Monitoreo de Facturas",
+      descripcion: "Centro unificado de cartera: facturas pendientes, cobro de moras acumuladas, prendas fuera de inventario y reimpresión de Paz y Salvos.",
+      icono: CalendarCheck,
+      colorIcono: "bg-rose-50 text-rose-600 border-rose-200",
+      etiqueta: "Cartera y Auditoría",
+      colorBadge: "bg-rose-50 text-rose-700 border-rose-200",
+      href: "/admin/monitoreo",
     },
     {
-      titulo: "Dashboard Gerencial",
-      descripcion: "Consolidado de métricas financieras, ingresos netos, cuentas por cobrar y rendimiento por líneas de negocio.",
-      icono: BarChart3,
-      colorIcono: "bg-indigo-50 text-indigo-600 border-indigo-200",
-      etiqueta: "Inteligencia",
-      colorBadge: "bg-indigo-50 text-indigo-700 border-indigo-200",
-      href: "/admin/dashboard",
-      adminOnly: true,
-    },
-    {
-      titulo: "Gestión de Usuarios & Personal",
+      titulo: "Gestión de Usuarios y Cajeros",
       descripcion: "Creación de cajeros, asignación de permisos granulares y configuración de llaves de recuperación.",
       icono: ShieldCheck,
       colorIcono: "bg-blue-50 text-blue-600 border-blue-200",
@@ -116,8 +137,8 @@ export default function HomePage() {
       adminOnly: true,
     },
     {
-      titulo: "Configuración y Datos Fiscales",
-      descripcion: "Administración de datos de la empresa, NIT, políticas de factura, logotipos y formatos de impresión.",
+      titulo: "Personalización del Sitio y Factura",
+      descripcion: "Personalización completa de la tienda: nombre, eslogan, logo oficial, NIT, teléfonos, dirección, políticas de alquiler y formatos de impresión.",
       icono: Settings,
       colorIcono: "bg-purple-50 text-purple-600 border-purple-200",
       etiqueta: "Solo Administrador",
@@ -131,7 +152,6 @@ export default function HomePage() {
   const modulosVisibles = modulos.filter((m) => {
     if (esAdmin) return true;
     if (m.adminOnly) return false;
-    if (m.href === "/admin/inventario") return false;
     return true;
   });
 
@@ -181,13 +201,25 @@ export default function HomePage() {
             </button>
 
             {esAdmin && (
-              <Link
-                href="/admin/dashboard"
-                className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs sm:text-sm font-semibold transition"
-              >
-                <BarChart3 className="h-4 w-4 text-blue-600" />
-                <span>Ver Métricas</span>
-              </Link>
+              <>
+                <Link
+                  href="/admin/dashboard"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs sm:text-sm font-bold transition shadow-2xs"
+                  title="Ver Métricas y Rendimiento Financiero del Sistema"
+                >
+                  <BarChart3 className="h-4 w-4 text-indigo-600" />
+                  <span>Métricas del Sistema</span>
+                </Link>
+
+                <Link
+                  href="/admin/configuracion"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs sm:text-sm font-bold transition shadow-2xs"
+                  title="Configurar y Personalizar Tienda y Factura"
+                >
+                  <Settings className="h-4 w-4 text-purple-600" />
+                  <span>Configuración del Sitio</span>
+                </Link>
+              </>
             )}
           </div>
         </div>

@@ -54,13 +54,29 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
 
   const esAdmin = usuario?.rol === "ADMIN";
 
-  // Definición de las secciones base
+  // Definición de las secciones base con los 10 módulos oficiales
   const todasLasSecciones: { title: string; items: MenuItem[] }[] = [
     {
-      title: "OPERACIÓN",
+      title: "PANEL DE CONTROL",
       items: [
         {
-          name: "Terminal POS (Ventas)",
+          name: "Panel Principal",
+          href: "/",
+          icon: LayoutDashboard,
+        },
+        {
+          name: "Métricas y Rendimiento",
+          href: "/admin/dashboard",
+          icon: BarChart3,
+          badge: "En Vivo",
+        },
+      ],
+    },
+    {
+      title: "OPERACIÓN Y CAJA",
+      items: [
+        {
+          name: "Terminal POS — Ventas y Arreglos",
           href: "/caja/pos",
           icon: ShoppingBag,
           badge: "Mostrador",
@@ -72,62 +88,53 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
           badge: "Alquiler",
         },
         {
-          name: "Control de Caja",
+          name: "Control y Arqueo de Caja",
           href: "/admin/caja",
           icon: Vault,
         },
         {
-          name: "Historial de Facturas y Moras",
+          name: "Historial y Monitoreo de Facturas",
           href: "/admin/monitoreo",
           icon: CalendarClock,
           badge: "Cartera",
         },
         {
-          name: "Directorio de Clientes",
+          name: "Galería y Directorio de Clientes",
           href: "/admin/clientes",
           icon: UserCheck,
         },
       ],
     },
     {
-      title: "CATÁLOGO",
+      title: "CATÁLOGO Y STOCK",
       items: [
         {
-          name: "Inventario y Prendas",
+          name: "Inventario de Productos y Prendas",
           href: "/admin/inventario",
           icon: Package,
         },
       ],
     },
     {
-      title: "GERENCIA",
+      title: "CONFIGURACIÓN Y SISTEMA",
       items: [
         {
-          name: "Dashboard Métricas",
-          href: "/admin/dashboard",
-          icon: BarChart3,
-        },
-        {
-          name: "Usuarios y Permisos",
+          name: "Gestión de Usuarios y Cajeros",
           href: "/admin/usuarios",
           icon: Shield,
         },
         {
-          name: "Configuración Empresa",
+          name: "Configuración de Página y Factura",
           href: "/admin/configuracion",
           icon: Settings,
-        },
-        {
-          name: "Menú Principal",
-          href: "/",
-          icon: LayoutDashboard,
         },
       ],
     },
   ];
 
   // Filtrado estricto por rol:
-  // Si es CAJERO, NO se renderizan en el DOM módulos administrativos (Inventario, Dashboard, Usuarios, Configuración)
+  // Si es ADMIN, tiene acceso irrestricto a los 10 módulos.
+  // Si es CAJERO, no se renderizan en el DOM módulos administrativos (Dashboard, Inventario, Usuarios, Configuración)
   const rutasExclusivasAdmin = [
     "/admin/inventario",
     "/admin/dashboard",

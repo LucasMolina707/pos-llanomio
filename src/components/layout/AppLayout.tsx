@@ -16,7 +16,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [usuario, setUsuario] = useState<UsuarioSesion | null>(null);
+  const [usuario, setUsuario] = useState<UsuarioSesion | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = sessionStorage.getItem("pos_llanomio_user");
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return null;
+  });
 
   // Consultar usuario en sesión
   useEffect(() => {
@@ -25,6 +33,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       .then((data) => {
         if (data?.ok && data?.user) {
           setUsuario(data.user);
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.setItem("pos_llanomio_user", JSON.stringify(data.user));
+            } catch {}
+          }
+        } else {
+          setUsuario(null);
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.removeItem("pos_llanomio_user");
+            } catch {}
+          }
         }
       })
       .catch(() => {});

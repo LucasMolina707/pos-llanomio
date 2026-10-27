@@ -1795,5 +1795,45 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Servicio PM2 (`pos-llanomio`):**
   - Reiniciado y activo en estado `online` (PID 9012).
 
+---
+
+## 39. Rehabilitación Integral y Visibilidad Garantizada de Configuración y Métricas en Navegación y Panel Principal (RBAC)
+
+### 1. Diagnóstico y Objetivos de la Intervención
+1. **Garantía de Acceso y Visibilidad para el Rol Administrador:**
+   - **Problema previo:** En el cliente, la consulta a `/api/auth/me` inicializaba en `null`, lo que provocaba que durante el primer ciclo de renderizado el cálculo de `esAdmin = usuario?.rol === "ADMIN"` fuera `false`, ocultando temporalmente los enlaces administrativos o causando parpadeos indeseados.
+   - **Solución con Caché de Hidratación:** En `AppLayout.tsx` y en `page.tsx` el estado de sesión se inicializa leyendo de forma síncrona desde `sessionStorage` (`pos_llanomio_user`), asegurando que desde el milisegundo 0 el Administrador conserve activos y visibles todos sus módulos.
+2. **Restauración de Accesos en Barra Superior (`Navbar.tsx`):**
+   - Incorporación de accesos directos destacados en la cabecera superior para el Administrador:
+     - Botón directo a **"Métricas"** (`/admin/dashboard`) con icono `BarChart3`.
+     - Botón directo a **"Configuración"** (`/admin/configuracion`) con icono `Settings`.
+     - Ambos con diseño ergonómico antifatiga de alto contraste e indicador de ruta activa.
+3. **Estandarización de los 10 Módulos Oficiales en `Sidebar.tsx`:**
+   - Organización en 4 secciones lógicas:
+     - **PANEL DE CONTROL:** Panel Principal (`/`) y Métricas y Rendimiento (`/admin/dashboard`).
+     - **OPERACIÓN Y CAJA:** Terminal POS — Ventas y Arreglos (`/caja/pos`), Sistema de Alquileres (`/caja/alquileres`), Control y Arqueo de Caja (`/admin/caja`), Historial y Monitoreo de Facturas (`/admin/monitoreo`), Galería y Directorio de Clientes (`/admin/clientes`).
+     - **CATÁLOGO Y STOCK:** Inventario de Productos y Prendas (`/admin/inventario`).
+     - **CONFIGURACIÓN Y SISTEMA:** Gestión de Usuarios y Cajeros (`/admin/usuarios`), Configuración de Página y Factura (`/admin/configuracion`).
+   - Regla de Oro RBAC: Al rol `ADMIN` se le muestran absolutamente todos los 10 módulos sin restricciones, mientras que al `CAJERO` se le filtran silenciosamente los módulos administrativos.
+4. **Tarjetas de Acceso Rápido y Banner en Panel Principal (`src/app/page.tsx`):**
+   - Banner de bienvenida actualizado con botones directos para Administrador: **"Métricas del Sistema"** y **"Configuración del Sitio"**.
+   - Tarjetas actualizadas con nombres oficiales: **"Métricas y Rendimiento Financiero"** y **"Personalización del Sitio y Factura"**.
+
+### 2. Archivos Modificados
+1. `src/components/layout/AppLayout.tsx`:
+   - Inicialización y sincronización de sesión con `sessionStorage`.
+2. `src/components/layout/Navbar.tsx`:
+   - Incorporados botones de acceso rápido a Métricas y Configuración para el rol `ADMIN`.
+3. `src/components/layout/Sidebar.tsx`:
+   - Reestructuración de secciones y 10 módulos con títulos e iconos normalizados y garantía de visibilidad para `ADMIN`.
+4. `src/app/page.tsx`:
+   - Incorporación de botones en el banner y actualización de las tarjetas con nombres oficiales y descripción clara.
+
+### 3. Resultados de Calidad (QA) y Verificación
+- **Prueba Automatizada de Permisos y Vistas (`scripts/test-qa-navegacion-rbac-y-vistas.ts`):** 100% de aserciones aprobadas con código 0.
+- **Compilación de Producción (`npm run build`):** Ejecución exitosa con **código 0, 0 errores de TypeScript y 22 rutas estáticas y dinámicas optimizadas**.
+- **Servicio PM2 (`pos-llanomio`):** Reiniciado y en ejecución en modo fork (`online`, PID 11348).
+
+
 
 

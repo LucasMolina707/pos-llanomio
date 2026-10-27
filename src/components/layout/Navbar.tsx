@@ -124,8 +124,39 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
         </div>
       </div>
 
-      {/* 2. Lado Derecho: Acceso Rápido POS, Estado LAN y Perfil */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      {/* 2. Lado Derecho: Acceso Rápido POS, Métricas, Configuración, Estado LAN y Perfil */}
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        {/* Accesos Rápidos Exclusivos de Administrador */}
+        {usuario?.rol === "ADMIN" && (
+          <>
+            <Link
+              href="/admin/dashboard"
+              className={`inline-flex items-center gap-1.5 px-3 py-2 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold transition border ${
+                pathname === "/admin/dashboard"
+                  ? "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-2xs"
+                  : "bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border-slate-200"
+              }`}
+              title="Métricas y Rendimiento Financiero del Sistema"
+            >
+              <BarChart3 className="h-4 w-4 shrink-0 text-indigo-600" />
+              <span className="hidden lg:inline">Métricas</span>
+            </Link>
+
+            <Link
+              href="/admin/configuracion"
+              className={`inline-flex items-center gap-1.5 px-3 py-2 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold transition border ${
+                pathname === "/admin/configuracion"
+                  ? "bg-purple-50 text-purple-700 border-purple-200 shadow-2xs"
+                  : "bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border-slate-200"
+              }`}
+              title="Configuración de Página y Factura"
+            >
+              <Settings className="h-4 w-4 shrink-0 text-purple-600" />
+              <span className="hidden lg:inline">Configuración</span>
+            </Link>
+          </>
+        )}
+
         {/* Acceso Rápido a Facturar en Nueva Ventana si no estamos en la página del POS */}
         {pathname !== "/caja/pos" && (
           <Link
@@ -142,7 +173,7 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
         )}
 
         {/* Indicador de Red Local */}
-        <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200/90 text-xs font-semibold text-slate-700">
+        <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200/90 text-xs font-semibold text-slate-700">
           <Radio className="h-3.5 w-3.5 text-blue-600 animate-pulse" />
           <span>llanomio.local</span>
         </div>
