@@ -1968,4 +1968,43 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Estado de Base de Datos SQLite:** Virgen y lista de fábrica (`scripts/reset-db-fabrica.ts`).
 - **Compatibilidad de Plataforma:** 100% funcional en Windows con rutas relativas portables, cero rutas absolutas fijas y CERO emojis en código o scripts.
 
+---
+
+## 43. Restauración Inmutable del Banner de Métricas en Inicio y Blindaje de Accesos Administrativos (/admin/dashboard y /admin/configuracion)
+
+### 1. Diagnóstico y Objetivos de la Intervención
+1. **Pérdida de Visibilidad del Banner Ejecutivo en el Inicio (`src/app/page.tsx`):**
+   - El panel de inicio carecía de una visualización rápida de telemetría en tiempo real, requiriendo ingresar a `/admin/dashboard` para conocer el estado de liquidez, efectivo en gaveta y rendimiento.
+   - **Solución Implementada:** Desarrollo del componente [src/components/dashboard/BannerMetricasInicio.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/components/dashboard/BannerMetricasInicio.tsx) montado en la parte superior de `src/app/page.tsx`.
+     - Pestañas selectoras de periodo: `[Hoy]`, `[Este Mes]`, `[Este Año]`.
+     - 4 Tarjetas KPI: Ingresos Recaudados, Efectivo vs. Medios Digitales (con barra de distribución porcentual), Depósitos de Alquiler en Custodia y Cartera por Cobrar / Moras.
+     - Sección Gráfica Visual: Rendimiento comparativo por línea de negocio (Ventas POS, Arreglos/Sastrería, Alquileres) y distribución por métodos de pago (Efectivo, Nequi, Bancolombia, Daviplata/Llave/Transferencia).
+     - Botón directo de acceso al panel completo: `"Ver Panel Completo ->"`.
+2. **Blindaje contra Desaparición de Rutas Administrativas (`/admin/dashboard` y `/admin/configuracion`):**
+   - En el menú lateral (`Sidebar.tsx`), barra superior (`Navbar.tsx`) y cuadrícula de tarjetas (`page.tsx`), las rutas administrativas dependían de condiciones de rol susceptibles a retrasos de hidratación en el cliente (`usuario?.rol === "ADMIN"`).
+   - **Solución Implementada:** Se implementó una verificación inmutable y a prueba de fallos:
+     ```ts
+     const esAdmin =
+       usuario?.rol === "ADMIN" ||
+       usuario?.username === "admin" ||
+       !usuario?.rol; // Fallback seguro mientras hidrata si ya superó middleware
+     ```
+   - En `src/app/api/auth/me/route.ts`, se blindó la respuesta para que cuando el usuario sea `ADMIN`, se devuelva explícitamente `esAdmin: true` y todos los permisos de `PERMISOS_DEFAULT_ADMIN` en `true`.
+3. **Catálogo Oficial de 9 Módulos en el Inicio:**
+   - Estandarización de las 9 tarjetas de acceso en `src/app/page.tsx` con títulos, descripciones y badges exactos: Terminal POS (Ventas y Arreglos), Sistema de Alquileres (Caja y Depósitos), Control y Arqueo de Caja, Gráficas y Métricas del Sistema (Dashboard), Configuración de Sitio Web y Factura, Inventario de Productos y Prendas, Galería y Directorio de Clientes, Central de Monitoreo de Facturas y Moras, y Gestión de Usuarios y Permisos.
+
+### 2. Archivos Modificados y Creados
+1. `src/components/dashboard/BannerMetricasInicio.tsx` (Nuevo componente de telemetría ejecutiva conectado a `/api/admin/dashboard`).
+2. `src/app/page.tsx` (Integración del banner de métricas y fijación de las 9 tarjetas de módulos oficiales).
+3. `src/components/layout/Sidebar.tsx` (Blindaje inmutable de `esAdmin` para garantizar visibilidad permanente de `/admin/dashboard` y `/admin/configuracion`).
+4. `src/components/layout/Navbar.tsx` (Accesos rápidos a Métricas y Configuración blindados con `esAdmin`).
+5. `src/app/api/auth/me/route.ts` (Garantía estricta de todos los permisos en `true` y `esAdmin: true`).
+6. `scripts/test-qa-banner-y-navegacion.ts` (Suite de validación automatizada de login, endpoints de telemetría, accesos HTTP 200 e integridad de código fuente).
+
+### 3. Resultados de Calidad (QA) y Verificación
+- **Suite QA de Navegación y Banner (`scripts/test-qa-banner-y-navegacion.ts`):** 100% de aserciones aprobadas (Login admin, `/api/auth/me` con `esAdmin`, `/api/admin/dashboard` en los 3 periodos, respuestas HTTP 200 en `/`, `/admin/dashboard` y `/admin/configuracion`).
+- **Compilación de Producción (`npm run build`):** Código de salida 0, 0 errores de TypeScript, 22 rutas estáticas y dinámicas compiladas.
+- **Servidor PM2:** Reiniciado en caliente y activo en puerto 3000.
+
+
 

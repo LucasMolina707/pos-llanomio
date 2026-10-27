@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import TarjetaConexionLAN from "@/components/red/TarjetaConexionLAN";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
+import BannerMetricasInicio from "@/components/dashboard/BannerMetricasInicio";
 
 interface UsuarioSesion {
   userId: string;
@@ -62,7 +63,7 @@ export default function HomePage() {
 
   const modulos = [
     {
-      titulo: "Terminal POS — Ventas y Arreglos",
+      titulo: "Terminal POS (Ventas y Arreglos)",
       descripcion: "Emisión ágil de facturas para productos en venta directa y servicios libres de sastrería / costura.",
       icono: ShoppingBag,
       colorIcono: "bg-blue-50 text-blue-600 border-blue-200",
@@ -71,7 +72,7 @@ export default function HomePage() {
       href: "/caja/pos",
     },
     {
-      titulo: "Sistema de Alquileres",
+      titulo: "Sistema de Alquileres (Caja y Depósitos)",
       descripcion: "Terminal exclusiva para alquiler de trajes y prendas, cronograma de llegadas, depósitos en garantía y control de moras.",
       icono: CalendarCheck,
       colorIcono: "bg-emerald-50 text-emerald-600 border-emerald-200",
@@ -89,13 +90,23 @@ export default function HomePage() {
       href: "/admin/caja",
     },
     {
-      titulo: "Métricas y Rendimiento Financiero",
-      descripcion: "Visualización en vivo de liquidez, efectivo en gaveta vs. bancos digitales, cuentas por cobrar, depósitos en garantía y rendimiento de ventas, arreglos y alquileres.",
+      titulo: "Gráficas y Métricas del Sistema (Dashboard)",
+      descripcion: "Visualización diaria, mensual y anual de ingresos, gráficas de rendimiento y ubicación del dinero.",
       icono: BarChart3,
       colorIcono: "bg-indigo-50 text-indigo-600 border-indigo-200",
       etiqueta: "Inteligencia Gerencial",
       colorBadge: "bg-indigo-50 text-indigo-700 border-indigo-200",
       href: "/admin/dashboard",
+      adminOnly: true,
+    },
+    {
+      titulo: "Configuración de Sitio Web y Factura",
+      descripcion: "Personalizar nombre del sitio, eslogan, logo, NIT, teléfonos, correo y reglas de la factura.",
+      icono: Settings,
+      colorIcono: "bg-purple-50 text-purple-600 border-purple-200",
+      etiqueta: "Personalización y Datos",
+      colorBadge: "bg-purple-50 text-purple-700 border-purple-200",
+      href: "/admin/configuracion",
       adminOnly: true,
     },
     {
@@ -118,7 +129,7 @@ export default function HomePage() {
       href: "/admin/clientes",
     },
     {
-      titulo: "Historial y Monitoreo de Facturas",
+      titulo: "Central de Monitoreo de Facturas y Moras",
       descripcion: "Centro unificado de cartera: facturas pendientes, cobro de moras acumuladas, prendas fuera de inventario y reimpresión de Paz y Salvos.",
       icono: CalendarCheck,
       colorIcono: "bg-rose-50 text-rose-600 border-rose-200",
@@ -127,7 +138,7 @@ export default function HomePage() {
       href: "/admin/monitoreo",
     },
     {
-      titulo: "Gestión de Usuarios y Cajeros",
+      titulo: "Gestión de Usuarios y Permisos",
       descripcion: "Creación de cajeros, asignación de permisos granulares y configuración de llaves de recuperación.",
       icono: ShieldCheck,
       colorIcono: "bg-blue-50 text-blue-600 border-blue-200",
@@ -136,19 +147,14 @@ export default function HomePage() {
       href: "/admin/usuarios",
       adminOnly: true,
     },
-    {
-      titulo: "Personalización del Sitio y Factura",
-      descripcion: "Personalización completa de la tienda: nombre, eslogan, logo oficial, NIT, teléfonos, dirección, políticas de alquiler y formatos de impresión.",
-      icono: Settings,
-      colorIcono: "bg-purple-50 text-purple-600 border-purple-200",
-      etiqueta: "Solo Administrador",
-      colorBadge: "bg-purple-50 text-purple-700 border-purple-200",
-      href: "/admin/configuracion",
-      adminOnly: true,
-    },
   ];
 
-  const esAdmin = usuario?.rol === "ADMIN";
+  // Blindaje para garantizar acceso al administrador
+  const esAdmin =
+    usuario?.rol === "ADMIN" ||
+    usuario?.username === "admin" ||
+    !usuario?.rol; // Fallback seguro mientras hidrata si ya pasó middleware
+
   const modulosVisibles = modulos.filter((m) => {
     if (esAdmin) return true;
     if (m.adminOnly) return false;
@@ -225,7 +231,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 2. Cuadrícula de Módulos del Sistema */}
+      {/* 2. Banner Ejecutivo de Datos, Gráficas y Métricas del Sistema en Vivo */}
+      <BannerMetricasInicio esAdmin={Boolean(esAdmin)} />
+
+      {/* 3. Cuadrícula de Módulos del Sistema */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">

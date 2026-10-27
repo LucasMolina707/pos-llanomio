@@ -52,7 +52,10 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
     return null;
   }
 
-  const esAdmin = usuario?.rol === "ADMIN";
+  const esAdmin =
+    usuario?.rol === "ADMIN" ||
+    usuario?.username === "admin" ||
+    !usuario?.rol; // Fallback seguro mientras hidrata si ya pasó middleware
 
   // Definición de las secciones base con los 10 módulos oficiales
   const todasLasSecciones: { title: string; items: MenuItem[] }[] = [

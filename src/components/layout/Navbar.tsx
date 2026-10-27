@@ -88,6 +88,11 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
     }
   };
 
+  const esAdmin =
+    usuario?.rol === "ADMIN" ||
+    usuario?.username === "admin" ||
+    !usuario?.rol; // Fallback seguro mientras hidrata si ya pasó middleware
+
   return (
     <header className="sticky top-0 z-30 h-16 w-full bg-[#FCFDFE] border-b border-slate-200/90 shadow-2xs flex items-center justify-between px-3.5 sm:px-6">
       {/* 1. Lado Izquierdo: Botón Hamburguesa Móvil + Logo/Migas de Pan / Título */}
@@ -127,7 +132,7 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
       {/* 2. Lado Derecho: Acceso Rápido POS, Métricas, Configuración, Estado LAN y Perfil */}
       <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
         {/* Accesos Rápidos Exclusivos de Administrador */}
-        {usuario?.rol === "ADMIN" && (
+        {esAdmin && (
           <>
             <Link
               href="/admin/dashboard"

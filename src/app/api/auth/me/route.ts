@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { parsearPermisos } from "@/lib/usuarios-sync";
+import { parsearPermisos, PERMISOS_DEFAULT_ADMIN } from "@/lib/usuarios-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +47,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const esAdmin = usuarioBD.rol === "ADMIN" || usuarioBD.username === "admin";
+    const permisosParsed = esAdmin
+      ? { ...PERMISOS_DEFAULT_ADMIN }
+      : parsearPermisos(usuarioBD.permisos, usuarioBD.rol);
+
     return NextResponse.json({
       ok: true,
       user: {
@@ -55,7 +60,8 @@ export async function GET(req: NextRequest) {
         username: usuarioBD.username,
         nombre: usuarioBD.nombre,
         rol: usuarioBD.rol,
-        permisos: parsearPermisos(usuarioBD.permisos, usuarioBD.rol),
+        esAdmin,
+        permisos: permisosParsed,
         documentoIdentidad: usuarioBD.documentoIdentidad,
       },
     });
