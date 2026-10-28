@@ -2337,3 +2337,99 @@ Se diseñó un componente de botón de solo ícono con proporciones geométricas
 - **Servicio PM2:** Reiniciado exitosamente con el proceso `pos-llanomio` en estado `online`.
 - **Cero Superposición:** Estructura `100vw x 100vh` estricta sin scroll global horizontal ni vertical.
 
+---
+
+## 25. Sistema Integral de Importación Masiva, Exportación de Respaldo y Descarga de Regleta Oficial en Excel (.xlsx)
+
+### 1. Diagnóstico y Arquitectura de la Solución
+Para resolver la necesidad de carga ágil de catálogos masivos y migración de datos desde sistemas contables o planillas externas sin requerir intervención manual en base de datos, se implementó un sistema integral basado en **SheetJS (`xlsx`)**, tipado estricto en TypeScript y persistencia relacional en **SQLite (`database/llanomio.db`)** a través de **Prisma ORM**.
+
+El sistema cumple con el mandato estricto de **Exclusividad de Vistas Administrativas**:
+- **Habilitado Única y Exclusivamente en:**
+  1. **Apartado Administrativo de Inventario (`src/app/admin/inventario/page.tsx`)**
+  2. **Apartado Administrativo de Clientes (`src/app/admin/clientes/page.tsx`)**
+- **Estrictamente Prohibido en:** Terminales de mostrador y facturación (`/caja/pos`, `/caja/alquileres`, `/caja/apartados`), garantizando que los cajeros mantengan una interfaz limpia, enfocada en la atención al cliente y sin riesgos de sobreescritura accidental de catálogos.
+
+### 2. Archivos Creados y Modificados
+1. **`src/lib/excel-plantillas.ts` (Módulo Central de Excel):**
+   - Definición canónica de encabezados marcados como `[OBLIGATORIO *]` y `[OPCIONAL]`.
+   - Guías explicativas detalladas para cada hoja complementaria (`GUIA_CAMPOS_OBLIGATORIOS` para Inventario y `GUIA_CAMPOS_Y_DIAN` para Clientes).
+   - Filas de ejemplo prellenadas (1 producto de VENTA y 1 prenda de ALQUILER en inventario; 1 persona natural y 1 persona jurídica contribuyente con NIT en clientes).
+   - Funciones extractoras y sanitizadoras tolerantes a encabezados manuales o etiquetas canónicas (`extraerFilaInventario` y `extraerFilaCliente`).
+   - Normalizadores de texto, convertidores numéricos inmunes a símbolos monetarios y sanitizadores telefónicos a 10 dígitos.
+   - Constructores de libros `.xlsx` estructurados con auto-ajuste de ancho de columnas y estilos tabulares:
+     - `generarExcelPlantillaInventario()` y `generarExcelExportacionInventario()`
+     - `generarExcelPlantillaClientes()` y `generarExcelExportacionClientes()`
+2. **`src/app/api/inventario/excel/route.ts` (Endpoint HTTP de Inventario):**
+   - **`GET ?modo=plantilla`:** Descarga instantánea de la regleta oficial con hojas `"INVENTARIO"` y `"GUIA_CAMPOS_OBLIGATORIOS"`.
+   - **`GET ?modo=exportar`:** Descarga de respaldo completo con todos los productos registrados en SQLite bajo las 12 columnas oficiales.
+   - **`POST`:** Procesa archivos `.xlsx` subidos vía `multipart/form-data`, valida campos obligatorios fila por fila, ejecuta `upsert` atómico en Prisma (`update` si el código existe, `create` si es nuevo) y retorna métricas detalladas (`totalLeidos`, `validos`, `creados`, `actualizados`, `fallidos` y lista de errores con número de fila).
+3. **`src/app/api/clientes/excel/route.ts` (Endpoint HTTP de Clientes):**
+   - **`GET ?modo=plantilla`:** Descarga de la regleta oficial de clientes con hojas `"CLIENTES"` y `"GUIA_CAMPOS_Y_DIAN"`.
+   - **`GET ?modo=exportar`:** Descarga de respaldo de todo el directorio de clientes bajo las 14 columnas oficiales.
+   - **`POST`:** Importación masiva con validación estricta de las 3 columnas obligatorias (`DOCUMENTO_O_NIT`, `NOMBRE_COMPLETO`, `TELEFONO_PRIMARIO`), autocalculado de Dígito de Verificación DIAN (`calcularDigitoVerificacionDIAN`), asignación de defaults seguros para contribuyentes de facturación electrónica y `upsert` en SQLite sin duplicados.
+4. **`src/components/excel/ModalGestionExcel.tsx` (Componente Modal Antifatiga):**
+   - Interfaz clara, moderna y sin emojis para la administración de archivos Excel.
+   - Tres pestañas intuitivas:
+     1. *Importar Masivamente:* Área interactiva Drag & Drop, previsualización de archivo, botón de ejecución de carga, barra de progreso y resumen de resultados en tiempo real (creados, actualizados, fallidos y detalle de alertas).
+     2. *Descargar Regleta Guía:* Tarjetas explicativas de campos obligatorios vs opcionales y botón de descarga directa de la plantilla con ejemplos.
+     3. *Exportar Respaldo Actual:* Explicación de respaldo externo y botón de descarga de toda la base de datos actual en `.xlsx`.
+5. **`src/app/admin/inventario/page.tsx`:**
+   - Incorporación en la cabecera superior de la botonera Excel: `Plantilla` (descarga directa), `Exportar` (respaldo directo) e `Importar Excel` (abre el modal).
+   - Renderizado del componente `<ModalGestionExcel tipo="INVENTARIO" />` con recarga reactiva de catálogo (`cargarInventario()`) tras importar.
+6. **`src/app/admin/clientes/page.tsx`:**
+   - Incorporación en la cabecera superior de la botonera Excel: `Plantilla`, `Exportar` e `Importar Excel`.
+   - Renderizado del componente `<ModalGestionExcel tipo="CLIENTES" />` con recarga reactiva del directorio (`cargarClientes()`) tras importar.
+7. **`scripts/test-qa-excel-inventario-clientes.ts`:**
+   - Suite de pruebas de auditoría automatizada que valida de extremo a extremo:
+     - Exclusividad de vistas (cero referencias a Excel en terminales de caja).
+     - Generación y estructura binaria de plantillas oficiales `.xlsx`.
+     - Endpoints HTTP `GET` (plantilla y respaldo) y `POST` (carga masiva).
+     - Lógica `upsert` de inventario (venta y alquiler, precios, stock y tarifas de mora).
+     - Lógica de clientes y cálculo automático de DV DIAN para contribuyentes.
+     - Exportación de respaldo y re-importación.
+
+### 3. Estructura Canónica de las Regletas Oficiales
+
+#### A. Regleta de Inventario (12 Columnas)
+| N° | Encabezado Oficial | Naturaleza | Descripción y Regla de Negocio |
+| :-: | :--- | :--- | :--- |
+| 1 | `CODIGO_REFERENCIA [OBLIGATORIO *]` | Obligatorio | Llave única alfanumérica (ej. `VEN-001`, `ALQ-105`). Si existe, actualiza; si no, crea. |
+| 2 | `NOMBRE_PRODUCTO [OBLIGATORIO *]` | Obligatorio | Nombre descriptivo del artículo o traje. |
+| 3 | `TIPO_MODALIDAD [OBLIGATORIO *: VENTA o ALQUILER]` | Obligatorio | Modalidad operativa (`VENTA` o `ALQUILER`). |
+| 4 | `PRECIO_BASE [OBLIGATORIO *]` | Obligatorio | Precio de venta o canon de alquiler. Sanitizado automáticamente. |
+| 5 | `CATEGORIA [OPCIONAL]` | Opcional | Categoría o línea (ej. `Trajes Típicos`, `Sombreros`). Por defecto `"General"`. |
+| 6 | `TALLA [OPCIONAL]` | Opcional | Talla física de la prenda (ej. `S`, `M`, `L`, `XL`, `38`). |
+| 7 | `COLOR [OPCIONAL]` | Opcional | Color predominante del traje o artículo. |
+| 8 | `STOCK_CANTIDAD [OPCIONAL]` | Opcional | Cantidad de unidades disponibles. Por defecto `1`. |
+| 9 | `TARIFA_MORA_DIARIA [OPCIONAL - Solo Alquiler]` | Opcional | Penalización por día de retraso. Por defecto `0`. |
+| 10 | `TARIFA_MORA_HORA [OPCIONAL - Solo Alquiler]` | Opcional | Penalización por hora de retraso. Por defecto `0`. |
+| 11 | `ESTADO_PRENDA [OPCIONAL: DISPONIBLE, ALQUILADO, SEPARADO, EN_ARREGLO]` | Opcional | Estado operativo. Por defecto `DISPONIBLE`. |
+| 12 | `DESCRIPCION_NOTAS [OPCIONAL]` | Opcional | Detalles complementarios o componentes del traje. |
+
+#### B. Regleta de Clientes (14 Columnas)
+| N° | Encabezado Oficial | Naturaleza | Descripción y Regla de Negocio |
+| :-: | :--- | :--- | :--- |
+| 1 | `DOCUMENTO_O_NIT [OBLIGATORIO *]` | Obligatorio | Cédula o NIT sin dígito de verificación. Llave única de búsqueda. |
+| 2 | `NOMBRE_COMPLETO [OBLIGATORIO *]` | Obligatorio | Nombres y apellidos o razón social principal. |
+| 3 | `TELEFONO_PRIMARIO [OBLIGATORIO *]` | Obligatorio | Teléfono celular principal (mínimo 7 dígitos). |
+| 4 | `TELEFONO_SECUNDARIO [OPCIONAL]` | Opcional | Segundo teléfono de contacto o respaldo. |
+| 5 | `DIRECCION [OPCIONAL / Recomendado FE]` | Opcional | Dirección física del domicilio o empresa. |
+| 6 | `ES_FACTURACION_ELECTRONICA_CONTRIBUYENTE [OPCIONAL: SI o NO]` | Opcional | `SI` indica contribuyente DIAN (`esResponsableIVA = true`). Por defecto `NO`. |
+| 7 | `TIPO_DOCUMENTO [OPCIONAL: CC, NIT, CE, PASAPORTE, TI]` | Opcional | Estándar DIAN. Por defecto `CC` (o `NIT` si es contribuyente). |
+| 8 | `DIGITO_VERIFICACION [OPCIONAL - Se autocalcula si es NIT]` | Opcional | Autocalculado por módulo 11 si es NIT y viene vacío. |
+| 9 | `RAZON_SOCIAL_LEGAL [OPCIONAL - Para Facturación Electrónica]` | Opcional | Razón social del RUT. Si viene en blanco y es FE, toma `NOMBRE_COMPLETO`. |
+| 10 | `CORREO_ELECTRONICO [OPCIONAL - Para Facturación Electrónica]` | Opcional | Correo electrónico para facturas electrónicas. |
+| 11 | `RESPONSABILIDAD_FISCAL_DIAN [OPCIONAL: O-99, O-48, O-13, O-15, O-23, R-99-PN]` | Opcional | Por defecto `O-48` si es FE, u `O-99` si es consumidor final. |
+| 12 | `MUNICIPIO [OPCIONAL]` | Opcional | Municipio del cliente. Por defecto `"Villavicencio - Meta"`. |
+| 13 | `CODIGO_DANE_MUNICIPIO [OPCIONAL]` | Opcional | Código DANE. Por defecto `"50001"`. |
+| 14 | `NOTAS_OBSERVACIONES [OPCIONAL]` | Opcional | Anotaciones internas y preferencias del cliente. |
+
+### 4. Resultados de la Auditoría de Calidad (QA)
+- **Suite Automatizada:** Ejecución exitosa de `scripts/test-qa-excel-inventario-clientes.ts` superando el 100% de las aserciones de auditoría.
+- **Exclusividad Verificada:** Confirmada la ausencia total de elementos de Excel en `/caja/pos`, `/caja/alquileres` y `/caja/apartados`.
+- **Restablecimiento de Fábrica:** Ejecución exitosa de `scripts/reset-db-fabrica.ts` dejando la base de datos SQLite en estado virgen (0 productos, 0 clientes, 0 facturas y 1 admin limpio).
+- **Verificación TypeScript:** `npx tsc --noEmit` completado con **0 errores**.
+- **Compilación de Producción Next.js:** `npm run build` completado exitosamente con **código 0** en las 23 rutas de la aplicación.
+- **Servicio PM2:** Reiniciado exitosamente con el proceso `pos-llanomio` en estado `online`.
+

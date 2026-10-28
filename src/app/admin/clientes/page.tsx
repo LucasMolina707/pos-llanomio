@@ -22,8 +22,13 @@ import {
   Mail,
   MapPin,
   Edit3,
+  FileSpreadsheet,
+  Download,
+  Upload,
+  FileDown,
 } from "lucide-react";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
+import ModalGestionExcel from "@/components/excel/ModalGestionExcel";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 import { safeFetchJson } from "@/lib/safe-fetch";
 
@@ -56,6 +61,7 @@ export default function DirectorioClientesPage() {
   const [error, setError] = useState<string | null>(null);
   const [mostrarModalNuevo, setMostrarModalNuevo] = useState(false);
   const [clienteAEditar, setClienteAEditar] = useState<ClienteDirectorio | null>(null);
+  const [mostrarModalExcel, setMostrarModalExcel] = useState(false);
 
   const cargarClientes = useCallback(async () => {
     try {
@@ -123,6 +129,39 @@ export default function DirectorioClientesPage() {
         </div>
 
         <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
+          {/* Botones de Operación Excel */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => window.open("/api/clientes/excel?modo=plantilla", "_blank")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition cursor-pointer"
+              title="Descargar Plantilla / Regleta Oficial en Excel (.xlsx) con campos obligatorios marcados"
+            >
+              <Download className="h-3.5 w-3.5 text-blue-600" />
+              <span>Plantilla</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.open("/api/clientes/excel?modo=exportar", "_blank")}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition cursor-pointer"
+              title="Exportar toda la base de datos actual de clientes a Excel (.xlsx) como respaldo"
+            >
+              <FileDown className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Exportar</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMostrarModalExcel(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition cursor-pointer"
+              title="Importar masivamente directorio de clientes desde Excel (.xlsx)"
+            >
+              <Upload className="h-3.5 w-3.5 text-white" />
+              <span>Importar Excel</span>
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={cargarClientes}
@@ -343,6 +382,14 @@ export default function DirectorioClientesPage() {
           setClienteAEditar(null);
         }}
         clienteAEditar={clienteAEditar}
+      />
+
+      {/* Modal de Gestión e Importación Masiva Excel */}
+      <ModalGestionExcel
+        tipo="CLIENTES"
+        abierto={mostrarModalExcel}
+        onCerrar={() => setMostrarModalExcel(false)}
+        onImportacionExitosa={cargarClientes}
       />
     </div>
   );
