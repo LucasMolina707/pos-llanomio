@@ -64,6 +64,42 @@ const SIZE_MAP = {
 };
 
 let cachedEmpresa: EmpresaIdentidad | null = null;
+let lastFetchTimestamp = 0;
+let pendingPromise: Promise<EmpresaIdentidad | null> | null = null;
+
+async function obtenerEmpresaPublico(forzar = false): Promise<EmpresaIdentidad | null> {
+  const ahora = Date.now();
+  if (!forzar && cachedEmpresa && ahora - lastFetchTimestamp < 60000) {
+    return cachedEmpresa;
+  }
+  if (pendingPromise) {
+    return pendingPromise;
+  }
+
+  pendingPromise = (async () => {
+    try {
+      const res = await fetch("/api/empresa/publico", {
+        cache: "no-store",
+        headers: { Pragma: "no-cache" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.ok && data?.empresa) {
+          cachedEmpresa = data.empresa;
+          lastFetchTimestamp = Date.now();
+          return data.empresa;
+        }
+      }
+      return cachedEmpresa;
+    } catch {
+      return cachedEmpresa;
+    } finally {
+      pendingPromise = null;
+    }
+  })();
+
+  return pendingPromise;
+}
 
 export default function LogoEmpresa({
   size = "md",
@@ -82,46 +118,33 @@ export default function LogoEmpresa({
   const [empresa, setEmpresa] = useState<EmpresaIdentidad | null>(cachedEmpresa);
   const [imgError, setImgError] = useState(false);
 
-  const fetchEmpresa = useCallback(async () => {
-    try {
-      const res = await fetch("/api/empresa/publico", {
-        cache: "no-store",
-        headers: {
-          Pragma: "no-cache",
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.ok && data?.empresa) {
-          cachedEmpresa = data.empresa;
-          setEmpresa(data.empresa);
-          setImgError(false);
+  const fetchEmpresa = useCallback(async (forzar = false) => {
+    const data = await obtenerEmpresaPublico(forzar);
+    if (data) {
+      setEmpresa(data);
+      setImgError(false);
 
-          if (updateFavicon && data.empresa.logoUrl && typeof document !== "undefined") {
-            try {
-              let link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
-              if (!link) {
-                link = document.createElement("link");
-                link.rel = "icon";
-                document.head.appendChild(link);
-              }
-              link.href = data.empresa.logoUrl;
-            } catch {
-              // Silencioso en caso de bloqueo de DOM
-            }
+      if (updateFavicon && data.logoUrl && typeof document !== "undefined") {
+        try {
+          let link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
+          if (!link) {
+            link = document.createElement("link");
+            link.rel = "icon";
+            document.head.appendChild(link);
           }
+          link.href = data.logoUrl;
+        } catch {
+          // Silencioso en caso de bloqueo de DOM
         }
       }
-    } catch (err) {
-      console.warn("No se pudo cargar la identidad de la empresa:", err);
     }
   }, [updateFavicon]);
 
   useEffect(() => {
-    fetchEmpresa();
+    fetchEmpresa(false);
 
     const handleUpdate = () => {
-      fetchEmpresa();
+      fetchEmpresa(true);
     };
 
     window.addEventListener("empresa-updated", handleUpdate);

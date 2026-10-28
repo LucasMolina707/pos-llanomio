@@ -2228,8 +2228,58 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Compilación de Producción:** `npx tsc --noEmit` completado con **0 errores** y `npm run build` ejecutado exitosamente con **código 0** (23 rutas generadas).
 - **Control Estricto de Iconografía:** Cero emojis en interfaz, código o respuestas, utilizando exclusivamente `lucide-react`.
 
+---
 
+## 23. Optimización de Procesos Nativos Windows (PowerShell Oculto) y Arquitectura Visual Anti-Superposición en Pantalla Completa
 
+### 1. Diagnóstico de Producción Local y Problemas Resueltos
+1. **Ventana Emergente de PowerShell y Parpadeo de Pantalla:**
+   - *Causa raíz:* Al consultar impresoras o disparar el pulso ESC/POS en `src/lib/cajon-impresora.ts`, `execFile` invocaba `powershell.exe` sin la opción nativa de Node.js `windowsHide: true` y sin el parámetro de consola `-WindowStyle Hidden`. Además, la consulta se disparaba en cada renderizado o cambio de estado en `/admin/configuracion/page.tsx` y `LogoEmpresa.tsx`, abriendo y cerrando ventanas negras de consola en el escritorio de Windows repetidamente.
+   - *Solución de Arquitectura:*
+     - Configuración obligatoria en todas las llamadas `execFile` / `exec`:
+       ```ts
+       const NODE_EXEC_OPTIONS = {
+         windowsHide: true,
+         timeout: 5000,
+         maxBuffer: 1024 * 1024,
+       };
+       const POWERSHELL_ARGS_BASE = [
+         "-NoProfile",
+         "-NonInteractive",
+         "-WindowStyle", "Hidden",
+         "-ExecutionPolicy", "Bypass",
+         "-Command",
+       ];
+       ```
+     - **Caché en Memoria en Servidor (TTL 5 Minutos):** Variable de módulo `cacheImpresoras: { lista: string[]; timestamp: number } | null` que atiende consultas en 0ms sin invocar al sistema operativo repetidamente.
+     - **Refresco Bajo Demanda:** Endpoint `GET /api/caja/abrir-cajon?refresh=1` y botón interactivo explícito *"Detectar / Refrescar Impresoras"* en la interfaz para vaciar la caché solo cuando el operador conecte una nueva impresora.
+     - **Carga Limpia en Componentes:** `useEffect(..., [])` de montaje único en `/admin/configuracion` sin despachar eventos de sincronización circulares hacia `LogoEmpresa.tsx`, y caché estática de 60 segundos con deduplicación de promesas en `LogoEmpresa.tsx`.
 
+2. **Superposición de Fichas y Desbordes en Terminales de Mostrador (`/caja/pos`, `/caja/alquileres`, `/caja/apartados`):**
+   - *Causa raíz:* En resoluciones estándar de mostrador (1366x768 o monitores táctiles), contenedores flex/grid sin `min-h-0` / `min-w-0`, anchos no delimitados y saltos de estructura entre pasos hacían que las tarjetas de clientes, prendas o controles de cobro se solaparan o provocaran barras de desplazamiento general en el navegador.
+   - *Solución de Arquitectura: Celdas Aisladas sin Superposición (`h-screen w-screen max-w-full max-h-screen overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none`):*
+     - **Fila 1 — Cabecera Superior (`h-14 shrink-0 px-3 flex items-center justify-between gap-2 overflow-hidden flex-nowrap`):** Botón regresar, identidad corporativa, selector de terminales (`POS | Alquileres | Apartados`), estado sincronizado del cajón, botón manual de apertura (`F9`) y acceso al historial, garantizando alineación horizontal perfecta en una sola línea sin saltos ni desbordes.
+     - **Fila 2 — Stepper Superior de 4 Pasos (`h-11 shrink-0 px-4`):** Grid uniforme de 4 columnas (`grid-cols-4 gap-2 w-full max-w-4xl mx-auto truncate`) con indicadores de estado activos/completados.
+     - **Fila 3 — Área Operativa Central (`flex-1 min-h-0 min-w-0 w-full overflow-hidden`):**
+       - **Pasos 1, 2 y 3 (Grid 8 + 4 Columnas):**
+         - *Panel Izquierdo (8 columnas, `col-span-12 lg:col-span-8 h-full min-h-0 min-w-0 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden`):*
+           - Cabecera fija con filtros y buscador.
+           - Contenedor interno con `overflow-y-auto` y `content-start`. En Paso 1 (Clientes) y Paso 2 (Prendas/Productos), las tarjetas usan `grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max`, cada una con dimensiones delimitadas, `min-w-0`, textos en `truncate` y badges en `shrink-0`, erradicando cualquier solapamiento.
+           - En Paso 3 (Cobro / Liquidación), distribución en 2 subcolumnas (`grid-cols-1 lg:grid-cols-2 gap-3.5`) separando montos de operación/depósito de métodos de pago, billetes rápidos y vueltas.
+         - *Panel Derecho Permanente (4 columnas, `col-span-12 lg:col-span-4 h-full min-h-0 min-w-0 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden`):*
+           - Cabecera con cliente asignado y teléfonos de contacto.
+           - En Alquileres y Apartados: tarjeta compacta de fechas de entrega, devolución o vencimiento.
+           - Lista de ítems en carrito con scroll vertical interno independiente, controles numéricos `- / +`, botón de eliminar y precio.
+           - Bloque inferior fijado al pie con resumen de totales y botones de navegación (`<- Anterior` y `Siguiente ->` / `Confirmar`).
+       - **Paso 4 (Visor Documental a 12 Columnas):**
+         - El visor de `<PlantillaImpresion />` toma las 12 columnas completas (`col-span-12 h-full min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden p-3 shadow-2xs`), con barra superior de utilidades (formatos 80mm/Media Carta/Carta, copias, abrir cajón, reimpresión, finalizar) y contenedor de vista previa con scroll limpio.
 
+3. **Auditoría Preventiva de Concurrencia y Sincronización:**
+   - En `src/hooks/useCajonSincronizado.ts`, se incorporó una bandera de guardia `actualizandoRef = useRef(false)` con liberación estricta en el bloque `finally` y antes de re-invocaciones automáticas, evitando llamadas concurrentes superpuestas contra `/api/caja` y parpadeos en los indicadores de estado.
 
+### 2. Resultados de Control de Calidad (QA)
+- **Cero Ventanas de Consola:** Comprobada la invisibilidad total de PowerShell al listar impresoras y al emitir pulsos ESC/POS.
+- **Cero Parpadeo en Configuración:** Navegación estable en `/admin/configuracion` con respuesta en 0ms gracias a la caché en memoria.
+- **Cero Superposición en Mostrador:** Homologación completa y visualmente limpia en `/caja/pos`, `/caja/alquileres` y `/caja/apartados` sin barras de desplazamiento global en ventana de navegador (`100vw x 100vh`).
+- **Verificación Estricta TypeScript:** `npx tsc --noEmit` completado con código 0 y 0 errores.
+- **Compilación de Producción:** `npm run build` completado con éxito al 100% (todas las 23 rutas compiladas).

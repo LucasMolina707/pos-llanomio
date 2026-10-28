@@ -150,14 +150,15 @@ export default function ConfiguracionAdminPage() {
     }
   };
 
-  const cargarImpresorasWindows = async () => {
+  const cargarImpresorasWindows = async (forzarRefresco = false) => {
     try {
       setCargandoImpresoras(true);
+      const url = `/api/caja/abrir-cajon${forzarRefresco ? "?refresh=1" : ""}`;
       const res = await safeFetchJson<{
         ok: boolean;
         impresoras?: string[];
         configuracion?: { nombreImpresoraPos: string; abrirCajonAutoEfectivo: boolean; pinCajon: number };
-      }>("/api/caja/abrir-cajon");
+      }>(url);
 
       if (res.ok && res.data?.impresoras) {
         setImpresorasWindows(res.data.impresoras);
@@ -690,13 +691,13 @@ export default function ConfiguracionAdminPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={cargarImpresorasWindows}
+                  onClick={() => cargarImpresorasWindows(true)}
                   disabled={cargandoImpresoras}
-                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition disabled:opacity-50"
-                  title="Detectar impresoras conectadas en Windows"
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
+                  title="Detectar y refrescar impresoras conectadas en Windows"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${cargandoImpresoras ? "animate-spin text-blue-600" : ""}`} />
-                  <span>{cargandoImpresoras ? "Detectando..." : "Detectar Impresoras"}</span>
+                  <span>{cargandoImpresoras ? "Detectando..." : "Detectar / Refrescar Impresoras"}</span>
                 </button>
               </div>
 

@@ -552,16 +552,16 @@ export default function ApartadosPage() {
   }, [apartadosHistorial, filtroEstadoHistorial, busquedaHistorial]);
 
   return (
-    <div className="w-screen h-screen overflow-hidden flex flex-col bg-[#F3F6F9] text-slate-800 select-none">
+    <div className="h-screen w-screen max-w-full max-h-screen overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none antialiased font-sans">
       {/* ========================================================================= */}
       {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA HOMOLOGADO (h-14 shrink-0)          */}
       {/* ========================================================================= */}
-      <header className="h-14 shrink-0 px-4 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2">
+      <header className="h-14 shrink-0 px-3 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2 flex-nowrap overflow-hidden">
         {/* Izquierda: Botón Regresar, Logo Oficial, Badge de Terminal */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Link
             href="/"
-            className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-bold shadow-2xs flex items-center gap-1.5 transition shrink-0"
+            className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-bold shadow-2xs flex items-center gap-1.5 transition shrink-0 cursor-pointer"
             title="Volver al panel principal"
           >
             <ArrowLeft className="w-4 h-4 text-slate-700" />
@@ -687,13 +687,13 @@ export default function ApartadosPage() {
       {/* 2. BARRA DE PASOS LINEAL COMPACTA HOMOLOGADA (h-11 shrink-0)               */}
       {/* ========================================================================= */}
       {pestaña === "NUEVO" && (
-        <div className="h-11 shrink-0 bg-slate-50 border-b border-slate-200 px-4 flex items-center justify-between z-20">
-          <div className="flex items-center gap-1.5">
+        <div className="h-11 shrink-0 w-full bg-slate-50 border-b border-slate-200 px-4 flex items-center justify-between z-20">
+          <div className="grid grid-cols-4 gap-2 w-full max-w-4xl mx-auto">
             {/* Paso 1 */}
             <button
               type="button"
               onClick={() => setPaso(1)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate ${
                 paso === 1
                   ? "bg-indigo-600 text-white shadow-xs"
                   : clienteSeleccionado
@@ -701,19 +701,17 @@ export default function ApartadosPage() {
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <User className="w-3.5 h-3.5" />
-              <span>1. Cliente</span>
-              {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+              <User className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">1. Cliente</span>
+              {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
             </button>
-
-            <ArrowRight className="w-3 h-3 text-slate-400" />
 
             {/* Paso 2 */}
             <button
               type="button"
               disabled={!clienteSeleccionado}
               onClick={() => setPaso(2)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
                 paso === 2
                   ? "bg-indigo-600 text-white shadow-xs"
                   : itemsApartado.length > 0
@@ -721,672 +719,669 @@ export default function ApartadosPage() {
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <Tag className="w-3.5 h-3.5" />
-              <span>2. Prendas y Fechas ({itemsApartado.length})</span>
-              {itemsApartado.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+              <Tag className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">2. Prendas ({itemsApartado.length})</span>
+              {itemsApartado.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
             </button>
-
-            <ArrowRight className="w-3 h-3 text-slate-400" />
 
             {/* Paso 3 */}
             <button
               type="button"
               disabled={itemsApartado.length === 0}
               onClick={() => setPaso(3)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
                 paso === 3
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <DollarSign className="w-3.5 h-3.5" />
-              <span>3. Cobro, Abono y Caja</span>
+              <DollarSign className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">3. Cobro y Abono</span>
             </button>
-
-            <ArrowRight className="w-3 h-3 text-slate-400" />
 
             {/* Paso 4 */}
             <button
               type="button"
               disabled={!facturaFinalizada}
               onClick={() => facturaFinalizada && setPaso(4)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
                 paso === 4
                   ? "bg-emerald-600 text-white shadow-xs"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>4. Impresión y Comprobante</span>
+              <Printer className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">4. Comprobante</span>
             </button>
-          </div>
-
-          <div className="hidden md:flex items-center gap-2 text-xs text-slate-500">
-            <span>Cliente activo:</span>
-            <strong className="text-slate-800">{clienteSeleccionado?.nombre || "Sin seleccionar"}</strong>
           </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* 2. CUERPO PRINCIPAL DIVIDIDO EN 2 COLUMNAS (lg:grid-cols-12 h-screen)     */}
+      {/* 2. CUERPO PRINCIPAL HOMOLOGADO ANTI-SUPERPOSICIÓN                         */}
       {/* ========================================================================= */}
       {pestaña === "NUEVO" ? (
-        <main className="flex-1 min-h-0 grid grid-cols-12 gap-3 p-3 overflow-hidden bg-[#F3F6F9]">
-          {/* ======================================================================= */}
-          {/* COLUMNA IZQUIERDA / CENTRAL (lg:col-span-8)                             */}
-          {/* ======================================================================= */}
-          <div className="col-span-12 lg:col-span-8 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            {/* Cabecera Interna de Columna Izquierda con Buscador y Acción */}
-            <div className="h-12 shrink-0 px-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5 truncate">
-                  {paso === 1 && (
-                    <>
-                      <User className="w-4 h-4 text-indigo-600" />
-                      Directorio de Clientes
-                    </>
-                  )}
-                  {paso === 2 && (
-                    <>
-                      <Tag className="w-4 h-4 text-indigo-600" />
-                      Catálogo de Prendas y Registro de Reserva
-                    </>
-                  )}
-                  {paso === 3 && (
-                    <>
-                      <Banknote className="w-4 h-4 text-indigo-600" />
-                      Liquidación de Apartado y Calculadora de Vueltas
-                    </>
-                  )}
-                  {paso === 4 && (
-                    <>
-                      <Receipt className="w-4 h-4 text-emerald-600" />
-                      Comprobante Oficial de Apartado
-                    </>
-                  )}
-                </span>
-              </div>
-
-              {paso === 1 && (
-                <button
-                  type="button"
-                  onClick={() => setMostrarModalCrearCliente(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs shrink-0 cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>+ Nuevo Cliente</span>
-                </button>
-              )}
-            </div>
-
-            {/* Contenido con Scroll Interno Exclusivo según el Paso */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-3">
-              {/* PASO 1: SELECCIÓN DE CLIENTE */}
-              {paso === 1 && (
-                <div className="space-y-3">
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar cliente por nombre, cédula o celular..."
-                      value={busquedaCliente}
-                      onChange={(e) => setBusquedaCliente(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none text-xs sm:text-sm transition"
-                    />
-                  </div>
-
-                  {cargandoClientes ? (
-                    <div className="text-center py-12 text-slate-400 text-xs">
-                      <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-600" />
-                      Cargando clientes...
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                      {clientesFiltrados.map((cli) => {
-                        const seleccionado = clienteSeleccionado?.id === cli.id;
-                        return (
-                          <div
-                            key={cli.id}
-                            onClick={() => setClienteSeleccionado(cli)}
-                            className={`p-3 rounded-xl border cursor-pointer transition flex flex-col justify-between ${
-                              seleccionado
-                                ? "bg-indigo-50 border-indigo-400 ring-2 ring-indigo-300"
-                                : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-1">
-                              <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">
-                                {cli.nombre}
-                              </p>
-                              {seleccionado && (
-                                <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
-                                  <Check className="w-3 h-3" />
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                              {cli.tipoIdentificacion || "CC"}: {cli.documento}
-                            </p>
-                            <p className="text-[11px] text-slate-600 flex items-center gap-1 font-mono mt-0.5">
-                              <PhoneCall className="w-3 h-3 text-emerald-600 shrink-0" />
-                              <span className="truncate">{cli.telefono}</span>
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* PASO 2: CATÁLOGO DE PRENDAS Y FECHAS */}
-              {paso === 2 && (
-                <div className="space-y-3">
-                  {/* Fila de Fechas Compacta en Línea */}
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label className="font-bold text-slate-700 block mb-1">
-                        Fecha Pactada de Retiro / Evento:
-                      </label>
-                      <input
-                        type="date"
-                        value={fechaSalida}
-                        onChange={(e) => setFechaSalida(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold text-slate-800 text-xs outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-slate-700 block mb-1">
-                        Fecha Límite Estimada de Devolución:
-                      </label>
-                      <input
-                        type="date"
-                        value={fechaDevolucion}
-                        onChange={(e) => setFechaDevolucion(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold text-slate-800 text-xs outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Fila Compacta de Ítem Libre / Personalizado */}
-                  <div className="p-3 rounded-xl bg-indigo-50/50 border border-indigo-200/80 flex flex-col sm:flex-row items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder="Descripción de prenda libre o reserva personalizada..."
-                      value={descripcionLibreInput}
-                      onChange={(e) => setDescripcionLibreInput(e.target.value)}
-                      className="flex-1 w-full px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-xs outline-none focus:border-indigo-500"
-                    />
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                      <input
-                        type="number"
-                        placeholder="Precio $"
-                        value={precioLibreInput}
-                        onChange={(e) => setPrecioLibreInput(e.target.value)}
-                        className="w-24 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white font-mono font-bold text-xs outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={agregarItemLibre}
-                        className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shrink-0 cursor-pointer"
-                      >
-                        + Agregar
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Buscador de Catálogo */}
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar en catálogo de prendas por nombre o código..."
-                      value={busquedaProducto}
-                      onChange={(e) => setBusquedaProducto(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-
-                  {/* Grid de Productos */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
-                    {productosFiltrados.map((prod) => (
-                      <div
-                        key={prod.id}
-                        onClick={() => agregarProductoDesdeCatalogo(prod)}
-                        className="p-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 cursor-pointer transition flex flex-col justify-between"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono text-[10px] text-slate-400 uppercase">
-                              {prod.codigo}
-                            </span>
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                              {prod.talla || "Talla Única"}
-                            </span>
-                          </div>
-                          <p className="font-bold text-xs text-slate-900 mt-0.5 line-clamp-1">
-                            {prod.nombre}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
-                          <span className="font-mono font-black text-xs text-indigo-700">
-                            ${Number(prod.precioAlquilerBase || prod.precioVenta || 0).toLocaleString("es-CO")}
-                          </span>
-                          <span className="text-[11px] font-bold text-indigo-600">+ Separar</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* PASO 3: LIQUIDACIÓN, ABONO Y CALCULADORA DE VUELTAS */}
-              {paso === 3 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Subcolumna A: Valores y Liquidación */}
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3.5">
-                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-1.5">
-                      Condición Financiera del Apartado
-                    </h3>
-
-                    <div>
-                      <span className="text-xs text-slate-500 block">Total de las Prendas Separadas:</span>
-                      <span className="font-mono text-xl font-black text-slate-900">
-                        ${totalAlquiler.toLocaleString("es-CO")}
-                      </span>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1">
-                        Depósito en Garantía (Opcional):
-                      </label>
-                      <input
-                        type="number"
-                        value={montoDepositoInput}
-                        onChange={(e) => setMontoDepositoInput(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-sm bg-white outline-none focus:border-indigo-500"
-                        placeholder="0"
-                      />
-                      <label className="flex items-center gap-2 mt-1.5 text-xs text-slate-600 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={depositoEntregadoHoy}
-                          onChange={(e) => setDepositoEntregadoHoy(e.target.checked)}
-                          className="rounded text-indigo-600"
-                        />
-                        <span>Cliente entrega el depósito hoy en mostrador</span>
-                      </label>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1">
-                        Abono Inicial (Hoy):
-                      </label>
-                      <input
-                        type="number"
-                        value={abonoInicialInput}
-                        onChange={(e) => setAbonoInicialInput(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-base bg-white text-emerald-700 outline-none focus:border-emerald-500"
-                        placeholder="0"
-                      />
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-600">Saldo Pendiente al Retirar:</span>
-                      <span className="font-mono text-base font-black text-rose-600">
-                        ${saldoPendienteCalculado.toLocaleString("es-CO")}
-                      </span>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1">
-                        Observaciones del Apartado:
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={observaciones}
-                        onChange={(e) => setObservaciones(e.target.value)}
-                        placeholder="Detalles de ajustes, acuerdos de entrega o preferencias del cliente..."
-                        className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Subcolumna B: Métodos de Pago y Calculadora de Vueltas */}
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3.5">
-                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-1.5">
-                      Cobro Inmediato en Mostrador
-                    </h3>
-
-                    <div>
-                      <span className="text-xs text-slate-500 block">Total a Recibir Hoy:</span>
-                      <span className="font-mono text-2xl font-black text-indigo-700">
-                        ${totalACobrarHoy.toLocaleString("es-CO")}
-                      </span>
-                    </div>
-
-                    {totalACobrarHoy > 0 && (
-                      <>
-                        <div>
-                          <label className="text-xs font-bold text-slate-700 block mb-1">
-                            Método de Pago:
-                          </label>
-                          <div className="grid grid-cols-3 gap-1.5">
-                            {["EFECTIVO", "NEQUI", "DAVIPLATA", "TARJETA", "TRANSFERENCIA"].map((m) => (
-                              <button
-                                key={m}
-                                type="button"
-                                onClick={() => setMetodoPagoAbono(m)}
-                                className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition ${
-                                  metodoPagoAbono === m
-                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
-                                    : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
-                                }`}
-                              >
-                                {m}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {metodoPagoAbono === "EFECTIVO" && (
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-700 block">
-                              Efectivo Recibido:
-                            </label>
-                            <input
-                              type="number"
-                              value={efectivoRecibidoInput}
-                              onChange={(e) => setEfectivoRecibidoInput(e.target.value)}
-                              placeholder={`Mínimo $${totalACobrarHoy.toLocaleString("es-CO")}`}
-                              className="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono font-bold text-base bg-white outline-none focus:border-indigo-500"
-                            />
-
-                            {/* Billetes Rápidos */}
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {[10000, 20000, 50000, 100000].map((b) => (
-                                <button
-                                  key={b}
-                                  type="button"
-                                  onClick={() => setEfectivoRecibidoInput(String(b))}
-                                  className="px-2 py-1 rounded-md bg-white border border-slate-300 text-xs font-mono font-bold hover:bg-slate-100"
-                                >
-                                  ${(b / 1000).toFixed(0)}k
-                                </button>
-                              ))}
-                              <button
-                                type="button"
-                                onClick={() => setEfectivoRecibidoInput(String(totalACobrarHoy))}
-                                className="px-2 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100"
-                              >
-                                Exacto
-                              </button>
-                            </div>
-
-                            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-center justify-between">
-                              <span className="text-xs font-bold">Vueltas / Cambio:</span>
-                              <span className="font-mono text-xl font-black text-emerald-700">
-                                ${vueltasEntregadasCalculadas.toLocaleString("es-CO")}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* PASO 4: IMPRESIÓN OFICIAL DEL FORMATO DE APARTADO */}
-              {paso === 4 && facturaFinalizada && (
-                <div className="h-full flex flex-col space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 shrink-0 gap-2">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                      <div>
-                        <span className="font-bold text-xs sm:text-sm block">
-                          Apartado Registrado Exitosamente — Factura N° {facturaFinalizada.numeroFactura}
-                        </span>
-                        <span className="text-[11px] text-emerald-800">
-                          Previsualiza en 80mm, Media Carta o Carta, o retrocede para ajustar valores sin duplicar registro.
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {/* Botón manual de apertura de cajón en Paso 4 */}
-                      <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
-
-                      <button
-                        type="button"
-                        onClick={() => setPaso(3)}
-                        className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                        title="Volver al Paso 3 para modificar valores (se sobrescribirá la misma factura)"
-                      >
-                        <ArrowLeft className="w-3.5 h-3.5 text-amber-600" />
-                        <span>← Retroceder al Paso 3 (Corregir Cobro)</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={reiniciarOperacionLimpia}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs hover:scale-[1.02] active:scale-[0.98]"
-                        title="Finaliza el proceso, vacía la orden y regresa al Paso 1 para atender al siguiente cliente"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-white" />
-                        <span>Finalizar y Cerrar Operación</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex-1 min-h-0 overflow-y-auto border border-slate-200 rounded-2xl p-2 bg-slate-50">
-                    <PlantillaImpresion
-                      facturaId={facturaFinalizada.id}
-                      onCerrar={reiniciarOperacionLimpia}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ======================================================================= */}
-          {/* COLUMNA DERECHA: RESUMEN PERMANENTE Y BOTONES DE AVANCE (lg:col-span-4)  */}
-          {/* ======================================================================= */}
-          <div className="col-span-12 lg:col-span-4 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            {/* Cabecera Derecha: Cliente Seleccionado y Fechas */}
-            <div className="shrink-0 p-3 border-b border-slate-100 bg-slate-50/70">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  Resumen de Reserva
-                </span>
-                {clienteSeleccionado && (
-                  <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
-                    Cliente Listo
-                  </span>
-                )}
-              </div>
-
-              {clienteSeleccionado ? (
-                <div className="mt-2 space-y-0.5">
-                  <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">
-                    {clienteSeleccionado.nombre}
-                  </p>
-                  <p className="text-xs text-slate-500 font-mono">
-                    CC: {clienteSeleccionado.documento} | Tel: {clienteSeleccionado.telefono}
-                  </p>
-                  <p className="text-[11px] text-slate-600 font-medium">
-                    Retiro: <strong className="text-slate-800">{fechaSalida || "Por definir"}</strong>
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                  Aún no has seleccionado un cliente.
-                </div>
-              )}
-            </div>
-
-            {/* Centro: Lista de Prendas en el Carrito con Scroll Interno Propio */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
-              <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-                <span className="text-xs font-bold text-slate-700">
-                  Prendas Separadas ({itemsApartado.length})
-                </span>
-                {itemsApartado.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setItemsApartado([])}
-                    className="text-[11px] font-bold text-rose-600 hover:underline"
-                  >
-                    Vaciar
-                  </button>
-                )}
-              </div>
-
-              {itemsApartado.length === 0 ? (
-                <div className="text-center py-8 text-slate-400">
-                  <CalendarClock className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
-                  <p className="text-xs font-bold text-slate-600">No hay prendas agregadas</p>
-                  <p className="text-[11px] text-slate-500">Agrega prendas o reserva personalizada</p>
-                </div>
-              ) : (
-                itemsApartado.map((item) => (
-                  <div
-                    key={item.idTemporal}
-                    className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between gap-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold text-slate-900 truncate">{item.nombre}</p>
-                      <span className="text-[11px] text-slate-500">
-                        ${item.precioUnitario.toLocaleString("es-CO")}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <input
-                        type="number"
-                        value={item.precioUnitario}
-                        onChange={(e) => actualizarPrecioUnitario(item.idTemporal, Number(e.target.value) || 0)}
-                        className="w-16 px-1.5 py-0.5 rounded border border-slate-300 text-right font-mono font-bold text-xs bg-white"
-                        title="Editar precio de alquiler"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => eliminarItem(item.idTemporal)}
-                        className="p-1 text-slate-400 hover:text-rose-600 transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Pie Fijo con Resumen Numérico y Botones Grandes de Navegación Siempre Visibles */}
-            <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between text-slate-600">
-                  <span>Total Operación:</span>
-                  <span className="font-mono font-bold text-slate-900">
-                    ${totalAlquiler.toLocaleString("es-CO")}
-                  </span>
-                </div>
-                {depositoNumerico > 0 && (
-                  <div className="flex justify-between text-slate-600">
-                    <span>Depósito (Garantía):</span>
-                    <span className="font-mono font-bold text-slate-800">
-                      ${depositoNumerico.toLocaleString("es-CO")} {depositoEntregadoHoy ? "(Hoy)" : "(Al Retiro)"}
+        paso === 4 && facturaFinalizada ? (
+          /* PASO 4: VISOR DOCUMENTAL A 12 COLUMNAS COMPLETAS */
+          <main className="flex-1 min-h-0 overflow-hidden p-3 flex flex-col bg-[#F4F6F9]">
+            <div className="h-full min-h-0 min-w-0 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden p-3 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 mb-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 shrink-0 gap-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <span className="font-bold text-xs sm:text-sm block">
+                      Apartado Registrado Exitosamente — Factura N° {facturaFinalizada.numeroFactura}
+                    </span>
+                    <span className="text-[11px] text-emerald-800">
+                      Previsualiza en 80mm, Media Carta o Carta, o retrocede para ajustar valores sin duplicar registro.
                     </span>
                   </div>
-                )}
-                <div className="flex justify-between text-emerald-700 font-bold">
-                  <span>Abono Recibido Hoy:</span>
-                  <span className="font-mono font-black">
-                    ${abonoNumerico.toLocaleString("es-CO")}
-                  </span>
                 </div>
-                <div className="flex justify-between text-rose-600 font-bold border-t border-slate-200 pt-1">
-                  <span>Saldo Pendiente:</span>
-                  <span className="font-mono font-black text-sm">
-                    ${saldoPendienteCalculado.toLocaleString("es-CO")}
-                  </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+
+                  <button
+                    type="button"
+                    onClick={() => setPaso(3)}
+                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Volver al Paso 3 para modificar valores (se sobrescribirá la misma factura)"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5 text-amber-600" />
+                    <span>← Retroceder al Paso 3 (Corregir Cobro)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={reiniciarOperacionLimpia}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm transition flex items-center gap-1.5 cursor-pointer shadow-xs hover:scale-[1.02] active:scale-[0.98]"
+                    title="Finaliza el proceso, vacía la orden y regresa al Paso 1 para atender al siguiente cliente"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                    <span>Finalizar y Cerrar Operación</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Botones Grandes de Navegación Fijos */}
-              <div className="pt-1 flex items-center gap-2">
-                {paso > 1 && paso < 4 && (
-                  <button
-                    type="button"
-                    onClick={() => setPaso((prev) => (prev - 1) as any)}
-                    className="px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1 shrink-0 cursor-pointer"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Atrás</span>
-                  </button>
-                )}
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                <PlantillaImpresion
+                  facturaId={facturaFinalizada.id}
+                  onCerrar={reiniciarOperacionLimpia}
+                />
+              </div>
+            </div>
+          </main>
+        ) : (
+          /* PASOS 1, 2 Y 3: ARQUITECTURA DE CELDAS AISLADAS (8 COLS IZQ + 4 COLS DER) */
+          <main className="flex-1 min-h-0 grid grid-cols-12 gap-3 p-3 overflow-hidden bg-[#F4F6F9]">
+            {/* ======================================================================= */}
+            {/* COLUMNA IZQUIERDA / CENTRAL (lg:col-span-8)                             */}
+            {/* ======================================================================= */}
+            <div className="col-span-12 lg:col-span-8 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+              {/* Cabecera Interna de Columna Izquierda con Buscador y Acción */}
+              <div className="h-12 shrink-0 px-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5 truncate">
+                    {paso === 1 && (
+                      <>
+                        <User className="w-4 h-4 text-indigo-600" />
+                        Paso 1: Directorio de Clientes
+                      </>
+                    )}
+                    {paso === 2 && (
+                      <>
+                        <Tag className="w-4 h-4 text-indigo-600" />
+                        Paso 2: Catálogo de Prendas y Registro de Reserva
+                      </>
+                    )}
+                    {paso === 3 && (
+                      <>
+                        <Banknote className="w-4 h-4 text-indigo-600" />
+                        Paso 3: Liquidación de Apartado y Calculadora de Vueltas
+                      </>
+                    )}
+                  </span>
+                </div>
 
                 {paso === 1 && (
                   <button
                     type="button"
-                    disabled={!clienteSeleccionado}
-                    onClick={() => setPaso(2)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:cursor-not-allowed cursor-pointer"
+                    onClick={() => setMostrarModalCrearCliente(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs shrink-0 cursor-pointer"
                   >
-                    <span>Siguiente: Prendas</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                )}
-
-                {paso === 2 && (
-                  <button
-                    type="button"
-                    disabled={itemsApartado.length === 0}
-                    onClick={() => setPaso(3)}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <span>Siguiente: Cobro y Abono</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                )}
-
-                {paso === 3 && (
-                  <button
-                    type="button"
-                    disabled={guardando}
-                    onClick={procesarGuardadoApartado}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-                  >
-                    {guardando ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Guardando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Confirmar y Expedir Apartado</span>
-                      </>
-                    )}
-                  </button>
-                )}
-
-                {paso === 4 && (
-                  <button
-                    type="button"
-                    onClick={reiniciarOperacionLimpia}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 shadow-sm cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
-                    title="Cierra la operación actual y deja la terminal lista para un nuevo cliente"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Finalizar y Cerrar Operación</span>
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>+ Nuevo Cliente</span>
                   </button>
                 )}
               </div>
+
+              {/* Contenido con Scroll Interno Exclusivo según el Paso */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-3">
+                {/* PASO 1: SELECCIÓN DE CLIENTE */}
+                {paso === 1 && (
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Buscar cliente por nombre, cédula o celular..."
+                        value={busquedaCliente}
+                        onChange={(e) => setBusquedaCliente(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none text-xs sm:text-sm transition"
+                      />
+                    </div>
+
+                    {cargandoClientes ? (
+                      <div className="text-center py-12 text-slate-400 text-xs">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-600" />
+                        Cargando clientes...
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
+                        {clientesFiltrados.map((cli) => {
+                          const seleccionado = clienteSeleccionado?.id === cli.id;
+                          return (
+                            <div
+                              key={cli.id}
+                              onClick={() => setClienteSeleccionado(cli)}
+                              className={`relative flex flex-col justify-between p-3 rounded-xl border cursor-pointer transition min-w-0 overflow-hidden ${
+                                seleccionado
+                                  ? "bg-indigo-50 border-indigo-400 ring-2 ring-indigo-300"
+                                  : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-start justify-between gap-1 mb-1">
+                                  <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                                    {cli.nombre}
+                                  </p>
+                                  {seleccionado && (
+                                    <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                                      <Check className="w-3 h-3" />
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
+                                  {cli.tipoIdentificacion || "CC"}: {cli.documento}
+                                </p>
+                                <p className="text-[11px] text-slate-600 flex items-center gap-1 font-mono mt-0.5 truncate">
+                                  <PhoneCall className="w-3 h-3 text-emerald-600 shrink-0" />
+                                  <span className="truncate">{cli.telefono}</span>
+                                </p>
+                              </div>
+
+                              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+                                <span className="text-[11px] font-bold text-slate-500">Cliente</span>
+                                <button
+                                  type="button"
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                    seleccionado
+                                      ? "bg-indigo-600 text-white"
+                                      : "bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                                  }`}
+                                >
+                                  {seleccionado ? "Elegido" : "Seleccionar"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* PASO 2: CATÁLOGO DE PRENDAS Y FECHAS */}
+                {paso === 2 && (
+                  <div className="space-y-3">
+                    {/* Fila de Fechas Compacta en Línea */}
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">
+                          Fecha Pactada de Retiro / Evento:
+                        </label>
+                        <input
+                          type="date"
+                          value={fechaSalida}
+                          onChange={(e) => setFechaSalida(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold text-slate-800 text-xs outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-slate-700 block mb-1">
+                          Fecha Límite Estimada de Devolución:
+                        </label>
+                        <input
+                          type="date"
+                          value={fechaDevolucion}
+                          onChange={(e) => setFechaDevolucion(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold text-slate-800 text-xs outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Fila Compacta de Ítem Libre / Personalizado */}
+                    <div className="p-3 rounded-xl bg-indigo-50/50 border border-indigo-200/80 flex flex-col sm:flex-row items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Descripción de prenda libre o reserva personalizada..."
+                        value={descripcionLibreInput}
+                        onChange={(e) => setDescripcionLibreInput(e.target.value)}
+                        className="flex-1 w-full px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-xs outline-none focus:border-indigo-500"
+                      />
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <input
+                          type="number"
+                          placeholder="Precio $"
+                          value={precioLibreInput}
+                          onChange={(e) => setPrecioLibreInput(e.target.value)}
+                          className="w-24 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white font-mono font-bold text-xs outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={agregarItemLibre}
+                          className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shrink-0 cursor-pointer"
+                        >
+                          + Agregar
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Buscador de Catálogo */}
+                    <div className="relative">
+                      <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Buscar en catálogo de prendas por nombre o código..."
+                        value={busquedaProducto}
+                        onChange={(e) => setBusquedaProducto(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-500"
+                      />
+                    </div>
+
+                    {/* Grid de Productos */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
+                      {productosFiltrados.map((prod) => (
+                        <div
+                          key={prod.id}
+                          onClick={() => agregarProductoDesdeCatalogo(prod)}
+                          className="relative flex flex-col justify-between p-2.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer transition min-w-0 overflow-hidden"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                              <span className="font-mono bg-slate-100 px-1 rounded truncate">
+                                {prod.codigo}
+                              </span>
+                              <span className="px-1.5 py-0.2 rounded font-bold bg-slate-100 text-slate-700 shrink-0">
+                                {prod.talla || "Talla Única"}
+                              </span>
+                            </div>
+                            <p className="font-bold text-xs text-slate-900 truncate">
+                              {prod.nombre}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
+                            <span className="font-mono font-black text-xs text-indigo-700">
+                              ${Number(prod.precioAlquilerBase || prod.precioVenta || 0).toLocaleString("es-CO")}
+                            </span>
+                            <span className="text-[11px] font-bold text-indigo-600">+ Separar</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* PASO 3: LIQUIDACIÓN, ABONO Y CALCULADORA DE VUELTAS */}
+                {paso === 3 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Subcolumna A: Valores y Liquidación */}
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3.5">
+                      <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-1.5">
+                        Condición Financiera del Apartado
+                      </h3>
+
+                      <div>
+                        <span className="text-xs text-slate-500 block">Total de las Prendas Separadas:</span>
+                        <span className="font-mono text-xl font-black text-slate-900">
+                          ${totalAlquiler.toLocaleString("es-CO")}
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Depósito en Garantía (Opcional):
+                        </label>
+                        <input
+                          type="number"
+                          value={montoDepositoInput}
+                          onChange={(e) => setMontoDepositoInput(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-sm bg-white outline-none focus:border-indigo-500"
+                          placeholder="0"
+                        />
+                        <label className="flex items-center gap-2 mt-1.5 text-xs text-slate-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={depositoEntregadoHoy}
+                            onChange={(e) => setDepositoEntregadoHoy(e.target.checked)}
+                            className="rounded text-indigo-600"
+                          />
+                          <span>Cliente entrega el depósito hoy en mostrador</span>
+                        </label>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Abono Inicial (Hoy):
+                        </label>
+                        <input
+                          type="number"
+                          value={abonoInicialInput}
+                          onChange={(e) => setAbonoInicialInput(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-base bg-white text-emerald-700 outline-none focus:border-emerald-500"
+                          placeholder="0"
+                        />
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-600">Saldo Pendiente al Retirar:</span>
+                        <span className="font-mono text-base font-black text-rose-600">
+                          ${saldoPendienteCalculado.toLocaleString("es-CO")}
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Observaciones del Apartado:
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={observaciones}
+                          onChange={(e) => setObservaciones(e.target.value)}
+                          placeholder="Detalles de ajustes, acuerdos de entrega o preferencias del cliente..."
+                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Subcolumna B: Métodos de Pago y Calculadora de Vueltas */}
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3.5">
+                      <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-1.5">
+                        Cobro Inmediato en Mostrador
+                      </h3>
+
+                      <div>
+                        <span className="text-xs text-slate-500 block">Total a Recibir Hoy:</span>
+                        <span className="font-mono text-2xl font-black text-indigo-700">
+                          ${totalACobrarHoy.toLocaleString("es-CO")}
+                        </span>
+                      </div>
+
+                      {totalACobrarHoy > 0 && (
+                        <>
+                          <div>
+                            <label className="text-xs font-bold text-slate-700 block mb-1">
+                              Método de Pago:
+                            </label>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              {["EFECTIVO", "NEQUI", "DAVIPLATA", "TARJETA", "TRANSFERENCIA"].map((m) => (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() => setMetodoPagoAbono(m)}
+                                  className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition ${
+                                    metodoPagoAbono === m
+                                      ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                                      : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  {m}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {metodoPagoAbono === "EFECTIVO" && (
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-slate-700 block">
+                                Efectivo Recibido:
+                              </label>
+                              <input
+                                type="number"
+                                value={efectivoRecibidoInput}
+                                onChange={(e) => setEfectivoRecibidoInput(e.target.value)}
+                                placeholder={`Mínimo $${totalACobrarHoy.toLocaleString("es-CO")}`}
+                                className="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono font-bold text-base bg-white outline-none focus:border-indigo-500"
+                              />
+
+                              {/* Billetes Rápidos */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {[10000, 20000, 50000, 100000].map((b) => (
+                                  <button
+                                    key={b}
+                                    type="button"
+                                    onClick={() => setEfectivoRecibidoInput(String(b))}
+                                    className="px-2 py-1 rounded-md bg-white border border-slate-300 text-xs font-mono font-bold hover:bg-slate-100"
+                                  >
+                                    ${(b / 1000).toFixed(0)}k
+                                  </button>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => setEfectivoRecibidoInput(String(totalACobrarHoy))}
+                                  className="px-2 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100"
+                                >
+                                  Exacto
+                                </button>
+                              </div>
+
+                              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-center justify-between">
+                                <span className="text-xs font-bold">Vueltas / Cambio:</span>
+                                <span className="font-mono text-xl font-black text-emerald-700">
+                                  ${vueltasEntregadasCalculadas.toLocaleString("es-CO")}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </main>
+
+            {/* ======================================================================= */}
+            {/* COLUMNA DERECHA: RESUMEN PERMANENTE Y BOTONES DE AVANCE (lg:col-span-4)  */}
+            {/* ======================================================================= */}
+            <div className="col-span-12 lg:col-span-4 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+              {/* Cabecera Derecha: Cliente Seleccionado y Fechas */}
+              <div className="shrink-0 p-3 border-b border-slate-100 bg-slate-50/70">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Resumen de Reserva
+                  </span>
+                  {clienteSeleccionado && (
+                    <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                      Cliente Listo
+                    </span>
+                  )}
+                </div>
+
+                {clienteSeleccionado ? (
+                  <div className="mt-2 space-y-0.5">
+                    <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                      {clienteSeleccionado.nombre}
+                    </p>
+                    <p className="text-xs text-slate-500 font-mono truncate">
+                      CC: {clienteSeleccionado.documento} | Tel: {clienteSeleccionado.telefono}
+                    </p>
+                    <p className="text-[11px] text-slate-600 font-medium">
+                      Retiro: <strong className="text-slate-800">{fechaSalida || "Por definir"}</strong>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                    Aún no has seleccionado un cliente.
+                  </div>
+                )}
+              </div>
+
+              {/* Centro: Lista de Prendas en el Carrito con Scroll Interno Propio */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                  <span className="text-xs font-bold text-slate-700">
+                    Prendas Separadas ({itemsApartado.length})
+                  </span>
+                  {itemsApartado.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setItemsApartado([])}
+                      className="text-[11px] font-bold text-rose-600 hover:underline"
+                    >
+                      Vaciar
+                    </button>
+                  )}
+                </div>
+
+                {itemsApartado.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400">
+                    <CalendarClock className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
+                    <p className="text-xs font-bold text-slate-600">No hay prendas agregadas</p>
+                    <p className="text-[11px] text-slate-500">Agrega prendas o reserva personalizada</p>
+                  </div>
+                ) : (
+                  itemsApartado.map((item) => (
+                    <div
+                      key={item.idTemporal}
+                      className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-slate-900 truncate">{item.nombre}</p>
+                        <span className="text-[11px] text-slate-500">
+                          ${item.precioUnitario.toLocaleString("es-CO")}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <input
+                          type="number"
+                          value={item.precioUnitario}
+                          onChange={(e) => actualizarPrecioUnitario(item.idTemporal, Number(e.target.value) || 0)}
+                          className="w-16 px-1.5 py-0.5 rounded border border-slate-300 text-right font-mono font-bold text-xs bg-white"
+                          title="Editar precio de alquiler"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => eliminarItem(item.idTemporal)}
+                          className="p-1 text-slate-400 hover:text-rose-600 transition"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Pie Fijo con Resumen Numérico y Botones Grandes de Navegación Siempre Visibles */}
+              <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Total Operación:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      ${totalAlquiler.toLocaleString("es-CO")}
+                    </span>
+                  </div>
+                  {depositoNumerico > 0 && (
+                    <div className="flex justify-between text-slate-600">
+                      <span>Depósito (Garantía):</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        ${depositoNumerico.toLocaleString("es-CO")} {depositoEntregadoHoy ? "(Hoy)" : "(Al Retiro)"}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-indigo-700 font-bold">
+                    <span>Abono Hoy:</span>
+                    <span className="font-mono font-bold">
+                      ${abonoNumerico.toLocaleString("es-CO")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-slate-900 font-black text-sm pt-1 border-t border-slate-200">
+                    <span>TOTAL A COBRAR HOY:</span>
+                    <span className="font-mono text-indigo-700 text-base">
+                      ${totalACobrarHoy.toLocaleString("es-CO")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-rose-600 font-bold pt-0.5">
+                    <span>Saldo Pendiente:</span>
+                    <span className="font-mono font-black text-sm">
+                      ${saldoPendienteCalculado.toLocaleString("es-CO")}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Botones Grandes de Navegación Fijos */}
+                <div className="pt-1 flex items-center gap-2">
+                  {paso > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setPaso((prev) => (prev - 1) as any)}
+                      className="px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition flex items-center gap-1 shrink-0 cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Atrás</span>
+                    </button>
+                  )}
+
+                  {paso === 1 && (
+                    <button
+                      type="button"
+                      disabled={!clienteSeleccionado}
+                      onClick={() => setPaso(2)}
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <span>Siguiente: Prendas</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  {paso === 2 && (
+                    <button
+                      type="button"
+                      disabled={itemsApartado.length === 0}
+                      onClick={() => setPaso(3)}
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <span>Siguiente: Cobro y Abono</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  {paso === 3 && (
+                    <button
+                      type="button"
+                      disabled={guardando}
+                      onClick={procesarGuardadoApartado}
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                      {guardando ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Guardando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Confirmar y Expedir Apartado</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </main>
+        )
       ) : (
         /* ========================================================================= */
         /* VISTA: HISTORIAL DE APARTADOS (PANTALLA COMPLETA CON SCROLL INTERNO)      */

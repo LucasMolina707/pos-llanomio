@@ -90,6 +90,7 @@ export function useCajonSincronizado() {
   const [debeMostrarModal, setDebeMostrarModal] = useState<boolean>(false);
   const [tipoModalRequerido, setTipoModalRequerido] = useState<TipoModalCajonRequerido>(null);
   const [errorAccionCaja, setErrorAccionCaja] = useState<string | null>(null);
+  const actualizandoRef = useRef(false);
 
   // Inicializar Device ID una sola vez
   useEffect(() => {
@@ -103,6 +104,8 @@ export function useCajonSincronizado() {
    */
   const actualizarCajon = useCallback(
     async (silencioso = false) => {
+      if (actualizandoRef.current) return;
+      actualizandoRef.current = true;
       try {
         if (!silencioso) setCargandoCaja(true);
         setErrorAccionCaja(null);
@@ -222,6 +225,7 @@ export function useCajonSincronizado() {
               const dataAuto = await resAuto.json();
               if (dataAuto.success) {
                 // Re-consultar para tomar el turno vinculado
+                actualizandoRef.current = false;
                 await actualizarCajon(true);
                 return;
               }
@@ -252,6 +256,7 @@ export function useCajonSincronizado() {
           setErrorAccionCaja(err instanceof Error ? err.message : "Error sincronizando cajón");
         }
       } finally {
+        actualizandoRef.current = false;
         if (!silencioso) setCargandoCaja(false);
       }
     },

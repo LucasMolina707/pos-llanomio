@@ -11,13 +11,28 @@ export interface ResultadoAperturaCajon {
   simulado?: boolean;
 }
 
+// Caché en memoria en el servidor para evitar invocar a PowerShell repetidamente
+let cacheImpresoras: { lista: string[]; timestamp: number } | null = null;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos de vigencia
+
+const NODE_EXEC_OPTIONS = {
+  windowsHide: true,
+  timeout: 5000,
+  maxBuffer: 1024 * 1024,
+};
+
 /**
  * Consulta las impresoras registradas en el sistema operativo Windows
- * mediante Win32_Printer a través de PowerShell.
+ * mediante Win32_Printer a través de PowerShell de forma 100% invisible.
  */
-export async function obtenerImpresorasWindows(): Promise<string[]> {
+export async function obtenerImpresorasWindows(forzarRefresco = false): Promise<string[]> {
   if (process.platform !== "win32") {
     return ["Impresora Simulación POS (No-Windows)"];
+  }
+
+  // Si existe en caché y no se solicitó forzar el refresco, responder inmediatamente en 0ms
+  if (!forzarRefresco && cacheImpresoras && Date.now() - cacheImpresoras.timestamp < CACHE_TTL_MS) {
+    return cacheImpresoras.lista;
   }
 
   try {
@@ -29,29 +44,43 @@ export async function obtenerImpresorasWindows(): Promise<string[]> {
       $printers | Where-Object { $_ -and $_.Trim() -ne '' } | ForEach-Object { $_.Trim() }
     `;
 
-    const { stdout } = await execFileAsync("powershell.exe", [
-      "-NoProfile",
-      "-NonInteractive",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-Command",
-      comando,
-    ]);
+    const { stdout } = await execFileAsync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        comando,
+      ],
+      NODE_EXEC_OPTIONS
+    );
 
     const lista = stdout
       .split(/\r?\n/)
       .map((linea) => linea.trim())
       .filter((linea) => linea.length > 0);
 
-    return Array.from(new Set(lista));
+    const impresorasUnicas = Array.from(new Set(lista));
+
+    // Almacenar en caché en memoria
+    cacheImpresoras = {
+      lista: impresorasUnicas,
+      timestamp: Date.now(),
+    };
+
+    return impresorasUnicas;
   } catch (error: unknown) {
     console.error("Error al obtener impresoras de Windows:", error);
-    return [];
+    return cacheImpresoras?.lista || [];
   }
 }
 
 /**
- * Obtiene el nombre de la impresora predeterminada en Windows.
+ * Obtiene el nombre de la impresora predeterminada en Windows de forma invisible.
  */
 async function obtenerImpresoraPredeterminada(): Promise<string | null> {
   if (process.platform !== "win32") return null;
@@ -61,14 +90,20 @@ async function obtenerImpresoraPredeterminada(): Promise<string | null> {
       (Get-CimInstance Win32_Printer -ErrorAction SilentlyContinue | Where-Object { $_.Default -eq $true } | Select-Object -ExpandProperty Name)
     `;
 
-    const { stdout } = await execFileAsync("powershell.exe", [
-      "-NoProfile",
-      "-NonInteractive",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-Command",
-      comando,
-    ]);
+    const { stdout } = await execFileAsync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        comando,
+      ],
+      NODE_EXEC_OPTIONS
+    );
 
     const nombre = stdout.trim();
     return nombre.length > 0 ? nombre : null;
@@ -221,14 +256,20 @@ if ($res) {
 }
 `;
 
-    const { stdout } = await execFileAsync("powershell.exe", [
-      "-NoProfile",
-      "-NonInteractive",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-Command",
-      scriptPowerShell,
-    ]);
+    const { stdout } = await execFileAsync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        scriptPowerShell,
+      ],
+      NODE_EXEC_OPTIONS
+    );
 
     if (stdout.includes("OK")) {
       return {

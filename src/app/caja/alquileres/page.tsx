@@ -1209,16 +1209,16 @@ export default function TerminalAlquileresPage() {
   }, [pestanaHistorial, activas, enMora, porCobrar, cerradas, filtroTextoHistorial]);
 
   return (
-    <div className="w-screen h-screen overflow-hidden flex flex-col bg-[#F3F6F9] select-none text-slate-800 antialiased font-sans">
+    <div className="h-screen w-screen max-w-full max-h-screen overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none antialiased font-sans">
       {/* ========================================================================= */}
       {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA HOMOLOGADO (h-14 shrink-0)          */}
       {/* ========================================================================= */}
-      <header className="h-14 shrink-0 px-4 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2">
+      <header className="h-14 shrink-0 px-3 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2 flex-nowrap overflow-hidden">
         {/* Izquierda: Botón Regresar, Logo Oficial, Badge de Terminal */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Link
             href="/"
-            className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-bold shadow-2xs flex items-center gap-1.5 transition shrink-0"
+            className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-bold shadow-2xs flex items-center gap-1.5 transition shrink-0 cursor-pointer"
             title="Volver al panel principal"
           >
             <ArrowLeft className="w-4 h-4 text-slate-700" />
@@ -1374,13 +1374,13 @@ export default function TerminalAlquileresPage() {
       {/* 2. BARRA DE PASOS LINEAL COMPACTA HOMOLOGADA (h-11 shrink-0)               */}
       {/* ========================================================================= */}
       {vistaPrincipal === "NUEVO_ALQUILER" && (
-        <div className="h-11 shrink-0 bg-slate-50 border-b border-slate-200 px-4 flex items-center justify-between z-20">
-          <div className="flex items-center gap-1.5">
+        <div className="h-11 shrink-0 w-full bg-slate-50 border-b border-slate-200 px-4 flex items-center justify-between z-20">
+          <div className="grid grid-cols-4 gap-2 w-full max-w-4xl mx-auto">
             {/* Paso 1 */}
             <button
               type="button"
               onClick={() => setPasoActual(1)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate ${
                 pasoActual === 1
                   ? "bg-emerald-600 text-white shadow-xs"
                   : clienteSeleccionado
@@ -1388,19 +1388,17 @@ export default function TerminalAlquileresPage() {
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <User className="w-3.5 h-3.5" />
-              <span>1. Cliente</span>
-              {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+              <User className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">1. Cliente</span>
+              {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
             </button>
-
-            <ArrowRight className="w-3 h-3 text-slate-400" />
 
             {/* Paso 2 */}
             <button
               type="button"
               disabled={!clienteSeleccionado}
               onClick={() => setPasoActual(2)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
                 pasoActual === 2
                   ? "bg-emerald-600 text-white shadow-xs"
                   : itemsCarrito.length > 0
@@ -1408,49 +1406,40 @@ export default function TerminalAlquileresPage() {
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              <span>2. Prendas y Fechas ({itemsCarrito.length})</span>
-              {itemsCarrito.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+              <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">2. Prendas ({itemsCarrito.length})</span>
+              {itemsCarrito.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
             </button>
-
-            <ArrowRight className="w-3 h-3 text-slate-400" />
 
             {/* Paso 3 */}
             <button
               type="button"
               disabled={itemsCarrito.length === 0}
               onClick={() => setPasoActual(3)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
                 pasoActual === 3
                   ? "bg-emerald-600 text-white shadow-xs"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <DollarSign className="w-3.5 h-3.5" />
-              <span>3. Cobro, Depósito y Caja</span>
+              <DollarSign className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">3. Cobro y Depósito</span>
             </button>
-
-            <ArrowRight className="w-3 h-3 text-slate-400" />
 
             {/* Paso 4 */}
             <button
               type="button"
               disabled={!datosImpresion && !facturaImpresionId}
               onClick={() => (datosImpresion || facturaImpresionId) && setPasoActual(4)}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
                 pasoActual === 4
                   ? "bg-emerald-600 text-white shadow-xs"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>4. Impresión y Comprobante</span>
+              <Printer className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">4. Comprobante</span>
             </button>
-          </div>
-
-          <div className="hidden md:flex items-center gap-2 text-xs text-slate-500">
-            <span>Cliente activo:</span>
-            <strong className="text-slate-800">{clienteSeleccionado?.nombre || "Sin seleccionar"}</strong>
           </div>
         </div>
       )}
@@ -1834,908 +1823,14 @@ export default function TerminalAlquileresPage() {
           </div>
         ) : (
           /* ========================================================================= */
-          /* VISTA A: FLUJO LINEAL DE NUEVO ALQUILER (4 PASOS)                        */
+          /* VISTA A: FLUJO LINEAL DE NUEVO ALQUILER (4 PASOS HOMOLOGADOS)            */
           /* ========================================================================= */
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* PASO 1: SELECCIÓN / CREACIÓN DE CLIENTE */}
-            {pasoActual === 1 && (
-              <div className="flex-1 flex flex-col p-4 sm:p-6 max-w-4xl mx-auto w-full overflow-y-auto">
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-100">
-                    <div>
-                      <span className="text-xs font-bold text-blue-600 uppercase tracking-wider block">
-                        Paso 1 de 4
-                      </span>
-                      <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                        <User className="w-5 h-5 text-blue-600" />
-                        Selección del Cliente Arrendatario
-                      </h2>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Para el contrato de alquiler es indispensable contar con el Teléfono Primario obligatorio y el Teléfono Secundario opcional.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          cargarApartadosActivos();
-                          setModalCargarApartadoAbierto(true);
-                        }}
-                        className="px-3.5 py-2 rounded-xl bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all"
-                        title="Buscar clientes que ya tienen prendas apartadas"
-                      >
-                        <CalendarClock className="w-4 h-4 text-indigo-600" />
-                        <span>Cargar desde Apartado / Reserva</span>
-                      </button>
-
-                      <button
-                        onClick={() => setModalCrearClienteAbierto(true)}
-                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        <span>+ Crear Nuevo Cliente</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Buscador de clientes */}
-                  <div className="mt-4 relative">
-                    <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar cliente por nombre, cédula, teléfono primario o secundario..."
-                      value={busquedaCliente}
-                      onChange={(e) => setBusquedaCliente(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* Ficha del cliente seleccionado si existe */}
-                  {clienteSeleccionado && (
-                    <div className="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                          <span className="font-black text-sm text-slate-900">
-                            {clienteSeleccionado.nombre}
-                          </span>
-                          <span className="text-xs font-bold text-slate-500">
-                            (Doc: {clienteSeleccionado.documento})
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 mt-1 text-xs">
-                          <span className="font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200">
-                            Tel Primario *: {clienteSeleccionado.telefono}
-                          </span>
-                          {clienteSeleccionado.telefonoSecundario ? (
-                            <span className="font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded border border-blue-200">
-                              Tel Secundario: {clienteSeleccionado.telefonoSecundario}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic">Sin teléfono secundario</span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setClienteSeleccionado(null)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 bg-white border border-slate-300 hover:bg-slate-100"
-                        >
-                          Cambiar
-                        </button>
-                        <button
-                          onClick={() => setPasoActual(2)}
-                          className="px-4 py-1.5 rounded-lg text-xs font-black text-white bg-blue-600 hover:bg-blue-700 shadow-sm flex items-center gap-1.5"
-                        >
-                          <span>Continuar al Paso 2</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Lista de clientes para seleccionar */}
-                  <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden max-h-72 overflow-y-auto divide-y divide-slate-100">
-                    {cargandoClientes ? (
-                      <div className="p-8 text-center text-xs text-slate-400">Cargando clientes...</div>
-                    ) : clientesFiltrados.length === 0 ? (
-                      <div className="p-8 text-center text-xs text-slate-400">
-                        No se encontraron clientes. Cree uno nuevo con el botón superior.
-                      </div>
-                    ) : (
-                      clientesFiltrados.map((cli) => {
-                        const esSeleccionado = clienteSeleccionado?.id === cli.id;
-                        return (
-                          <div
-                            key={cli.id}
-                            onClick={() => {
-                              setClienteSeleccionado(cli);
-                              setPasoActual(2);
-                            }}
-                            className={`p-3 flex items-center justify-between cursor-pointer hover:bg-blue-50/70 transition-all ${
-                              esSeleccionado ? "bg-blue-50 border-l-4 border-blue-600" : ""
-                            }`}
-                          >
-                            <div>
-                              <span className="font-bold text-xs text-slate-900 block">
-                                {cli.nombre}
-                              </span>
-                              <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
-                                <span>CC/NIT: {cli.documento}</span>
-                                <span className="font-semibold text-slate-700">| Tel: {cli.telefono}</span>
-                                {cli.telefonoSecundario && (
-                                  <span className="font-semibold text-blue-700 bg-blue-50 px-1 rounded">
-                                    2°: {cli.telefonoSecundario}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              className={`px-3 py-1 rounded-lg text-xs font-bold ${
-                                esSeleccionado
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-700"
-                              }`}
-                            >
-                              {esSeleccionado ? "Seleccionado" : "Elegir"}
-                            </button>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PASO 2: PRENDAS DE ALQUILER Y FECHAS DE SALIDA Y LLEGADA */}
-            {pasoActual === 2 && (
-              <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                {/* Panel Izquierdo: Catálogo exclusivo de alquiler */}
-                <div className="flex-1 flex flex-col border-r border-slate-200 bg-white overflow-hidden">
-                  <div className="p-4 border-b border-slate-200 shrink-0">
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <div>
-                        <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">
-                          Paso 2 de 4
-                        </span>
-                        <h2 className="text-sm font-black text-slate-900">
-                          Catálogo de Prendas para Alquiler
-                        </h2>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            cargarApartadosActivos();
-                            setModalCargarApartadoAbierto(true);
-                          }}
-                          className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs flex items-center gap-1 shadow-2xs transition-all"
-                          title="Cargar productos desde una reserva o apartado"
-                        >
-                          <CalendarClock className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Tomar de Apartados</span>
-                        </button>
-
-                        <button
-                          onClick={() => setModalCrearPrendaAbierto(true)}
-                          className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>+ Nueva Prenda</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Banner de Apartado de Origen si existe */}
-                    {apartadoOrigen && (
-                      <div className="mb-3 p-3 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <CalendarClock className="w-5 h-5 text-indigo-600 shrink-0" />
-                          <div>
-                            <span className="font-black text-indigo-950">Prendas cargadas desde Apartado N° {apartadoOrigen.numeroFactura}</span>
-                            <div className="text-[11px] text-indigo-800 flex items-center gap-2 mt-0.5">
-                              <span>Abono pagado: <strong className="text-emerald-800 font-mono">${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}</strong></span>
-                              <span>•</span>
-                              <span>Saldo restante: <strong className="text-indigo-950 font-mono">${apartadoOrigen.saldoPendiente.toLocaleString("es-CO")}</strong></span>
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setApartadoOrigen(null)}
-                          className="px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-700 font-bold text-[11px] hover:bg-rose-50"
-                        >
-                          Desvincular
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Buscador y categorías */}
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="Buscar prenda por nombre, código, color o talla..."
-                          value={busquedaPrenda}
-                          onChange={(e) => setBusquedaPrenda(e.target.value)}
-                          className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Chips de categorías */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto mt-2.5 pb-1">
-                      {categoriasDisponibles.map((cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => setCategoriaSeleccionada(cat)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
-                            categoriaSeleccionada === cat
-                              ? "bg-amber-500 text-white shadow-sm"
-                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Grilla de prendas */}
-                  <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {cargandoPrendas ? (
-                      <div className="col-span-full p-8 text-center text-xs text-slate-400">
-                        Cargando inventario de alquiler...
-                      </div>
-                    ) : prendasFiltradas.length === 0 ? (
-                      <div className="col-span-full p-8 text-center text-xs text-slate-400">
-                        No hay prendas de alquiler con este filtro. Puede crear una con el botón superior.
-                      </div>
-                    ) : (
-                      prendasFiltradas.map((prenda) => {
-                        const precio = prenda.precioAlquilerBase || prenda.precioVenta || 0;
-                        const estaDisponible = prenda.estado === "DISPONIBLE" || prenda.stockActual > 0;
-
-                        return (
-                          <div
-                            key={prenda.id}
-                            onClick={() => agregarPrendaAlCarrito(prenda)}
-                            className="bg-white rounded-xl border border-slate-200 p-3 hover:border-amber-400 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between group"
-                          >
-                            <div>
-                              <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                                <span className="font-mono bg-slate-100 px-1 rounded">
-                                  {prenda.codigo}
-                                </span>
-                                <span className={`px-1.5 py-0.2 rounded font-black ${
-                                  estaDisponible
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : "bg-amber-100 text-amber-800"
-                                }`}>
-                                  {prenda.estado || (estaDisponible ? "DISPONIBLE" : "ALQUILADO")}
-                                </span>
-                              </div>
-                              <h3 className="font-bold text-xs text-slate-900 group-hover:text-amber-600 transition-colors line-clamp-2">
-                                {prenda.nombre}
-                              </h3>
-                              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1">
-                                {prenda.talla && (
-                                  <span className="bg-slate-100 px-1 rounded">
-                                    Talla: {prenda.talla}
-                                  </span>
-                                )}
-                                {prenda.color && (
-                                  <span className="bg-slate-100 px-1 rounded">
-                                    Color: {prenda.color}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                              <span className="font-black text-sm text-slate-900">
-                                ${precio.toLocaleString("es-CO")}
-                              </span>
-                              <span className="w-6 h-6 rounded-lg bg-amber-50 group-hover:bg-amber-500 group-hover:text-white text-amber-700 flex items-center justify-center font-bold text-xs transition-all">
-                                +
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                {/* Panel Derecho: Carrito de Alquiler y Fechas */}
-                <div className="w-full lg:w-96 flex flex-col bg-slate-50 border-t lg:border-t-0 border-slate-200 shrink-0">
-                  <div className="p-4 border-b border-slate-200 bg-white">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Fechas del Contrato
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
-                          Fecha Salida *
-                        </label>
-                        <input
-                          type="date"
-                          value={fechaSalida}
-                          onChange={(e) => setFechaSalida(e.target.value)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
-                          Llegada / Devolución *
-                        </label>
-                        <input
-                          type="datetime-local"
-                          value={fechaDevolucion}
-                          onChange={(e) => setFechaDevolucion(e.target.value)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 font-semibold text-slate-800"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Lista de Prendas en el Contrato */}
-                  <div className="flex-1 overflow-y-auto p-3 divide-y divide-slate-200/60">
-                    <div className="flex items-center justify-between pb-2">
-                      <span className="text-xs font-bold text-slate-700">
-                        Prendas en el Contrato ({itemsCarrito.length})
-                      </span>
-                      {itemsCarrito.length > 0 && (
-                        <button
-                          onClick={() => setItemsCarrito([])}
-                          className="text-[11px] text-rose-600 font-bold hover:underline"
-                        >
-                          Vaciar
-                        </button>
-                      )}
-                    </div>
-
-                    {itemsCarrito.length === 0 ? (
-                      <div className="p-8 text-center text-xs text-slate-400">
-                        Haga clic en las prendas del catálogo para agregarlas al alquiler.
-                      </div>
-                    ) : (
-                      itemsCarrito.map((item) => (
-                        <div key={item.idTemporal} className="py-2.5 flex items-center justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <span className="font-bold text-xs text-slate-900 block truncate">
-                              {item.nombre}
-                            </span>
-                            <span className="text-[10px] text-slate-500">
-                              {item.codigo} {item.talla ? `| Talla: ${item.talla}` : ""}
-                            </span>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <span className="text-[10px] text-slate-400">Precio:</span>
-                              <input
-                                type="number"
-                                value={item.precioUnitario}
-                                onChange={(e) => modificarPrecioItem(item.idTemporal, parseFloat(e.target.value) || 0)}
-                                className="w-20 px-1 py-0.5 text-[11px] font-bold border border-slate-200 rounded text-right bg-white"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => modificarCantidadItem(item.idTemporal, -1)}
-                              className="w-6 h-6 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-black text-xs flex items-center justify-center"
-                            >
-                              -
-                            </button>
-                            <span className="text-xs font-bold w-5 text-center">
-                              {item.cantidad}
-                            </span>
-                            <button
-                              onClick={() => modificarCantidadItem(item.idTemporal, 1)}
-                              className="w-6 h-6 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-black text-xs flex items-center justify-center"
-                            >
-                              +
-                            </button>
-                            <button
-                              onClick={() => removerItemCarrito(item.idTemporal)}
-                              className="p-1 rounded text-rose-500 hover:bg-rose-50"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Resumen y Botón Continuar */}
-                  <div className="p-4 bg-white border-t border-slate-200 shrink-0">
-                    <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-                      <span>Subtotal Alquiler:</span>
-                      <span className="font-bold text-slate-900">
-                        ${subtotalPrendas.toLocaleString("es-CO")}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-100 mb-3">
-                      <span>Total Alquiler:</span>
-                      <span className="text-base text-amber-600">
-                        ${subtotalPrendas.toLocaleString("es-CO")}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setPasoActual(1)}
-                        className="px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 flex items-center justify-center gap-1"
-                      >
-                        <ArrowLeft className="w-4 h-4" />
-                        <span>Atrás</span>
-                      </button>
-
-                      <button
-                        disabled={itemsCarrito.length === 0}
-                        onClick={() => setPasoActual(3)}
-                        className={`px-3 py-2 rounded-xl text-xs font-black text-white flex items-center justify-center gap-1 shadow-sm transition-all ${
-                          itemsCarrito.length > 0
-                            ? "bg-amber-500 hover:bg-amber-600"
-                            : "bg-slate-300 cursor-not-allowed"
-                        }`}
-                      >
-                        <span>Ir al Cobro</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PASO 3: COBRO Y CONDICIONES DEL ALQUILER (BLOQUE 1: DEPÓSITO EFECTIVO + BLOQUE 2: CANON) */}
-            {pasoActual === 3 && (
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-5xl mx-auto w-full">
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                  {/* Encabezado del Paso 3 */}
-                  <div className="pb-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <span className="text-xs font-bold text-amber-600 uppercase tracking-wider block">
-                        Paso 3 de 4 — Liquidación y Condiciones
-                      </span>
-                      <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                        <Banknote className="w-5 h-5 text-amber-600" />
-                        Cobro y Liquidación de Contrato de Alquiler
-                      </h2>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        El depósito de respaldo debe cobrarse obligatoriamente en efectivo físico para custodia en gaveta.
-                      </p>
-                    </div>
-
-                    <div className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 flex items-center gap-2">
-                      <User className="w-4 h-4 text-slate-500" />
-                      <span>{clienteSeleccionado?.nombre}</span>
-                      <span className="text-slate-400">|</span>
-                      <span>Tel: {clienteSeleccionado?.telefono}</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                    {/* ========================================================================= */}
-                    {/* BLOQUE 1: COBRO OBLIGATORIO DE ABONO / DEPÓSITO DE RESPALDO (EFECTIVO)   */}
-                    {/* ========================================================================= */}
-                    <div className="p-5 rounded-2xl bg-amber-50/70 border-2 border-amber-300 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <ShieldCheck className="w-5 h-5 text-amber-700" />
-                            <h3 className="text-xs font-black text-amber-950 uppercase tracking-wider">
-                              BLOQUE 1 — Depósito / Abono de Respaldo
-                            </h3>
-                          </div>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900 border border-amber-300">
-                            OBLIGATORIO EN EFECTIVO
-                          </span>
-                        </div>
-
-                        <p className="text-[11px] text-amber-900/90 leading-relaxed mb-4">
-                          Custodia en efectivo para respaldo contra pérdida, manchas o deterioro de prendas. Se emite como <strong className="font-black text-amber-950">cobro separado</strong> y se reintegra al devolver las prendas en óptimas condiciones.
-                        </p>
-
-                        {/* Montos sugeridos de depósito */}
-                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                          Monto de Depósito Establecido en Documento:
-                        </label>
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {DEPOSITOS_SUGERIDOS.map((sug) => (
-                            <button
-                              key={sug}
-                              type="button"
-                              onClick={() => {
-                                setMontoDeposito(sug);
-                                setMontoDepositoPersonalizado(String(sug));
-                              }}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                                montoDeposito === sug
-                                  ? "bg-amber-600 text-white shadow-sm"
-                                  : "bg-white text-slate-700 border border-amber-200 hover:bg-amber-100"
-                              }`}
-                            >
-                              ${sug.toLocaleString("es-CO")}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                          <div>
-                            <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                              Monto Acordado ($)
-                            </label>
-                            <input
-                              type="number"
-                              value={montoDepositoPersonalizado}
-                              onChange={(e) => {
-                                const valStr = e.target.value;
-                                setMontoDepositoPersonalizado(valStr);
-                                const num = parseFloat(valStr) || 0;
-                                setMontoDeposito(num);
-                              }}
-                              className="w-full px-3 py-2 text-sm font-black bg-white border border-amber-400 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                              Método de Custodia
-                            </label>
-                            <div className="px-3 py-2 rounded-xl bg-amber-100/80 border border-amber-300 text-xs font-black text-amber-950 flex items-center gap-1.5">
-                              <Lock className="w-3.5 h-3.5 text-amber-700" />
-                              <span>EFECTIVO — En Gaveta</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="p-3 rounded-xl bg-amber-100/50 border border-amber-200 text-[11px] text-amber-950 leading-relaxed">
-                          <strong>Regla Contable:</strong> El depósito de ${montoDeposito.toLocaleString("es-CO")} figura en un apartado separado en el documento y <u>NO suma al valor de la operación de alquiler</u>. Se devuelve íntegramente al reintegrar las prendas sin averías.
-                        </div>
-                      </div>
-
-                      <div className="pt-3 border-t border-amber-200 text-xs font-bold text-amber-950 flex items-center justify-between">
-                        <span>Depósito Acordado:</span>
-                        <span className="font-mono text-sm text-emerald-800 font-black">
-                          ${montoDeposito.toLocaleString("es-CO")}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* ========================================================================= */}
-                    {/* BLOQUE 2: VALOR DEL CANON DE ALQUILER Y SALDO                            */}
-                    {/* ========================================================================= */}
-                    <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Receipt className="w-5 h-5 text-blue-600" />
-                            <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                              BLOQUE 2 — Liquidación del Canon de Alquiler
-                            </h3>
-                          </div>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-200">
-                            TOTAL OPERACIÓN: ${subtotalPrendas.toLocaleString("es-CO")}
-                          </span>
-                        </div>
-
-                        {/* Banner de Apartado Origen si existe */}
-                        {apartadoOrigen && (
-                          <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200 text-xs mb-3 text-indigo-950">
-                            <div className="flex items-center justify-between font-black">
-                              <span className="flex items-center gap-1.5">
-                                <CalendarClock className="w-4 h-4 text-indigo-700" />
-                                Apartado N° {apartadoOrigen.numeroFactura}
-                              </span>
-                              <span className="bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded text-[10px]">
-                                Abono Previo Reconocido
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-indigo-200/80 text-[11px]">
-                              <div>
-                                <span className="text-slate-500 block">Total Prendas:</span>
-                                <strong className="text-slate-900">${subtotalPrendas.toLocaleString("es-CO")}</strong>
-                              </div>
-                              <div>
-                                <span className="text-emerald-700 block">Abono Ya Pagado:</span>
-                                <strong className="text-emerald-800 font-mono">-${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}</strong>
-                              </div>
-                              <div>
-                                <span className="text-indigo-700 block">Saldo Canon Hoy:</span>
-                                <strong className="text-indigo-950 font-mono">${saldoAlquilerPendienteBase.toLocaleString("es-CO")}</strong>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        <p className="text-[11px] text-slate-500 mb-3">
-                          Total correspondiente a las {itemsCarrito.length} prendas seleccionadas. Puede cobrarse completo de contado, con abono inicial o dejarse pendiente.
-                        </p>
-
-                        {/* Modalidad de Pago del Canon */}
-                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                          Modalidad de Cobro del Alquiler Hoy:
-                        </label>
-                        <div className="grid grid-cols-3 gap-2 mb-3">
-                          <button
-                            type="button"
-                            onClick={() => setModalidadPago("COMPLETO")}
-                            className={`p-2.5 rounded-xl border text-center transition-all ${
-                              modalidadPago === "COMPLETO"
-                                ? "bg-blue-600 text-white border-blue-700 shadow-sm"
-                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                            }`}
-                          >
-                            <span className="font-black text-xs block">100% Contado</span>
-                            <span className="text-[10px] opacity-90">${saldoAlquilerPendienteBase.toLocaleString("es-CO")}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setModalidadPago("ADELANTO");
-                              if (!montoAbonoManual) {
-                                const sugerido = Math.round(subtotalPrendas / 2);
-                                setMontoAbonoManual(String(sugerido));
-                              }
-                            }}
-                            className={`p-2.5 rounded-xl border text-center transition-all ${
-                              modalidadPago === "ADELANTO"
-                                ? "bg-blue-600 text-white border-blue-700 shadow-sm"
-                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                            }`}
-                          >
-                            <span className="font-black text-xs block">Abono Inicial</span>
-                            <span className="text-[10px] opacity-90">Anticipo</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setModalidadPago("PENDIENTE");
-                            }}
-                            className={`p-2.5 rounded-xl border text-center transition-all ${
-                              modalidadPago === "PENDIENTE"
-                                ? "bg-blue-600 text-white border-blue-700 shadow-sm"
-                                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                            }`}
-                          >
-                            <span className="font-black text-xs block">Pendiente</span>
-                            <span className="text-[10px] opacity-90">$0 Hoy</span>
-                          </button>
-                        </div>
-
-                        {/* Campo para Abono Parcial */}
-                        {modalidadPago === "ADELANTO" && (
-                          <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 mb-3">
-                            <label className="text-[11px] font-bold text-blue-900 block mb-1">
-                              Monto de Abono al Alquiler Hoy ($):
-                            </label>
-                            <input
-                              type="number"
-                              value={montoAbonoManual}
-                              onChange={(e) => setMontoAbonoManual(e.target.value)}
-                              className="w-full px-3 py-1.5 text-sm font-black bg-white border border-blue-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Ej: 30000"
-                            />
-                            <div className="flex justify-between items-center text-[11px] text-blue-900 mt-1.5 font-bold">
-                              <span>Abona hoy: ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}</span>
-                              <span>Resta por cobrar: ${saldoFaltanteAlquiler.toLocaleString("es-CO")}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Notas del contrato */}
-                        <div>
-                          <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                            Notas u Observaciones del Alquiler (Opcional):
-                          </label>
-                          <textarea
-                            rows={2}
-                            value={notasAlquiler}
-                            onChange={(e) => setNotasAlquiler(e.target.value)}
-                            placeholder="Ej: Evento el fin de semana. Ajuste de bastilla acordado."
-                            className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Resumen de Canon */}
-                      <div className="pt-3 border-t border-slate-200 mt-3 flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-600">Saldo Pendiente del Alquiler (Posterior):</span>
-                        <span className={`font-black ${saldoFaltanteAlquiler > 0 ? "text-amber-700" : "text-emerald-700"}`}>
-                          ${saldoFaltanteAlquiler.toLocaleString("es-CO")}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ========================================================================= */}
-                  {/* SECCIÓN C: CUADRE DE EFECTIVO Y VUELTAS / CAMBIO FINAL (DONDE SÍ SUMAN)   */}
-                  {/* ========================================================================= */}
-                  <div className="mt-6 p-5 rounded-2xl bg-emerald-50/70 border-2 border-emerald-300 text-slate-800 shadow-2xs">
-                    <div className="flex items-center justify-between border-b border-emerald-200 pb-3 mb-4">
-                      <div>
-                        <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
-                          SECCIÓN C — CUADRE DE CAJA Y VUELTAS
-                        </span>
-                        <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                          <Banknote className="w-4 h-4 text-emerald-600" />
-                          Cobro Total de Efectivo y Cálculo de Vueltas Final
-                        </h3>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-500 block uppercase font-bold">Total Exigido Hoy en Caja</span>
-                        <span className="text-xl font-black text-emerald-700 font-mono">
-                          ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                      {/* Desglose de Cobro */}
-                      <div className="p-3 rounded-xl bg-white border border-emerald-200 text-xs space-y-1.5 shadow-2xs">
-                        {apartadoOrigen && (
-                          <div className="flex justify-between text-indigo-700">
-                            <span>(-) Abono Previo Apartado:</span>
-                            <span className="font-mono font-bold text-emerald-700">
-                              -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex justify-between text-slate-600">
-                          <span>Abono/Pago Alquiler Hoy:</span>
-                          <span className="font-mono font-bold text-blue-700">
-                            ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-slate-600">
-                          <span>(+) Depósito de Respaldo:</span>
-                          <span className="font-mono font-bold text-amber-800">
-                            ${montoDeposito.toLocaleString("es-CO")}
-                          </span>
-                        </div>
-                        <div className="flex justify-between font-black pt-1 border-t border-slate-200 text-slate-900 text-sm">
-                          <span>(=) TOTAL A COBRAR HOY:</span>
-                          <span className="font-mono text-emerald-700">
-                            ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Campo de Efectivo Recibido del Cliente */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                          <label>Efectivo Recibido del Cliente ($):</label>
-                          <button
-                            type="button"
-                            onClick={() => setEfectivoRecibidoCliente(String(totalExigidoHoyEnCaja))}
-                            className="text-[10px] text-emerald-700 hover:underline font-bold"
-                          >
-                            Monto Exacto (${totalExigidoHoyEnCaja.toLocaleString("es-CO")})
-                          </button>
-                        </div>
-                        <input
-                          type="number"
-                          value={efectivoRecibidoCliente}
-                          onChange={(e) => setEfectivoRecibidoCliente(e.target.value)}
-                          placeholder={String(totalExigidoHoyEnCaja)}
-                          className="w-full px-3 py-2 text-base font-black bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
-                        />
-                        <div className="flex gap-1.5 pt-0.5">
-                          {BILLETES_COLOMBIANOS.map((den) => (
-                            <button
-                              key={den}
-                              type="button"
-                              onClick={() => setEfectivoRecibidoCliente(String(den))}
-                              className="flex-1 py-1 px-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-[10px] font-bold transition-all text-center shadow-2xs"
-                            >
-                              ${(den / 1000).toFixed(0)}k
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Vueltas / Cambio Final */}
-                      <div className="p-3 rounded-xl bg-white border border-emerald-200 text-center flex flex-col justify-center shadow-2xs">
-                        <span className="text-[10px] font-bold uppercase text-slate-500 block mb-0.5">
-                          Vueltas / Cambio Final a Entregar
-                        </span>
-                        <span className="text-2xl font-black text-emerald-700 font-mono">
-                          ${vueltasCambioFinal.toLocaleString("es-CO")}
-                        </span>
-                        <span className="text-[10px] text-slate-500 mt-0.5 font-medium">
-                          {efectivoRecibidoNum >= totalExigidoHoyEnCaja
-                            ? `Dinero recibido: $${efectivoRecibidoNum.toLocaleString("es-CO")}`
-                            : `Faltan $${(totalExigidoHoyEnCaja - efectivoRecibidoNum).toLocaleString("es-CO")}`}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Checkbox de Confirmación en Efectivo */}
-                    <div className="mt-4 pt-3 border-t border-emerald-200 flex items-center justify-between flex-wrap gap-2">
-                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={abonoEfectivoConfirmado}
-                          onChange={(e) => setAbonoEfectivoConfirmado(e.target.checked)}
-                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300"
-                        />
-                        <span className="text-xs font-bold text-slate-700">
-                          Confirmo haber recibido en <span className="underline text-emerald-800 font-black">EFECTIVO</span> la suma de ${efectivoRecibidoNum.toLocaleString("es-CO")} en gaveta y entregar ${vueltasCambioFinal.toLocaleString("es-CO")} de cambio final.
-                        </span>
-                      </label>
-
-                      {efectivoRecibidoNum < totalExigidoHoyEnCaja && (
-                        <span className="text-xs font-black text-rose-600">
-                          Efectivo insuficiente para cubrir el total a cobrar hoy.
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ========================================================================= */}
-                  {/* BLOQUEO DE SEGURIDAD Y AVISO DEFENSIVO                                    */}
-                  {/* ========================================================================= */}
-                  {!puedeExpedirAlquiler && (
-                    <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-300 flex items-center gap-2 text-xs font-bold text-amber-900">
-                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>
-                        Para generar el comprobante de alquiler, primero debe confirmarse el cobro en EFECTIVO del abono/depósito establecido en el documento.
-                      </span>
-                    </div>
-                  )}
-
-                  {/* ========================================================================= */}
-                  {/* BOTONES DE FINALIZACIÓN Y EXPEDICIÓN DIRECTA                              */}
-                  {/* ========================================================================= */}
-                  <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setPasoActual(2)}
-                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 flex items-center gap-1.5 transition-all shadow-2xs"
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                      <span>Volver al Catálogo de Prendas</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={guardandoAlquiler || !puedeExpedirAlquiler}
-                      onClick={registrarNuevoAlquiler}
-                      className="px-6 py-3 rounded-xl text-sm font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-md flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.99]"
-                    >
-                      {guardandoAlquiler ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Guardando y Generando Comprobante...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Receipt className="w-4 h-4" />
-                          <span>Confirmar Cobro y Generar Comprobante de Alquiler</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PASO 4: VISTA PREVIA, IMPRESIÓN Y EXPORTACIÓN PDF */}
-            {pasoActual === 4 && (
-              <div className="flex-1 flex flex-col overflow-hidden p-3 sm:p-6 max-w-5xl mx-auto w-full">
-                <div className="bg-emerald-50 rounded-2xl border border-emerald-200 shadow-2xs p-4 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 text-slate-900">
+          <div className="flex-1 min-h-0 overflow-hidden p-3 flex flex-col">
+            {/* PASO 4: VISOR DOCUMENTAL A 12 COLUMNAS */}
+            {pasoActual === 4 ? (
+              <div className="h-full min-h-0 min-w-0 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden p-3 shadow-2xs">
+                {/* Cabecera Fija Éxito, Retroceso Seguro y Cierre Definitivo (shrink-0) */}
+                <div className="bg-emerald-50 rounded-2xl border border-emerald-200 shadow-2xs p-3.5 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 text-slate-900">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">
@@ -2747,8 +1842,8 @@ export default function TerminalAlquileresPage() {
                         </span>
                       )}
                     </div>
-                    <h2 className="text-base font-black text-slate-900 flex items-center gap-2 mt-0.5">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    <h2 className="text-sm md:text-base font-black text-slate-900 flex items-center gap-2 mt-0.5">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                       Comprobante / Contrato de Alquiler {datosImpresion?.factura?.numeroFactura ? `N° ${datosImpresion.factura.numeroFactura}` : ""}
                     </h2>
                     <p className="text-xs text-slate-600">
@@ -2806,6 +1901,846 @@ export default function TerminalAlquileresPage() {
                       </button>
                     </div>
                   )}
+                </div>
+              </div>
+            ) : (
+              /* PASOS 1, 2 Y 3: ARQUITECTURA DE CELDAS AISLADAS (8 COLUMNAS IZQ + 4 COLUMNAS DER) */
+              <div className="h-full min-h-0 min-w-0 w-full grid grid-cols-12 gap-3 overflow-hidden">
+                {/* ======================================================================= */}
+                {/* PANEL IZQUIERDO DE TRABAJO (col-span-12 lg:col-span-8)                  */}
+                {/* ======================================================================= */}
+                <div className="col-span-12 lg:col-span-8 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+                  {/* --- SUB-VISTA PASO 1: DIRECTORIO DE CLIENTES --- */}
+                  {pasoActual === 1 && (
+                    <>
+                      {/* Cabecera Fija Paso 1 (shrink-0) */}
+                      <div className="shrink-0 p-3 border-b border-slate-100 bg-white space-y-2.5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                              <User className="w-4 h-4 text-emerald-600" />
+                              Paso 1: Selección del Cliente Arrendatario
+                            </h2>
+                            <p className="text-xs text-slate-500">
+                              Selecciona un cliente o crea uno nuevo con su teléfono primario para el contrato
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                cargarApartadosActivos();
+                                setModalCargarApartadoAbierto(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition shadow-2xs cursor-pointer"
+                              title="Buscar clientes que ya tienen prendas apartadas"
+                            >
+                              <CalendarClock className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>De Apartado</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setModalCrearClienteAbierto(true)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" />
+                              <span>+ Nuevo Cliente</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Buscador Difuso */}
+                        <div className="relative">
+                          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Buscar cliente por nombre, cédula, teléfono..."
+                            value={busquedaCliente}
+                            onChange={(e) => setBusquedaCliente(e.target.value)}
+                            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Rejilla de Ficheros de Clientes con Scroll Interno Propio */}
+                      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3">
+                        {cargandoClientes ? (
+                          <div className="p-8 text-center text-xs text-slate-400">
+                            Cargando directorio de clientes...
+                          </div>
+                        ) : clientesFiltrados.length === 0 ? (
+                          <div className="p-8 text-center text-xs text-slate-400">
+                            No se encontraron clientes. Cree uno nuevo con el botón superior.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
+                            {clientesFiltrados.map((cli) => {
+                              const esSeleccionado = clienteSeleccionado?.id === cli.id;
+                              return (
+                                <div
+                                  key={cli.id}
+                                  onClick={() => {
+                                    setClienteSeleccionado(cli);
+                                    setPasoActual(2);
+                                  }}
+                                  className={`relative flex flex-col justify-between p-3 rounded-xl border cursor-pointer transition-colors min-w-0 overflow-hidden ${
+                                    esSeleccionado
+                                      ? "bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-500/20"
+                                      : "border-slate-200 bg-white hover:border-emerald-400"
+                                  }`}
+                                >
+                                  <div className="min-w-0">
+                                    <div className="flex items-center justify-between gap-1 mb-1">
+                                      <span className="font-mono text-[10.5px] text-slate-500 uppercase truncate">
+                                        {cli.tipoIdentificacion || "CC"}: {cli.documento}
+                                      </span>
+                                      {esSeleccionado && (
+                                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-emerald-600 text-white shrink-0">
+                                          Listo
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h3 className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                                      {cli.nombre}
+                                    </h3>
+                                    <div className="mt-1 space-y-0.5 text-[11px] text-slate-600">
+                                      <div className="flex items-center gap-1 font-mono">
+                                        <PhoneCall className="w-3 h-3 text-emerald-600 shrink-0" />
+                                        <span className="truncate">{cli.telefono}</span>
+                                      </div>
+                                      {cli.telefonoSecundario && (
+                                        <div className="flex items-center gap-1 font-mono text-blue-700">
+                                          <span className="text-[10px] font-bold">2°:</span>
+                                          <span className="truncate">{cli.telefonoSecundario}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+                                    <span className="text-[11px] font-bold text-slate-500">Arrendatario</span>
+                                    <button
+                                      type="button"
+                                      className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                        esSeleccionado
+                                          ? "bg-emerald-600 text-white"
+                                          : "bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+                                      }`}
+                                    >
+                                      {esSeleccionado ? "Elegido" : "Seleccionar"}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* --- SUB-VISTA PASO 2: CATÁLOGO DE PRENDAS PARA ALQUILER --- */}
+                  {pasoActual === 2 && (
+                    <>
+                      {/* Cabecera Fija Paso 2 (shrink-0) */}
+                      <div className="shrink-0 p-3 border-b border-slate-100 bg-white space-y-2.5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                              <ShoppingBag className="w-4 h-4 text-emerald-600" />
+                              Paso 2: Catálogo de Prendas para Alquiler
+                            </h2>
+                            <p className="text-xs text-slate-500">
+                              Agrega prendas al contrato y verifica las fechas de retiro y devolución en el panel derecho
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                cargarApartadosActivos();
+                                setModalCargarApartadoAbierto(true);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                              title="Cargar productos desde una reserva o apartado"
+                            >
+                              <CalendarClock className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>De Apartados</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setModalCrearPrendaAbierto(true)}
+                              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Nueva Prenda</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Banner de Apartado de Origen si existe */}
+                        {apartadoOrigen && (
+                          <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <CalendarClock className="w-4 h-4 text-indigo-600 shrink-0" />
+                              <div className="truncate">
+                                <span className="font-black text-indigo-950 truncate block">Prendas cargadas desde Apartado N° {apartadoOrigen.numeroFactura}</span>
+                                <div className="text-[11px] text-indigo-800 flex items-center gap-2 mt-0.5 font-mono">
+                                  <span>Abonado: <strong>${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}</strong></span>
+                                  <span>•</span>
+                                  <span>Saldo: <strong>${apartadoOrigen.saldoPendiente.toLocaleString("es-CO")}</strong></span>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setApartadoOrigen(null)}
+                              className="px-2 py-0.5 rounded-lg bg-white border border-rose-200 text-rose-700 font-bold text-[11px] hover:bg-rose-50 shrink-0 ml-2"
+                            >
+                              Desvincular
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Buscador de Catálogo */}
+                        <div className="relative">
+                          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Buscar prenda por nombre, código, color o talla..."
+                            value={busquedaPrenda}
+                            onChange={(e) => setBusquedaPrenda(e.target.value)}
+                            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
+
+                        {/* Chips de Categorías */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                          {categoriasDisponibles.map((cat) => (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => setCategoriaSeleccionada(cat)}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                                categoriaSeleccionada === cat
+                                  ? "bg-emerald-600 text-white shadow-xs"
+                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                              }`}
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Rejilla de Prendas con Scroll Interno Propio */}
+                      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3">
+                        {cargandoPrendas ? (
+                          <div className="p-8 text-center text-xs text-slate-400">
+                            Cargando inventario de alquiler...
+                          </div>
+                        ) : prendasFiltradas.length === 0 ? (
+                          <div className="p-8 text-center text-xs text-slate-400">
+                            No hay prendas de alquiler con este filtro. Puede crear una con el botón superior.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
+                            {prendasFiltradas.map((prenda) => {
+                              const precio = prenda.precioAlquilerBase || prenda.precioVenta || 0;
+                              const estaDisponible = prenda.estado === "DISPONIBLE" || prenda.stockActual > 0;
+
+                              return (
+                                <div
+                                  key={prenda.id}
+                                  onClick={() => agregarPrendaAlCarrito(prenda)}
+                                  className="relative flex flex-col justify-between p-3 rounded-xl border border-slate-200 bg-white hover:border-emerald-400 hover:shadow-xs transition-colors cursor-pointer min-w-0 overflow-hidden group"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                                      <span className="font-mono bg-slate-100 px-1 rounded truncate">
+                                        {prenda.codigo}
+                                      </span>
+                                      <span className={`px-1.5 py-0.2 rounded font-black shrink-0 ${
+                                        estaDisponible
+                                          ? "bg-emerald-100 text-emerald-800"
+                                          : "bg-amber-100 text-amber-800"
+                                      }`}>
+                                        {prenda.estado || (estaDisponible ? "DISPONIBLE" : "ALQUILADO")}
+                                      </span>
+                                    </div>
+                                    <h3 className="font-bold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors truncate">
+                                      {prenda.nombre}
+                                    </h3>
+                                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1">
+                                      {prenda.talla && (
+                                        <span className="bg-slate-100 px-1 rounded truncate">
+                                          Talla: {prenda.talla}
+                                        </span>
+                                      )}
+                                      {prenda.color && (
+                                        <span className="bg-slate-100 px-1 rounded truncate">
+                                          Color: {prenda.color}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                                    <span className="font-black text-sm text-slate-900 font-mono">
+                                      ${precio.toLocaleString("es-CO")}
+                                    </span>
+                                    <span className="w-6 h-6 rounded-lg bg-emerald-50 group-hover:bg-emerald-600 group-hover:text-white text-emerald-700 flex items-center justify-center font-bold text-xs transition-all">
+                                      +
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* --- SUB-VISTA PASO 3: LIQUIDACIÓN, DEPÓSITO Y CONDICIONES --- */}
+                  {pasoActual === 3 && (
+                    <>
+                      {/* Cabecera Fija Paso 3 (shrink-0) */}
+                      <div className="shrink-0 p-3 border-b border-slate-100 bg-white">
+                        <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                          <Banknote className="w-4 h-4 text-emerald-600" />
+                          Paso 3: Cobro, Depósito en Garantía y Liquidación
+                        </h2>
+                        <p className="text-xs text-slate-500">
+                          El depósito de respaldo debe cobrarse obligatoriamente en efectivo físico para custodia en gaveta.
+                        </p>
+                      </div>
+
+                      {/* Contenedor scrolleable con los 3 bloques */}
+                      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto p-3.5 space-y-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 items-start">
+                          {/* Columna Izquierda: Bloque 1 y Bloque 2 */}
+                          <div className="space-y-3.5">
+                            {/* BLOQUE 1: DEPÓSITO OBLIGATORIO DE RESPALDO (EFECTIVO) */}
+                            <div className="p-3.5 rounded-xl bg-amber-50/70 border-2 border-amber-300 flex flex-col justify-between">
+                              <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <ShieldCheck className="w-4 h-4 text-amber-700" />
+                                    <h3 className="text-xs font-black text-amber-950 uppercase tracking-wider">
+                                      BLOQUE 1 — Depósito / Respaldo
+                                    </h3>
+                                  </div>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900 border border-amber-300">
+                                    EFECTIVO GAVETA
+                                  </span>
+                                </div>
+
+                                <p className="text-[11px] text-amber-900/90 leading-relaxed mb-3">
+                                  Custodia en efectivo para respaldo contra pérdida o daños. Se reintegra al devolver las prendas en óptimas condiciones.
+                                </p>
+
+                                <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                                  Monto de Depósito Sugerido:
+                                </label>
+                                <div className="flex flex-wrap gap-1.5 mb-2.5">
+                                  {DEPOSITOS_SUGERIDOS.map((sug) => (
+                                    <button
+                                      key={sug}
+                                      type="button"
+                                      onClick={() => {
+                                        setMontoDeposito(sug);
+                                        setMontoDepositoPersonalizado(String(sug));
+                                      }}
+                                      className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                        montoDeposito === sug
+                                          ? "bg-amber-600 text-white shadow-xs"
+                                          : "bg-white text-slate-700 border border-amber-200 hover:bg-amber-100"
+                                      }`}
+                                    >
+                                      ${sug.toLocaleString("es-CO")}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
+                                      Monto Acordado ($)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={montoDepositoPersonalizado}
+                                      onChange={(e) => {
+                                        const valStr = e.target.value;
+                                        setMontoDepositoPersonalizado(valStr);
+                                        setMontoDeposito(parseFloat(valStr) || 0);
+                                      }}
+                                      className="w-full px-2.5 py-1.5 text-xs font-black bg-white border border-amber-400 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
+                                      Custodia
+                                    </label>
+                                    <div className="px-2.5 py-1.5 rounded-lg bg-amber-100/80 border border-amber-300 text-xs font-black text-amber-950 flex items-center gap-1">
+                                      <Lock className="w-3 h-3 text-amber-700" />
+                                      <span>EFECTIVO</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* BLOQUE 2: VALOR DEL CANON DE ALQUILER Y MODALIDAD */}
+                            <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-200">
+                              <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-xs font-black text-blue-950 uppercase tracking-wider">
+                                  BLOQUE 2 — Canon de Alquiler
+                                </h3>
+                                <span className="font-mono font-black text-sm text-blue-900">
+                                  ${subtotalPrendas.toLocaleString("es-CO")}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-1.5 mb-2.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setModalidadPago("COMPLETO")}
+                                  className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
+                                    modalidadPago === "COMPLETO"
+                                      ? "bg-blue-600 text-white border-blue-700 shadow-xs"
+                                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  <span className="font-black text-xs block">Completo</span>
+                                  <span className="text-[10px] opacity-90">100% Hoy</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setModalidadPago("ADELANTO")}
+                                  className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
+                                    modalidadPago === "ADELANTO"
+                                      ? "bg-blue-600 text-white border-blue-700 shadow-xs"
+                                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  <span className="font-black text-xs block">Adelanto</span>
+                                  <span className="text-[10px] opacity-90">Parcial</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setModalidadPago("PENDIENTE")}
+                                  className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
+                                    modalidadPago === "PENDIENTE"
+                                      ? "bg-blue-600 text-white border-blue-700 shadow-xs"
+                                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  <span className="font-black text-xs block">Pendiente</span>
+                                  <span className="text-[10px] opacity-90">$0 Hoy</span>
+                                </button>
+                              </div>
+
+                              {modalidadPago === "ADELANTO" && (
+                                <div className="p-2.5 rounded-lg bg-white border border-blue-200 mb-2.5">
+                                  <label className="text-[11px] font-bold text-blue-900 block mb-1">
+                                    Monto de Abono al Alquiler Hoy ($):
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={montoAbonoManual}
+                                    onChange={(e) => setMontoAbonoManual(e.target.value)}
+                                    className="w-full px-2.5 py-1 text-xs font-black bg-white border border-blue-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                                    placeholder="Ej: 30000"
+                                  />
+                                  <div className="flex justify-between items-center text-[10.5px] text-blue-900 mt-1 font-bold">
+                                    <span>Abona hoy: ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}</span>
+                                    <span>Resta: ${saldoFaltanteAlquiler.toLocaleString("es-CO")}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div>
+                                <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
+                                  Notas del Contrato (Opcional):
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={notasAlquiler}
+                                  onChange={(e) => setNotasAlquiler(e.target.value)}
+                                  placeholder="Ej: Evento el fin de semana. Ajuste de bastilla pactado."
+                                  className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Columna Derecha: Sección C (Cuadre de Efectivo y Vueltas) */}
+                          <div className="p-3.5 rounded-xl bg-emerald-50/70 border-2 border-emerald-300 text-slate-800 space-y-3">
+                            <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
+                              <div>
+                                <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
+                                  SECCIÓN C — CUADRE DE CAJA
+                                </span>
+                                <h3 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                                  <Banknote className="w-4 h-4 text-emerald-600" />
+                                  Cobro Total en Efectivo y Vueltas
+                                </h3>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-[10px] text-slate-500 block uppercase font-bold">Total Hoy en Gaveta</span>
+                                <span className="text-base font-black text-emerald-700 font-mono">
+                                  ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Desglose resumido */}
+                            <div className="p-2.5 rounded-lg bg-white border border-emerald-200 text-xs space-y-1">
+                              {apartadoOrigen && (
+                                <div className="flex justify-between text-indigo-700">
+                                  <span>(-) Abono Previo Apartado:</span>
+                                  <span className="font-mono font-bold text-emerald-700">
+                                    -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex justify-between text-slate-600">
+                                <span>Abono/Pago Alquiler Hoy:</span>
+                                <span className="font-mono font-bold text-blue-700">
+                                  ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-slate-600">
+                                <span>(+) Depósito de Respaldo:</span>
+                                <span className="font-mono font-bold text-amber-800">
+                                  ${montoDeposito.toLocaleString("es-CO")}
+                                </span>
+                              </div>
+                              <div className="flex justify-between font-black pt-1 border-t border-slate-200 text-slate-900">
+                                <span>(=) TOTAL A COBRAR HOY:</span>
+                                <span className="font-mono text-emerald-700">
+                                  ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Campo Efectivo Recibido y Billetes */}
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                                <label>Efectivo Recibido ($):</label>
+                                <button
+                                  type="button"
+                                  onClick={() => setEfectivoRecibidoCliente(String(totalExigidoHoyEnCaja))}
+                                  className="text-[10px] text-emerald-700 hover:underline font-bold cursor-pointer"
+                                >
+                                  Monto Exacto (${totalExigidoHoyEnCaja.toLocaleString("es-CO")})
+                                </button>
+                              </div>
+                              <input
+                                type="number"
+                                value={efectivoRecibidoCliente}
+                                onChange={(e) => setEfectivoRecibidoCliente(e.target.value)}
+                                placeholder={String(totalExigidoHoyEnCaja)}
+                                className="w-full px-2.5 py-1.5 text-sm font-black bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+                              />
+                              <div className="flex gap-1 pt-0.5">
+                                {BILLETES_COLOMBIANOS.map((den) => (
+                                  <button
+                                    key={den}
+                                    type="button"
+                                    onClick={() => setEfectivoRecibidoCliente(String(den))}
+                                    className="flex-1 py-1 rounded bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-[10px] font-bold transition-all text-center cursor-pointer font-mono"
+                                  >
+                                    ${(den / 1000).toFixed(0)}k
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Vueltas / Cambio Final */}
+                            <div className="p-2.5 rounded-lg bg-white border border-emerald-200 text-center flex flex-col justify-center">
+                              <span className="text-[10px] font-bold uppercase text-slate-500 block">
+                                Vueltas / Cambio Final
+                              </span>
+                              <span className="text-xl font-black text-emerald-700 font-mono">
+                                ${vueltasCambioFinal.toLocaleString("es-CO")}
+                              </span>
+                            </div>
+
+                            {/* Confirmación Checkbox */}
+                            <label className="flex items-start gap-2 cursor-pointer select-none pt-1">
+                              <input
+                                type="checkbox"
+                                checked={abonoEfectivoConfirmado}
+                                onChange={(e) => setAbonoEfectivoConfirmado(e.target.checked)}
+                                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 mt-0.5 shrink-0"
+                              />
+                              <span className="text-[11px] font-bold text-slate-700 leading-tight">
+                                Confirmo recepción en <span className="text-emerald-800 font-black underline">EFECTIVO</span> de ${efectivoRecibidoNum.toLocaleString("es-CO")} en gaveta y entregar ${vueltasCambioFinal.toLocaleString("es-CO")} de cambio.
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* ======================================================================= */}
+                {/* PANEL DERECHO DE RESUMEN Y CARRITO PERMANENTE (col-span-12 lg:col-span-4)*/}
+                {/* ======================================================================= */}
+                <div className="col-span-12 lg:col-span-4 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+                  {/* Encabezado Cliente Asignado (shrink-0) */}
+                  <div className="shrink-0 p-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">
+                        Cliente Arrendatario:
+                      </span>
+                      <strong className="text-xs sm:text-sm font-black text-slate-900 truncate block">
+                        {clienteSeleccionado?.nombre || "Sin cliente seleccionado"}
+                      </strong>
+                      {clienteSeleccionado?.telefono && (
+                        <span className="text-[11px] text-slate-500 font-mono block truncate">
+                          Tel: {clienteSeleccionado.telefono}
+                        </span>
+                      )}
+                    </div>
+
+                    {clienteSeleccionado ? (
+                      <button
+                        type="button"
+                        onClick={() => setPasoActual(1)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition shrink-0 cursor-pointer"
+                      >
+                        Cambiar
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setPasoActual(1)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0 cursor-pointer"
+                      >
+                        Elegir
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Fechas del Contrato (shrink-0) */}
+                  <div className="shrink-0 px-3 py-2 border-b border-slate-200 bg-slate-50/50">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                      Fechas del Contrato
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block">Salida *</label>
+                        <input
+                          type="date"
+                          value={fechaSalida}
+                          onChange={(e) => setFechaSalida(e.target.value)}
+                          className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block">Devolución *</label>
+                        <input
+                          type="datetime-local"
+                          value={fechaDevolucion}
+                          onChange={(e) => setFechaDevolucion(e.target.value)}
+                          className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg font-mono font-semibold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Título Carrito (shrink-0) */}
+                  <div className="shrink-0 px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <ShoppingBag className="w-4 h-4 text-slate-700" />
+                      <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                        Prendas en Alquiler ({itemsCarrito.length})
+                      </h3>
+                    </div>
+                    {itemsCarrito.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setItemsCarrito([])}
+                        className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer"
+                      >
+                        Vaciar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Lista de Ítems con Scroll Interno Propio */}
+                  <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2.5 space-y-2">
+                    {itemsCarrito.length === 0 ? (
+                      <div className="p-6 text-center text-slate-400">
+                        <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-xs font-semibold text-slate-600">Sin prendas en el contrato</p>
+                        <p className="text-[11px] text-slate-500">Haz clic en el catálogo en el Paso 2</p>
+                      </div>
+                    ) : (
+                      itemsCarrito.map((item) => (
+                        <div
+                          key={item.idTemporal}
+                          className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <strong className="text-slate-900 truncate block text-xs font-bold">
+                              {item.nombre}
+                            </strong>
+                            <span className="text-[10.5px] text-slate-500 block truncate">
+                              {item.codigo} {item.talla ? `• T: ${item.talla}` : ""}
+                            </span>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="text-[10px] text-slate-400">Precio:</span>
+                              <input
+                                type="number"
+                                value={item.precioUnitario}
+                                onChange={(e) => modificarPrecioItem(item.idTemporal, parseFloat(e.target.value) || 0)}
+                                className="w-20 px-1.5 py-0.5 text-xs font-bold font-mono border border-slate-200 rounded text-right bg-white"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg p-0.5">
+                              <button
+                                type="button"
+                                onClick={() => modificarCantidadItem(item.idTemporal, -1)}
+                                className="w-5 h-5 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded text-xs font-bold cursor-pointer"
+                              >
+                                -
+                              </button>
+                              <span className="font-mono text-xs font-bold w-5 text-center">
+                                {item.cantidad}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => modificarCantidadItem(item.idTemporal, 1)}
+                                className="w-5 h-5 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded text-xs font-bold cursor-pointer"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => removerItemCarrito(item.idTemporal)}
+                              className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Pie Fijo de Totales y Botones de Avance (shrink-0) */}
+                  <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between text-slate-600">
+                        <span>Subtotal Alquiler:</span>
+                        <span className="font-mono font-medium">${subtotalPrendas.toLocaleString("es-CO")}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Depósito Respaldo (Gaveta):</span>
+                        <span className="font-mono font-bold text-amber-800">${montoDeposito.toLocaleString("es-CO")}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-900 font-black text-sm pt-1 border-t border-slate-200">
+                        <span>TOTAL HOY EN CAJA:</span>
+                        <span className="font-mono text-emerald-700 text-base">${totalExigidoHoyEnCaja.toLocaleString("es-CO")}</span>
+                      </div>
+                    </div>
+
+                    {/* Botones de Navegación del Flujo */}
+                    <div className="pt-1">
+                      {pasoActual === 1 && (
+                        <button
+                          type="button"
+                          disabled={!clienteSeleccionado}
+                          onClick={() => setPasoActual(2)}
+                          className={`w-full py-2.5 rounded-xl text-xs font-black text-white flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer ${
+                            clienteSeleccionado
+                              ? "bg-emerald-600 hover:bg-emerald-700"
+                              : "bg-slate-300 cursor-not-allowed"
+                          }`}
+                        >
+                          <span>Continuar al Catálogo de Prendas</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {pasoActual === 2 && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPasoActual(1)}
+                            className="px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Cliente</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={itemsCarrito.length === 0}
+                            onClick={() => setPasoActual(3)}
+                            className={`px-3 py-2 rounded-xl text-xs font-black text-white flex items-center justify-center gap-1 shadow-sm transition-all cursor-pointer ${
+                              itemsCarrito.length > 0
+                                ? "bg-emerald-600 hover:bg-emerald-700"
+                                : "bg-slate-300 cursor-not-allowed"
+                            }`}
+                          >
+                            <span>Ir al Cobro</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+
+                      {pasoActual === 3 && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPasoActual(2)}
+                            className="px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Prendas</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={guardandoAlquiler || !puedeExpedirAlquiler}
+                            onClick={registrarNuevoAlquiler}
+                            className="px-3 py-2 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            {guardandoAlquiler ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                <span>Guardando...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Receipt className="w-4 h-4" />
+                                <span>Confirmar Cobro</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

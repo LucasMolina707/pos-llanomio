@@ -14,11 +14,15 @@ const NO_CACHE_HEADERS = {
 
 /**
  * GET /api/caja/abrir-cajon
- * Devuelve la lista de impresoras instaladas en Windows y la configuración actual del cajón
+ * Devuelve la lista de impresoras instaladas en Windows (con caché en memoria) y la configuración actual del cajón
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const impresoras = await obtenerImpresorasWindows();
+    const { searchParams } = new URL(req.url);
+    const forzarRefresco =
+      searchParams.get("refresh") === "1" || searchParams.get("refresh") === "true";
+
+    const impresoras = await obtenerImpresorasWindows(forzarRefresco);
     const config = await prisma.configuracionEmpresa.findFirst({
       select: {
         nombreImpresoraPos: true,
