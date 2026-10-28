@@ -148,6 +148,12 @@ model ConfiguracionEmpresa {
   formatoPredeterminado   String           @default("MEDIA_CARTA") // TIRILLA | MEDIA_CARTA | CARTA
   formatoImpresionDefault FormatoImpresion @default(MEDIA_CARTA)
   rutaCarpetaRespaldo     String           @default("C:\\POS_LLANOMIO_BACKUPS")
+
+  // Hardware POS - Impresora Térmica y Cajón Monedero RJ11/RJ12
+  nombreImpresoraPos      String?          @default("")
+  abrirCajonAutoEfectivo  Boolean          @default(true)
+  pinCajon                Int              @default(0) // 0 = Pin 2 (Universal Epson/POS-80), 1 = Pin 5 (Bixolon/Otros)
+
   createdAt               DateTime         @default(now())
   updatedAt               DateTime         @updatedAt
 

@@ -56,6 +56,7 @@ import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import { useCajonSincronizado, EstadoSeguridadCajaInfo } from "@/hooks/useCajonSincronizado";
 import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
+import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
 
@@ -854,6 +855,18 @@ export default function PosPage() {
       cajon.notificarCajaActualizada();
 
       const facturaFinal = data.factura;
+
+      // Disparar apertura automática del cajón si el cobro se realizó en EFECTIVO
+      if (metodoPagoPrincipal === "EFECTIVO" && valorACobrarHoy > 0) {
+        safeFetchJson("/api/caja/abrir-cajon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            motivo: `COBRO_AUTOMATICO_EFECTIVO · Factura ${facturaFinal?.numeroFactura || ""}`,
+          }),
+        }).catch(() => {});
+      }
+
       // Guardar el ID de la factura para evitar duplicados si el usuario retrocede entre pasos
       if (facturaFinal?.id) {
         setFacturaEnCursoId(facturaFinal.id);
@@ -1077,10 +1090,17 @@ export default function PosPage() {
             onRefrescar={() => cajon.actualizarCajon(true)}
             onAbrirModal={cajon.abrirModal}
           />
+
+          {/* Botón Manual de Apertura de Cajón */}
+          <BotonAbrirCajon variante="barra" mostrarAtajo={true} />
         </div>
 
         {/* Derecha: Botón Recargar + Historial / Moras + Alternar Nueva Factura */}
         <div className="flex items-center gap-2 shrink-0">
+          <div className="xl:hidden">
+            <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+          </div>
+
           <button
             type="button"
             onClick={() => {
@@ -2522,6 +2542,9 @@ export default function PosPage() {
                   </div>
 
                   <div className="flex items-center gap-2.5 flex-wrap">
+                    {/* Botón de apertura manual de cajón monedero en Paso 4 */}
+                    <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+
                     {/* Botón para retroceder al Paso 3 y corregir pago o ítems sin duplicar */}
                     <button
                       type="button"

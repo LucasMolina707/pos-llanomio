@@ -11,7 +11,9 @@ Para garantizar la maxima flexibilidad operativa, portabilidad y simplicidad de 
 instalador_tienda/
 │
 ├── MENU_DE_INSTALACION.bat               # Menu interactivo general para abrir o elegir metodos
-├── LEEME_GUIA_INSTALACION_TIENDA.md      # Este manual maestro de referencia
+├── MANUAL_CAJON_MONEDERO_E_IMPRESORA.md  # Manual de conexion RJ11 y guia de apertura de cajon
+├── MANUAL_MAESTRO_INSTALACION.md         # Manual maestro de despliegue y hardware
+├── LEEME_GUIA_INSTALACION_TIENDA.md      # Este manual de referencia
 │
 ├── metodo_scripts_bat/                   # METODO 1: AUTOMATIZACION MEDIANTE SCRIPTS .BAT
 │   ├── GUIA_INSTALACION_SCRIPTS.md       # Manual operativo del metodo asistido

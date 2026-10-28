@@ -27,6 +27,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import HistorialArqueosView from "@/components/caja/HistorialArqueosView";
+import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 
 interface CajeroParticipante {
   id: string;
@@ -430,6 +431,8 @@ export default function ControlCajaAdminPage() {
               <span>+ Abrir Otra Caja Dividida</span>
             </button>
           )}
+
+          <BotonAbrirCajon variante="barra" mostrarAtajo={true} />
 
           <button
             type="button"

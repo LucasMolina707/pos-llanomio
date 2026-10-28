@@ -21,7 +21,13 @@ import {
   ShieldAlert,
   Sparkles,
   Settings,
+  LockOpen,
+  KeyRound,
+  ExternalLink,
+  HelpCircle,
+  RefreshCw,
 } from "lucide-react";
+import { safeFetchJson } from "@/lib/safe-fetch";
 
 interface Configuracion {
   id: string;
@@ -42,6 +48,9 @@ interface Configuracion {
   formatoPredeterminado: "TIRILLA" | "MEDIA_CARTA" | "CARTA";
   formatoImpresionDefault: "TIRILLA" | "MEDIA_CARTA" | "CARTA";
   rutaCarpetaRespaldo: string;
+  nombreImpresoraPos: string;
+  abrirCajonAutoEfectivo: boolean;
+  pinCajon: number;
 }
 
 export default function ConfiguracionAdminPage() {
@@ -66,12 +75,24 @@ export default function ConfiguracionAdminPage() {
     formatoPredeterminado: "MEDIA_CARTA",
     formatoImpresionDefault: "MEDIA_CARTA",
     rutaCarpetaRespaldo: "C:\\POS_LLANOMIO_BACKUPS",
+    nombreImpresoraPos: "",
+    abrirCajonAutoEfectivo: true,
+    pinCajon: 0,
   });
 
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [mensajeError, setMensajeError] = useState<string | null>(null);
+
+  // Hardware POS - Detección y Prueba de Impresora y Cajón
+  const [impresorasWindows, setImpresorasWindows] = useState<string[]>([]);
+  const [cargandoImpresoras, setCargandoImpresoras] = useState(false);
+  const [probandoCajon, setProbandoCajon] = useState(false);
+  const [resultadoPruebaCajon, setResultadoPruebaCajon] = useState<{
+    tipo: "exito" | "error";
+    mensaje: string;
+  } | null>(null);
 
   // Formato simulado en la columna derecha
   const [formatoSimulador, setFormatoSimulador] = useState<"TIRILLA" | "MEDIA_CARTA" | "CARTA">("MEDIA_CARTA");
@@ -86,6 +107,7 @@ export default function ConfiguracionAdminPage() {
   useEffect(() => {
     cargarConfiguracion();
     cargarInfoRespaldo();
+    cargarImpresorasWindows();
   }, []);
 
   const cargarConfiguracion = async () => {
@@ -115,6 +137,9 @@ export default function ConfiguracionAdminPage() {
           formatoPredeterminado: formatoDefinido,
           formatoImpresionDefault: formatoDefinido,
           rutaCarpetaRespaldo: c.rutaCarpetaRespaldo || "C:\\POS_LLANOMIO_BACKUPS",
+          nombreImpresoraPos: c.nombreImpresoraPos || "",
+          abrirCajonAutoEfectivo: c.abrirCajonAutoEfectivo !== undefined ? c.abrirCajonAutoEfectivo : true,
+          pinCajon: c.pinCajon !== undefined ? Number(c.pinCajon) : 0,
         });
         setFormatoSimulador(formatoDefinido);
       }
@@ -122,6 +147,71 @@ export default function ConfiguracionAdminPage() {
       setMensajeError("No se pudo cargar la configuración de la empresa.");
     } finally {
       setCargando(false);
+    }
+  };
+
+  const cargarImpresorasWindows = async () => {
+    try {
+      setCargandoImpresoras(true);
+      const res = await safeFetchJson<{
+        ok: boolean;
+        impresoras?: string[];
+        configuracion?: { nombreImpresoraPos: string; abrirCajonAutoEfectivo: boolean; pinCajon: number };
+      }>("/api/caja/abrir-cajon");
+
+      if (res.ok && res.data?.impresoras) {
+        setImpresorasWindows(res.data.impresoras);
+      }
+    } catch {
+      // Manejo silencioso
+    } finally {
+      setCargandoImpresoras(false);
+    }
+  };
+
+  const probarAperturaCajon = async () => {
+    try {
+      setProbandoCajon(true);
+      setResultadoPruebaCajon(null);
+
+      const res = await safeFetchJson<{
+        ok: boolean;
+        mensaje: string;
+        resultado?: { impresoraUsada: string; detalle?: string };
+        error?: string;
+      }>("/api/caja/abrir-cajon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          motivo: "PRUEBA_DESDE_PANEL_CONFIGURACION",
+          nombreImpresora: config.nombreImpresoraPos,
+          pin: config.pinCajon,
+        }),
+      });
+
+      if (res.ok && res.data) {
+        setResultadoPruebaCajon({
+          tipo: "exito",
+          mensaje:
+            res.data.resultado?.detalle ||
+            `¡Pulso ESC/POS enviado a '${res.data.resultado?.impresoraUsada}' con éxito!`,
+        });
+      } else {
+        setResultadoPruebaCajon({
+          tipo: "error",
+          mensaje: res.error || "No se pudo enviar el pulso a la impresora seleccionada.",
+        });
+      }
+    } catch {
+      setResultadoPruebaCajon({
+        tipo: "error",
+        mensaje: "Error de red al intentar disparar la apertura de prueba.",
+      });
+    } finally {
+      setProbandoCajon(false);
+      setTimeout(() => {
+        setResultadoPruebaCajon(null);
+      }, 7000);
     }
   };
 
@@ -589,7 +679,136 @@ export default function ConfiguracionAdminPage() {
               </div>
             </div>
 
-            {/* SECCIÓN 3: INFORMACIÓN DEL VENDEDOR / CAJERO */}
+            {/* SECCIÓN 3: HARDWARE POS: IMPRESORA TÉRMICA Y CAJÓN MONEDERO RJ11/RJ12 */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                <div className="flex items-center space-x-2.5">
+                  <Printer className="h-5 w-5 text-blue-600" />
+                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                    Hardware POS: Impresora Térmica y Cajón Monedero RJ11
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={cargarImpresorasWindows}
+                  disabled={cargandoImpresoras}
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition disabled:opacity-50"
+                  title="Detectar impresoras conectadas en Windows"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${cargandoImpresoras ? "animate-spin text-blue-600" : ""}`} />
+                  <span>{cargandoImpresoras ? "Detectando..." : "Detectar Impresoras"}</span>
+                </button>
+              </div>
+
+              <div className="space-y-4 text-xs sm:text-sm">
+                {/* Selector de Impresora */}
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Impresora Térmica con Puerto DK (Cajón Monedero Conectado)
+                  </label>
+                  <select
+                    name="nombreImpresoraPos"
+                    value={config.nombreImpresoraPos}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium"
+                  >
+                    <option value="">
+                      Impresora Predeterminada de Windows (Detección Automática)
+                    </option>
+                    {impresorasWindows.map((imp) => (
+                      <option key={imp} value={imp}>
+                        {imp}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Seleccione la impresora térmica de recibos (80mm/58mm) a la que está conectado físicamente el cable RJ11 del cajón.
+                  </p>
+                </div>
+
+                {/* Selector de Pin de Conexión */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      Pin del Puerto DK / Cable RJ11
+                    </label>
+                    <select
+                      name="pinCajon"
+                      value={config.pinCajon}
+                      onChange={handleChange}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
+                    >
+                      <option value={0}>Pin 2 (Estándar Universal Epson / Xprinter / POS-80)</option>
+                      <option value={1}>Pin 5 (Secundario / Bixolon / Citizen / Otros)</option>
+                      <option value={2}>Pulso Dual (Pines 2 y 5 simultáneos — Universal)</option>
+                    </select>
+                  </div>
+
+                  {/* Botón de Prueba en Vivo */}
+                  <div className="flex flex-col justify-end">
+                    <button
+                      type="button"
+                      disabled={probandoCajon}
+                      onClick={probarAperturaCajon}
+                      className="w-full px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100/90 text-amber-900 border border-amber-300 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs transition active:scale-95 disabled:opacity-50 min-h-[42px]"
+                    >
+                      <LockOpen className="h-4 w-4 text-amber-700" />
+                      <span>{probandoCajon ? "Enviando pulso..." : "Probar Apertura de Cajón Ahora"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Notificación de Prueba */}
+                {resultadoPruebaCajon && (
+                  <div
+                    className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs font-bold animate-in fade-in ${
+                      resultadoPruebaCajon.tipo === "exito"
+                        ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                        : "bg-rose-50 border-rose-300 text-rose-900"
+                    }`}
+                  >
+                    {resultadoPruebaCajon.tipo === "exito" ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                    )}
+                    <span>{resultadoPruebaCajon.mensaje}</span>
+                  </div>
+                )}
+
+                {/* Switch Apertura Automática al Cobrar en Efectivo */}
+                <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <div>
+                    <span className="font-bold text-sm text-slate-900 block">
+                      Apertura Automática del Cajón al Cobrar en Efectivo
+                    </span>
+                    <span className="text-xs text-slate-500 block">
+                      Abre el cajón monedero automáticamente al confirmar ventas, contratos de alquiler, apartados o liquidar depósitos en efectivo.
+                    </span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="abrirCajonAutoEfectivo"
+                      checked={config.abrirCajonAutoEfectivo}
+                      onChange={handleChange}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {/* Nota de Ayuda y Manual */}
+                <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+                  <HelpCircle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed">
+                    <strong>Guía de Hardware:</strong> Asegúrese de que el cable telefónico RJ11 esté conectado en el puerto marcado como <em>DK</em> o <em>Drawer</em> en la parte trasera de la impresora térmica, y que la llave frontal del cajón esté en posición vertical (modo apertura electrónica).
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN 4: INFORMACIÓN DEL VENDEDOR / CAJERO */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
               <div className="flex items-center space-x-2.5 mb-4 pb-3 border-b border-slate-100">
                 <UserCheck className="h-5 w-5 text-blue-600" />
@@ -620,7 +839,7 @@ export default function ConfiguracionAdminPage() {
               </div>
             </div>
 
-            {/* SECCIÓN 4: REQUISITOS, NORMAS Y POLÍTICAS AL PIE DE FACTURA */}
+            {/* SECCIÓN 5: REQUISITOS, NORMAS Y POLÍTICAS AL PIE DE FACTURA */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
               <div className="flex items-center space-x-2.5 mb-4 pb-3 border-b border-slate-100">
                 <FileText className="h-5 w-5 text-blue-600" />
@@ -663,7 +882,7 @@ export default function ConfiguracionAdminPage() {
               </div>
             </div>
 
-            {/* SECCIÓN 5: POLÍTICA ESTRICTA CERO CÓDIGOS QR EN FACTURAS */}
+            {/* SECCIÓN 6: POLÍTICA ESTRICTA CERO CÓDIGOS QR EN FACTURAS */}
             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start space-x-3">
               <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
               <div className="text-xs sm:text-sm">

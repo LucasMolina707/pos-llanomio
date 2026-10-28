@@ -50,6 +50,7 @@ import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import { useCajonSincronizado } from "@/hooks/useCajonSincronizado";
 import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
+import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
 
@@ -884,6 +885,17 @@ export default function TerminalAlquileresPage() {
       cajon.actualizarCajon(true);
       cajon.notificarCajaActualizada();
 
+      // Disparar apertura automática de cajón si hay recepción de efectivo (abono o depósito)
+      if (montoDeposito > 0 || valorAbonoAlquilerHoy > 0) {
+        safeFetchJson("/api/caja/abrir-cajon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            motivo: `COBRO_AUTOMATICO_EFECTIVO · Alquiler ${facturaFinal?.numeroFactura || ""}`,
+          }),
+        }).catch(() => {});
+      }
+
       const fId = facturaFinal?.id || apartadoOrigen?.id;
       if (fId) {
         setFacturaEnCursoId(fId);
@@ -1011,6 +1023,17 @@ export default function TerminalAlquileresPage() {
       cajon.actualizarCajon(true);
       cajon.notificarCajaActualizada();
 
+      // Disparar apertura automática de cajón si el abono fue en efectivo
+      if (metodoPagoAbonar === "EFECTIVO" && montoNum > 0) {
+        safeFetchJson("/api/caja/abrir-cajon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            motivo: `ABONO_EFECTIVO · Alquiler ${alquilerAbonar.numeroFactura}`,
+          }),
+        }).catch(() => {});
+      }
+
       setMensajeExito(`¡Abono de $${montoNum.toLocaleString("es-CO")} registrado correctamente!`);
       setModalAbonarAbierto(false);
       setAlquilerAbonar(null);
@@ -1113,6 +1136,15 @@ export default function TerminalAlquileresPage() {
       // Sincronizar en vivo el saldo de gaveta
       cajon.actualizarCajon(true);
       cajon.notificarCajaActualizada();
+
+      // Disparar apertura de cajón monedero para devolución de depósito en efectivo
+      safeFetchJson("/api/caja/abrir-cajon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          motivo: `LIQUIDACION_DEPOSITO_EFECTIVO · Alquiler ${alquilerLiquidar.numeroFactura}`,
+        }),
+      }).catch(() => {});
 
       setMensajeExito(`¡Contrato N° ${alquilerLiquidar.numeroFactura} liquidado con éxito! Prendas recibidas y depósito gestionado.`);
       setModalLiquidarAbierto(false);
@@ -1244,10 +1276,17 @@ export default function TerminalAlquileresPage() {
             onRefrescar={() => cajon.actualizarCajon(true)}
             onAbrirModal={cajon.abrirModal}
           />
+
+          {/* Botón Manual de Apertura de Cajón */}
+          <BotonAbrirCajon variante="barra" mostrarAtajo={true} />
         </div>
 
         {/* Derecha: Botón Recargar + Tomar desde Apartados + Historial con Conteo + Nuevo Alquiler */}
         <div className="flex items-center gap-2 shrink-0">
+          <div className="xl:hidden">
+            <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+          </div>
+
           <button
             type="button"
             onClick={() => {
@@ -2720,6 +2759,9 @@ export default function TerminalAlquileresPage() {
                   </div>
 
                   <div className="flex items-center gap-2.5 flex-wrap">
+                    {/* Botón manual de apertura de cajón en Paso 4 */}
+                    <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+
                     {/* Botón para retroceder al Paso 3 y corregir cobro o depósito sin duplicar */}
                     <button
                       type="button"

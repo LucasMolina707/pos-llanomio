@@ -45,6 +45,7 @@ import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import { useCajonSincronizado } from "@/hooks/useCajonSincronizado";
 import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
+import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
 
@@ -439,6 +440,17 @@ export default function ApartadosPage() {
       if (totalACobrarHoy > 0) {
         cajon.actualizarCajon(true);
         cajon.notificarCajaActualizada();
+
+        // Disparar apertura automática de cajón si el cobro se realizó en EFECTIVO
+        if (metodoPagoAbono === "EFECTIVO") {
+          safeFetchJson("/api/caja/abrir-cajon", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              motivo: `COBRO_AUTOMATICO_EFECTIVO · Apartado ${facturaGuardada.numeroFactura || ""}`,
+            }),
+          }).catch(() => {});
+        }
       }
 
       // Recargar historial en segundo plano
@@ -496,6 +508,17 @@ export default function ApartadosPage() {
 
       if (!res.ok || (!res.data?.success && !res.data?.ok)) {
         throw new Error(res.error || "No se pudo registrar el abono.");
+      }
+
+      // Disparar apertura automática de cajón si el abono fue en efectivo
+      if (metodoNuevoAbono === "EFECTIVO" && monto > 0) {
+        safeFetchJson("/api/caja/abrir-cajon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            motivo: `ABONO_EFECTIVO · Apartado ${apartadoParaAbonar.numeroFactura || ""}`,
+          }),
+        }).catch(() => {});
       }
 
       alert("Abono registrado con éxito.");
@@ -596,10 +619,17 @@ export default function ApartadosPage() {
             onRefrescar={() => cajon.actualizarCajon(true)}
             onAbrirModal={cajon.abrirModal}
           />
+
+          {/* Botón Manual de Apertura de Cajón */}
+          <BotonAbrirCajon variante="barra" mostrarAtajo={true} />
         </div>
 
         {/* Derecha: Botón Recargar + Historial con Conteo + Nuevo Apartado */}
         <div className="flex items-center gap-2 shrink-0">
+          <div className="xl:hidden">
+            <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+          </div>
+
           <button
             type="button"
             onClick={() => {
@@ -1124,6 +1154,9 @@ export default function ApartadosPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
+                      {/* Botón manual de apertura de cajón en Paso 4 */}
+                      <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+
                       <button
                         type="button"
                         onClick={() => setPaso(3)}

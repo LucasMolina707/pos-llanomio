@@ -100,6 +100,9 @@ async function guardarConfiguracion(req: NextRequest) {
       formatoPredeterminado,
       formatoImpresionDefault,
       rutaCarpetaRespaldo,
+      nombreImpresoraPos,
+      abrirCajonAutoEfectivo,
+      pinCajon,
     } = body;
 
     // Normalizar formato
@@ -140,6 +143,12 @@ async function guardarConfiguracion(req: NextRequest) {
             rutaCarpetaRespaldo !== undefined
               ? String(rutaCarpetaRespaldo).trim()
               : config.rutaCarpetaRespaldo,
+          nombreImpresoraPos:
+            nombreImpresoraPos !== undefined ? String(nombreImpresoraPos).trim() : config.nombreImpresoraPos,
+          abrirCajonAutoEfectivo:
+            abrirCajonAutoEfectivo !== undefined ? Boolean(abrirCajonAutoEfectivo) : config.abrirCajonAutoEfectivo,
+          pinCajon:
+            pinCajon !== undefined ? Number(pinCajon) : config.pinCajon,
         },
       });
     } else {
@@ -162,6 +171,9 @@ async function guardarConfiguracion(req: NextRequest) {
           formatoPredeterminado: formatoNormalizado,
           formatoImpresionDefault: formatoNormalizado as "TIRILLA" | "MEDIA_CARTA" | "CARTA",
           rutaCarpetaRespaldo: rutaCarpetaRespaldo || "C:\\POS_LLANOMIO_BACKUPS",
+          nombreImpresoraPos: nombreImpresoraPos ? String(nombreImpresoraPos).trim() : "",
+          abrirCajonAutoEfectivo: abrirCajonAutoEfectivo !== undefined ? Boolean(abrirCajonAutoEfectivo) : true,
+          pinCajon: pinCajon !== undefined ? Number(pinCajon) : 0,
         },
       });
     }

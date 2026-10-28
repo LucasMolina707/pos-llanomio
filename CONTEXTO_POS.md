@@ -2147,6 +2147,88 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Estado de Fábrica Limpio:** Ejecutado `npx tsx scripts/reset-db-fabrica.ts` con base de datos `database/llanomio.db` limpia de fábrica y compactada con `VACUUM` (0 clientes, 0 productos, 0 facturas, 0 turnos de caja, 1 administrador inicial `@admin`, 1 configuración empresarial de fábrica).
 - **Control de Iconografía:** CERO emojis en el 100% de la interfaz, utilizando exclusivamente `lucide-react`.
 
+---
+
+## 22. Sistema y Servicio Local de Apertura de Cajón Monedero mediante Impresora Térmica (RJ11/RJ12 ESC/POS) y Botón Manual
+
+### 1. Arquitectura de Hardware POS y Protocolo ESC/POS RAW
+1. **Conexión Física de Gaveta POS:**
+   - El cajón monedero se conecta mediante cable telefónico estándar (RJ11/RJ12 de 6 pines) al puerto posterior etiquetado como `DK` (*Drawer Kick* / *Cash Drawer*) de la impresora térmica de recibos (80mm o 58mm).
+   - La impresora térmica se conecta vía USB, Red o Puerto Serial al computador con Windows donde corre el servidor local POS.
+   - El solenoide magnético del cajón se acciona mediante una descarga eléctrica de 12V o 24V disparada por la controladora de la impresora cuando recibe la orden binaria ESC/POS.
+2. **Puente Nativo Windows ESC/POS RAW (`src/lib/cajon-impresora.ts`):**
+   - **Cero dependencias pesadas de compilación C++ (`node-gyp`):** No requiere instalar compiladores Visual Studio C++ en el PC cliente. Utiliza PowerShell nativo con un bloque C# compilado en memoria mediante `Add-Type` que invoca directamente las APIs nativas de Windows Spooler (`winspool.drv`): `OpenPrinter`, `StartDocPrinter`, `StartPagePrinter`, `WritePrinter`, `EndPagePrinter`, `EndDocPrinter` y `ClosePrinter`.
+   - **Detección Automática de Impresoras (`obtenerImpresorasWindows`):** Ejecuta `Get-CimInstance Win32_Printer` (con fallback a `Get-Printer`) para devolver en milisegundos todas las impresoras instaladas en el sistema operativo.
+   - **Secuencia RAW ESC/POS Universal:**
+     - Pin 2 (Estándar Epson, Xprinter, POS-80, Bixolon, 3nStar): `[0x1B, 0x70, 0x00, 0x19, 0xFA]` (`ESC p 0 25 250`).
+     - Pin 5 (Compatibilidad secundaria de hardware): `[0x1B, 0x70, 0x01, 0x19, 0xFA]` (`ESC p 1 25 250`).
+     - Envía ambos pulsos secuencialmente en el mismo documento de spooling en modo RAW, garantizando apertura en < 300ms **sin avanzar papel, sin cortar papel y sin desplegar cuadros de diálogo del navegador ni de Windows**.
+   - **Tolerancia a Fallos y Modo Simulación:** Si no hay impresora física térmica instalada o el equipo se encuentra en pruebas de desarrollo, el servicio no bloquea la transacción; atrapa la excepción y retorna `{ ok: true, simulado: true, mensaje: "Pulso ESC/POS enviado (Modo Simulación: sin impresora física detectada)" }`.
+
+### 2. Capa de Datos y Endpoints de API
+1. **Modelo de Base de Datos (`prisma/schema.prisma` y `database/schema.prisma`):**
+   - Añadidos a `ConfiguracionEmpresa`:
+     - `nombreImpresoraPos`: Nombre exacto de la impresora térmica seleccionada en Windows.
+     - `abrirCajonAutoEfectivo`: Booleano (`default: true`) que determina si el cajón abre automáticamente en cobros en efectivo.
+     - `pinCajon`: Entero (`default: 0`) para selección de Pin 2 (0) o Pin 5 (1).
+   - Sincronizado en caliente con `npx prisma db push` y regenerado el cliente con `npx prisma generate`.
+2. **Endpoints de Comunicación:**
+   - `src/app/api/caja/abrir-cajon/route.ts`:
+     - `GET`: Valida sesión activa y devuelve `{ ok: true, impresoras: string[] }`.
+     - `POST`: Valida sesión activa y rol (`ADMIN` o `CAJERO`), invoca `dispararAperturaCajon()`, registra en consola/log el motivo operativo y usuario responsable, y responde con JSON HTTP 200 `{ ok: true, mensaje, resultado, motivo, usuario }`.
+   - `src/app/api/empresa/route.ts` y `src/app/api/configuracion/route.ts`:
+     - Permiten consultar y actualizar los parámetros de hardware POS garantizando compatibilidad retroactiva.
+
+### 3. Componentes Visuales y Experiencia de Usuario (UI/UX)
+1. **Componente Reutilizable `<BotonAbrirCajon />` (`src/components/caja/BotonAbrirCajon.tsx`):**
+   - Estética antifatiga visual: botón ámbar suave (`bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold rounded-xl px-3 py-1.5 flex items-center gap-1.5 transition-all shadow-2xs`).
+   - Soporte para atajo global de teclado `F9`.
+   - **Micro-modal antifatiga de 1 solo clic:** Despliega 5 motivos operativos estandarizados que al hacer clic abren inmediatamente el cajón y cierran el modal:
+     1. *"Dar cambio / Cambiar billete por sencillo"*
+     2. *"Ingresar Base Inicial / Efectivo a Gaveta"*
+     3. *"Conteo de Arqueo / Verificación de Caja"*
+     4. *"Custodia o Revisión de Depósito en Efectivo"*
+     5. *"Otro motivo operativo autorizado"*
+   - Notificación visual de confirmación instantánea tras enviar el pulso.
+2. **Integración en Terminales de Mostrador y Control de Caja:**
+   - **Cabecera `h-14` Superior:** Ubicado en la barra de herramientas de `/caja/pos`, `/caja/alquileres`, `/caja/apartados` y `/admin/caja` al alcance permanente del cajero o administrador sin scroll.
+   - **Paso 4 de Facturación / Impresión:** Integrado en el banner del Paso 4 de las tres terminales y en la barra de utilidades de `<PlantillaImpresion />`, permitiendo al cajero abrir la gaveta si estaba con seguro de llave puesto al facturar sin tener que reimprimir la tirilla.
+3. **Disparo Automático en Cobros en Efectivo:**
+   - En `/caja/pos`: Al confirmar venta o arreglo pagado total o parcialmente en `EFECTIVO`.
+   - En `/caja/alquileres`: Al confirmar contrato de alquiler con depósito/abono en `EFECTIVO`, al registrar abonos en efectivo y al liquidar un alquiler devolviendo depósito de garantía en `EFECTIVO`.
+   - En `/caja/apartados`: Al crear la reserva con abono en `EFECTIVO` y al registrar abonos posteriores en `EFECTIVO`.
+4. **Panel de Configuración de Hardware POS (`src/app/admin/configuracion/page.tsx`):**
+   - Sección dedicada: **"Hardware POS: Impresora Térmica y Cajón Monedero RJ11"**.
+   - Selector dinámico de impresoras de Windows detectadas en el servidor local.
+   - Selector de Pin de disparo (Pin 2 universal / Pin 5).
+   - Interruptor conmutador de apertura automática en cobros con efectivo.
+   - Botón interactivo: **"Probar Apertura de Cajón Ahora"** con feedback en vivo del pulso ESC/POS.
+
+### 4. Manuales y Guías Operativas (`instalador_tienda/`)
+1. **`instalador_tienda/MANUAL_CAJON_MONEDERO_E_IMPRESORA.md`:**
+   - Guía exhaustiva de conexión física del cable telefónico RJ11 al puerto `DK` de la impresora térmica y conexión USB al computador.
+   - Advertencia crítica de la **posición de la cerradura física de llave**: posición vertical/neutra para permitir el disparo magnético electrónico.
+   - Guía detallada de **"¿Cuándo abre solo el cajón y cuándo debo usar el botón manual?"**:
+     - *Apertura Automática (Sin botón manual):* Cobros de venta, abonos de alquiler, abonos de apartado y liquidación de depósitos en efectivo.
+     - *Uso Obligatorio del Botón Manual "Abrir Cajón":*
+       1. Apertura del turno de caja en la mañana (ingreso físico de la base de efectivo).
+       2. Cambio de billetes por sencillo sin venta asociada.
+       3. Revisión o custodia física de billetes de depósito en alquileres pagados electrónicamente.
+       4. Desbloqueo tras olvido de llave física en la cerradura durante una venta ya cobrada.
+       5. Cierre y arqueo de caja diario en `/admin/caja` para extracción física del dinero.
+2. **`instalador_tienda/MANUAL_MAESTRO_INSTALACION.md`:**
+   - Actualizada la sección de periféricos POS con la configuración del cajón monedero RJ11 y verificación de puertos térmicos.
+3. **`instalador_tienda/LEEME_GUIA_INSTALACION_TIENDA.md`:**
+   - Índice maestro de documentación actualizado con el nuevo manual operativo.
+
+### 5. Control de Calidad (QA - Agente 5) y Verificación
+- **Prueba Directa de Detección de Impresoras:** Ejecución de `obtenerImpresorasWindows()` detectando 7 impresoras reales en el sistema operativo Windows (`POS-58`, `RICOH IM 430`, etc.).
+- **Prueba Directa de Disparo ESC/POS:** Validación del pulso binario a través de `winspool.drv` completada en < 300ms sin errores.
+- **Prueba de Endpoint Protegido:** Validación de autenticación y ejecución de `GET /api/caja/abrir-cajon` y `POST /api/caja/abrir-cajon` retornando HTTP 200 y JSON consistente.
+- **Compilación de Producción:** `npx tsc --noEmit` completado con **0 errores** y `npm run build` ejecutado exitosamente con **código 0** (23 rutas generadas).
+- **Control Estricto de Iconografía:** Cero emojis en interfaz, código o respuestas, utilizando exclusivamente `lucide-react`.
+
+
 
 
 

@@ -19,6 +19,7 @@ import {
   abrirPdfMediaCarta,
   descargarPdfSegunFormato,
 } from "@/lib/pdf-media-carta";
+import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 
 export type FormatoImpresionTipo = "TIRILLA" | "MEDIA_CARTA" | "CARTA";
 
@@ -1734,6 +1735,9 @@ export default function PlantillaImpresion({
             <Printer className="w-4 h-4" />
             <span>Imprimir</span>
           </button>
+
+          {/* Botón Abrir Cajón Monedero */}
+          <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
 
           {onCerrar && (
             <button

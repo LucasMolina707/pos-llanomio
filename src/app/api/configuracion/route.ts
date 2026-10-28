@@ -39,6 +39,9 @@ export async function GET() {
           formatoPredeterminado: "MEDIA_CARTA",
           formatoImpresionDefault: "MEDIA_CARTA",
           rutaCarpetaRespaldo: "C:\\POS_LLANOMIO_BACKUPS",
+          nombreImpresoraPos: "",
+          abrirCajonAutoEfectivo: true,
+          pinCajon: 0,
         },
       });
     }
