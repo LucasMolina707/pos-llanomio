@@ -13,7 +13,10 @@ import {
   ShieldCheck,
   Receipt,
   Banknote,
+  Copy,
+  BookOpen,
 } from "lucide-react";
+import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import {
   descargarPdfMediaCarta,
   abrirPdfMediaCarta,
@@ -1637,117 +1640,95 @@ export default function PlantillaImpresion({
           </div>
         </div>
 
-        <div className="flex items-center flex-wrap gap-2.5">
-          {/* Selector de Formato */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
-            <button
-              type="button"
+        <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
+          {/* Selector de Formato con Botones Uniformes */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 gap-1">
+            <IconButtonTooltip
+              icon={Receipt}
+              label="Formato Tirilla Térmica (80mm)"
+              active={formato === "TIRILLA"}
+              variant={formato === "TIRILLA" ? "primary" : "neutral"}
+              size="sm"
               onClick={() => setFormato("TIRILLA")}
-              className={`px-3 py-1.5 rounded-lg transition ${
-                formato === "TIRILLA"
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-              }`}
-            >
-              Tirilla 80mm
-            </button>
-            <button
-              type="button"
+            />
+            <IconButtonTooltip
+              icon={FileText}
+              label="Formato Media Carta Horizontal"
+              active={formato === "MEDIA_CARTA"}
+              variant={formato === "MEDIA_CARTA" ? "primary" : "neutral"}
+              size="sm"
               onClick={() => setFormato("MEDIA_CARTA")}
-              className={`px-3 py-1.5 rounded-lg transition ${
-                formato === "MEDIA_CARTA"
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-              }`}
-            >
-              Media Carta
-            </button>
-            <button
-              type="button"
+            />
+            <IconButtonTooltip
+              icon={BookOpen}
+              label="Formato Carta Completa Vertical"
+              active={formato === "CARTA"}
+              variant={formato === "CARTA" ? "primary" : "neutral"}
+              size="sm"
               onClick={() => setFormato("CARTA")}
-              className={`px-3 py-1.5 rounded-lg transition ${
-                formato === "CARTA"
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-              }`}
-            >
-              Carta Completa
-            </button>
+            />
           </div>
 
-          {/* Selector de Copias */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
-            <button
-              type="button"
+          {/* Selector de Copias con Botones Uniformes */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 gap-1">
+            <IconButtonTooltip
+              icon={Copy}
+              label="1 Copia: Original Cliente"
+              active={numCopias === 1}
+              variant={numCopias === 1 ? "indigo" : "neutral"}
+              size="sm"
               onClick={() => setNumCopias(1)}
-              className={`px-3 py-1.5 rounded-lg transition ${
-                numCopias === 1
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-              }`}
-              title="1 Copia: Original Cliente"
-            >
-              1 Copia
-            </button>
-            <button
-              type="button"
+            />
+            <IconButtonTooltip
+              icon={Copy}
+              label="2 Copias: Original Cliente + Respaldo Tienda"
+              active={numCopias === 2}
+              variant={numCopias === 2 ? "indigo" : "neutral"}
+              badgeCount={2}
+              badgeVariant="blue"
+              size="sm"
               onClick={() => setNumCopias(2)}
-              className={`px-3 py-1.5 rounded-lg transition ${
-                numCopias === 2
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-              }`}
-              title="2 Copias: Original Cliente + Respaldo Tienda"
-            >
-              2 Copias
-            </button>
+            />
           </div>
 
           {/* Botón Descargar PDF */}
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={FileDown}
+            label={`Descargar archivo PDF oficial (${formato}, ${numCopias} ${numCopias === 1 ? "copia" : "copias"})`}
+            variant="primary"
+            size="md"
             onClick={() => descargarPdfSegunFormato(datos, formato, undefined, { numCopias })}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition"
-            title={`Descargar archivo PDF oficial en tamaño ${formato} (${numCopias} ${numCopias === 1 ? "copia" : "copias"})`}
-          >
-            <FileDown className="w-4 h-4" />
-            <span>Descargar PDF</span>
-          </button>
+          />
 
           {/* Botón Abrir / Ver PDF */}
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={ExternalLink}
+            label="Abrir PDF en pestaña nueva"
+            variant="neutral"
+            size="md"
             onClick={() => abrirPdfMediaCarta(datos, formato, { numCopias })}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 shadow-2xs transition"
-            title="Abrir PDF en pestaña nueva"
-          >
-            <ExternalLink className="w-4 h-4" />
-            <span>Ver PDF</span>
-          </button>
+          />
 
           {/* Botón Imprimir Aislado en Iframe */}
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={Printer}
+            label="Imprimir directamente en impresora física seleccionada"
+            variant="emerald"
+            size="md"
             onClick={imprimirDocumentoAislado}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition"
-            title="Imprimir exclusivamente el documento en la impresora física seleccionada"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Imprimir</span>
-          </button>
+          />
 
           {/* Botón Abrir Cajón Monedero */}
-          <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+          <BotonAbrirCajon soloIcono={true} size="md" />
 
           {onCerrar && (
-            <button
-              type="button"
+            <IconButtonTooltip
+              icon={X}
+              label="Cerrar vista de comprobante"
+              variant="ghost"
+              size="md"
               onClick={onCerrar}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition border border-transparent hover:border-slate-200"
-              title="Cerrar vista de impresión"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            />
           )}
         </div>
       </div>

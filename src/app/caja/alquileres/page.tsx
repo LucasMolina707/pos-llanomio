@@ -4,6 +4,14 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import Link from "next/link";
 import {
   Search,
+  Shirt,
+  ShoppingCart,
+  FolderDown,
+  PlusCircle,
+  PackagePlus,
+  PackageCheck,
+  UserCog,
+  Minus,
   X,
   User,
   UserPlus,
@@ -42,6 +50,7 @@ import {
   Lock,
   Unlock,
 } from "lucide-react";
+import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import ModalProducto, { ProductoData } from "@/components/inventario/ModalProducto";
 import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
@@ -1213,56 +1222,54 @@ export default function TerminalAlquileresPage() {
       {/* ========================================================================= */}
       {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA HOMOLOGADO (h-14 shrink-0)          */}
       {/* ========================================================================= */}
-      <header className="h-14 shrink-0 px-3 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2 flex-nowrap overflow-hidden">
+      <header className="h-14 shrink-0 w-full px-3 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2 flex-nowrap overflow-hidden">
         {/* Izquierda: Botón Regresar, Logo Oficial, Badge de Terminal */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <Link
+        <div className="flex items-center gap-2 min-w-0 shrink-0">
+          <IconButtonTooltip
+            icon={ArrowLeft}
+            label="Regresar al Panel Principal"
             href="/"
-            className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-bold shadow-2xs flex items-center gap-1.5 transition shrink-0 cursor-pointer"
-            title="Volver al panel principal"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-700" />
-            <span>Regresar</span>
-          </Link>
+            variant="neutral"
+            size="md"
+          />
 
           <div className="shrink-0 hidden sm:block">
             <LogoEmpresa size="sm" showText={false} />
           </div>
 
-          <div className="flex items-center gap-2 truncate">
-            <span className="px-2.5 py-1 rounded-xl text-xs font-black tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase truncate">
-              SISTEMA DE ALQUILERES · CAJA Y DEPÓSITOS
-            </span>
-            <span className="text-xs text-slate-500 font-bold hidden md:inline truncate">
-              • {empresaConfig?.nombreComercial || "LLANOMIO"}
-            </span>
-          </div>
+          <span className="px-2 py-0.5 rounded-lg text-xs font-black tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase truncate">
+            ALQUILERES
+          </span>
+          <span className="text-xs text-slate-500 font-bold hidden md:inline truncate">
+            • {empresaConfig?.nombreComercial || "LLANOMIO"}
+          </span>
         </div>
 
-        {/* Centro: Navegación Rápida entre las 3 Terminales + Estado en Vivo del Cajón Sincronizado */}
-        <div className="hidden xl:flex items-center gap-2.5">
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
-            <Link
+        {/* Centro: Conmutador de 3 Terminales + Estado en Vivo del Cajón Sincronizado */}
+        <div className="hidden lg:flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200">
+            <IconButtonTooltip
+              icon={ShoppingCart}
+              label="Ir a Terminal POS (Ventas y Arreglos)"
               href="/caja/pos"
-              className="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition"
-              title="Ir a Terminal POS"
-            >
-              Ir a POS
-            </Link>
-            <Link
+              variant="neutral"
+              size="sm"
+            />
+            <IconButtonTooltip
+              icon={Shirt}
+              label="Terminal Actual: Sistema de Alquileres"
               href="/caja/alquileres"
-              className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white shadow-xs transition"
-              title="Terminal actual de Alquileres"
-            >
-              Ir a Alquileres
-            </Link>
-            <Link
+              variant="emerald"
+              active={true}
+              size="sm"
+            />
+            <IconButtonTooltip
+              icon={CalendarClock}
+              label="Ir a Sistema de Apartados y Reservas"
               href="/caja/apartados"
-              className="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition"
-              title="Ir a Terminal de Apartados y Reservas"
-            >
-              Ir a Apartados
-            </Link>
+              variant="neutral"
+              size="sm"
+            />
           </div>
 
           <BarraEstadoCajon
@@ -1275,46 +1282,49 @@ export default function TerminalAlquileresPage() {
             motivoBloqueo={cajon.motivoBloqueo}
             onRefrescar={() => cajon.actualizarCajon(true)}
             onAbrirModal={cajon.abrirModal}
+            compacto={true}
           />
 
-          {/* Botón Manual de Apertura de Cajón */}
-          <BotonAbrirCajon variante="barra" mostrarAtajo={true} />
+          <BotonAbrirCajon soloIcono={true} size="md" />
         </div>
 
-        {/* Derecha: Botón Recargar + Tomar desde Apartados + Historial con Conteo + Nuevo Alquiler */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="xl:hidden">
-            <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+        {/* Derecha: Herramientas de Operación */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="lg:hidden">
+            <BotonAbrirCajon soloIcono={true} size="md" />
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              cargarClientes();
-              cargarPrendas();
-              cargarHistorialAlquileres();
-            }}
-            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition border border-slate-300/80 cursor-pointer"
-            title="Recargar catálogo y sincronizar"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={FolderDown}
+            label="Tomar Reserva desde Apartados"
+            variant="indigo"
+            size="md"
             onClick={() => {
               cargarApartadosActivos();
               setModalCargarApartadoAbierto(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all shrink-0 shadow-2xs cursor-pointer"
-            title="Cargar cliente y prendas desde una reserva o apartado existente"
-          >
-            <CalendarClock className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="hidden md:inline">Tomar de Apartado</span>
-          </button>
+          />
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={PlusCircle}
+            label="Nuevo Alquiler (Pasos 1 a 4)"
+            variant="emerald"
+            active={vistaPrincipal === "NUEVO_ALQUILER"}
+            size="md"
+            onClick={() => {
+              setVistaPrincipal("NUEVO_ALQUILER");
+              if (pasoActual === 4) reiniciarNuevoAlquiler();
+            }}
+          />
+
+          <IconButtonTooltip
+            icon={History}
+            label="Ver Historial, Devoluciones y Moras"
+            variant={enMora.length > 0 ? "amber" : "neutral"}
+            active={vistaPrincipal === "HISTORIAL_CENTRO"}
+            badgeCount={enMora.length > 0 ? enMora.length : activas.length > 0 ? activas.length : undefined}
+            badgeVariant={enMora.length > 0 ? "danger" : "amber"}
+            size="md"
             onClick={() => {
               if (vistaPrincipal === "HISTORIAL_CENTRO") {
                 setVistaPrincipal("NUEVO_ALQUILER");
@@ -1323,50 +1333,27 @@ export default function TerminalAlquileresPage() {
                 cargarHistorialAlquileres();
               }
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs cursor-pointer ${
-              vistaPrincipal === "HISTORIAL_CENTRO"
-                ? "bg-amber-500 text-slate-950 font-black ring-2 ring-amber-400/40"
-                : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
-            }`}
-            title="Ver centro de alquileres, devoluciones y moras"
-          >
-            <History className="w-4 h-4 text-amber-600 shrink-0" />
-            <span className="hidden sm:inline">Historial</span>
-            <div className="flex items-center gap-1 ml-0.5">
-              {enMora.length > 0 && (
-                <span
-                  title={`${enMora.length} prendas en mora`}
-                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black bg-rose-600 text-white animate-pulse"
-                >
-                  {enMora.length}
-                </span>
-              )}
-              {activas.length > 0 && enMora.length === 0 && (
-                <span
-                  title={`${activas.length} alquileres activos`}
-                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500 text-slate-950"
-                >
-                  {activas.length}
-                </span>
-              )}
-            </div>
-          </button>
+          />
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={RefreshCw}
+            label="Sincronizar y Recargar Catálogo en Vivo"
+            variant="neutral"
+            size="md"
             onClick={() => {
-              setVistaPrincipal("NUEVO_ALQUILER");
-              if (pasoActual === 4) reiniciarNuevoAlquiler();
+              cargarClientes();
+              cargarPrendas();
+              cargarHistorialAlquileres();
             }}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs cursor-pointer ${
-              vistaPrincipal === "NUEVO_ALQUILER"
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
-            }`}
-          >
-            <Plus className="w-4 h-4 inline-block mr-1" />
-            <span>Nuevo</span>
-          </button>
+          />
+
+          <IconButtonTooltip
+            icon={RotateCcw}
+            label="Limpiar y Reiniciar Alquiler Actual"
+            variant="danger"
+            size="md"
+            onClick={reiniciarNuevoAlquiler}
+          />
         </div>
       </header>
 
@@ -1743,39 +1730,35 @@ export default function TerminalAlquileresPage() {
                               )}
                             </td>
 
-                            {/* 7. Botones de Acción */}
+                            {/* 7. Botonera Uniforme de Solo Ícono */}
                             <td className="py-3 px-3 text-center">
                               <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                {/* Botón Comprobante / PDF para reimprimir o descargar en cualquier momento */}
-                                <button
+                                <IconButtonTooltip
+                                  icon={Printer}
+                                  label="Ver, Imprimir o Descargar Comprobante PDF (80mm, Media Carta, Carta)"
+                                  variant="neutral"
+                                  size="sm"
                                   onClick={() => abrirComprobanteAlquiler(factura)}
-                                  className="px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
-                                  title="Ver Comprobante, Imprimir o Descargar PDF (80mm, Media Carta, Carta)"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-blue-600" />
-                                  <span>Comprobante / PDF</span>
-                                </button>
+                                />
 
                                 {!esCerrada && factura.saldoPendiente > 0 && (
-                                  <button
+                                  <IconButtonTooltip
+                                    icon={DollarSign}
+                                    label={`Registrar Abono / Cobrar Saldo Pendiente (${factura.saldoPendiente.toLocaleString("es-CO")})`}
+                                    variant="emerald"
+                                    size="sm"
                                     onClick={() => abrirModalAbonar(factura)}
-                                    className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-all"
-                                    title="Registrar abono parcial o pagar el saldo pendiente"
-                                  >
-                                    <DollarSign className="w-3.5 h-3.5" />
-                                    <span>Abonar Saldo</span>
-                                  </button>
+                                  />
                                 )}
 
                                 {!esCerrada && (
-                                  <button
+                                  <IconButtonTooltip
+                                    icon={PackageCheck}
+                                    label="Recibir Prendas Devueltas y Liquidar Depósito en Garantía"
+                                    variant="amber"
+                                    size="sm"
                                     onClick={() => abrirModalLiquidacion(factura)}
-                                    className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-all"
-                                    title="Recibir prendas devueltas, cobrar saldo/mora y liquidar depósito"
-                                  >
-                                    <RotateCcw className="w-3.5 h-3.5" />
-                                    <span>Recibir / Liquidar</span>
-                                  </button>
+                                  />
                                 )}
 
                                 {/* WhatsApp si está en mora o activo */}
@@ -1855,7 +1838,7 @@ export default function TerminalAlquileresPage() {
 
                   <div className="flex items-center gap-2.5 flex-wrap">
                     {/* Botón manual de apertura de cajón en Paso 4 */}
-                    <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+                    <BotonAbrirCajon soloIcono={true} size="md" />
 
                     {/* Botón para retroceder al Paso 3 y corregir cobro o depósito sin duplicar */}
                     <button
@@ -1926,28 +1909,24 @@ export default function TerminalAlquileresPage() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <button
-                              type="button"
+                          <div className="flex items-center gap-2 shrink-0">
+                            <IconButtonTooltip
+                              icon={FolderDown}
+                              label="Tomar Reserva desde Apartados"
+                              variant="indigo"
+                              size="md"
                               onClick={() => {
                                 cargarApartadosActivos();
                                 setModalCargarApartadoAbierto(true);
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition shadow-2xs cursor-pointer"
-                              title="Buscar clientes que ya tienen prendas apartadas"
-                            >
-                              <CalendarClock className="w-3.5 h-3.5 text-indigo-600" />
-                              <span>De Apartado</span>
-                            </button>
-
-                            <button
-                              type="button"
+                            />
+                            <IconButtonTooltip
+                              icon={UserPlus}
+                              label="Crear Nuevo Cliente Rápido"
+                              variant="emerald"
+                              size="md"
                               onClick={() => setModalCrearClienteAbierto(true)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
-                            >
-                              <UserPlus className="w-3.5 h-3.5" />
-                              <span>+ Nuevo Cliente</span>
-                            </button>
+                            />
                           </div>
                         </div>
 
@@ -2019,18 +1998,30 @@ export default function TerminalAlquileresPage() {
                                     </div>
                                   </div>
 
-                                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
-                                    <span className="text-[11px] font-bold text-slate-500">Arrendatario</span>
-                                    <button
-                                      type="button"
-                                      className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                                        esSeleccionado
-                                          ? "bg-emerald-600 text-white"
-                                          : "bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
-                                      }`}
-                                    >
-                                      {esSeleccionado ? "Elegido" : "Seleccionar"}
-                                    </button>
+                                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                                    <span className="text-[11px] font-bold text-slate-500 truncate">Arrendatario</span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <IconButtonTooltip
+                                        icon={UserCog}
+                                        label="Editar Datos / RUT del Cliente"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setModalCrearClienteAbierto(true);
+                                        }}
+                                      />
+                                      <button
+                                        type="button"
+                                        className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                          esSeleccionado
+                                            ? "bg-emerald-600 text-white"
+                                            : "bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+                                        }`}
+                                      >
+                                        {esSeleccionado ? "Elegido" : "Seleccionar"}
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -2057,28 +2048,24 @@ export default function TerminalAlquileresPage() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <button
-                              type="button"
+                          <div className="flex items-center gap-2 shrink-0">
+                            <IconButtonTooltip
+                              icon={FolderDown}
+                              label="Tomar Reserva desde Apartados"
+                              variant="indigo"
+                              size="md"
                               onClick={() => {
                                 cargarApartadosActivos();
                                 setModalCargarApartadoAbierto(true);
                               }}
-                              className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
-                              title="Cargar productos desde una reserva o apartado"
-                            >
-                              <CalendarClock className="w-3.5 h-3.5 text-indigo-600" />
-                              <span>De Apartados</span>
-                            </button>
-
-                            <button
-                              type="button"
+                            />
+                            <IconButtonTooltip
+                              icon={PackagePlus}
+                              label="Crear Nueva Prenda en Catálogo"
+                              variant="emerald"
+                              size="md"
                               onClick={() => setModalCrearPrendaAbierto(true)}
-                              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>+ Nueva Prenda</span>
-                            </button>
+                            />
                           </div>
                         </div>
 
@@ -2515,23 +2502,13 @@ export default function TerminalAlquileresPage() {
                       )}
                     </div>
 
-                    {clienteSeleccionado ? (
-                      <button
-                        type="button"
-                        onClick={() => setPasoActual(1)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition shrink-0 cursor-pointer"
-                      >
-                        Cambiar
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setPasoActual(1)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0 cursor-pointer"
-                      >
-                        Elegir
-                      </button>
-                    )}
+                    <IconButtonTooltip
+                      icon={User}
+                      label={clienteSeleccionado ? "Cambiar Cliente Arrendatario" : "Seleccionar Cliente"}
+                      size="sm"
+                      variant="neutral"
+                      onClick={() => setPasoActual(1)}
+                    />
                   </div>
 
                   {/* Fechas del Contrato (shrink-0) */}
@@ -2570,13 +2547,13 @@ export default function TerminalAlquileresPage() {
                       </h3>
                     </div>
                     {itemsCarrito.length > 0 && (
-                      <button
-                        type="button"
+                      <IconButtonTooltip
+                        icon={RotateCcw}
+                        label="Vaciar todas las prendas del contrato"
+                        size="sm"
+                        variant="danger"
                         onClick={() => setItemsCarrito([])}
-                        className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer"
-                      >
-                        Vaciar
-                      </button>
+                      />
                     )}
                   </div>
 
@@ -2612,34 +2589,31 @@ export default function TerminalAlquileresPage() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg p-0.5">
-                              <button
-                                type="button"
-                                onClick={() => modificarCantidadItem(item.idTemporal, -1)}
-                                className="w-5 h-5 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded text-xs font-bold cursor-pointer"
-                              >
-                                -
-                              </button>
-                              <span className="font-mono text-xs font-bold w-5 text-center">
-                                {item.cantidad}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => modificarCantidadItem(item.idTemporal, 1)}
-                                className="w-5 h-5 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded text-xs font-bold cursor-pointer"
-                              >
-                                +
-                              </button>
-                            </div>
-
-                            <button
-                              type="button"
+                          <div className="flex items-center gap-1 shrink-0">
+                            <IconButtonTooltip
+                              icon={Minus}
+                              label="Disminuir cantidad"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => modificarCantidadItem(item.idTemporal, -1)}
+                            />
+                            <span className="font-mono text-xs font-black w-6 text-center text-slate-800">
+                              {item.cantidad}
+                            </span>
+                            <IconButtonTooltip
+                              icon={Plus}
+                              label="Aumentar cantidad"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => modificarCantidadItem(item.idTemporal, 1)}
+                            />
+                            <IconButtonTooltip
+                              icon={Trash2}
+                              label="Quitar prenda del contrato"
+                              size="sm"
+                              variant="danger"
                               onClick={() => removerItemCarrito(item.idTemporal)}
-                              className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            />
                           </div>
                         </div>
                       ))

@@ -5,6 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Search,
+  Shirt,
+  ShoppingCart,
+  PlusCircle,
+  PackagePlus,
+  UserCog,
+  Minus,
   X,
   User,
   UserPlus,
@@ -39,6 +45,7 @@ import {
   Tag,
   Building2,
 } from "lucide-react";
+import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import PlantillaImpresion from "@/components/impresion/PlantillaImpresion";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
@@ -556,56 +563,54 @@ export default function ApartadosPage() {
       {/* ========================================================================= */}
       {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA HOMOLOGADO (h-14 shrink-0)          */}
       {/* ========================================================================= */}
-      <header className="h-14 shrink-0 px-3 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2 flex-nowrap overflow-hidden">
+      <header className="h-14 shrink-0 w-full px-3 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2 flex-nowrap overflow-hidden">
         {/* Izquierda: Botón Regresar, Logo Oficial, Badge de Terminal */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <Link
+        <div className="flex items-center gap-2 min-w-0 shrink-0">
+          <IconButtonTooltip
+            icon={ArrowLeft}
+            label="Regresar al Panel Principal"
             href="/"
-            className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-bold shadow-2xs flex items-center gap-1.5 transition shrink-0 cursor-pointer"
-            title="Volver al panel principal"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-700" />
-            <span>Regresar</span>
-          </Link>
+            variant="neutral"
+            size="md"
+          />
 
           <div className="shrink-0 hidden sm:block">
             <LogoEmpresa size="sm" showText={false} />
           </div>
 
-          <div className="flex items-center gap-2 truncate">
-            <span className="px-2.5 py-1 rounded-xl text-xs font-black tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase truncate">
-              SISTEMA DE APARTADOS · RESERVAS
-            </span>
-            <span className="text-xs text-slate-500 font-bold hidden md:inline truncate">
-              • {configuracionEmpresa?.nombreComercial || "LLANOMIO"}
-            </span>
-          </div>
+          <span className="px-2 py-0.5 rounded-lg text-xs font-black tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase truncate">
+            APARTADOS
+          </span>
+          <span className="text-xs text-slate-500 font-bold hidden md:inline truncate">
+            • {configuracionEmpresa?.nombreComercial || "LLANOMIO"}
+          </span>
         </div>
 
-        {/* Centro: Navegación Rápida entre las 3 Terminales + Estado en Vivo del Cajón Sincronizado */}
-        <div className="hidden xl:flex items-center gap-2.5">
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
-            <Link
+        {/* Centro: Conmutador de 3 Terminales + Estado en Vivo del Cajón Sincronizado */}
+        <div className="hidden lg:flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200">
+            <IconButtonTooltip
+              icon={ShoppingCart}
+              label="Ir a Terminal POS (Ventas y Arreglos)"
               href="/caja/pos"
-              className="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition"
-              title="Ir a Terminal POS"
-            >
-              Ir a POS
-            </Link>
-            <Link
+              variant="neutral"
+              size="sm"
+            />
+            <IconButtonTooltip
+              icon={Shirt}
+              label="Ir a Sistema de Alquileres"
               href="/caja/alquileres"
-              className="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition"
-              title="Ir a Terminal de Alquileres"
-            >
-              Ir a Alquileres
-            </Link>
-            <Link
+              variant="neutral"
+              size="sm"
+            />
+            <IconButtonTooltip
+              icon={CalendarClock}
+              label="Terminal Actual: Sistema de Apartados y Reservas"
               href="/caja/apartados"
-              className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white shadow-xs transition"
-              title="Terminal actual de Apartados"
-            >
-              Ir a Apartados
-            </Link>
+              variant="indigo"
+              active={true}
+              size="sm"
+            />
           </div>
 
           <BarraEstadoCajon
@@ -618,68 +623,63 @@ export default function ApartadosPage() {
             motivoBloqueo={cajon.motivoBloqueo}
             onRefrescar={() => cajon.actualizarCajon(true)}
             onAbrirModal={cajon.abrirModal}
+            compacto={true}
           />
 
-          {/* Botón Manual de Apertura de Cajón */}
-          <BotonAbrirCajon variante="barra" mostrarAtajo={true} />
+          <BotonAbrirCajon soloIcono={true} size="md" />
         </div>
 
-        {/* Derecha: Botón Recargar + Historial con Conteo + Nuevo Apartado */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="xl:hidden">
-            <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+        {/* Derecha: Herramientas de Operación */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="lg:hidden">
+            <BotonAbrirCajon soloIcono={true} size="md" />
           </div>
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={PlusCircle}
+            label="Nuevo Apartado / Reserva (Pasos 1 a 4)"
+            variant="indigo"
+            active={pestaña === "NUEVO"}
+            size="md"
+            onClick={() => {
+              setPestaña("NUEVO");
+              if (paso === 4) reiniciarOperacionLimpia();
+            }}
+          />
+
+          <IconButtonTooltip
+            icon={History}
+            label="Ver Centro de Historial y Reservas"
+            variant={apartadosHistorial.filter((a) => a.tipoOperacion === "SEPARE" && a.estado !== "CERRADA").length > 0 ? "amber" : "neutral"}
+            active={pestaña === "HISTORIAL"}
+            badgeCount={apartadosHistorial.filter((a) => a.tipoOperacion === "SEPARE" && a.estado !== "CERRADA").length || undefined}
+            badgeVariant="indigo"
+            size="md"
+            onClick={() => {
+              setPestaña(pestaña === "HISTORIAL" ? "NUEVO" : "HISTORIAL");
+              if (pestaña !== "HISTORIAL") cargarHistorial();
+            }}
+          />
+
+          <IconButtonTooltip
+            icon={RefreshCw}
+            label="Sincronizar y Recargar Catálogo en Vivo"
+            variant="neutral"
+            size="md"
             onClick={() => {
               cargarClientes();
               cargarProductos();
               cargarHistorial();
             }}
-            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition border border-slate-300/80 cursor-pointer"
-            title="Recargar catálogo y sincronizar"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+          />
 
-          <button
-            type="button"
-            onClick={() => {
-              setPestaña(pestaña === "HISTORIAL" ? "NUEVO" : "HISTORIAL");
-              if (pestaña !== "HISTORIAL") cargarHistorial();
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs cursor-pointer ${
-              pestaña === "HISTORIAL"
-                ? "bg-amber-500 text-slate-950 font-black ring-2 ring-amber-400/40"
-                : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
-            }`}
-            title="Ver centro de reservas e historial"
-          >
-            <History className="w-4 h-4 text-amber-600 shrink-0" />
-            <span className="hidden sm:inline">Historial</span>
-            {apartadosHistorial.filter((a) => a.tipoOperacion === "SEPARE" && a.estado !== "CERRADA").length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black bg-indigo-600 text-white ml-0.5">
-                {apartadosHistorial.filter((a) => a.tipoOperacion === "SEPARE" && a.estado !== "CERRADA").length}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setPestaña("NUEVO");
-              if (paso === 4) reiniciarOperacionLimpia();
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs cursor-pointer ${
-              pestaña === "NUEVO"
-                ? "bg-indigo-600 text-white"
-                : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
-            }`}
-          >
-            <Plus className="w-4 h-4 inline-block mr-1" />
-            <span>Nuevo</span>
-          </button>
+          <IconButtonTooltip
+            icon={RotateCcw}
+            label="Limpiar y Reiniciar Apartado Actual"
+            variant="danger"
+            size="md"
+            onClick={reiniciarOperacionLimpia}
+          />
         </div>
       </header>
 
@@ -778,7 +778,7 @@ export default function ApartadosPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+                  <BotonAbrirCajon soloIcono={true} size="md" />
 
                   <button
                     type="button"
@@ -843,14 +843,13 @@ export default function ApartadosPage() {
                 </div>
 
                 {paso === 1 && (
-                  <button
-                    type="button"
+                  <IconButtonTooltip
+                    icon={UserPlus}
+                    label="Crear Nuevo Cliente Rápido"
+                    variant="indigo"
+                    size="md"
                     onClick={() => setMostrarModalCrearCliente(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-xs shrink-0 cursor-pointer"
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>+ Nuevo Cliente</span>
-                  </button>
+                  />
                 )}
               </div>
 
@@ -909,18 +908,30 @@ export default function ApartadosPage() {
                                 </p>
                               </div>
 
-                              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
-                                <span className="text-[11px] font-bold text-slate-500">Cliente</span>
-                                <button
-                                  type="button"
-                                  className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                                    seleccionado
-                                      ? "bg-indigo-600 text-white"
-                                      : "bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
-                                  }`}
-                                >
-                                  {seleccionado ? "Elegido" : "Seleccionar"}
-                                </button>
+                              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                                <span className="text-[11px] font-bold text-slate-500 truncate">Cliente</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <IconButtonTooltip
+                                    icon={UserCog}
+                                    label="Editar Datos / RUT del Cliente"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMostrarModalCrearCliente(true);
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                      seleccionado
+                                        ? "bg-indigo-600 text-white"
+                                        : "bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                                    }`}
+                                  >
+                                    {seleccionado ? "Elegido" : "Seleccionar"}
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );
@@ -976,13 +987,13 @@ export default function ApartadosPage() {
                           onChange={(e) => setPrecioLibreInput(e.target.value)}
                           className="w-24 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white font-mono font-bold text-xs outline-none"
                         />
-                        <button
-                          type="button"
+                        <IconButtonTooltip
+                          icon={Plus}
+                          label="Agregar Ítem Libre al Apartado"
+                          variant="indigo"
+                          size="md"
                           onClick={agregarItemLibre}
-                          className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shrink-0 cursor-pointer"
-                        >
-                          + Agregar
-                        </button>
+                        />
                       </div>
                     </div>
 
@@ -1233,13 +1244,13 @@ export default function ApartadosPage() {
                     Prendas Separadas ({itemsApartado.length})
                   </span>
                   {itemsApartado.length > 0 && (
-                    <button
-                      type="button"
+                    <IconButtonTooltip
+                      icon={RotateCcw}
+                      label="Vaciar todas las prendas del apartado"
+                      size="sm"
+                      variant="danger"
                       onClick={() => setItemsApartado([])}
-                      className="text-[11px] font-bold text-rose-600 hover:underline"
-                    >
-                      Vaciar
-                    </button>
+                    />
                   )}
                 </div>
 
@@ -1270,13 +1281,13 @@ export default function ApartadosPage() {
                           className="w-16 px-1.5 py-0.5 rounded border border-slate-300 text-right font-mono font-bold text-xs bg-white"
                           title="Editar precio de alquiler"
                         />
-                        <button
-                          type="button"
+                        <IconButtonTooltip
+                          icon={Trash2}
+                          label="Quitar ítem del apartado"
+                          size="sm"
+                          variant="danger"
                           onClick={() => eliminarItem(item.idTemporal)}
-                          className="p-1 text-slate-400 hover:text-rose-600 transition"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        />
                       </div>
                     </div>
                   ))
@@ -1521,25 +1532,24 @@ export default function ApartadosPage() {
                           <td className="py-2 px-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
                               {!esConvertido && item.saldoPendiente > 0 && (
-                                <button
-                                  type="button"
+                                <IconButtonTooltip
+                                  icon={DollarSign}
+                                  label={`Registrar Abono / Pagar Saldo (${item.saldoPendiente.toLocaleString("es-CO")})`}
+                                  variant="emerald"
+                                  size="sm"
                                   onClick={() => {
                                     setApartadoParaAbonar(item);
                                     setMontoNuevoAbono(String(item.saldoPendiente));
                                   }}
-                                  className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] transition cursor-pointer"
-                                >
-                                  + Abonar
-                                </button>
+                                />
                               )}
-                              <Link
+                              <IconButtonTooltip
+                                icon={Printer}
+                                label="Ver, Imprimir o Descargar Comprobante PDF (80mm, Media Carta, Carta)"
+                                variant="neutral"
+                                size="sm"
                                 href={`/impresion/${item.id}`}
-                                target="_blank"
-                                className="p-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition"
-                                title="Ver e imprimir comprobante"
-                              >
-                                <Printer className="w-3.5 h-3.5" />
-                              </Link>
+                              />
                             </div>
                           </td>
                         </tr>

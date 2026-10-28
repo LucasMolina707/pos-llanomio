@@ -2283,3 +2283,57 @@ Se ejecutó una inspección y cruce de interfaces exhaustivo en las 5 capas del 
 - **Cero Superposición en Mostrador:** Homologación completa y visualmente limpia en `/caja/pos`, `/caja/alquileres` y `/caja/apartados` sin barras de desplazamiento global en ventana de navegador (`100vw x 100vh`).
 - **Verificación Estricta TypeScript:** `npx tsc --noEmit` completado con código 0 y 0 errores.
 - **Compilación de Producción:** `npm run build` completado con éxito al 100% (todas las 23 rutas compiladas).
+
+---
+
+## 24. Estandarización Ergonómica de Botones de Solo Ícono con Tooltips por Portal en Pantalla Completa (100vw x 100vh)
+
+### 1. Diagnóstico de UI/UX y Necesidad Técnica
+En terminales táctiles de cajero y monitores de mostrador (1366x768 o pantallas panorámicas), las botoneras con texto variable generaban anchos desiguales, saltos de línea imprevistos y recortes en contenedores con `overflow-hidden`. Asimismo, la necesidad de descripciones claras para el cajero requería un sistema de información flotante que fuera visible al instante sin romper la geometría fija de los paneles.
+
+### 2. Componente Universal `<IconButtonTooltip />` (`src/components/ui/IconButtonTooltip.tsx`)
+Se diseñó un componente de botón de solo ícono con proporciones geométricas fijas y descripciones emergentes flotantes:
+- **Dimensiones Uniformes (`size`):**
+  - `sm`: `w-8 h-8 min-w-[32px] min-h-[32px] p-1.5 rounded-lg` (para filas del carrito, tablas y controles densos).
+  - `md`: `w-9 h-9 min-w-[36px] min-h-[36px] p-2 rounded-xl` (estándar para cabecera, barras de herramientas y buscadores).
+  - `lg`: `w-11 h-11 min-w-[44px] min-h-[44px] p-2.5 rounded-xl` (para navegación principal de pasos).
+- **Variantes Semánticas Antifatiga (`variant`):**
+  - `neutral`: Blanco con borde gris suave (`bg-white hover:bg-slate-100 text-slate-700 border-slate-200`).
+  - `primary`: Azul operativo POS (`bg-blue-600 hover:bg-blue-700 text-white`).
+  - `emerald`: Verde alquileres y confirmación (`bg-emerald-600 hover:bg-emerald-700 text-white`).
+  - `indigo`: Índigo para apartados y reservas (`bg-indigo-600 hover:bg-indigo-700 text-white`).
+  - `amber`: Ámbar para gaveta de dinero y alertas de mora (`bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300`).
+  - `danger`: Rosa/rojo para eliminación o vaciado (`bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200`).
+  - `ghost`: Transparente para micro-acciones secundarias.
+- **Badge Numérico Opcional (`badgeCount` y `badgeVariant`):** Pastilla compacta en la esquina superior derecha (`-top-1 -right-1`) para contadores de moras o facturas pendientes.
+- **Soporte Nativo de Navegación (`href`):** Renderiza automáticamente un enlace `<Link>` de Next.js manteniendo la misma proporción geométrica de botón de solo ícono.
+- **Tooltip Flotante Anti-Recorte con React Portal (`createPortal(..., document.body)`):**
+  - Se dibuja en la raíz del DOM con `z-[9999]`, evitando que contenedores con `overflow-hidden` o `overflow-y-auto` recorten el recuadro descriptivo.
+  - Cálculo dinámico de coordenadas mediante `getBoundingClientRect()` con orientación automática: si el botón se ubica cerca del borde superior (`top < 54px`), el tooltip se despliega automáticamente hacia abajo; de lo contrario, se despliega hacia arriba.
+  - Soporte bidireccional para mouse (`onMouseEnter` / `onMouseLeave`) y pantallas táctiles (`onTouchStart` con auto-cierre temporizado).
+
+### 3. Homologación en las Tres Vistas Operativas de Mostrador
+1. **Sistema POS (`src/app/caja/pos/page.tsx`):**
+   - Cabecera: Botón regresar (`ArrowLeft`), conmutador de 3 terminales con botones uniformes (`ShoppingCart`, `Shirt`, `CalendarClock`), `BarraEstadoCajon` compacta, `BotonAbrirCajon soloIcono={true}`, y botones uniformes para Nueva Venta (`PlusCircle`), Historial (`History` con badge), Sincronizar (`RefreshCw`) y Limpiar (`RotateCcw`).
+   - Paso 1 y Paso 2: Buscadores con `<IconButtonTooltip icon={UserPlus} />` y `<IconButtonTooltip icon={PackagePlus} />`; tarjetas de cliente con `<IconButtonTooltip icon={UserCog} size="sm" />`.
+   - Carrito de Venta: Botones uniformes `sm` (`Minus`, `Plus`, `Trash2`), cambiar cliente y vaciar venta (`RotateCcw`).
+   - Historial POS: Botones de fila uniformes para Cobrar Saldo (`DollarSign`), Imprimir Comprobante (`Printer`) y Enviar WhatsApp.
+2. **Sistema de Alquileres (`src/app/caja/alquileres/page.tsx`):**
+   - Cabecera: Conmutador de 3 terminales, botón `Tomar Reserva de Apartados` (`FolderDown`), `Nuevo Alquiler` (`PlusCircle`), `Historial y Devoluciones` (`History` con badge de moras), `Sincronizar` y `Limpiar`.
+   - Paso 1 y Paso 2: Botón de nuevo cliente (`UserPlus`), nueva prenda (`PackagePlus`), y tomar de apartados (`FolderDown`); tarjetas de cliente con `UserCog` (size="sm").
+   - Carrito de Alquiler: Botones uniformes `sm` para modificar cantidades, vaciar contrato (`RotateCcw`) y cambiar cliente.
+   - Historial de Alquileres: Botones de fila uniformes para Comprobante/PDF (`Printer`), Cobrar Abono (`DollarSign`) y Recibir Prendas / Liquidar Depósito (`PackageCheck`).
+3. **Sistema de Apartados (`src/app/caja/apartados/page.tsx`):**
+   - Cabecera: Conmutador de 3 terminales, botón `Nuevo Apartado` (`PlusCircle`), `Historial de Reservas` (`History` con badge), `Sincronizar` y `Limpiar`.
+   - Paso 1 y Paso 2: Botón de nuevo cliente (`UserPlus`), agregar ítem libre (`Plus`), y botón `UserCog` en tarjetas de clientes.
+   - Carrito de Apartados: Botones uniformes `sm` para eliminar ítem (`Trash2`) y vaciar apartado (`RotateCcw`).
+   - Historial de Apartados: Botones de fila uniformes para Abonar Saldo (`DollarSign`) y Ver/Imprimir Comprobante (`Printer`).
+4. **Visor de Impresión y Comprobantes (`src/components/impresion/PlantillaImpresion.tsx`):**
+   - Barra superior de herramientas compacta con botones de solo ícono y tooltip para formatos (80mm, Media Carta, Carta), selector de copias (1 Copia, 2 Copias con badge), Descargar PDF, Ver PDF, Imprimir directamente, Abrir Cajón (`soloIcono`) y Cerrar.
+
+### 4. Control de Calidad (QA) y Verificación Final
+- **TypeScript:** `npx tsc --noEmit` completado con **0 errores**.
+- **Next.js Production Build:** `npm run build` completado exitosamente con **código 0** en las 23 rutas de la aplicación.
+- **Servicio PM2:** Reiniciado exitosamente con el proceso `pos-llanomio` en estado `online`.
+- **Cero Superposición:** Estructura `100vw x 100vh` estricta sin scroll global horizontal ni vertical.
+

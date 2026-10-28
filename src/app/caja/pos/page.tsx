@@ -46,7 +46,14 @@ import {
   Users,
   Layers,
   Split,
+  Shirt,
+  ShoppingCart,
+  PlusCircle,
+  PackagePlus,
+  UserCog,
+  Minus,
 } from "lucide-react";
+import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import ModalProducto, { ProductoData } from "@/components/inventario/ModalProducto";
 import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
@@ -1029,51 +1036,51 @@ export default function PosPage() {
       {/* ========================================================================= */}
       <header className="h-14 shrink-0 w-full px-3 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2 flex-nowrap overflow-hidden">
         {/* Izquierda: Botón Regresar, Logo Oficial, Badge de Terminal */}
-        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 shrink-0">
-          <Link
+        <div className="flex items-center gap-2 min-w-0 shrink-0">
+          <IconButtonTooltip
+            icon={ArrowLeft}
+            label="Regresar al Panel Principal"
             href="/"
-            className="bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs sm:text-sm font-bold shadow-2xs flex items-center gap-1.5 transition shrink-0"
-            title="Volver al panel principal"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-700" />
-            <span>Regresar</span>
-          </Link>
+            variant="neutral"
+            size="md"
+          />
 
           <div className="shrink-0 hidden sm:block">
             <LogoEmpresa size="sm" showText={false} />
           </div>
 
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="px-2.5 py-1 rounded-xl text-xs font-black tracking-wider bg-blue-50 text-blue-700 border border-blue-200 uppercase truncate">
-              SISTEMA POS · VENTAS Y ARREGLOS
-            </span>
-          </div>
+          <span className="px-2 py-0.5 rounded-lg text-xs font-black tracking-wider bg-blue-50 text-blue-700 border border-blue-200 uppercase truncate">
+            POS
+          </span>
         </div>
 
         {/* Centro: Navegación Rápida entre las 3 Terminales + Estado en Vivo del Cajón Sincronizado */}
-        <div className="hidden lg:flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold shrink-0">
-            <Link
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200 shrink-0">
+            <IconButtonTooltip
+              icon={ShoppingCart}
+              label="Terminal POS (Ventas y Arreglos - Activa)"
               href="/caja/pos"
-              className="px-2.5 py-1 rounded-lg bg-blue-600 text-white shadow-xs transition"
-              title="Terminal actual de Ventas y Arreglos"
-            >
-              Ir a POS
-            </Link>
-            <Link
+              active={true}
+              variant="primary"
+              size="sm"
+            />
+            <IconButtonTooltip
+              icon={Shirt}
+              label="Ir a Terminal de Alquileres"
               href="/caja/alquileres"
-              className="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition"
-              title="Ir a Terminal de Alquileres"
-            >
-              Ir a Alquileres
-            </Link>
-            <Link
+              active={false}
+              variant="neutral"
+              size="sm"
+            />
+            <IconButtonTooltip
+              icon={CalendarClock}
+              label="Ir a Terminal de Apartados y Reservas"
               href="/caja/apartados"
-              className="px-2.5 py-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition"
-              title="Ir a Terminal de Apartados y Reservas"
-            >
-              Ir a Apartados
-            </Link>
+              active={false}
+              variant="neutral"
+              size="sm"
+            />
           </div>
 
           <BarraEstadoCajon
@@ -1089,69 +1096,22 @@ export default function PosPage() {
             compacto={true}
           />
 
-          {/* Botón Manual de Apertura de Cajón */}
-          <BotonAbrirCajon variante="barra" mostrarAtajo={true} />
+          {/* Botón Manual de Apertura de Cajón Uniforme */}
+          <BotonAbrirCajon soloIcono={true} size="md" />
         </div>
 
-        {/* Derecha: Botón Recargar + Historial / Moras + Alternar Nueva Factura */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="lg:hidden">
-            <BotonAbrirCajon variante="barra" mostrarAtajo={false} />
+        {/* Derecha: Botón Recargar + Historial / Moras + Alternar Nueva Factura + Limpiar */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="sm:hidden">
+            <BotonAbrirCajon soloIcono={true} size="md" />
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              cargarSesionYTurno();
-              cargarClientes();
-              cargarInventario();
-              cargarMonitoreo(false);
-            }}
-            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition border border-slate-300/80 cursor-pointer shrink-0"
-            title="Recargar inventario y sincronizar caja"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-
-          {/* Botón Principal: Historial del Módulo con Conteo */}
-          <button
-            type="button"
-            onClick={() => {
-              setVistaPrincipal("HISTORIAL");
-              cargarMonitoreo(false);
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs cursor-pointer shrink-0 ${
-              vistaPrincipal === "HISTORIAL"
-                ? "bg-amber-500 text-slate-950 font-black ring-2 ring-amber-400/40"
-                : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
-            }`}
-            title="Ver centro de cartera, facturas por cobrar, moras y paz y salvos"
-          >
-            <History className="w-4 h-4 text-amber-600 shrink-0" />
-            <span className="hidden sm:inline">Historial</span>
-            <div className="flex items-center gap-1 ml-0.5">
-              {estadisticasMonitoreo.totalEnMora > 0 && (
-                <span
-                  title={`${estadisticasMonitoreo.totalEnMora} facturas con prendas en mora`}
-                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black bg-rose-600 text-white animate-pulse"
-                >
-                  {estadisticasMonitoreo.totalEnMora}
-                </span>
-              )}
-              {estadisticasMonitoreo.conteoPendientesAlDia > 0 && (
-                <span
-                  title={`${estadisticasMonitoreo.conteoPendientesAlDia} facturas pendientes por cobrar`}
-                  className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500 text-slate-950"
-                >
-                  {estadisticasMonitoreo.conteoPendientesAlDia}
-                </span>
-              )}
-            </div>
-          </button>
-
-          {/* Botón: Nueva Factura */}
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={PlusCircle}
+            label="Nueva Venta (Pasos 1 a 4)"
+            active={vistaPrincipal === "NUEVA_FACTURA"}
+            variant={vistaPrincipal === "NUEVA_FACTURA" ? "primary" : "neutral"}
+            size="md"
             onClick={() => {
               if (vistaPrincipal === "HISTORIAL") {
                 setVistaPrincipal("NUEVA_FACTURA");
@@ -1161,15 +1121,46 @@ export default function PosPage() {
                 }
               }
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs cursor-pointer shrink-0 ${
-              vistaPrincipal === "NUEVA_FACTURA"
-                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/20"
-                : "bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300/80"
-            }`}
-          >
-            <Plus className="w-4 h-4 shrink-0" />
-            <span className="hidden sm:inline">Nueva Venta</span>
-          </button>
+          />
+
+          <IconButtonTooltip
+            icon={History}
+            label="Ver Historial, Facturas por Cobrar y Moras"
+            badgeCount={estadisticasMonitoreo.totalEnMora + estadisticasMonitoreo.conteoPendientesAlDia}
+            badgeVariant={estadisticasMonitoreo.totalEnMora > 0 ? "danger" : "amber"}
+            active={vistaPrincipal === "HISTORIAL"}
+            variant={vistaPrincipal === "HISTORIAL" ? "amber" : "neutral"}
+            size="md"
+            onClick={() => {
+              setVistaPrincipal("HISTORIAL");
+              cargarMonitoreo(false);
+            }}
+          />
+
+          <IconButtonTooltip
+            icon={RefreshCw}
+            label="Sincronizar caja y recargar inventario"
+            variant="neutral"
+            size="md"
+            onClick={() => {
+              cargarSesionYTurno();
+              cargarClientes();
+              cargarInventario();
+              cargarMonitoreo(false);
+            }}
+          />
+
+          <IconButtonTooltip
+            icon={RotateCcw}
+            label="Limpiar y Reiniciar Venta Actual"
+            variant="danger"
+            size="md"
+            onClick={() => {
+              if (confirm("¿Limpiar la venta en curso y comenzar en blanco?")) {
+                reiniciarMostrador();
+              }
+            }}
+          />
         </div>
       </header>
 
@@ -1614,32 +1605,31 @@ export default function PosPage() {
 
                             {/* Acciones */}
                             <td className="px-3.5 py-3 text-center">
-                              <div className="flex items-center justify-center gap-2">
+                              <div className="flex items-center justify-center gap-1.5">
                                 {/* Botón Cobrar Saldo / Mora (Pestañas A, B y C) */}
                                 {pestanaHistorial !== "PAZ_Y_SALVOS" && (
-                                  <button
-                                    type="button"
+                                  <IconButtonTooltip
+                                    icon={DollarSign}
+                                    label={
+                                      pestanaHistorial === "SOLO_MORA"
+                                        ? "Cobrar Mora & Prenda"
+                                        : pestanaHistorial === "MORA_Y_SALDO"
+                                        ? "Cobrar Saldo & Mora"
+                                        : "Cobrar Saldo Pendiente"
+                                    }
+                                    variant={
+                                      pestanaHistorial === "MORA_Y_SALDO"
+                                        ? "danger"
+                                        : pestanaHistorial === "SOLO_MORA"
+                                        ? "amber"
+                                        : "emerald"
+                                    }
+                                    size="md"
                                     onClick={() => {
                                       setFacturaALiquidarId(f.id);
                                       setModalLiquidarAbierto(true);
                                     }}
-                                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition shadow-xs text-white min-h-[38px] ${
-                                      pestanaHistorial === "SOLO_MORA"
-                                        ? "bg-amber-600 hover:bg-amber-700"
-                                        : pestanaHistorial === "MORA_Y_SALDO"
-                                        ? "bg-rose-600 hover:bg-rose-700"
-                                        : "bg-emerald-600 hover:bg-emerald-700"
-                                    }`}
-                                  >
-                                    <DollarSign className="w-4 h-4" />
-                                    <span>
-                                      {pestanaHistorial === "SOLO_MORA"
-                                        ? "Cobrar Mora & Prenda"
-                                        : pestanaHistorial === "MORA_Y_SALDO"
-                                        ? "Cobrar Saldo & Mora"
-                                        : "Cobrar Saldo"}
-                                    </span>
-                                  </button>
+                                  />
                                 )}
 
                                 {/* Botón WhatsApp CRM */}
@@ -1662,20 +1652,18 @@ export default function PosPage() {
                                         : "SALDO_PENDIENTE"
                                     }
                                     mostrarTexto={false}
-                                    className="p-2 min-h-[38px] flex items-center justify-center rounded-xl"
+                                    className="w-9 h-9 min-w-[36px] min-h-[36px] p-2 flex items-center justify-center rounded-xl"
                                   />
                                 )}
 
                                 {/* Botón Imprimir / PDF Universal */}
-                                <button
-                                  type="button"
+                                <IconButtonTooltip
+                                  icon={Printer}
+                                  label="Ver, imprimir o descargar comprobante en 80mm, Media Carta o Carta"
+                                  variant="neutral"
+                                  size="md"
                                   onClick={() => abrirReimpresionUniversal(f)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition min-h-[38px]"
-                                  title="Ver e imprimir comprobante en 80mm, Media Carta o Carta"
-                                >
-                                  <Printer className="w-4 h-4" />
-                                  <span className="hidden sm:inline">Imprimir / PDF</span>
-                                </button>
+                                />
                               </div>
                             </td>
                           </tr>
@@ -1801,14 +1789,13 @@ export default function PosPage() {
                             </p>
                           </div>
 
-                          <button
-                            type="button"
+                          <IconButtonTooltip
+                            icon={UserPlus}
+                            label="Crear Nuevo Cliente Rápido"
+                            variant="primary"
+                            size="md"
                             onClick={abrirModalCrearCliente}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs self-start sm:self-auto cursor-pointer"
-                          >
-                            <UserPlus className="w-3.5 h-3.5" />
-                            <span>+ Nuevo Cliente</span>
-                          </button>
+                          />
                         </div>
 
                         {/* Buscador Difuso */}
@@ -1882,11 +1869,20 @@ export default function PosPage() {
                                     <span className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-blue-600 transition truncate">
                                       {cli.nombre}
                                     </span>
-                                    {esNuevo && (
-                                      <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
-                                        Nuevo
-                                      </span>
-                                    )}
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {esNuevo && (
+                                        <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                          Nuevo
+                                        </span>
+                                      )}
+                                      <IconButtonTooltip
+                                        icon={UserCog}
+                                        label="Editar datos o RUT del cliente"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => abrirModalEditarCliente(cli, e)}
+                                      />
+                                    </div>
                                   </div>
 
                                   <div className="flex flex-wrap items-center gap-1 text-[11px] text-slate-600 w-full pt-1.5 min-w-0">
@@ -1952,17 +1948,16 @@ export default function PosPage() {
                           </div>
 
                           {moduloActivo !== "ARREGLO" && (
-                            <button
-                              type="button"
+                            <IconButtonTooltip
+                              icon={PackagePlus}
+                              label="Crear Nuevo Producto en Inventario"
+                              variant="primary"
+                              size="md"
                               onClick={() => {
                                 setTipoModalProducto("VENTA");
                                 setMostrarModalProducto(true);
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0 cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>Crear Producto</span>
-                            </button>
+                            />
                           )}
                         </div>
 
@@ -2370,21 +2365,21 @@ export default function PosPage() {
                     </div>
 
                     {clienteSeleccionado ? (
-                      <button
-                        type="button"
+                      <IconButtonTooltip
+                        icon={UserCheck}
+                        label="Cambiar cliente seleccionado"
+                        variant="primary"
+                        size="sm"
                         onClick={() => setPasoActual(1)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 transition shrink-0 cursor-pointer"
-                      >
-                        Cambiar
-                      </button>
+                      />
                     ) : (
-                      <button
-                        type="button"
+                      <IconButtonTooltip
+                        icon={UserPlus}
+                        label="Seleccionar o crear cliente"
+                        variant="neutral"
+                        size="sm"
                         onClick={() => setPasoActual(1)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0 cursor-pointer"
-                      >
-                        Elegir
-                      </button>
+                      />
                     )}
                   </div>
 
@@ -2397,13 +2392,13 @@ export default function PosPage() {
                       </h3>
                     </div>
                     {itemsCarrito.length > 0 && (
-                      <button
-                        type="button"
+                      <IconButtonTooltip
+                        icon={RotateCcw}
+                        label="Vaciar todo el carrito"
+                        variant="danger"
+                        size="sm"
                         onClick={() => setItemsCarrito([])}
-                        className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer"
-                      >
-                        Vaciar
-                      </button>
+                      />
                     )}
                   </div>
 
@@ -2430,34 +2425,34 @@ export default function PosPage() {
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1 shrink-0">
                             <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-lg p-0.5">
-                              <button
-                                type="button"
+                              <IconButtonTooltip
+                                icon={Minus}
+                                label="Disminuir cantidad"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => actualizarCantidadItem(item.idTemporal, -1)}
-                                className="w-5 h-5 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded text-xs font-bold"
-                              >
-                                -
-                              </button>
+                              />
                               <span className="font-mono text-xs font-bold w-5 text-center">
                                 {item.cantidad}
                               </span>
-                              <button
-                                type="button"
+                              <IconButtonTooltip
+                                icon={Plus}
+                                label="Aumentar cantidad"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => actualizarCantidadItem(item.idTemporal, 1)}
-                                className="w-5 h-5 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded text-xs font-bold"
-                              >
-                                +
-                              </button>
+                              />
                             </div>
 
-                            <button
-                              type="button"
+                            <IconButtonTooltip
+                              icon={Trash2}
+                              label="Quitar ítem del carrito"
+                              variant="danger"
+                              size="sm"
                               onClick={() => eliminarItemCarrito(item.idTemporal)}
-                              className="p-1 text-slate-400 hover:text-rose-600"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            />
                           </div>
                         </div>
                       ))

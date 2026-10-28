@@ -4,10 +4,14 @@ import React, { useState, useEffect } from "react";
 import { LockOpen, CheckCircle2, AlertCircle, X, Sparkles, KeyRound } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
 
+import IconButtonTooltip, { IconButtonSize } from "@/components/ui/IconButtonTooltip";
+
 interface BotonAbrirCajonProps {
   className?: string;
   variante?: "barra" | "destacado" | "icono";
   mostrarAtajo?: boolean;
+  soloIcono?: boolean;
+  size?: IconButtonSize;
 }
 
 const MOTIVOS_APERTURA = [
@@ -42,6 +46,8 @@ export default function BotonAbrirCajon({
   className = "",
   variante = "barra",
   mostrarAtajo = true,
+  soloIcono = false,
+  size = "md",
 }: BotonAbrirCajonProps) {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [disparando, setDisparando] = useState(false);
@@ -108,8 +114,20 @@ export default function BotonAbrirCajon({
 
   return (
     <>
-      {/* Botón Principal */}
-      {variante === "barra" && (
+      {/* Modo soloIcono o variante icono con IconButtonTooltip uniforme */}
+      {(soloIcono || variante === "icono") && (
+        <IconButtonTooltip
+          icon={LockOpen}
+          label="Abrir Cajón Monedero Manualmente (Atajo: F9)"
+          variant="amber"
+          size={size}
+          onClick={() => setModalAbierto(true)}
+          className={className}
+        />
+      )}
+
+      {/* Botón Principal con texto si NO es soloIcono */}
+      {!soloIcono && variante === "barra" && (
         <button
           type="button"
           onClick={() => setModalAbierto(true)}
@@ -126,7 +144,7 @@ export default function BotonAbrirCajon({
         </button>
       )}
 
-      {variante === "destacado" && (
+      {!soloIcono && variante === "destacado" && (
         <button
           type="button"
           onClick={() => setModalAbierto(true)}
@@ -139,17 +157,6 @@ export default function BotonAbrirCajon({
               F9
             </span>
           )}
-        </button>
-      )}
-
-      {variante === "icono" && (
-        <button
-          type="button"
-          onClick={() => setModalAbierto(true)}
-          title="Abrir cajón monedero (F9)"
-          className={`h-8 w-8 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center transition-all ${className}`}
-        >
-          <LockOpen className="h-4 w-4 text-amber-700" />
         </button>
       )}
 
