@@ -203,12 +203,10 @@ export default function HomePage() {
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <Link
               href="/caja/pos"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm md:text-base font-bold transition shadow-sm shadow-blue-500/25 cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm md:text-base font-bold transition shadow-xs cursor-pointer"
             >
               <ShoppingBag className="h-5 w-5" />
-              <span>Abrir Terminal POS (Nueva Ventana)</span>
+              <span>Abrir Terminal POS</span>
             </Link>
 
             <button
@@ -271,9 +269,7 @@ export default function HomePage() {
               <Link
                 key={idx}
                 href={modulo.href}
-                target={esPos ? "_blank" : undefined}
-                rel={esPos ? "noopener noreferrer" : undefined}
-                className="group bg-[#FCFDFE] rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-sm hover:border-blue-400 transition-all duration-200 flex flex-col justify-between"
+                className="group bg-[#FCFDFE] rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs hover:border-blue-400 transition-all duration-200 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
@@ -295,7 +291,7 @@ export default function HomePage() {
                 </div>
 
                 <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs sm:text-sm font-bold text-blue-600">
-                  <span>{esPos ? "Abrir Terminal en Nueva Ventana" : "Acceder al módulo"}</span>
+                  <span>{esPos ? "Acceder a Terminal POS" : "Acceder al módulo"}</span>
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </div>
               </Link>

@@ -1035,7 +1035,7 @@ export default function PosPage() {
   };
 
   return (
-    <div className="h-screen w-screen max-w-full max-h-screen overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none">
+    <div className="h-screen w-screen max-w-[100vw] max-h-[100vh] overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none">
       {/* ========================================================================= */}
       {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA HOMOLOGADO (h-14 shrink-0) */}
       {/* ========================================================================= */}

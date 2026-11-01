@@ -76,14 +76,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (isFullscreenTerminal) {
     return (
-      <main className="w-screen h-screen overflow-hidden flex flex-col bg-[#F3F6F9]">
+      <main className="w-screen h-screen overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900">
         {children}
       </main>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#F4F6F8] flex max-w-full overflow-x-hidden">
+    <div className="min-h-screen w-full flex bg-[#F4F6F9] text-slate-900">
       {/* 1. Barra Lateral en Escritorio */}
       <div className="hidden md:block shrink-0">
         <Sidebar
@@ -110,9 +110,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* 3. Contenedor Principal (Navbar + Contenido Full-Width) */}
+      {/* 3. Contenedor Principal (Navbar + Contenido Centrado Empresarial) */}
       <div
-        className={`flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden transition-all duration-300 ease-in-out ${
+        className={`flex-1 flex flex-col min-w-0 min-h-screen transition-all duration-300 ease-in-out ${
           isCollapsed ? "md:ml-20" : "md:ml-64"
         }`}
       >
@@ -121,7 +121,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           isSidebarCollapsed={isCollapsed}
           usuario={usuario}
         />
-        <main className="flex-1 w-full max-w-full p-3.5 sm:p-5 lg:p-7 overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-6 max-w-[1600px] w-full mx-auto">
           {children}
         </main>
       </div>

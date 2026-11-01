@@ -218,19 +218,16 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
                 {section.items.map((item) => {
                   const isActive = pathname === item.href;
                   const Icon = item.icon;
-                  const esPos = item.href === "/caja/pos";
 
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      target={esPos ? "_blank" : undefined}
-                      rel={esPos ? "noopener noreferrer" : undefined}
                       title={isCollapsed ? item.name : undefined}
-                      className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
+                      className={`group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
                         isActive
-                          ? "bg-blue-600 text-white shadow-sm shadow-blue-500/25"
-                          : "text-slate-700 hover:text-slate-900 hover:bg-slate-200/75"
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "text-slate-700 hover:text-slate-900 hover:bg-slate-100"
                       } ${isCollapsed ? "justify-center px-0" : ""}`}
                     >
                       <Icon

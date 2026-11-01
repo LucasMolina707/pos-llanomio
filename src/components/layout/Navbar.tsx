@@ -166,14 +166,12 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
           </>
         )}
 
-        {/* Acceso Rápido a Facturar en Nueva Ventana si no estamos en la página del POS */}
+        {/* Acceso Rápido a Terminal POS si no estamos en la página del POS */}
         {pathname !== "/caja/pos" && (
           <Link
             href="/caja/pos"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 min-h-[42px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold transition shadow-sm shadow-blue-500/20"
-            title="Abrir Terminal de Facturación POS en nueva ventana"
+            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 min-h-[42px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold transition shadow-xs"
+            title="Abrir Terminal de Facturación POS"
           >
             <ShoppingBag className="h-4 w-4 shrink-0" />
             <span className="hidden sm:inline">Terminal POS</span>

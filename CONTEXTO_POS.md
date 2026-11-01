@@ -2599,3 +2599,63 @@ Se incorporó la infraestructura de control de calidad, observabilidad y diagnó
 
 
 
+---
+
+## 30. Unificación del Shell Administrativo, Navegación SPA y Diseño Antifatiga (Parte 2 de 3)
+
+### 1. Consolidación del Shell Maestro de Navegación (`AppLayout.tsx`)
+- **Aislamiento de Terminales de Cajero e Impresión:** Se estableció de forma limpia en `src/components/layout/AppLayout.tsx` que las rutas de mostrador (`/login`, `/caja/pos`, `/caja/alquileres`, `/caja/apartados`, `/impresion`) se rendericen a pantalla completa sin barras laterales ni barras superiores administrativas:
+  `<main className="w-screen h-screen overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900">{children}</main>`.
+- **Estructura Administrativa Unificada:** Las rutas del panel y administración (`/` y `/admin/*`) se orquestan con `Sidebar` colapsable a la izquierda, `Navbar` adhesivo en la parte superior y un contenedor principal acotado ergonómicamente:
+  `<main className="flex-1 p-4 md:p-6 max-w-[1600px] w-full mx-auto">{children}</main>`.
+- **Eliminación de Redundancia (`AppShell.tsx`):** `src/components/layout/AppShell.tsx` se unificó como re-export directo de `AppLayout.tsx`, suprimiendo código duplicado.
+
+### 2. Navegación Fluida SPA Sin Apertura Innecesaria de Pestañas
+- En `Sidebar.tsx`, `Navbar.tsx`, `page.tsx` y `BarraEstadoCajon.tsx`, se retiraron los atributos `target="_blank"` y `rel="noopener noreferrer"` en los enlaces internos hacia la Terminal POS (`/caja/pos`) y Caja (`/admin/caja`), permitiendo transiciones nativas e instantáneas dentro de la misma pestaña sin saturar el navegador.
+- En `Sidebar.tsx`, se estandarizaron las clases de enlaces de navegación:
+  - Activo: `bg-blue-600 text-white shadow-xs`
+  - Inactivo: `text-slate-700 hover:text-slate-900 hover:bg-slate-100`
+
+### 3. Diseño Antifatiga y Homologación de Vistas Administrativas
+- **Panel Principal (`src/app/page.tsx`):**
+  - Banner superior de métricas en vivo (`<BannerMetricasInicio />`) con paleta antifatiga y actualización por visibilidad.
+  - Cuadrícula de módulos de negocio en `grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5` con tarjetas de bordes sutiles `border border-slate-200/90 shadow-2xs` y botones de acción claros.
+- **Tablas y Tarjetas en `/admin/*`:**
+  - Contenedores estándar: `bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden`.
+  - Encabezados: `bg-slate-50/75 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider`.
+  - Celdas con padding equilibrado `px-3.5 py-3` o `px-4 py-3.5` y números monetarios en fuente monoespaciada de alto contraste.
+
+---
+
+## 31. Consolas de Cajero a Pantalla Completa (100vw x 100vh), Botones Uniformes con Tooltip y Visor Documental (Parte 3 de 3)
+
+### 1. Geometría Fija Estricta de Pantalla Completa (`100vw x 100vh`)
+En las tres consolas independientes de mostrador (`/caja/pos`, `/caja/alquileres`, `/caja/apartados`), se homologó el contenedor raíz de manera absoluta:
+`<div className="h-screen w-screen max-w-[100vw] max-h-[100vh] overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none">`
+- **Franja Superior Fija (`h-14 shrink-0 bg-white border-b border-slate-200 px-3 flex items-center justify-between gap-2`):**
+  - Botones de navegación y herramientas estandarizados con `<IconButtonTooltip />` (`w-9 h-9 rounded-xl flex items-center justify-center border shadow-2xs transition-all`), tooltip flotante mediante `createPortal` en el `body` para no empujar ni deformar la barra superior ni el layout.
+  - Indicador de estado de cajón sincronizado (`<BarraEstadoCajon />`) y botón manual de pulso (`<BotonAbrirCajon soloIcono size="md" />`) con atajos de teclado `F2` y `F9`.
+- **Barra de 4 Pasos Homologada (`h-11 shrink-0 bg-slate-50 border-b border-slate-200 px-4 flex items-center`):**
+  - `grid grid-cols-4 gap-2 w-full max-w-4xl mx-auto`, con colores semánticos definidos:
+    - Azul en Terminal POS (`/caja/pos`).
+    - Esmeralda en Alquileres (`/caja/alquileres`).
+    - Índigo en Apartados (`/caja/apartados`).
+- **Cuerpo en Dos Columnas Anti-Superposición (`grid grid-cols-12 gap-3 p-3 overflow-hidden`):**
+  - **Columna Izquierda (`col-span-12 lg:col-span-8 h-full min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden`):**
+    - Cabecera fija con buscador estilizado (`h-10 px-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-blue-500`).
+    - Rejilla interna con scroll independiente (`flex-1 min-h-0 overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 content-start`) y tarjetas acotadas con `truncate` para evitar solapamientos de precios, nombres o badges.
+  - **Columna Derecha (`col-span-12 lg:col-span-4 h-full min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden`):**
+    - Cabecera fija con cliente activo y teléfonos de contacto.
+    - Carrito/lista central con scroll propio (`flex-1 min-h-0 overflow-y-auto p-3 space-y-2`).
+    - Pie fijo (`shrink-0 p-3 bg-slate-50 border-t border-slate-200 space-y-2`) con desglose contable, calculadora de vueltas y botones de confirmación destacados.
+
+### 2. Estilizado del Visor Documental de Impresión (`PlantillaImpresion.tsx`)
+- Barra de herramientas superior con botones de solo ícono con tooltip para conmutar formato (`Tirilla 80mm`, `Media Carta` y `Carta`), número de copias (1 o 2 ejemplares con línea de corte), descarga de PDF, visualización en nueva pestaña e impresión aislada en iframe silencioso.
+- Lienzo de previsualización en tema claro suave (`bg-slate-100/80 p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-2xs`) con la hoja de comprobante centrada y sombra de papel (`bg-white shadow-md border border-slate-300 mx-auto`).
+- CERO códigos QR en todos los formatos, asegurando fidelidad 100% al imprimir o exportar a PDF en red local.
+
+### 3. Verificaciones de Calidad y Rendimiento (QA Agente 5)
+- **Tipado TypeScript:** `npx tsc --noEmit` completado exitosamente con 0 errores.
+- **Compilación de Producción:** `npm run build` completado exitosamente (23 rutas estáticas y 24 rutas dinámicas generadas sin fallos).
+- **Servidor PM2:** Reiniciado en caliente con `npx pm2 restart all` (3 procesos online: `pos-llanomio`, `pos-llanomio-mdns`, `pos-llanomio-tunnel`).
+- **Pruebas HTTP en Vivo:** Confirmación de respuesta HTTP 200 en `/login` y HTTP 307 (protección de sesiones por middleware) en `/`, `/caja/pos`, `/caja/alquileres`, `/caja/apartados` y `/admin/dashboard`.

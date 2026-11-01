@@ -57,7 +57,6 @@ export default function BarraEstadoCajon({
     return (
       <Link
         href="/admin/caja"
-        target="_blank"
         title="Alerta Crítica: Caja del día anterior pendiente de arqueo y cierre. Clic para resolver."
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-900 font-bold text-xs transition shadow-2xs animate-pulse"
       >

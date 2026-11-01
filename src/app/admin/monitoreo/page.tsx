@@ -179,6 +179,11 @@ export default function CentralMonitoreoPage() {
     }));
   }, [facturas, busqueda]);
 
+  // Optimización de renderizado DOM (máximo 48 elementos visuales para respuesta fluida)
+  const facturasPaginadas = useMemo(() => {
+    return facturasFiltradas.slice(0, 48);
+  }, [facturasFiltradas]);
+
   const abrirLiquidarFactura = (id: string) => {
     setFacturaSeleccionadaId(id);
     setModalLiquidarAbierto(true);
@@ -495,7 +500,7 @@ export default function CentralMonitoreoPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {facturasFiltradas.map((f) => {
+                {facturasPaginadas.map((f) => {
                   const tieneMora = f.recargoMora > 0 || (f.enMora && f.diasRetraso > 0);
                   const esPazYSalvo = f.estado === "CERRADA" || (f.saldoPendiente === 0 && f.recargoMora === 0);
 
@@ -682,6 +687,11 @@ export default function CentralMonitoreoPage() {
                 })}
               </tbody>
             </table>
+          )}
+          {facturasFiltradas.length > 48 && (
+            <div className="p-3 bg-slate-50 border-t border-slate-200 text-center text-xs font-semibold text-slate-600">
+              Mostrando las primeras 48 facturas de {facturasFiltradas.length} encontradas. Use las pestañas o buscador para acotar.
+            </div>
           )}
         </div>
       </div>
