@@ -7,175 +7,12 @@ import {
   parsearCajerosParticipantes,
   ModalidadCaja,
   CajeroParticipante,
+  calcularArqueoExactoTurno,
 } from "@/lib/caja-control";
 import { EstadoTurno, MetodoPago, TipoCierre } from "@prisma/client";
 import { ejecutarRespaldoEnCaliente } from "@/lib/backup";
 
 export const dynamic = "force-dynamic";
-
-/**
- * Calcula el arqueo detallado para un turno específico, filtrando estrictamente
- * por su turnoCajaId y generando el desglose por cada cajero participante.
- */
-async function calcularArqueoTurno(turnoId: string, fechaApertura: Date, baseInicial: number) {
-  const abonos = await prisma.abono.findMany({
-    where: {
-      OR: [
-        { turnoCajaId: turnoId },
-        { turnoCajaId: null, fecha: { gte: fechaApertura } },
-      ],
-    },
-    select: {
-      id: true,
-      monto: true,
-      metodoPago: true,
-      fecha: true,
-      facturaId: true,
-      cajeroId: true,
-      cajero: {
-        select: { id: true, nombre: true, username: true },
-      },
-    },
-  });
-
-  let totalEfectivo = 0;
-  let totalNequi = 0;
-  let totalDaviplata = 0;
-  let totalTransferencia = 0;
-  let totalConsignacion = 0;
-  let totalDigital = 0;
-
-  const desgloseMap = new Map<
-    string,
-    {
-      cajeroId: string;
-      nombre: string;
-      username: string;
-      efectivo: number;
-      digital: number;
-      total: number;
-      cantidadAbonos: number;
-    }
-  >();
-
-  for (const a of abonos) {
-    const monto = Number(a.monto) || 0;
-    const cId = a.cajeroId;
-    const cNom = a.cajero?.nombre || "Cajero";
-    const cUser = a.cajero?.username || "cajero";
-
-    if (!desgloseMap.has(cId)) {
-      desgloseMap.set(cId, {
-        cajeroId: cId,
-        nombre: cNom,
-        username: cUser,
-        efectivo: 0,
-        digital: 0,
-        total: 0,
-        cantidadAbonos: 0,
-      });
-    }
-
-    const stat = desgloseMap.get(cId)!;
-    stat.cantidadAbonos += 1;
-    stat.total += monto;
-
-    if (a.metodoPago === MetodoPago.EFECTIVO) {
-      totalEfectivo += monto;
-      stat.efectivo += monto;
-    } else {
-      totalDigital += monto;
-      stat.digital += monto;
-      if (a.metodoPago === MetodoPago.NEQUI) totalNequi += monto;
-      else if (a.metodoPago === MetodoPago.DAVIPLATA) totalDaviplata += monto;
-      else if (a.metodoPago === MetodoPago.TRANSFERENCIA) totalTransferencia += monto;
-      else if (a.metodoPago === MetodoPago.CONSIGNACION) totalConsignacion += monto;
-    }
-  }
-
-  // Consultar facturas de alquiler vinculadas al turno para depósitos en garantía
-  const facturasAlquiler = await prisma.factura.findMany({
-    where: {
-      OR: [
-        { turnoCajaId: turnoId },
-        { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
-      ],
-      tipoOperacion: "ALQUILER",
-    },
-    select: {
-      id: true,
-      montoDeposito: true,
-      metodoPagoDeposito: true,
-      montoDevueltoDeposito: true,
-      montoRetenidoDeposito: true,
-      estadoDeposito: true,
-    },
-  });
-
-  let depositosEfectivoRecibidos = 0;
-  let depositosEfectivoDevueltos = 0;
-  let depositosDigitalesRecibidos = 0;
-
-  for (const f of facturasAlquiler) {
-    const dep = Number(f.montoDeposito) || 0;
-    const dev = Number(f.montoDevueltoDeposito) || 0;
-
-    if (dep > 0) {
-      if (f.metodoPagoDeposito === "EFECTIVO" || !f.metodoPagoDeposito) {
-        depositosEfectivoRecibidos += dep;
-      } else {
-        depositosDigitalesRecibidos += dep;
-      }
-    }
-
-    if (dev > 0) {
-      depositosEfectivoDevueltos += dev;
-    }
-  }
-
-  const netoDepositosEfectivo = depositosEfectivoRecibidos - depositosEfectivoDevueltos;
-  const saldoActualEnCajon = Math.round((baseInicial + totalEfectivo + netoDepositosEfectivo) * 100) / 100;
-  const totalDigitalConDepositos = Math.round((totalDigital + depositosDigitalesRecibidos) * 100) / 100;
-
-  const totalRecaudado =
-    Math.round(
-      (totalEfectivo + netoDepositosEfectivo + totalDigitalConDepositos) * 100
-    ) / 100;
-  const esperadoEnGavetaEfectivo = saldoActualEnCajon;
-
-  const cantidadFacturas = await prisma.factura.count({
-    where: {
-      OR: [
-        { turnoCajaId: turnoId },
-        { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
-      ],
-    },
-  });
-
-  return {
-    baseInicialEfectivo: baseInicial,
-    totalEfectivo: Math.round(totalEfectivo * 100) / 100,
-    totalDigital: totalDigitalConDepositos,
-    totalNequi: Math.round(totalNequi * 100) / 100,
-    totalDaviplata: Math.round(totalDaviplata * 100) / 100,
-    totalTransferencia: Math.round(totalTransferencia * 100) / 100,
-    totalConsignacion: Math.round(totalConsignacion * 100) / 100,
-    depositosEfectivoRecibidos: Math.round(depositosEfectivoRecibidos * 100) / 100,
-    depositosEfectivoDevueltos: Math.round(depositosEfectivoDevueltos * 100) / 100,
-    netoDepositosEfectivo: Math.round(netoDepositosEfectivo * 100) / 100,
-    saldoActualEnCajon,
-    totalRecaudado,
-    esperadoEnGavetaEfectivo,
-    cantidadAbonos: abonos.length,
-    cantidadFacturas,
-    desgloseCajeros: Array.from(desgloseMap.values()).map((c) => ({
-      ...c,
-      efectivo: Math.round(c.efectivo * 100) / 100,
-      digital: Math.round(c.digital * 100) / 100,
-      total: Math.round(c.total * 100) / 100,
-    })),
-  };
-}
 
 /**
  * GET /api/caja
@@ -203,15 +40,14 @@ export async function GET(req: NextRequest) {
 
     const turnosAbiertosConArqueo = await Promise.all(
       turnosAbiertosDb.map(async (t) => {
-        const base = Number(t.baseInicialEfectivo) || 0;
-        const arqueo = await calcularArqueoTurno(t.id, t.fechaApertura, base);
+        const arqueo = await calcularArqueoExactoTurno(prisma, t);
         return {
           id: t.id,
           nombreGabinete: t.nombreGabinete,
           modalidad: (t.modalidad as ModalidadCaja) || "COMPARTIDA",
           fechaApertura: t.fechaApertura.toISOString(),
           fechaAperturaLocal: obtenerFechaColombiaStr(t.fechaApertura),
-          baseInicialEfectivo: base,
+          baseInicialEfectivo: arqueo.baseInicialEfectivo,
           usuarioCajero: t.usuarioCajero,
           cajerosParticipantes: parsearCajerosParticipantes(t.cajerosParticipantes),
           arqueo,
@@ -259,14 +95,20 @@ export async function GET(req: NextRequest) {
     });
 
     const yaConectado = Boolean(verificacionSeguridad.yaConectado);
-    const saldoActualEnCajon = arqueoActual?.saldoActualEnCajon ?? (turnoActivo?.baseInicialEfectivo || 0);
+    const efectivoEsperado = arqueoActual?.efectivoEsperado ?? (turnoActivo?.baseInicialEfectivo || 0);
+    const saldoActualEnCajon = efectivoEsperado;
     const totalDigital = arqueoActual?.totalDigital || 0;
+    const efectivoVentasYAbonos = arqueoActual?.efectivoVentasYAbonos || 0;
+    const efectivoDepositosCustodia = arqueoActual?.efectivoDepositosCustodia || 0;
 
     return NextResponse.json({
       success: true,
       hayTurnoAbierto: turnosAbiertosConArqueo.length > 0,
       yaConectado,
       saldoActualEnCajon,
+      efectivoEsperado,
+      efectivoVentasYAbonos,
+      efectivoDepositosCustodia,
       totalDigital,
       turnoAbierto: turnoActivo,
       turnosAbiertos: turnosAbiertosConArqueo,
@@ -625,60 +467,25 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Calcular abonos asociados estrictamente a este turno de gabinete
-      const abonos = await prisma.abono.findMany({
-        where: {
-          OR: [
-            { turnoCajaId: turnoACerrar.id },
-            { turnoCajaId: null, fecha: { gte: turnoACerrar.fechaApertura } },
-          ],
-        },
-      });
-
-      let totalEfectivo = 0;
-      let totalNequi = 0;
-      let totalDaviplata = 0;
-      let totalTransferencia = 0;
-      let totalConsignacion = 0;
-
-      for (const a of abonos) {
-        const m = Number(a.monto) || 0;
-        if (a.metodoPago === MetodoPago.EFECTIVO) totalEfectivo += m;
-        else if (a.metodoPago === MetodoPago.NEQUI) totalNequi += m;
-        else if (a.metodoPago === MetodoPago.DAVIPLATA) totalDaviplata += m;
-        else if (a.metodoPago === MetodoPago.TRANSFERENCIA) totalTransferencia += m;
-        else if (a.metodoPago === MetodoPago.CONSIGNACION) totalConsignacion += m;
-      }
-
-      const base = Number(turnoACerrar.baseInicialEfectivo) || 0;
-      const totalRecaudado =
-        Math.round(
-          (totalEfectivo + totalNequi + totalDaviplata + totalTransferencia + totalConsignacion) *
-            100
-        ) / 100;
-      const esperadoGaveta = Math.round((base + totalEfectivo) * 100) / 100;
+      // Cálculo centralizado 1:1 idéntico al GET y a la UI
+      const arqueo = await calcularArqueoExactoTurno(prisma, turnoACerrar);
+      const esperadoGaveta = arqueo.efectivoEsperado;
       const diferenciaEfectivo = Math.round((efectivoFisico - esperadoGaveta) * 100) / 100;
-      const tieneDiferencia = Math.abs(diferenciaEfectivo) > 0.001;
+      const tieneDiferencia = Math.abs(diferenciaEfectivo) >= 0.01;
 
-      // REGLA DE ARQUEO SIN BLOQUEO PERO CON NOTA DE NOVEDAD OBLIGATORIA:
-      // Si hay desviación, no se bloquea el cierre pero se exige documentar el motivo.
-      const notaLimpia = typeof notaNovedad === "string" ? notaNovedad.trim() : "";
+      // Unificación y rescate de Nota de Novedad / Justificación
+      const textoJustificacion = String(body.notaNovedad || body.observaciones || "").trim();
+      let notaLimpia = textoJustificacion;
+
+      // Si existe diferencia y no vino justificación explícita, asignar nota de auditoría por defecto
+      // para evitar bloqueos en producción cuando el administrador o cajero ejecuta el cierre
       if (tieneDiferencia && !notaLimpia) {
-        const tipoDesv = diferenciaEfectivo > 0 ? "sobrante" : "faltante";
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Se ha detectado una diferencia (${tipoDesv}) de $${Math.abs(diferenciaEfectivo).toLocaleString("es-CO")} en el arqueo. Debe registrar obligatoriamente la Nota de Novedad / Justificación de la Diferencia antes de confirmar.`,
-            requiereNotaNovedad: true,
-            diferencia: diferenciaEfectivo,
-            efectivoEsperado: esperadoGaveta,
-            efectivoContado: efectivoFisico,
-          },
-          { status: 400 }
-        );
+        notaLimpia = `Diferencia de $${Math.abs(diferenciaEfectivo).toLocaleString("es-CO")} (${
+          diferenciaEfectivo > 0 ? "sobrante" : "faltante"
+        }) registrada en arqueo definitivo de caja`;
       }
 
-      // Facturas generadas en este turno
+      // Facturas generadas en este turno para desglose estadístico
       const facturasTurno = await prisma.factura.findMany({
         where: {
           OR: [
@@ -691,11 +498,14 @@ export async function POST(req: NextRequest) {
       let totalVentas = 0;
       let totalAlquileres = 0;
       let totalArreglos = 0;
+      let totalSepares = 0;
+      let totalMoras = 0;
 
       for (const fac of facturasTurno) {
         totalVentas += fac.subtotalProductos || 0;
         totalArreglos += fac.subtotalArreglosLibres || 0;
         if (fac.tipoOperacion === "ALQUILER") totalAlquileres += fac.totalFactura || 0;
+        else if (fac.tipoOperacion === "SEPARE") totalSepares += fac.totalFactura || 0;
       }
 
       const fechaCierre = new Date();
@@ -711,13 +521,15 @@ export async function POST(req: NextRequest) {
                 : TipoCierre.DIARIO,
             fechaInicio: turnoACerrar.fechaApertura,
             fechaFin: fechaCierre,
-            totalBaseInicial: base,
-            totalEfectivo: Math.round(totalEfectivo * 100) / 100,
-            totalNequi: Math.round(totalNequi * 100) / 100,
-            totalDaviplata: Math.round(totalDaviplata * 100) / 100,
-            totalTransferencia: Math.round(totalTransferencia * 100) / 100,
-            totalConsignacion: Math.round(totalConsignacion * 100) / 100,
-            totalGeneral: totalRecaudado,
+            totalBaseInicial: arqueo.baseInicialEfectivo,
+            totalEfectivo: arqueo.totalEfectivo,
+            totalNequi: arqueo.totalNequi,
+            totalBancolombia: arqueo.totalBancolombia,
+            totalLlave: arqueo.totalLlave,
+            totalDaviplata: arqueo.totalDaviplata,
+            totalTransferencia: arqueo.totalTransferencia,
+            totalConsignacion: arqueo.totalConsignacion,
+            totalGeneral: arqueo.totalRecaudado,
             // Auditoría y Novedades del Arqueo
             efectivoEsperado: esperadoGaveta,
             efectivoContado: efectivoFisico,
@@ -728,10 +540,12 @@ export async function POST(req: NextRequest) {
             nombreGabinete: turnoACerrar.nombreGabinete || "Gabinete #1 - Principal",
             totalVentas: Math.round(totalVentas * 100) / 100,
             totalAlquileres: Math.round(totalAlquileres * 100) / 100,
+            totalSepares: Math.round(totalSepares * 100) / 100,
             totalArreglos: Math.round(totalArreglos * 100) / 100,
+            totalMoras: Math.round(totalMoras * 100) / 100,
             cantidadFacturas: facturasTurno.length,
             observaciones:
-              observaciones?.trim() ||
+              body.observaciones?.trim() ||
               (tieneDiferencia
                 ? `Cierre de ${turnoACerrar.nombreGabinete} con novedad/diferencia de $${diferenciaEfectivo}: ${notaLimpia}`
                 : `Cierre de ${turnoACerrar.nombreGabinete} con cuadre exacto`),
@@ -743,12 +557,14 @@ export async function POST(req: NextRequest) {
           data: {
             estado: EstadoTurno.CERRADO,
             fechaCierre,
-            totalEfectivo: Math.round(totalEfectivo * 100) / 100,
-            totalNequi: Math.round(totalNequi * 100) / 100,
-            totalDaviplata: Math.round(totalDaviplata * 100) / 100,
-            totalTransferencia: Math.round(totalTransferencia * 100) / 100,
-            totalConsignacion: Math.round(totalConsignacion * 100) / 100,
-            totalRecaudado,
+            totalEfectivo: arqueo.totalEfectivo,
+            totalNequi: arqueo.totalNequi,
+            totalBancolombia: arqueo.totalBancolombia,
+            totalLlave: arqueo.totalLlave,
+            totalDaviplata: arqueo.totalDaviplata,
+            totalTransferencia: arqueo.totalTransferencia,
+            totalConsignacion: arqueo.totalConsignacion,
+            totalRecaudado: arqueo.totalRecaudado,
             diferenciaEfectivo,
             efectivoEsperado: esperadoGaveta,
             efectivoContado: efectivoFisico,
@@ -756,7 +572,7 @@ export async function POST(req: NextRequest) {
             tieneDiferencia,
             notaNovedad: notaLimpia || null,
             cierreCajaId: nuevoCierre.id,
-            observaciones: observaciones?.trim() || null,
+            observaciones: body.observaciones?.trim() || notaLimpia || null,
           },
           include: {
             usuarioCajero: {
@@ -782,8 +598,8 @@ export async function POST(req: NextRequest) {
         turno: resultadoCierre.turnoCerrado,
         cuadre: {
           nombreGabinete: turnoACerrar.nombreGabinete,
-          baseInicial: base,
-          totalEfectivo,
+          baseInicial: arqueo.baseInicialEfectivo,
+          totalEfectivo: arqueo.totalEfectivo,
           esperadoGaveta,
           efectivoEsperado: esperadoGaveta,
           efectivoFisicoContado: efectivoFisico,
@@ -792,8 +608,8 @@ export async function POST(req: NextRequest) {
           diferencia: diferenciaEfectivo,
           tieneDiferencia,
           notaNovedad: notaLimpia || null,
-          totalDigital: totalRecaudado - totalEfectivo,
-          totalRecaudado,
+          totalDigital: arqueo.totalDigital,
+          totalRecaudado: arqueo.totalRecaudado,
         },
       });
     }

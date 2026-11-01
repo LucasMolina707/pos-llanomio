@@ -48,14 +48,24 @@ interface DesgloseCajero {
 
 interface ArqueoTurnoGabinete {
   baseInicialEfectivo: number;
+  efectivoAbonos?: number;
+  efectivoVentasYAbonos?: number;
+  depositosEfectivoRecibidos?: number;
+  depositosEfectivoDevueltos?: number;
+  depositosEfectivoNetos?: number;
+  efectivoDepositosCustodia?: number;
+  efectivoEsperado?: number;
+  esperadoEnGavetaEfectivo: number;
+  saldoActualEnCajon?: number;
   totalEfectivo: number;
   totalDigital: number;
   totalNequi: number;
   totalDaviplata: number;
+  totalBancolombia?: number;
+  totalLlave?: number;
   totalTransferencia: number;
   totalConsignacion: number;
   totalRecaudado: number;
-  esperadoEnGavetaEfectivo: number;
   cantidadAbonos: number;
   cantidadFacturas: number;
   desgloseCajeros?: DesgloseCajero[];
@@ -157,10 +167,9 @@ export default function ControlCajaAdminPage() {
 
   // Estados formulario Cierre del Gabinete Seleccionado (Arqueo con Justificación sin Bloqueo)
   const [efectivoContadoInput, setEfectivoContadoInput] = useState<string>("");
-  const [notaNovedadInput, setNotaNovedadInput] = useState<string>("");
-  const [errorNotaRequerida, setErrorNotaRequerida] = useState<boolean>(false);
+  const [notaObservacionesInput, setNotaObservacionesInput] = useState<string>("");
   const [tipoCierre, setTipoCierre] = useState<"DIARIO" | "CONSOLIDADO_MENSUAL">("DIARIO");
-  const [obsCierre, setObsCierre] = useState<string>("");
+  const [mostrarModalConfirmarCierre, setMostrarModalConfirmarCierre] = useState(false);
 
   // Modal para ver nota de novedad en la tabla rápida inferior
   const [turnoNovedadModal, setTurnoNovedadModal] = useState<TurnoCerradoItem | null>(null);
@@ -297,11 +306,21 @@ export default function ControlCajaAdminPage() {
     }
   };
 
-  // Manejador de Cierre de Gabinete Seleccionado con Arqueo Inteligente sin Bloqueo
-  const handleCierre = async (e: React.FormEvent) => {
+  // Obtener esperado en gaveta exacto entregado por el backend
+  const esperadoGaveta = Number(
+    gabineteSeleccionado?.arqueo?.efectivoEsperado ??
+      gabineteSeleccionado?.arqueo?.esperadoEnGavetaEfectivo ??
+      0
+  );
+
+  // Cálculo en vivo de diferencia durante el tipeo
+  const contadoNumerico = parseFloat(efectivoContadoInput) || 0;
+  const diferenciaEnVivo = Math.round((contadoNumerico - esperadoGaveta) * 100) / 100;
+
+  // Manejador que valida antes de abrir el modal antifatiga de confirmación
+  const handleSolicitarCierre = (e: React.FormEvent) => {
     e.preventDefault();
     setMensaje(null);
-    setErrorNotaRequerida(false);
 
     if (!gabineteSeleccionado) {
       setMensaje({ tipo: "error", texto: "No hay ningún gabinete seleccionado para cerrar" });
@@ -317,32 +336,28 @@ export default function ControlCajaAdminPage() {
       return;
     }
 
-    const esperadoGaveta = gabineteSeleccionado?.arqueo?.esperadoEnGavetaEfectivo || 0;
-    const diferencia = Math.round((contado - esperadoGaveta) * 100) / 100;
-    const tieneDiferencia = Math.abs(diferencia) > 0.001;
+    // Abrir Modal de Confirmación Claro Antifatiga (cero window.confirm)
+    setMostrarModalConfirmarCierre(true);
+  };
 
-    // REGLA DE NO BLOQUEO CON NOTA OBLIGATORIA ANTE DESVIACIÓN:
-    // Si hay diferencia pero no escribió nota, se exige redactar el motivo sin impedir que cierre una vez justificado.
-    if (tieneDiferencia && !notaNovedadInput.trim()) {
-      setErrorNotaRequerida(true);
-      const tipoDesv = diferencia > 0 ? "sobrante" : "faltante";
-      setMensaje({
-        tipo: "error",
-        texto: `Se ha detectado una diferencia (${tipoDesv}) de $${Math.abs(diferencia).toLocaleString("es-CO")} en el arqueo. Debe redactar obligatoriamente la Nota de Novedad / Justificación de la Diferencia antes de confirmar.`,
-      });
-      return;
-    }
+  // Ejecución definitiva del Cierre desde el Modal de Confirmación
+  const ejecutarCierreDefinitivo = async () => {
+    if (!gabineteSeleccionado) return;
 
-    const confirmMsg = tieneDiferencia
-      ? `Se registrará el cierre de ${gabineteSeleccionado.nombreGabinete} con una diferencia de $${diferencia.toLocaleString("es-CO")} y la siguiente nota de justificación:\n\n"${notaNovedadInput.trim()}"\n\n¿Desea proceder con el cierre?`
-      : `¿Está seguro de proceder con el CIERRE DEFINITIVO de ${gabineteSeleccionado.nombreGabinete}? Cuadre exacto ($0 de diferencia).`;
+    const contado = parseFloat(efectivoContadoInput);
+    if (isNaN(contado) || contado < 0) return;
 
-    if (!confirm(confirmMsg)) {
-      return;
-    }
+    const tieneDiferencia = Math.abs(diferenciaEnVivo) >= 0.01;
+    const notaFinal =
+      (notaObservacionesInput || "").trim() ||
+      (tieneDiferencia
+        ? `Arqueo cerrado con diferencia de $${diferenciaEnVivo.toLocaleString("es-CO")} autorizada por el usuario en sesión.`
+        : "Cuadre exacto sin novedades");
 
     try {
       setProcesando(true);
+      setMensaje(null);
+
       const res = await fetch("/api/caja", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -351,11 +366,12 @@ export default function ControlCajaAdminPage() {
           turnoCajaId: gabineteSeleccionado.id,
           efectivoFisicoContado: contado,
           efectivoContado: contado,
-          notaNovedad: notaNovedadInput.trim() || undefined,
+          notaNovedad: notaFinal,
+          observaciones: notaFinal,
           tipoCierre,
-          observaciones: obsCierre.trim() || undefined,
         }),
       });
+
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Error al cerrar turno de caja");
@@ -363,12 +379,16 @@ export default function ControlCajaAdminPage() {
 
       setMensaje({
         tipo: "exito",
-        texto: `${data.mensaje}. ${data.cuadre?.tieneDiferencia ? `Diferencia auditada con novedad: $${Number(data.cuadre?.diferencia || 0).toLocaleString("es-CO")}` : "Cuadre exacto sin diferencias."}`,
+        texto: `${data.mensaje}. ${
+          data.cuadre?.tieneDiferencia
+            ? `Diferencia auditada con novedad: $${Number(data.cuadre?.diferencia || 0).toLocaleString("es-CO")}`
+            : "Cuadre exacto sin diferencias."
+        }`,
       });
+
+      setMostrarModalConfirmarCierre(false);
       setEfectivoContadoInput("");
-      setNotaNovedadInput("");
-      setErrorNotaRequerida(false);
-      setObsCierre("");
+      setNotaObservacionesInput("");
       await consultarEstadoCaja();
     } catch (err: unknown) {
       setMensaje({
@@ -379,11 +399,6 @@ export default function ControlCajaAdminPage() {
       setProcesando(false);
     }
   };
-
-  // Cálculo en vivo de diferencia durante el tipeo
-  const contadoNumerico = parseFloat(efectivoContadoInput) || 0;
-  const esperadoGaveta = gabineteSeleccionado?.arqueo?.esperadoEnGavetaEfectivo || 0;
-  const diferenciaEnVivo = Math.round((contadoNumerico - esperadoGaveta) * 100) / 100;
 
   return (
     <div className="w-full space-y-6 max-w-full overflow-x-hidden">
@@ -844,14 +859,21 @@ export default function ControlCajaAdminPage() {
                   <p className="text-2xl sm:text-3xl font-extrabold text-blue-950 mt-2 font-mono">
                     $
                     {Number(
-                      gabineteSeleccionado.arqueo.esperadoEnGavetaEfectivo || 0
+                      gabineteSeleccionado.arqueo.efectivoEsperado ??
+                      gabineteSeleccionado.arqueo.esperadoEnGavetaEfectivo ??
+                      0
                     ).toLocaleString("es-CO")}
                   </p>
                   <p className="text-xs text-slate-700 font-medium mt-1">
-                    Base ($
-                    {Number(gabineteSeleccionado.baseInicialEfectivo || 0).toLocaleString("es-CO")})
-                    + Efectivo ($
-                    {Number(gabineteSeleccionado.arqueo.totalEfectivo || 0).toLocaleString("es-CO")})
+                    Base (${Number(gabineteSeleccionado.baseInicialEfectivo || 0).toLocaleString("es-CO")}) + Efectivo ($
+                    {Number(
+                      gabineteSeleccionado.arqueo.efectivoVentasYAbonos ??
+                      gabineteSeleccionado.arqueo.totalEfectivo ??
+                      0
+                    ).toLocaleString("es-CO")}) + Depósitos ($
+                    {Number(
+                      gabineteSeleccionado.arqueo.depositosEfectivoNetos ?? 0
+                    ).toLocaleString("es-CO")})
                   </p>
                 </div>
 
@@ -988,7 +1010,7 @@ export default function ControlCajaAdminPage() {
                 </div>
 
                 <form
-                  onSubmit={handleCierre}
+                  onSubmit={handleSolicitarCierre}
                   className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
                 >
                   <div className="lg:col-span-6 space-y-4">
@@ -1008,10 +1030,7 @@ export default function ControlCajaAdminPage() {
                           required
                           placeholder="Ingrese el conteo real de billetes y monedas..."
                           value={efectivoContadoInput}
-                          onChange={(e) => {
-                            setEfectivoContadoInput(e.target.value);
-                            setErrorNotaRequerida(false);
-                          }}
+                          onChange={(e) => setEfectivoContadoInput(e.target.value)}
                           className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-950 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs font-mono"
                         />
                       </div>
@@ -1037,43 +1056,9 @@ export default function ControlCajaAdminPage() {
                             ({diferenciaEnVivo > 0 ? "Sobrante" : "Faltante"}) en el arqueo.
                           </p>
                           <p className="text-xs opacity-90">
-                            El cierre continúa operativo y habilitado. Por control financiero, debe justificar el motivo en el campo inferior.
+                            El cierre continúa operativo y habilitado. Por control financiero, justifique el motivo en el campo inferior.
                           </p>
                         </div>
-                      </div>
-                    )}
-
-                    {/* Campo Dinámico Obligatorio de Nota de Novedad ante Diferencia */}
-                    {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
-                      <div className="space-y-1.5 animate-in fade-in">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center justify-between">
-                          <span className="flex items-center gap-1.5">
-                            <FileText className="w-3.5 h-3.5 text-amber-600" />
-                            <span>Nota de Novedad / Justificación de la Diferencia *</span>
-                          </span>
-                          <span className="text-xs font-semibold text-rose-600">Requerido por desviación</span>
-                        </label>
-                        <textarea
-                          rows={3}
-                          required
-                          placeholder="Explique el motivo del faltante o sobrante para el estudio contable (ej. Cambio dado de más por error en hora pico, Diferencia pendiente de revisión con cajero, o Sobrante sin identificar)..."
-                          value={notaNovedadInput}
-                          onChange={(e) => {
-                            setNotaNovedadInput(e.target.value);
-                            if (e.target.value.trim()) setErrorNotaRequerida(false);
-                          }}
-                          className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 shadow-2xs leading-relaxed ${
-                            errorNotaRequerida && !notaNovedadInput.trim()
-                              ? "border-rose-500 focus:ring-rose-500 bg-rose-50/40"
-                              : "border-slate-300 bg-white focus:ring-blue-500"
-                          }`}
-                        />
-                        {errorNotaRequerida && !notaNovedadInput.trim() && (
-                          <p className="text-xs font-bold text-rose-600 flex items-center gap-1">
-                            <AlertCircle className="w-3.5 h-3.5" />
-                            <span>Por favor documente brevemente el motivo de la diferencia para continuar.</span>
-                          </p>
-                        )}
                       </div>
                     )}
 
@@ -1090,35 +1075,58 @@ export default function ControlCajaAdminPage() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
-                          Tipo de Cierre
-                        </label>
-                        <select
-                          value={tipoCierre}
-                          onChange={(e) =>
-                            setTipoCierre(e.target.value as "DIARIO" | "CONSOLIDADO_MENSUAL")
-                          }
-                          className="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
-                        >
-                          <option value="DIARIO">Cierre Diario</option>
-                          <option value="CONSOLIDADO_MENSUAL">Consolidado Mensual</option>
-                        </select>
-                      </div>
+                    {/* Campo Permanente y Unificado de Observaciones / Nota de Novedad */}
+                    <div className="space-y-1.5 animate-in fade-in">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Observaciones / Nota de Novedad o Justificación de Diferencia</span>
+                        </span>
+                        {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
+                          <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
+                            Requerido por desviación
+                          </span>
+                        )}
+                      </label>
+                      <textarea
+                        rows={3}
+                        placeholder={
+                          diferenciaEnVivo !== 0 && efectivoContadoInput !== ""
+                            ? `Explique el motivo del ${diferenciaEnVivo > 0 ? "sobrante" : "faltante"} de $${Math.abs(diferenciaEnVivo).toLocaleString("es-CO")} (ej. Cambio dado de más/menos en hora pico, billete en custodia o ajuste contable autorizado)...`
+                            : "Observaciones del cierre del turno (opcional)..."
+                        }
+                        value={notaObservacionesInput}
+                        onChange={(e) => setNotaObservacionesInput(e.target.value)}
+                        className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 shadow-2xs leading-relaxed transition ${
+                          efectivoContadoInput !== "" && diferenciaEnVivo !== 0
+                            ? "border-amber-400 focus:ring-amber-500 bg-amber-50/30"
+                            : "border-slate-300 bg-white focus:ring-blue-500"
+                        }`}
+                      />
+                      {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
+                        <p className="text-xs font-medium text-amber-800 flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>
+                            Hay una diferencia de ${Math.abs(diferenciaEnVivo).toLocaleString("es-CO")} ({diferenciaEnVivo > 0 ? "Sobrante" : "Faltante"}). Escriba brevemente el motivo en este campo para registrar en el arqueo.
+                          </span>
+                        </p>
+                      )}
+                    </div>
 
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
-                          Observaciones Generales
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Ej. Turno de la tarde completado"
-                          value={obsCierre}
-                          onChange={(e) => setObsCierre(e.target.value)}
-                          className="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
+                        Tipo de Cierre
+                      </label>
+                      <select
+                        value={tipoCierre}
+                        onChange={(e) =>
+                          setTipoCierre(e.target.value as "DIARIO" | "CONSOLIDADO_MENSUAL")
+                        }
+                        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                      >
+                        <option value="DIARIO">Cierre Diario</option>
+                        <option value="CONSOLIDADO_MENSUAL">Consolidado Mensual</option>
+                      </select>
                     </div>
                   </div>
 
@@ -1130,7 +1138,7 @@ export default function ControlCajaAdminPage() {
 
                     <div className="space-y-2.5 text-xs sm:text-sm">
                       <div className="flex justify-between items-center text-slate-700 font-medium">
-                        <span>Total Físico Esperado (Base + Recaudos Efectivo):</span>
+                        <span>Total Físico Esperado (Base + Efectivo + Depósitos):</span>
                         <span className="font-mono font-bold text-slate-900 text-sm md:text-base">
                           ${esperadoGaveta.toLocaleString("es-CO")}
                         </span>
@@ -1169,7 +1177,7 @@ export default function ControlCajaAdminPage() {
                       </div>
                     </div>
 
-                    {/* Botón de Cierre No Bloqueante */}
+                    {/* Botón para Abrir Modal Antifatiga */}
                     <button
                       type="submit"
                       disabled={procesando || efectivoContadoInput === ""}
@@ -1190,6 +1198,135 @@ export default function ControlCajaAdminPage() {
                   </div>
                 </form>
               </div>
+
+              {/* Modal de Confirmación Antifatiga de Cierre (Cero window.confirm) */}
+              {mostrarModalConfirmarCierre && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+                  <div className="bg-[#FCFDFE] rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg p-6 sm:p-7 space-y-5 text-slate-800">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
+                          <Lock className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-black text-slate-950">
+                            Confirmación de Cierre Definitivo
+                          </h3>
+                          <p className="text-xs text-slate-600">
+                            {gabineteSeleccionado.nombreGabinete} • {tipoCierre === "DIARIO" ? "Cierre Diario" : "Consolidado Mensual"}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMostrarModalConfirmarCierre(false)}
+                        disabled={procesando}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Resumen Financiero 1:1 */}
+                    <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                      <div className="flex justify-between items-center text-xs sm:text-sm">
+                        <span className="text-slate-600 font-medium">Efectivo Físico Esperado:</span>
+                        <span className="font-mono font-bold text-slate-900 text-sm sm:text-base">
+                          ${esperadoGaveta.toLocaleString("es-CO")}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs sm:text-sm">
+                        <span className="text-slate-600 font-medium">Efectivo Físico Contado:</span>
+                        <span className="font-mono font-bold text-slate-900 text-sm sm:text-base">
+                          ${contadoNumerico.toLocaleString("es-CO")}
+                        </span>
+                      </div>
+                      <div
+                        className={`flex justify-between items-center p-3 rounded-xl border ${
+                          diferenciaEnVivo === 0
+                            ? "bg-emerald-50 text-emerald-950 border-emerald-300"
+                            : diferenciaEnVivo > 0
+                            ? "bg-blue-50 text-blue-950 border-blue-300"
+                            : "bg-rose-50 text-rose-950 border-rose-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {diferenciaEnVivo === 0 ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          ) : (
+                            <AlertTriangle
+                              className={`w-4 h-4 shrink-0 ${
+                                diferenciaEnVivo > 0 ? "text-blue-600" : "text-rose-600"
+                              }`}
+                            />
+                          )}
+                          <span className="font-bold text-xs uppercase tracking-wider">
+                            {diferenciaEnVivo === 0
+                              ? "Cuadre Exacto"
+                              : diferenciaEnVivo > 0
+                              ? "Sobrante"
+                              : "Faltante"}
+                          </span>
+                        </div>
+                        <span className="font-mono font-black text-base sm:text-lg">
+                          {diferenciaEnVivo >= 0 ? "+" : ""}${diferenciaEnVivo.toLocaleString("es-CO")}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Campo de Nota / Observación en el Modal */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center justify-between">
+                        <span>Nota de Novedad / Justificación de la Diferencia</span>
+                        {diferenciaEnVivo !== 0 && (
+                          <span className="text-xs text-amber-700 font-semibold">Auditada en historial</span>
+                        )}
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={notaObservacionesInput}
+                        onChange={(e) => setNotaObservacionesInput(e.target.value)}
+                        placeholder={
+                          diferenciaEnVivo !== 0
+                            ? "Registre el motivo de la diferencia..."
+                            : "Observaciones del arqueo (opcional)..."
+                        }
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs leading-relaxed"
+                      />
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setMostrarModalConfirmarCierre(false)}
+                        disabled={procesando}
+                        className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={ejecutarCierreDefinitivo}
+                        disabled={procesando}
+                        className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {procesando ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>Asentando Cierre & Respaldo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="w-4 h-4" />
+                            <span>Ejecutar Cierre Definitivo de Caja</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

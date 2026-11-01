@@ -2433,3 +2433,40 @@ El sistema cumple con el mandato estricto de **Exclusividad de Vistas Administra
 - **Compilación de Producción Next.js:** `npm run build` completado exitosamente con **código 0** en las 23 rutas de la aplicación.
 - **Servicio PM2:** Reiniciado exitosamente con el proceso `pos-llanomio` en estado `online`.
 
+---
+
+## 25. Control Financiero de Caja: Unificación Matemática 1:1 y Desbloqueo Definitivo de Cierres Multi-Día
+
+### 1. Diagnóstico del Problema en Producción
+Se detectó una discrepancia crítica en `/admin/caja` al cerrar turnos de varios días o con depósitos en custodia:
+1. **Falso Faltante en Cierre:** En la interfaz (`GET /api/caja`), el esperado en gaveta se calculaba de forma parcial o con fórmulas distintas a las del cierre (`POST /api/caja`). Al ingresar el monto exacto mostrado por la tarjeta visual (ej. `$460.000`), el backend calculaba un valor superior (ej. `$1.165.000`), detectaba un faltante falso de `$705.000` y abortaba el cierre con error 400.
+2. **Desconexión entre `observaciones` y `notaNovedad`:** El formulario mostraba un input de `observaciones` que no se enviaba al campo `notaNovedad` exigido por el backend ante diferencias, ocultando el campo de novedad si la UI creía erróneamente que había un cuadre exacto de `$0`.
+3. **Bloqueo por `window.confirm` Nativo:** El diálogo modal nativo del navegador producía fatiga de usuario y no permitía visualizar con antelación el resumen financiero exacto antes de asentar el arqueo en la base de datos.
+
+### 2. Solución de Arquitectura Implementada
+
+#### A. Función Única Centralizada: `calcularArqueoExactoTurno(prisma, turno)`
+Ubicada en `src/lib/caja-control.ts`, constituye la **única fuente de verdad matemática** para `GET /api/caja`, `GET /api/caja/estado` y `POST /api/caja` (`accion === 'CIERRE'`):
+- **Efectivo Ventas y Abonos:** Suma estricta de abonos asociados al turno (`turnoCajaId === turno.id` o realizados desde `fechaApertura` si `turnoCajaId` es nulo) con `metodoPago === 'EFECTIVO'`.
+- **Canales Digitales Específicos:** Mapeo estricto de `NEQUI`, `DAVIPLATA`, `BANCOLOMBIA`, `LLAVE`, `TRANSFERENCIA` y `CONSIGNACION`.
+- **Depósitos Netos en Custodia de Alquiler:** Depósitos recibidos en efectivo en el turno menos depósitos devueltos en efectivo en el turno (`depositosEfectivoNetos`).
+- **Total Esperado en Gaveta Física:**
+  $$\text{Esperado en Gaveta} = \text{baseInicial} + \text{efectivoAbonos} + \text{depositosEfectivoNetos}$$
+- **Propiedades Retornadas:** `baseInicialEfectivo`, `efectivoAbonos`, `efectivoVentasYAbonos`, `depositosEfectivoRecibidos`, `depositosEfectivoDevueltos`, `depositosEfectivoNetos`, `efectivoDepositosCustodia`, `efectivoEsperado`, `esperadoEnGavetaEfectivo`, `saldoActualEnCajon`, `totalEfectivo`, `totalDigital`, `totalRecaudado`, `desgloseCajeros`.
+
+#### B. Sincronización y Visibilidad Permanente en UI (`/admin/caja`)
+- **Tarjeta "Esperado en Gaveta Física":** Muestra el valor exacto `efectivoEsperado` entregado por el backend con desglose explícito en el subtítulo:
+  `Base ($X) + Efectivo ventas/abonos ($Y) + Depósitos efectivo ($Z)`.
+- **Input Unificado de Observaciones / Nota de Novedad:** Siempre visible en pantalla. Si se detecta diferencia en vivo (`contadoNumerico !== esperadoGaveta`), se resalta con borde ámbar/coral y mensaje de orientación: *"Hay una diferencia de $[Monto] ([Sobrante/Faltante]). Escriba brevemente el motivo en este campo para registrar en el arqueo."*
+- **Garantía de Cierre sin Bloqueo:** Si el usuario confirma el cierre con diferencia y el campo no fue llenado manualmente, el sistema genera automáticamente una nota de auditoría por defecto (`"Diferencia de $[Monto] registrada en arqueo definitivo de caja"`), guardando `diferencia`, `tieneDiferencia`, `efectivoEsperado`, `efectivoContado` y `notaNovedad` en `TurnoCaja` y `CierreCaja` con respuesta 200 OK y respaldo automático SQLite `VACUUM INTO`.
+
+#### C. Modal Antifatiga de Confirmación (Cero `window.confirm`)
+- Sustitución completa del diálogo nativo por un modal profesional con `lucide-react`, esquinas redondeadas `rounded-3xl`, overlay `backdrop-blur-xs` y paleta de alta accesibilidad.
+- Presenta el balance comparativo (Esperado vs Contado vs Diferencia) y permite confirmar o editar la justificación antes de asentar el cierre inmutable.
+
+### 3. Resultados de Certificación QA (`scripts/test-qa-cierre-caja-multidia.ts`)
+1. **Caso 1 — Turno multi-día con ventas, pagos digitales y depósitos:** Coincidencia matemática 1:1 verificada sin centavos de discrepancia ($610.000 exactos).
+2. **Caso 2 — Cierre con Saldo Completo Exacto:** Cuadre exacto registrado exitosamente al primer intento (`diferencia = 0`, `tieneDiferencia = false`, `status 200`).
+3. **Caso 3 — Cierre con Faltante de Dinero en turno atrasado de 5 días:** Cierre procesado sin bloqueos, guardando la diferencia negativa y la nota de novedad en `TurnoCaja` y `CierreCaja`.
+4. **Validación de Tipos y Compilación:** `npx tsc --noEmit` completado con 0 errores y `npm run build` generado exitosamente en 19 segundos.
+

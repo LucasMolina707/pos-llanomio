@@ -1,4 +1,4 @@
-import { PrismaClient, EstadoTurno } from "@prisma/client";
+import { PrismaClient, EstadoTurno, MetodoPago } from "@prisma/client";
 
 /**
  * Obtiene la fecha local en formato YYYY-MM-DD bajo la zona horaria de Colombia (America/Bogota, UTC-5).
@@ -243,5 +243,229 @@ export async function verificarEstadoCajaParaFacturacion(
     turnosAbiertosHoy: turnosHoyMapeados,
     turnoParaCompartir: turnoCompartible,
     yaConectado: true,
+  };
+}
+
+export interface DesgloseCajeroArqueo {
+  cajeroId: string;
+  nombre: string;
+  username: string;
+  efectivo: number;
+  digital: number;
+  total: number;
+  cantidadAbonos: number;
+}
+
+export interface ArqueoTurnoResultado {
+  baseInicialEfectivo: number;
+  efectivoAbonos: number;
+  efectivoVentasYAbonos: number;
+  depositosEfectivoRecibidos: number;
+  depositosEfectivoDevueltos: number;
+  depositosEfectivoNetos: number;
+  efectivoDepositosCustodia: number;
+  efectivoEsperado: number;
+  esperadoEnGavetaEfectivo: number;
+  saldoActualEnCajon: number;
+  totalEfectivo: number;
+  totalNequi: number;
+  totalDaviplata: number;
+  totalBancolombia: number;
+  totalLlave: number;
+  totalTransferencia: number;
+  totalConsignacion: number;
+  totalDigital: number;
+  totalRecaudado: number;
+  cantidadAbonos: number;
+  cantidadFacturas: number;
+  desgloseCajeros: DesgloseCajeroArqueo[];
+}
+
+/**
+ * Calcula el arqueo exacto para un turno de caja específico.
+ * Fuente única de verdad matemática para GET /api/caja, GET /api/caja/estado,
+ * POST /api/caja (cierre definitivo) y vistas de control de caja.
+ *
+ * Reglas de cálculo:
+ * 1. Abonos del turno: Vinculados al turnoCajaId (o realizados desde turno.fechaApertura si turnoCajaId es null).
+ * 2. Clasificación estricta de métodos de pago (EFECTIVO, NEQUI, DAVIPLATA, BANCOLOMBIA, LLAVE, TRANSFERENCIA, CONSIGNACION).
+ * 3. Depósitos en custodia de alquileres: Depósitos en efectivo recibidos menos depósitos en efectivo devueltos en ese turno.
+ * 4. Total Esperado en Gaveta Física = baseInicial + efectivoAbonos + depositosEfectivoNetos.
+ */
+export async function calcularArqueoExactoTurno(
+  prismaClient: PrismaClient,
+  turno: {
+    id: string;
+    fechaApertura: Date | string;
+    baseInicialEfectivo?: number | null;
+  }
+): Promise<ArqueoTurnoResultado> {
+  const fechaApertura =
+    typeof turno.fechaApertura === "string" ? new Date(turno.fechaApertura) : turno.fechaApertura;
+  const baseInicial = Math.round(Number(turno.baseInicialEfectivo || 0) * 100) / 100;
+
+  // 1. Abonos asociados a este turno
+  const abonos = await prismaClient.abono.findMany({
+    where: {
+      OR: [
+        { turnoCajaId: turno.id },
+        { turnoCajaId: null, fecha: { gte: fechaApertura } },
+      ],
+    },
+    select: {
+      id: true,
+      monto: true,
+      metodoPago: true,
+      fecha: true,
+      facturaId: true,
+      cajeroId: true,
+      cajero: {
+        select: { id: true, nombre: true, username: true },
+      },
+    },
+  });
+
+  let efectivoAbonos = 0;
+  let totalNequi = 0;
+  let totalDaviplata = 0;
+  let totalBancolombia = 0;
+  let totalLlave = 0;
+  let totalTransferencia = 0;
+  let totalConsignacion = 0;
+  let totalDigitalAbonos = 0;
+
+  const desgloseMap = new Map<string, DesgloseCajeroArqueo>();
+
+  for (const a of abonos) {
+    const monto = Number(a.monto) || 0;
+    const cId = a.cajeroId;
+    const cNom = a.cajero?.nombre || "Cajero";
+    const cUser = a.cajero?.username || "cajero";
+
+    if (!desgloseMap.has(cId)) {
+      desgloseMap.set(cId, {
+        cajeroId: cId,
+        nombre: cNom,
+        username: cUser,
+        efectivo: 0,
+        digital: 0,
+        total: 0,
+        cantidadAbonos: 0,
+      });
+    }
+
+    const stat = desgloseMap.get(cId)!;
+    stat.cantidadAbonos += 1;
+    stat.total += monto;
+
+    if (a.metodoPago === MetodoPago.EFECTIVO) {
+      efectivoAbonos += monto;
+      stat.efectivo += monto;
+    } else {
+      totalDigitalAbonos += monto;
+      stat.digital += monto;
+      if (a.metodoPago === MetodoPago.NEQUI) totalNequi += monto;
+      else if (a.metodoPago === MetodoPago.DAVIPLATA) totalDaviplata += monto;
+      else if (a.metodoPago === MetodoPago.BANCOLOMBIA) totalBancolombia += monto;
+      else if (a.metodoPago === MetodoPago.LLAVE) totalLlave += monto;
+      else if (a.metodoPago === MetodoPago.TRANSFERENCIA) totalTransferencia += monto;
+      else if (a.metodoPago === MetodoPago.CONSIGNACION) totalConsignacion += monto;
+    }
+  }
+
+  // 2. Facturas de alquiler vinculadas para depósitos en garantía
+  const facturasAlquiler = await prismaClient.factura.findMany({
+    where: {
+      OR: [
+        { turnoCajaId: turno.id },
+        { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
+      ],
+      tipoOperacion: "ALQUILER",
+    },
+    select: {
+      id: true,
+      montoDeposito: true,
+      metodoPagoDeposito: true,
+      montoDevueltoDeposito: true,
+      montoRetenidoDeposito: true,
+      estadoDeposito: true,
+    },
+  });
+
+  let depositosEfectivoRecibidos = 0;
+  let depositosEfectivoDevueltos = 0;
+  let depositosDigitalesRecibidos = 0;
+
+  for (const f of facturasAlquiler) {
+    const dep = Number(f.montoDeposito) || 0;
+    const dev = Number(f.montoDevueltoDeposito) || 0;
+
+    if (dep > 0) {
+      if (f.metodoPagoDeposito === "EFECTIVO" || !f.metodoPagoDeposito) {
+        depositosEfectivoRecibidos += dep;
+      } else {
+        depositosDigitalesRecibidos += dep;
+      }
+    }
+
+    if (dev > 0) {
+      depositosEfectivoDevueltos += dev;
+    }
+  }
+
+  const depositosEfectivoNetos =
+    Math.round((depositosEfectivoRecibidos - depositosEfectivoDevueltos) * 100) / 100;
+  const efectivoDepositosCustodia = Math.max(0, depositosEfectivoNetos);
+
+  // Efectivo físico esperado en gaveta:
+  // Base Inicial + Efectivo de Abonos + Depósitos Netos en Efectivo
+  const efectivoEsperadoEnGaveta =
+    Math.round((baseInicial + efectivoAbonos + depositosEfectivoNetos) * 100) / 100;
+
+  const totalDigitalConDepositos =
+    Math.round((totalDigitalAbonos + depositosDigitalesRecibidos) * 100) / 100;
+
+  const totalRecaudado =
+    Math.round(
+      (efectivoAbonos + depositosEfectivoNetos + totalDigitalConDepositos) * 100
+    ) / 100;
+
+  const cantidadFacturas = await prismaClient.factura.count({
+    where: {
+      OR: [
+        { turnoCajaId: turno.id },
+        { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
+      ],
+    },
+  });
+
+  return {
+    baseInicialEfectivo: baseInicial,
+    efectivoAbonos: Math.round(efectivoAbonos * 100) / 100,
+    efectivoVentasYAbonos: Math.round(efectivoAbonos * 100) / 100,
+    depositosEfectivoRecibidos: Math.round(depositosEfectivoRecibidos * 100) / 100,
+    depositosEfectivoDevueltos: Math.round(depositosEfectivoDevueltos * 100) / 100,
+    depositosEfectivoNetos,
+    efectivoDepositosCustodia,
+    efectivoEsperado: efectivoEsperadoEnGaveta,
+    esperadoEnGavetaEfectivo: efectivoEsperadoEnGaveta,
+    saldoActualEnCajon: efectivoEsperadoEnGaveta,
+    totalEfectivo: Math.round(efectivoAbonos * 100) / 100,
+    totalNequi: Math.round(totalNequi * 100) / 100,
+    totalDaviplata: Math.round(totalDaviplata * 100) / 100,
+    totalBancolombia: Math.round(totalBancolombia * 100) / 100,
+    totalLlave: Math.round(totalLlave * 100) / 100,
+    totalTransferencia: Math.round(totalTransferencia * 100) / 100,
+    totalConsignacion: Math.round(totalConsignacion * 100) / 100,
+    totalDigital: totalDigitalConDepositos,
+    totalRecaudado,
+    cantidadAbonos: abonos.length,
+    cantidadFacturas,
+    desgloseCajeros: Array.from(desgloseMap.values()).map((c) => ({
+      ...c,
+      efectivo: Math.round(c.efectivo * 100) / 100,
+      digital: Math.round(c.digital * 100) / 100,
+      total: Math.round(c.total * 100) / 100,
+    })),
   };
 }
