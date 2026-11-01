@@ -48,6 +48,9 @@ desktop.ini
 *.suo
 *.ntvs*
 *.njsproj
+
+# Directorios temporales de compilación
+/.tmp/
 *.sln
 *.sw?
 *.tsbuildinfo

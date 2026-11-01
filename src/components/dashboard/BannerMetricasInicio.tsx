@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -78,6 +78,7 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
   const [cargando, setCargando] = useState<boolean>(true);
   const [actualizando, setActualizando] = useState<boolean>(false);
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date());
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const formatearDinero = (val: number): string => {
     return new Intl.NumberFormat("es-CO", {
@@ -92,10 +93,17 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
     if (!silencioso) setCargando(true);
     setActualizando(true);
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const res = await fetch(`/api/admin/dashboard?periodo=${periodo}`, {
         cache: "no-store",
         headers: { "Pragma": "no-cache" },
+        signal: controller.signal,
       });
 
       if (!res.ok) throw new Error("Error al consultar métricas del servidor");
@@ -108,7 +116,10 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
         setDesgloseLineas(data.desgloseLineas || data.desgloseLineasNegocio);
         setUltimaActualizacion(new Date());
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        return;
+      }
       console.error("Error al cargar métricas para el banner de inicio:", err);
     } finally {
       setCargando(false);
@@ -120,6 +131,11 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
     if (esAdmin) {
       cargarDatos();
     }
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [esAdmin, cargarDatos]);
 
   if (!esAdmin) {

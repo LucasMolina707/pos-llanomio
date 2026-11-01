@@ -115,14 +115,33 @@ export function calcularMoraDeFactura(factura: any, fechaReferencia: Date = new 
   return resultado;
 }
 
+// Control de enfriamiento en memoria (throttling de 60s) para evitar sobrecarga en SQLite
+let ultimaEjecucionMoras = 0;
+let ultimoResultadoCache: {
+  procesadas: number;
+  enMora: number;
+  totalRecargosAplicados: number;
+} = {
+  procesadas: 0,
+  enMora: 0,
+  totalRecargosAplicados: 0,
+};
+
 /**
- * Rutina para evaluar y actualizar en la base de datos todas las facturas de alquiler vencidas
+ * Rutina para evaluar y actualizar en la base de datos todas las facturas de alquiler vencidas.
+ * Cuenta con enfriamiento en memoria de 60 segundos para evitar saturación de SQLite en peticiones recurrentes.
  */
-export async function sincronizarMorasEnBaseDeDatos(): Promise<{
+export async function sincronizarMorasEnBaseDeDatos(forzar = false): Promise<{
   procesadas: number;
   enMora: number;
   totalRecargosAplicados: number;
 }> {
+  const ahoraMs = Date.now();
+  if (!forzar && ahoraMs - ultimaEjecucionMoras < 60000) {
+    return ultimoResultadoCache;
+  }
+  ultimaEjecucionMoras = ahoraMs;
+
   const ahora = new Date();
 
   // Consultar facturas activas o en proceso que tengan fecha pactada de devolución
@@ -168,9 +187,12 @@ export async function sincronizarMorasEnBaseDeDatos(): Promise<{
     }
   }
 
-  return {
+  const resultadoFinal = {
     procesadas: facturasCandidatas.length,
     enMora: facturasEnMora,
     totalRecargosAplicados: Math.round(totalRecargos * 100) / 100,
   };
+
+  ultimoResultadoCache = resultadoFinal;
+  return resultadoFinal;
 }

@@ -559,6 +559,11 @@ export default function PosPage() {
     }));
   }, [facturasMonitoreo, pestanaHistorial, busquedaHistorial]);
 
+  // Optimización de rendimiento DOM (límite visual de 48 tarjetas/filas para fluidez instantánea en mostrador)
+  const clientesPaginados = useMemo(() => clientesFiltrados.slice(0, 48), [clientesFiltrados]);
+  const productosVentaPaginados = useMemo(() => productosVenta.slice(0, 48), [productosVenta]);
+  const facturasHistorialPaginadas = useMemo(() => facturasHistorialFiltradas.slice(0, 48), [facturasHistorialFiltradas]);
+
   // =========================================================
   // TOTALES DEL CARRITO
   // =========================================================
@@ -1473,7 +1478,7 @@ export default function PosPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {facturasHistorialFiltradas.map((f) => {
+                      {facturasHistorialPaginadas.map((f) => {
                         const tiempoRetrasoTexto =
                           f.diasRetraso > 0
                             ? `${f.diasRetraso} d ${f.horasRetraso % 24} h`
@@ -1671,6 +1676,11 @@ export default function PosPage() {
                       })}
                     </tbody>
                   </table>
+                  {facturasHistorialFiltradas.length > 48 && (
+                    <div className="p-2.5 text-center text-xs font-semibold text-slate-500 bg-slate-50 border-t border-slate-200">
+                      Mostrando las primeras 48 facturas de {facturasHistorialFiltradas.length} encontradas. Use el filtro o buscador para acotar.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1849,64 +1859,71 @@ export default function PosPage() {
                             </button>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start">
-                            {clientesFiltrados.map((cli) => {
-                              const esSeleccionado = clienteSeleccionado?.id === cli.id;
-                              const esNuevo = clientesNuevosIds.has(cli.id);
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start">
+                              {clientesPaginados.map((cli) => {
+                                const esSeleccionado = clienteSeleccionado?.id === cli.id;
+                                const esNuevo = clientesNuevosIds.has(cli.id);
 
-                              return (
-                                <button
-                                  key={cli.id}
-                                  type="button"
-                                  onClick={() => seleccionarCliente(cli)}
-                                  className={`relative flex flex-col justify-between p-3 rounded-xl border transition-all text-left shadow-2xs group min-w-0 overflow-hidden cursor-pointer ${
-                                    esSeleccionado
-                                      ? "bg-blue-50/80 border-blue-600 ring-2 ring-blue-600/20"
-                                      : "bg-white border-slate-200 hover:border-blue-400 hover:bg-slate-50/60"
-                                  }`}
-                                >
-                                  <div className="flex items-start justify-between gap-1.5 w-full min-w-0">
-                                    <span className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-blue-600 transition truncate">
-                                      {cli.nombre}
-                                    </span>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      {esNuevo && (
-                                        <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                          Nuevo
+                                return (
+                                  <button
+                                    key={cli.id}
+                                    type="button"
+                                    onClick={() => seleccionarCliente(cli)}
+                                    className={`relative flex flex-col justify-between p-3 rounded-xl border transition-all text-left shadow-2xs group min-w-0 overflow-hidden cursor-pointer ${
+                                      esSeleccionado
+                                        ? "bg-blue-50/80 border-blue-600 ring-2 ring-blue-600/20"
+                                        : "bg-white border-slate-200 hover:border-blue-400 hover:bg-slate-50/60"
+                                    }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-1.5 w-full min-w-0">
+                                      <span className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-blue-600 transition truncate">
+                                        {cli.nombre}
+                                      </span>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        {esNuevo && (
+                                          <span className="px-1.5 py-0.2 rounded text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                            Nuevo
+                                          </span>
+                                        )}
+                                        <IconButtonTooltip
+                                          icon={UserCog}
+                                          label="Editar datos o RUT del cliente"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => abrirModalEditarCliente(cli, e)}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-1 text-[11px] text-slate-600 w-full pt-1.5 min-w-0">
+                                      <span className="px-1.5 py-0.5 rounded bg-slate-100 font-mono font-bold text-slate-700 shrink-0">
+                                        {cli.tipoIdentificacion || "CC"}: {cli.documento}
+                                      </span>
+                                      {cli.telefono && (
+                                        <span className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[11px] truncate">
+                                          Tel: {cli.telefono}
                                         </span>
                                       )}
-                                      <IconButtonTooltip
-                                        icon={UserCog}
-                                        label="Editar datos o RUT del cliente"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={(e) => abrirModalEditarCliente(cli, e)}
-                                      />
                                     </div>
-                                  </div>
 
-                                  <div className="flex flex-wrap items-center gap-1 text-[11px] text-slate-600 w-full pt-1.5 min-w-0">
-                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 font-mono font-bold text-slate-700 shrink-0">
-                                      {cli.tipoIdentificacion || "CC"}: {cli.documento}
-                                    </span>
-                                    {cli.telefono && (
-                                      <span className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-[11px] truncate">
-                                        Tel: {cli.telefono}
+                                    <div className="flex items-center justify-between w-full pt-2 border-t border-slate-100 mt-2 text-[11px]">
+                                      <span className="text-slate-400 font-medium truncate">
+                                        {cli.direccion || "Sin dirección"}
                                       </span>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center justify-between w-full pt-2 border-t border-slate-100 mt-2 text-[11px]">
-                                    <span className="text-slate-400 font-medium truncate">
-                                      {cli.direccion || "Sin dirección"}
-                                    </span>
-                                    <span className="text-blue-600 font-bold shrink-0">
-                                      {esSeleccionado ? "✓ Seleccionado" : "Elegir →"}
-                                    </span>
-                                  </div>
-                                </button>
-                              );
-                            })}
+                                      <span className="text-blue-600 font-bold shrink-0">
+                                        {esSeleccionado ? "Seleccionado" : "Elegir"}
+                                      </span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {clientesFiltrados.length > 48 && (
+                              <div className="p-2 text-center text-[11px] font-semibold text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
+                                Mostrando los primeros 48 clientes de {clientesFiltrados.length} encontrados. Refine el texto en el buscador para acotar.
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -2021,35 +2038,42 @@ export default function PosPage() {
                       {/* Catálogo con Scroll Interno Propio */}
                       <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3">
                         {moduloActivo === "VENTA" && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start">
-                            {productosVenta.map((p) => (
-                              <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => agregarItemVenta(p)}
-                                className="relative flex flex-col justify-between p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 transition-colors text-left group shadow-2xs min-w-0 overflow-hidden cursor-pointer"
-                              >
-                                <div className="flex items-center justify-between gap-1 w-full min-w-0">
-                                  <span className="font-mono text-xs font-bold text-slate-500 truncate">
-                                    {p.codigo}
-                                  </span>
-                                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono font-bold shrink-0">
-                                    Stock: {p.stockActual}
-                                  </span>
-                                </div>
-                                <strong className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-blue-600 truncate block my-1">
-                                  {p.nombre}
-                                </strong>
-                                <div className="flex items-center justify-between gap-1 w-full pt-1 border-t border-slate-100">
-                                  <span className="text-[11px] text-slate-500 font-medium">
-                                    Talla {p.talla || "U"}
-                                  </span>
-                                  <strong className="text-xs sm:text-sm font-mono font-black text-blue-600 shrink-0">
-                                    ${(p.precioVenta || p.precioBase || 0).toLocaleString("es-CO")}
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start">
+                              {productosVentaPaginados.map((p) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => agregarItemVenta(p)}
+                                  className="relative flex flex-col justify-between p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 transition-colors text-left group shadow-2xs min-w-0 overflow-hidden cursor-pointer"
+                                >
+                                  <div className="flex items-center justify-between gap-1 w-full min-w-0">
+                                    <span className="font-mono text-xs font-bold text-slate-500 truncate">
+                                      {p.codigo}
+                                    </span>
+                                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono font-bold shrink-0">
+                                      Stock: {p.stockActual}
+                                    </span>
+                                  </div>
+                                  <strong className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-blue-600 truncate block my-1">
+                                    {p.nombre}
                                   </strong>
-                                </div>
-                              </button>
-                            ))}
+                                  <div className="flex items-center justify-between gap-1 w-full pt-1 border-t border-slate-100">
+                                    <span className="text-[11px] text-slate-500 font-medium">
+                                      Talla {p.talla || "U"}
+                                    </span>
+                                    <strong className="text-xs sm:text-sm font-mono font-black text-blue-600 shrink-0">
+                                      ${(p.precioVenta || p.precioBase || 0).toLocaleString("es-CO")}
+                                    </strong>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                            {productosVenta.length > 48 && (
+                              <div className="p-2 text-center text-[11px] font-semibold text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
+                                Mostrando las primeras 48 prendas de venta de {productosVenta.length} encontradas. Use el buscador para acotar.
+                              </div>
+                            )}
                           </div>
                         )}
 

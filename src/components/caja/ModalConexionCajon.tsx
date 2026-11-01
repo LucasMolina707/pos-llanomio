@@ -162,6 +162,54 @@ export default function ModalConexionCajon({
     }
   };
 
+  const handleCerrarTurnoAnteriorYAbrirHoy = async () => {
+    try {
+      setProcesandoLocal(true);
+      setErrorLocal(null);
+
+      const turnoAnteriorId = seguridadFinal.turnoAbierto?.id;
+      const efectivoEsperado =
+        seguridadFinal.arqueoTurno?.efectivoEsperado ??
+        seguridadFinal.arqueoTurno?.saldoActualEnCajon ??
+        seguridadFinal.turnoAbierto?.baseInicialEfectivo ??
+        0;
+
+      // 1. Ejecutar el cierre formal del turno del día anterior
+      const resCierre = await fetch("/api/caja", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accion: "CIERRE",
+          turnoCajaId: turnoAnteriorId,
+          efectivoFisicoContado: efectivoEsperado,
+          observaciones: "Cierre formal de turno del día anterior ejecutado desde terminal de ventas para habilitar la jornada actual.",
+        }),
+      });
+
+      const dataCierre = await resCierre.json();
+      if (!resCierre.ok || !dataCierre.success) {
+        throw new Error(dataCierre.error || "No se pudo cerrar el turno de caja anterior.");
+      }
+
+      // 2. Abrir turno de hoy automáticamente con base estándar
+      const baseHoy = parseFloat(baseAperturaInicial) || 100000;
+      await onAbrirNuevoCajon({
+        baseInicial: baseHoy,
+        nombreGabinete: "Gabinete #1 - Principal",
+        modalidad: "COMPARTIDA",
+        observaciones: "Apertura de turno de la jornada",
+      });
+
+      if (onReverificar) {
+        onReverificar();
+      }
+    } catch (err: unknown) {
+      setErrorLocal(err instanceof Error ? err.message : "Error al procesar el cierre y la apertura.");
+    } finally {
+      setProcesandoLocal(false);
+    }
+  };
+
   // =========================================================================
   // CASO C: BLOQUEADO POR DÍA ANTERIOR
   // =========================================================================
@@ -187,21 +235,46 @@ export default function ModalConexionCajon({
             </p>
           </div>
 
+          {errorLocal && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorLocal}</span>
+            </div>
+          )}
+
           <div className="p-4 rounded-2xl bg-rose-50/70 border border-rose-200 text-xs text-rose-950 space-y-1.5 font-medium">
-            <div className="font-bold">Para continuar con ventas o alquileres:</div>
-            <div>1. Diríjase al panel de control de caja.</div>
-            <div>2. Realice el conteo físico de billetes y confirme el cierre formal del día anterior.</div>
-            <div>3. Regrese a este módulo para iniciar el turno de la jornada de hoy.</div>
+            <div className="font-bold">Resolución rápida en mostrador:</div>
+            <div>Puede cerrar el turno pendiente y abrir la jornada de hoy en 1 clic con la base de efectivo predeterminada ($100.000 COP), o realizar un arqueo manual billete a billete.</div>
           </div>
 
           <div className="space-y-3 pt-2">
+            {/* Acción de 1 clic para resolver en mostrador */}
+            <button
+              type="button"
+              onClick={handleCerrarTurnoAnteriorYAbrirHoy}
+              disabled={procesandoLocal || cargando}
+              className="w-full py-3.5 px-4 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm flex items-center justify-center gap-2 min-h-[46px] cursor-pointer"
+            >
+              {procesandoLocal ? (
+                <>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span>Cerrando turno anterior y abriendo caja de hoy...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span>Cerrar Turno Anterior y Abrir Caja Hoy ($100.000 Base)</span>
+                </>
+              )}
+            </button>
+
             <Link
               href="/admin/caja"
               target="_blank"
-              className="w-full py-3.5 px-4 rounded-xl font-bold text-sm text-white bg-rose-600 hover:bg-rose-700 transition shadow-sm flex items-center justify-center gap-2 min-h-[46px]"
+              className="w-full py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 transition border border-slate-300 flex items-center justify-center gap-2 min-h-[44px]"
             >
-              <Vault className="w-5 h-5" />
-              <span>Ir al Panel de Arqueo y Cierre de Caja</span>
+              <Vault className="w-4 h-4 text-slate-600" />
+              <span>Ir al Panel de Arqueo Detallado (Opcional)</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
 
@@ -210,17 +283,17 @@ export default function ModalConexionCajon({
                 <button
                   type="button"
                   onClick={onReverificar}
-                  disabled={cargando}
-                  className="flex-1 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-slate-800 bg-slate-100 hover:bg-slate-200 transition border border-slate-300 flex items-center justify-center gap-2 min-h-[44px]"
+                  disabled={cargando || procesandoLocal}
+                  className="flex-1 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm text-slate-800 bg-slate-100 hover:bg-slate-200 transition border border-slate-300 flex items-center justify-center gap-2 min-h-[40px]"
                 >
                   <RefreshCw className={`w-4 h-4 text-blue-600 ${cargando ? "animate-spin" : ""}`} />
-                  <span>Reverificar Estado de Caja</span>
+                  <span>Reverificar</span>
                 </button>
               )}
 
               <Link
                 href="/"
-                className="px-4 py-3 rounded-xl font-bold text-xs sm:text-sm text-slate-700 hover:text-slate-950 transition"
+                className="px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-700 hover:text-slate-950 transition text-center"
               >
                 Volver al Menú
               </Link>

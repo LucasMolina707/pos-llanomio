@@ -153,6 +153,11 @@ export default function InventarioAdminPage() {
     }));
   }, [productos, filtroEstado, filtroCategoria, filtroTalla, busqueda]);
 
+  // Optimización de renderizado DOM: límite de 48 prendas en vista manteniendo filtrado fuzzy sobre 100% del catálogo
+  const productosPaginados = useMemo(() => {
+    return productosFiltrados.slice(0, 48);
+  }, [productosFiltrados]);
+
   const handleBuscar = (e: React.FormEvent) => {
     e.preventDefault();
     cargarInventario();
@@ -644,7 +649,7 @@ export default function InventarioAdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {productosFiltrados.map((prod) => (
+                  {productosPaginados.map((prod) => (
                     <tr
                       key={prod.id}
                       className="hover:bg-slate-50/70 transition duration-150 text-slate-800"
@@ -738,6 +743,11 @@ export default function InventarioAdminPage() {
                   ))}
                 </tbody>
               </table>
+              {productosFiltrados.length > 48 && (
+                <div className="p-3 bg-slate-50 border-t border-slate-200 text-center text-xs font-semibold text-slate-600">
+                  Mostrando los primeros 48 de {productosFiltrados.length} prendas encontradas. Escriba en el buscador o filtre por categoría para acotar.
+                </div>
+              )}
             </div>
           )}
         </section>

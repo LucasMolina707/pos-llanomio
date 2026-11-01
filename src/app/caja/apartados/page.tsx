@@ -298,6 +298,10 @@ export default function ApartadosPage() {
     }));
   }, [productos, busquedaProducto]);
 
+  // Optimización de renderizado DOM: límite de 48 elementos visuales con búsqueda sobre 100%
+  const clientesPaginados = useMemo(() => clientesFiltrados.slice(0, 48), [clientesFiltrados]);
+  const productosPaginados = useMemo(() => productosFiltrados.slice(0, 48), [productosFiltrados]);
+
   // Total de Alquiler de los ítems en el carrito
   const totalAlquiler = useMemo(() => {
     return itemsApartado.reduce((acc, item) => acc + item.subtotal, 0);
@@ -557,6 +561,8 @@ export default function ApartadosPage() {
       return num.includes(q) || nom.includes(q) || doc.includes(q);
     });
   }, [apartadosHistorial, filtroEstadoHistorial, busquedaHistorial]);
+
+  const apartadosHistorialPaginados = useMemo(() => apartadosHistorialFiltrados.slice(0, 48), [apartadosHistorialFiltrados]);
 
   return (
     <div className="h-screen w-screen max-w-full max-h-screen overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none antialiased font-sans">
@@ -875,8 +881,9 @@ export default function ApartadosPage() {
                         Cargando clientes...
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
-                        {clientesFiltrados.map((cli) => {
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
+                          {clientesPaginados.map((cli) => {
                           const seleccionado = clienteSeleccionado?.id === cli.id;
                           return (
                             <div
@@ -937,7 +944,13 @@ export default function ApartadosPage() {
                           );
                         })}
                       </div>
-                    )}
+                      {clientesFiltrados.length > 48 && (
+                        <div className="p-2 text-center text-[11px] font-semibold text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
+                          Mostrando los primeros 48 clientes de {clientesFiltrados.length} encontrados. Refine el texto en el buscador para acotar.
+                        </div>
+                      )}
+                    </div>
+                  )}
                   </div>
                 )}
 
@@ -1010,34 +1023,41 @@ export default function ApartadosPage() {
                     </div>
 
                     {/* Grid de Productos */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
-                      {productosFiltrados.map((prod) => (
-                        <div
-                          key={prod.id}
-                          onClick={() => agregarProductoDesdeCatalogo(prod)}
-                          className="relative flex flex-col justify-between p-2.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer transition min-w-0 overflow-hidden"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                              <span className="font-mono bg-slate-100 px-1 rounded truncate">
-                                {prod.codigo}
-                              </span>
-                              <span className="px-1.5 py-0.2 rounded font-bold bg-slate-100 text-slate-700 shrink-0">
-                                {prod.talla || "Talla Única"}
-                              </span>
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
+                        {productosPaginados.map((prod) => (
+                          <div
+                            key={prod.id}
+                            onClick={() => agregarProductoDesdeCatalogo(prod)}
+                            className="relative flex flex-col justify-between p-2.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer transition min-w-0 overflow-hidden"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                                <span className="font-mono bg-slate-100 px-1 rounded truncate">
+                                  {prod.codigo}
+                                </span>
+                                <span className="px-1.5 py-0.2 rounded font-bold bg-slate-100 text-slate-700 shrink-0">
+                                  {prod.talla || "Talla Única"}
+                                </span>
+                              </div>
+                              <p className="font-bold text-xs text-slate-900 truncate">
+                                {prod.nombre}
+                              </p>
                             </div>
-                            <p className="font-bold text-xs text-slate-900 truncate">
-                              {prod.nombre}
-                            </p>
+                            <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
+                              <span className="font-mono font-black text-xs text-indigo-700">
+                                ${Number(prod.precioAlquilerBase || prod.precioVenta || 0).toLocaleString("es-CO")}
+                              </span>
+                              <span className="text-[11px] font-bold text-indigo-600">+ Separar</span>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
-                            <span className="font-mono font-black text-xs text-indigo-700">
-                              ${Number(prod.precioAlquilerBase || prod.precioVenta || 0).toLocaleString("es-CO")}
-                            </span>
-                            <span className="text-[11px] font-bold text-indigo-600">+ Separar</span>
-                          </div>
+                        ))}
+                      </div>
+                      {productosFiltrados.length > 48 && (
+                        <div className="p-2 text-center text-[11px] font-semibold text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
+                          Mostrando las primeras 48 prendas de {productosFiltrados.length} encontradas. Use el buscador para acotar.
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 )}
@@ -1481,7 +1501,7 @@ export default function ApartadosPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {apartadosHistorialFiltrados.map((item) => {
+                    {apartadosHistorialPaginados.map((item) => {
                       const esConvertido = item.tipoOperacion === "ALQUILER";
                       return (
                         <tr key={item.id} className="hover:bg-slate-50/70 transition">
@@ -1557,6 +1577,11 @@ export default function ApartadosPage() {
                     })}
                   </tbody>
                 </table>
+              )}
+              {apartadosHistorialFiltrados.length > 48 && (
+                <div className="p-2.5 text-center text-xs font-semibold text-slate-500 bg-slate-50 border-t border-slate-200">
+                  Mostrando los primeros 48 apartados de {apartadosHistorialFiltrados.length} encontrados. Use los filtros o buscador para acotar.
+                </div>
               )}
             </div>
           </div>

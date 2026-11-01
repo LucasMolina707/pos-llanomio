@@ -95,6 +95,11 @@ export default function DirectorioClientesPage() {
     }));
   }, [clientes, busqueda]);
 
+  // Optimización de renderizado DOM: límite de 48 elementos visuales manteniendo búsqueda fuzzy sobre 100%
+  const clientesPaginados = useMemo(() => {
+    return clientesFiltrados.slice(0, 48);
+  }, [clientesFiltrados]);
+
   const abrirModalCrear = () => {
     setClienteAEditar(null);
     setMostrarModalNuevo(true);
@@ -246,7 +251,7 @@ export default function DirectorioClientesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {clientesFiltrados.map((c) => (
+                {clientesPaginados.map((c) => (
                   <tr key={c.id} className="hover:bg-blue-50/40 transition">
                     {/* 1. Nombre y Razón Social */}
                     <td className="px-4 py-3.5">
@@ -366,6 +371,11 @@ export default function DirectorioClientesPage() {
                 ))}
               </tbody>
             </table>
+          )}
+          {clientesFiltrados.length > 48 && (
+            <div className="p-3 bg-slate-50 border-t border-slate-200 text-center text-xs font-semibold text-slate-600">
+              Mostrando los primeros 48 de {clientesFiltrados.length} clientes encontrados. Escriba en el buscador para acotar el cliente deseado.
+            </div>
           )}
         </div>
       </div>

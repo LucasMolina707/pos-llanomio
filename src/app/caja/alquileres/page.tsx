@@ -675,6 +675,10 @@ export default function TerminalAlquileresPage() {
     return filtradas;
   }, [prendas, categoriaSeleccionada, busquedaPrenda]);
 
+  // Optimización de renderizado DOM: límite de 48 elementos visuales con búsqueda sobre 100%
+  const clientesPaginados = useMemo(() => clientesFiltrados.slice(0, 48), [clientesFiltrados]);
+  const prendasPaginadas = useMemo(() => prendasFiltradas.slice(0, 48), [prendasFiltradas]);
+
   const categoriasDisponibles = useMemo(() => {
     const cats = new Set<string>();
     prendas.forEach((p) => {
@@ -1217,6 +1221,8 @@ export default function TerminalAlquileresPage() {
     }));
   }, [pestanaHistorial, activas, enMora, porCobrar, cerradas, filtroTextoHistorial]);
 
+  const facturasHistorialPaginadas = useMemo(() => facturasHistorialVisibles.slice(0, 48), [facturasHistorialVisibles]);
+
   return (
     <div className="h-screen w-screen max-w-full max-h-screen overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none antialiased font-sans">
       {/* ========================================================================= */}
@@ -1588,7 +1594,8 @@ export default function TerminalAlquileresPage() {
                     </p>
                   </div>
                 ) : (
-                  <table className="w-full text-left border-collapse text-xs">
+                  <>
+                    <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] sticky top-0 z-10">
                         <th className="py-2.5 px-3">Contrato / Fecha</th>
@@ -1601,7 +1608,7 @@ export default function TerminalAlquileresPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {facturasHistorialVisibles.map((factura) => {
+                      {facturasHistorialPaginadas.map((factura) => {
                         const fechaDev = factura.fechaDevolucionPactada
                           ? new Date(factura.fechaDevolucionPactada)
                           : null;
@@ -1800,6 +1807,12 @@ export default function TerminalAlquileresPage() {
                       })}
                     </tbody>
                   </table>
+                  {facturasHistorialVisibles.length > 48 && (
+                    <div className="p-2.5 text-center text-xs font-semibold text-slate-500 bg-slate-50 border-t border-slate-200">
+                      Mostrando los primeros 48 contratos de {facturasHistorialVisibles.length} encontrados. Use las pestañas o buscador para acotar.
+                    </div>
+                  )}
+                  </>
                 )}
               </div>
             </div>
@@ -1954,8 +1967,9 @@ export default function TerminalAlquileresPage() {
                             No se encontraron clientes. Cree uno nuevo con el botón superior.
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
-                            {clientesFiltrados.map((cli) => {
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
+                              {clientesPaginados.map((cli) => {
                               const esSeleccionado = clienteSeleccionado?.id === cli.id;
                               return (
                                 <div
@@ -2027,7 +2041,13 @@ export default function TerminalAlquileresPage() {
                               );
                             })}
                           </div>
-                        )}
+                          {clientesFiltrados.length > 48 && (
+                            <div className="p-2 text-center text-[11px] font-semibold text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
+                              Mostrando los primeros 48 clientes de {clientesFiltrados.length} encontrados. Refine el texto en el buscador para acotar.
+                            </div>
+                          )}
+                        </div>
+                      )}
                       </div>
                     </>
                   )}
@@ -2135,58 +2155,65 @@ export default function TerminalAlquileresPage() {
                             No hay prendas de alquiler con este filtro. Puede crear una con el botón superior.
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
-                            {prendasFiltradas.map((prenda) => {
-                              const precio = prenda.precioAlquilerBase || prenda.precioVenta || 0;
-                              const estaDisponible = prenda.estado === "DISPONIBLE" || prenda.stockActual > 0;
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
+                              {prendasPaginadas.map((prenda) => {
+                                const precio = prenda.precioAlquilerBase || prenda.precioVenta || 0;
+                                const estaDisponible = prenda.estado === "DISPONIBLE" || prenda.stockActual > 0;
 
-                              return (
-                                <div
-                                  key={prenda.id}
-                                  onClick={() => agregarPrendaAlCarrito(prenda)}
-                                  className="relative flex flex-col justify-between p-3 rounded-xl border border-slate-200 bg-white hover:border-emerald-400 hover:shadow-xs transition-colors cursor-pointer min-w-0 overflow-hidden group"
-                                >
-                                  <div className="min-w-0">
-                                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                                      <span className="font-mono bg-slate-100 px-1 rounded truncate">
-                                        {prenda.codigo}
+                                return (
+                                  <div
+                                    key={prenda.id}
+                                    onClick={() => agregarPrendaAlCarrito(prenda)}
+                                    className="relative flex flex-col justify-between p-3 rounded-xl border border-slate-200 bg-white hover:border-emerald-400 hover:shadow-xs transition-colors cursor-pointer min-w-0 overflow-hidden group"
+                                  >
+                                    <div className="min-w-0">
+                                      <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                                        <span className="font-mono bg-slate-100 px-1 rounded truncate">
+                                          {prenda.codigo}
+                                        </span>
+                                        <span className={`px-1.5 py-0.2 rounded font-black shrink-0 ${
+                                          estaDisponible
+                                            ? "bg-emerald-100 text-emerald-800"
+                                            : "bg-amber-100 text-amber-800"
+                                        }`}>
+                                          {prenda.estado || (estaDisponible ? "DISPONIBLE" : "ALQUILADO")}
+                                        </span>
+                                      </div>
+                                      <h3 className="font-bold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors truncate">
+                                        {prenda.nombre}
+                                      </h3>
+                                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1">
+                                        {prenda.talla && (
+                                          <span className="bg-slate-100 px-1 rounded truncate">
+                                            Talla: {prenda.talla}
+                                          </span>
+                                        )}
+                                        {prenda.color && (
+                                          <span className="bg-slate-100 px-1 rounded truncate">
+                                            Color: {prenda.color}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                                      <span className="font-black text-sm text-slate-900 font-mono">
+                                        ${precio.toLocaleString("es-CO")}
                                       </span>
-                                      <span className={`px-1.5 py-0.2 rounded font-black shrink-0 ${
-                                        estaDisponible
-                                          ? "bg-emerald-100 text-emerald-800"
-                                          : "bg-amber-100 text-amber-800"
-                                      }`}>
-                                        {prenda.estado || (estaDisponible ? "DISPONIBLE" : "ALQUILADO")}
+                                      <span className="w-6 h-6 rounded-lg bg-emerald-50 group-hover:bg-emerald-600 group-hover:text-white text-emerald-700 flex items-center justify-center font-bold text-xs transition-all">
+                                        +
                                       </span>
                                     </div>
-                                    <h3 className="font-bold text-xs text-slate-900 group-hover:text-emerald-700 transition-colors truncate">
-                                      {prenda.nombre}
-                                    </h3>
-                                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1">
-                                      {prenda.talla && (
-                                        <span className="bg-slate-100 px-1 rounded truncate">
-                                          Talla: {prenda.talla}
-                                        </span>
-                                      )}
-                                      {prenda.color && (
-                                        <span className="bg-slate-100 px-1 rounded truncate">
-                                          Color: {prenda.color}
-                                        </span>
-                                      )}
-                                    </div>
                                   </div>
-
-                                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                                    <span className="font-black text-sm text-slate-900 font-mono">
-                                      ${precio.toLocaleString("es-CO")}
-                                    </span>
-                                    <span className="w-6 h-6 rounded-lg bg-emerald-50 group-hover:bg-emerald-600 group-hover:text-white text-emerald-700 flex items-center justify-center font-bold text-xs transition-all">
-                                      +
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
+                            {prendasFiltradas.length > 48 && (
+                              <div className="p-2 text-center text-[11px] font-semibold text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
+                                Mostrando las primeras 48 prendas de {prendasFiltradas.length} encontradas. Filtre por categoría o use el buscador para acotar.
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

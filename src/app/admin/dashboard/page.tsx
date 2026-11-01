@@ -238,46 +238,23 @@ export default function DashboardGerencialPage() {
     cargarMetricas(true);
   }, [cargarMetricas]);
 
-  // Bus en tiempo real: Server-Sent Events (SSE) con fallback a Polling Inteligente (3.5s)
+  // Polling Inteligente con AbortController y Pausa por Visibilidad (15s LAN local)
+  // Reemplaza SSE permanente para liberar sockets HTTP/1.1 y garantizar transiciones de página instantáneas (<50ms)
   useEffect(() => {
     if (!enVivoActivo) return;
 
-    let eventSource: EventSource | null = null;
-    let fallbackInterval: NodeJS.Timeout | null = null;
+    let pollingInterval: NodeJS.Timeout | null = null;
 
-    try {
-      // Intentar suscripción nativa al canal SSE
-      eventSource = new EventSource("/api/dashboard/stream");
-
-      eventSource.addEventListener("tick", (e: MessageEvent) => {
-        try {
-          const payload = JSON.parse(e.data);
-          // Si hubo una factura o abono nuevo, refrescar silenciosamente de inmediato
-          if (payload) {
-            cargarMetricas(false);
-          }
-        } catch {}
-      });
-
-      eventSource.onerror = () => {
-        // En caso de cierre o error temporal de conexión SSE, asegurar polling de respaldo
-        if (eventSource) {
-          eventSource.close();
-          eventSource = null;
-        }
-      };
-    } catch {
-      // Navegador sin soporte SSE: el intervalo de respaldo tomará el control
-    }
-
-    // Intervalo de polling silencioso constante cada 3.5 segundos (velocidad LAN local)
-    fallbackInterval = setInterval(() => {
-      cargarMetricas(false);
-    }, 3500);
+    // Ejecutar revalidación periódica cada 15 segundos solo si la pestaña está activa
+    pollingInterval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        cargarMetricas(false);
+      }
+    }, 15000);
 
     // Revalidación inmediata al recibir foco o volver a la pestaña del navegador
     const handleReenfoque = () => {
-      if (document.visibilityState === "visible") {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
         cargarMetricas(false);
       }
     };
@@ -286,8 +263,7 @@ export default function DashboardGerencialPage() {
     document.addEventListener("visibilitychange", handleReenfoque);
 
     return () => {
-      if (eventSource) eventSource.close();
-      if (fallbackInterval) clearInterval(fallbackInterval);
+      if (pollingInterval) clearInterval(pollingInterval);
       window.removeEventListener("focus", handleReenfoque);
       document.removeEventListener("visibilitychange", handleReenfoque);
       if (abortControllerRef.current) abortControllerRef.current.abort();

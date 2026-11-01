@@ -91,6 +91,7 @@ export function useCajonSincronizado() {
   const [tipoModalRequerido, setTipoModalRequerido] = useState<TipoModalCajonRequerido>(null);
   const [errorAccionCaja, setErrorAccionCaja] = useState<string | null>(null);
   const actualizandoRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Inicializar Device ID una sola vez
   useEffect(() => {
@@ -106,6 +107,13 @@ export function useCajonSincronizado() {
     async (silencioso = false) => {
       if (actualizandoRef.current) return;
       actualizandoRef.current = true;
+
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       try {
         if (!silencioso) setCargandoCaja(true);
         setErrorAccionCaja(null);
@@ -116,7 +124,7 @@ export function useCajonSincronizado() {
         let uSesion = usuarioSesion;
         if (!uSesion) {
           try {
-            const resAuth = await fetch("/api/auth/me");
+            const resAuth = await fetch("/api/auth/me", { signal: controller.signal });
             const dataAuth = await resAuth.json();
             if (dataAuth.ok && dataAuth.user) {
               uSesion = dataAuth.user;
@@ -129,6 +137,7 @@ export function useCajonSincronizado() {
 
         const res = await fetch(`/api/caja?deviceId=${encodeURIComponent(currentDeviceId)}`, {
           cache: "no-store",
+          signal: controller.signal,
         });
 
         if (!res.ok) {
@@ -252,6 +261,9 @@ export function useCajonSincronizado() {
           setTipoModalRequerido(null);
         }
       } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") {
+          return;
+        }
         if (!silencioso) {
           setErrorAccionCaja(err instanceof Error ? err.message : "Error sincronizando cajón");
         }
@@ -385,24 +397,38 @@ export function useCajonSincronizado() {
     }
   }, [deviceId, actualizarCajon]);
 
-  // Escuchar eventos globales de caja actualizada y mantener sincronización periódica
+  // Escuchar eventos globales de caja actualizada y mantener sincronización periódica suave (30s con pausa por visibilidad)
   useEffect(() => {
     const handleCajaEvent = () => {
       actualizarCajon(true);
     };
 
+    const handleVisibilidadCaja = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        actualizarCajon(true);
+      }
+    };
+
     window.addEventListener("llanomio_caja_actualizada", handleCajaEvent);
     window.addEventListener("caja_actualizada", handleCajaEvent);
+    window.addEventListener("focus", handleVisibilidadCaja);
+    document.addEventListener("visibilitychange", handleVisibilidadCaja);
 
-    // Refresco periódico suave cada 20 segundos
+    // Refresco periódico suave cada 30 segundos (solo si la ventana está visible)
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       actualizarCajon(true);
-    }, 20000);
+    }, 30000);
 
     return () => {
       window.removeEventListener("llanomio_caja_actualizada", handleCajaEvent);
       window.removeEventListener("caja_actualizada", handleCajaEvent);
+      window.removeEventListener("focus", handleVisibilidadCaja);
+      document.removeEventListener("visibilitychange", handleVisibilidadCaja);
       clearInterval(interval);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     };
   }, [actualizarCajon]);
 

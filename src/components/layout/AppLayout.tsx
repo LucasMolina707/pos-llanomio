@@ -28,9 +28,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return null;
   });
 
-  // Consultar usuario en sesión de forma segura
+  // Consultar usuario en sesión de forma segura y optimizada (evita llamadas repetitivas en cada navegación si ya está en memoria)
   useEffect(() => {
     let activo = true;
+
+    // Si ya disponemos del usuario en memoria y la ruta no es /login, no re-consultar en cada click
+    if (usuario && pathname !== "/login") {
+      return;
+    }
+
     safeFetchJson<{ ok?: boolean; user?: UsuarioSesion }>("/api/auth/me").then(({ ok, data }) => {
       if (!activo) return;
       if (ok && data?.ok && data?.user) {
@@ -49,10 +55,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }
       }
     });
+
     return () => {
       activo = false;
     };
-  }, [pathname]);
+  }, [pathname, usuario]);
 
   // Cerrar menú móvil al navegar
   useEffect(() => {
