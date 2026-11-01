@@ -105,13 +105,13 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
           type="button"
           onClick={onToggleSidebarMobile}
           aria-label="Abrir menú de navegación"
-          className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition md:hidden shrink-0"
+          className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition lg:hidden shrink-0"
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        {/* Logo compacto visible en móviles cuando la barra lateral está oculta */}
-        <div className="md:hidden shrink-0">
+        {/* Logo compacto visible en móviles/tablets cuando la barra lateral está en drawer */}
+        <div className="lg:hidden shrink-0">
           <LogoEmpresa size="sm" showText={false} />
         </div>
 

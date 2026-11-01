@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -12,53 +12,91 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  ChevronLeft,
-  ChevronRight,
   UserCheck,
   Shield,
   LayoutDashboard,
+  Pin,
+  X,
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 
 interface SidebarProps {
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
   usuario: {
     username: string;
     nombre: string;
     rol: "ADMIN" | "CAJERO";
   } | null;
+  isMobile?: boolean;
+  onCloseMobile?: () => void;
+  // Compatibilidad hacia atrás opcional
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 interface MenuItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  section?: string;
   badge?: string;
 }
 
-export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: SidebarProps) {
+export default function Sidebar({
+  usuario,
+  isMobile = false,
+  onCloseMobile,
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [cerrandoSesion, setCerrandoSesion] = React.useState(false);
 
-  if (
+  // Estados de expansión por hover y pin persistente opcional
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPinned, setIsPinned] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return localStorage.getItem("pos_sidebar_pinned") === "true";
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  });
+  const [cerrandoSesion, setCerrandoSesion] = useState(false);
+
+  // Guardar estado de pin en localStorage
+  const handleTogglePin = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsPinned((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("pos_sidebar_pinned", String(next));
+        } catch {}
+      }
+      return next;
+    });
+  };
+
+  // En móvil siempre está expandido para mostrar opciones legibles
+  const isExpanded = isMobile || isHovered || isPinned;
+
+  // EXCLUSIÓN ESTRICTA: Las 3 terminales de caja y pantallas de pantalla completa NO renderizan menú lateral
+  const isFullscreenTerminal =
     pathname === "/login" ||
     pathname?.startsWith("/caja/pos") ||
     pathname?.startsWith("/caja/alquileres") ||
     pathname?.startsWith("/caja/apartados") ||
-    pathname?.startsWith("/impresion")
-  ) {
+    pathname?.startsWith("/impresion");
+
+  if (isFullscreenTerminal) {
     return null;
   }
 
   const esAdmin =
     usuario?.rol === "ADMIN" ||
     usuario?.username === "admin" ||
-    !usuario?.rol; // Fallback seguro mientras hidrata si ya pasó middleware
+    !usuario?.rol; // Fallback seguro mientras hidrata sesión
 
-  // Definición de las secciones base con los módulos oficiales
+  // 11 MÓDULOS OFICIALES OPTIMIZADOS PARA ANCHO COMPLETO SIN RECORTES NI PUNTOS SUSPENSIVOS
   const todasLasSecciones: { title: string; items: MenuItem[] }[] = [
     {
       title: "PANEL DE CONTROL",
@@ -72,7 +110,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
           name: "Métricas y Rendimiento",
           href: "/admin/dashboard",
           icon: BarChart3,
-          badge: "En Vivo",
+          badge: "EN VIVO",
         },
       ],
     },
@@ -80,22 +118,22 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
       title: "OPERACIÓN Y CAJA",
       items: [
         {
-          name: "Terminal POS — Ventas y Arreglos",
+          name: "Terminal POS (Ventas)",
           href: "/caja/pos",
           icon: ShoppingBag,
-          badge: "Mostrador",
+          badge: "POS",
         },
         {
           name: "Sistema de Alquileres",
           href: "/caja/alquileres",
           icon: Clock,
-          badge: "Alquiler",
+          badge: "ALQUILER",
         },
         {
           name: "Apartados y Reservas",
           href: "/caja/apartados",
           icon: CalendarClock,
-          badge: "Separe",
+          badge: "SEPARE",
         },
         {
           name: "Control y Arqueo de Caja",
@@ -103,13 +141,13 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
           icon: Vault,
         },
         {
-          name: "Historial y Monitoreo de Facturas",
+          name: "Historial y Monitoreo",
           href: "/admin/monitoreo",
           icon: CalendarClock,
-          badge: "Cartera",
+          badge: "CARTERA",
         },
         {
-          name: "Galería y Directorio de Clientes",
+          name: "Directorio de Clientes",
           href: "/admin/clientes",
           icon: UserCheck,
         },
@@ -119,7 +157,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
       title: "CATÁLOGO Y STOCK",
       items: [
         {
-          name: "Inventario de Productos y Prendas",
+          name: "Inventario de Prendas",
           href: "/admin/inventario",
           icon: Package,
         },
@@ -129,12 +167,12 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
       title: "CONFIGURACIÓN Y SISTEMA",
       items: [
         {
-          name: "Gestión de Usuarios y Cajeros",
+          name: "Usuarios y Permisos",
           href: "/admin/usuarios",
           icon: Shield,
         },
         {
-          name: "Configuración de Página y Factura",
+          name: "Configuración y Factura",
           href: "/admin/configuracion",
           icon: Settings,
         },
@@ -142,9 +180,7 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
     },
   ];
 
-  // Filtrado estricto por rol:
-  // Si es ADMIN, tiene acceso irrestricto a los 10 módulos.
-  // Si es CAJERO, no se renderizan en el DOM módulos administrativos (Dashboard, Inventario, Usuarios, Configuración)
+  // Restricción por rol: Módulos administrativos ocultos para cajeros
   const rutasExclusivasAdmin = [
     "/admin/inventario",
     "/admin/dashboard",
@@ -177,146 +213,228 @@ export default function Sidebar({ isCollapsed, onToggleCollapse, usuario }: Side
 
   return (
     <aside
-      className={`fixed top-0 left-0 z-40 h-screen bg-[#F1F5F9] border-r border-slate-200/90 text-slate-800 flex flex-col justify-between transition-all duration-300 ease-in-out shadow-xs ${
-        isCollapsed ? "w-20" : "w-64"
+      onMouseEnter={() => !isMobile && setIsHovered(true)}
+      onMouseLeave={() => !isMobile && setIsHovered(false)}
+      className={`${
+        isMobile
+          ? "w-[292px] h-full flex flex-col bg-white border-r border-slate-200 select-none shadow-2xl"
+          : `hidden lg:flex flex-col fixed top-0 left-0 h-screen z-50 bg-white border-r border-slate-200/90 select-none transition-all duration-200 ease-out ${
+              isExpanded
+                ? "w-[292px] shadow-2xl shadow-slate-900/10"
+                : "w-[68px] shadow-xs"
+            }`
       }`}
     >
-      {/* 1. Cabecera con Logo Oficial de la Empresa */}
-      <div>
-        <div className="h-16 flex items-center justify-between px-3.5 border-b border-slate-200/90 bg-white/70 backdrop-blur-xs">
-          <Link href="/" className="flex items-center gap-2.5 overflow-hidden min-w-0">
-            <LogoEmpresa
-              size={isCollapsed ? "sm" : "md"}
-              showText={!isCollapsed}
-              showSubtitle={!isCollapsed}
-              orientation="horizontal"
-              textClassName="text-slate-800 font-extrabold text-sm tracking-tight"
-              subtitleClassName="text-[10.5px] text-slate-500 font-medium"
-            />
-          </Link>
-
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            aria-label={isCollapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
-            className="p-1.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-200/80 transition hidden md:flex items-center justify-center shrink-0"
+      {/* ===================================================================== */}
+      {/* 1. CABECERA CON LOGO Y BOTÓN DE PIN / CIERRE                           */}
+      {/* ===================================================================== */}
+      <div className="h-16 shrink-0 border-b border-slate-200/80 px-3 flex items-center justify-between bg-white">
+        {!isExpanded ? (
+          <Link
+            href="/"
+            className="w-full flex items-center justify-center p-1 rounded-xl hover:bg-slate-50 transition"
+            title="Ir al Panel Principal"
           >
-            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </button>
-        </div>
-
-        {/* 2. Navegación por Secciones con Colores Antifatiga */}
-        <nav className="p-3 space-y-5 overflow-y-auto max-h-[calc(100vh-14rem)]">
-          {menuSections.map((section, idx) => (
-            <div key={idx} className="space-y-1">
-              {!isCollapsed && (
-                <div className="px-3 pb-1 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-                  {section.title}
-                </div>
-              )}
-              <div className="space-y-1">
-                {section.items.map((item) => {
-                  const isActive = pathname === item.href;
-                  const Icon = item.icon;
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      title={isCollapsed ? item.name : undefined}
-                      className={`group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
-                        isActive
-                          ? "bg-blue-600 text-white shadow-xs"
-                          : "text-slate-700 hover:text-slate-900 hover:bg-slate-100"
-                      } ${isCollapsed ? "justify-center px-0" : ""}`}
-                    >
-                      <Icon
-                        className={`h-4.5 w-4.5 shrink-0 transition-transform duration-150 ${
-                          isActive ? "text-white" : "text-slate-500 group-hover:text-slate-800"
-                        }`}
-                      />
-                      {!isCollapsed && (
-                        <div className="flex items-center justify-between w-full truncate">
-                          <span className="truncate">{item.name}</span>
-                          {item.badge && (
-                            <span
-                              className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                                isActive
-                                  ? "bg-blue-700 text-white"
-                                  : "bg-slate-200 text-slate-700 border border-slate-300/80"
-                              }`}
-                            >
-                              {item.badge}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </Link>
-                  );
-                })}
+            <LogoEmpresa size="sm" showText={false} />
+          </Link>
+        ) : (
+          <div className="w-full flex items-center justify-between gap-2 min-w-0">
+            <Link
+              href="/"
+              onClick={() => isMobile && onCloseMobile && onCloseMobile()}
+              className="flex items-center gap-2.5 min-w-0 truncate hover:opacity-90 transition"
+            >
+              <LogoEmpresa size="sm" showText={false} />
+              <div className="flex flex-col min-w-0 truncate">
+                <span className="text-sm font-extrabold text-slate-900 leading-tight truncate">
+                  LLANOMIO POS
+                </span>
+                <span className="text-[11px] font-medium text-slate-500 leading-tight truncate">
+                  Sistema de Mostrador
+                </span>
               </div>
-            </div>
-          ))}
-        </nav>
+            </Link>
+
+            {/* Controles de fijado o cierre según escritorio o móvil */}
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={onCloseMobile}
+                aria-label="Cerrar menú lateral"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleTogglePin}
+                title={
+                  isPinned
+                    ? "Desfijar barra lateral (volver a auto-desplegable)"
+                    : "Fijar barra lateral siempre abierta"
+                }
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition shrink-0 ${
+                  isPinned
+                    ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-2xs"
+                    : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <Pin
+                  className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                    isPinned ? "rotate-45 text-blue-600" : ""
+                  }`}
+                />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* 3. Pie de Barra Lateral (Estado de Red y Usuario) */}
-      <div className="p-3 border-t border-slate-200/90 bg-white/60 space-y-2">
-        {/* Indicador de Red Local */}
-        <div
-          className={`flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-200/60 border border-slate-300/60 text-xs font-semibold text-slate-700 ${
-            isCollapsed ? "justify-center px-0" : ""
-          }`}
-          title="Servicio mDNS activo en http://llanomio.local (Puerto 80)"
-        >
-          <div className="relative flex h-2.5 w-2.5 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </div>
-          {!isCollapsed && (
-            <div className="flex flex-col truncate">
-              <span className="font-bold text-slate-800 text-xs leading-tight">LAN Activa</span>
-              <span className="text-[11px] text-slate-500 font-medium">llanomio.local</span>
-            </div>
-          )}
-        </div>
+      {/* ===================================================================== */}
+      {/* 2. NAVEGACIÓN Y SECCIONES DE MÓDULOS                                    */}
+      {/* ===================================================================== */}
+      <nav className="flex-1 min-h-0 overflow-y-auto py-2.5 px-2 space-y-3">
+        {menuSections.map((section, idx) => (
+          <div key={idx} className="space-y-0.5">
+            {/* Título de sección si está expandido, o separador sutil si compacto */}
+            {!isExpanded ? (
+              <div className="h-px bg-slate-200/80 my-2 mx-2" />
+            ) : (
+              <div className="px-3 pt-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 select-none">
+                {section.title}
+              </div>
+            )}
 
-        {/* Datos de Usuario y Cerrar Sesión */}
-        {usuario && (
+            {/* Lista de enlaces */}
+            <div className="space-y-0.5">
+              {section.items.map((item) => {
+                const isActive = pathname === item.href;
+                const Icon = item.icon;
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => isMobile && onCloseMobile && onCloseMobile()}
+                    title={!isExpanded ? item.name : undefined}
+                    className={`h-10 px-2.5 rounded-xl flex items-center transition-colors duration-150 ${
+                      isActive
+                        ? "bg-blue-600 text-white font-semibold shadow-2xs"
+                        : "text-slate-700 hover:bg-slate-100/90 hover:text-slate-950 font-medium"
+                    } ${!isExpanded ? "justify-center" : "gap-3 justify-start"}`}
+                  >
+                    <Icon
+                      className={`w-[18px] h-[18px] shrink-0 ${
+                        isActive
+                          ? "text-white"
+                          : "text-slate-500 group-hover:text-slate-800"
+                      } ${!isExpanded ? "mx-auto" : ""}`}
+                    />
+
+                    {isExpanded && (
+                      <div className="flex items-center justify-between w-full min-w-0">
+                        <span className="text-[13px] font-semibold leading-tight tracking-tight whitespace-nowrap">
+                          {item.name}
+                        </span>
+
+                        {item.badge && (
+                          <span
+                            className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ml-auto uppercase tracking-wider ${
+                              isActive
+                                ? "bg-blue-500/40 text-white border border-blue-400/40"
+                                : "bg-slate-100 text-slate-600 border border-slate-200"
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      {/* ===================================================================== */}
+      {/* 3. PIE DE BARRA: INDICADOR LAN Y TARJETA DE USUARIO                   */}
+      {/* ===================================================================== */}
+      <div className="border-t border-slate-200/80 p-2 space-y-1.5 bg-slate-50/70 shrink-0">
+        {/* Indicador de Red Local */}
+        {!isExpanded ? (
           <div
-            className={`flex items-center justify-between px-2.5 py-2 rounded-xl bg-[#FCFDFE] border border-slate-200/90 shadow-2xs text-xs sm:text-sm ${
-              isCollapsed ? "justify-center px-0 flex-col gap-2" : ""
-            }`}
+            className="h-9 w-full flex items-center justify-center rounded-xl bg-slate-100/90 border border-slate-200/80 text-slate-700 cursor-default"
+            title="LAN Activa · llanomio.local (Servicio mDNS activo)"
           >
-            <div className="flex items-center gap-2.5 truncate">
-              <div className="h-8 w-8 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0">
+            <div className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="px-3 py-2 rounded-xl bg-slate-100/90 border border-slate-200/80 flex items-center gap-2.5 text-xs font-semibold text-slate-700 cursor-default"
+            title="Servicio mDNS activo en http://llanomio.local (Puerto 80)"
+          >
+            <div className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </div>
+            <span className="truncate">LAN Activa · llanomio.local</span>
+          </div>
+        )}
+
+        {/* Tarjeta de Usuario y Botón de Salir */}
+        {usuario && (
+          <div>
+            {!isExpanded ? (
+              <div
+                className="h-9 w-full flex items-center justify-center rounded-xl bg-blue-50/80 border border-blue-200/80 text-blue-700 cursor-default"
+                title={`${usuario.nombre || usuario.username} (${usuario.rol})`}
+              >
                 {usuario.rol === "ADMIN" ? (
-                  <Shield className="h-4 w-4" />
+                  <Shield className="h-4 w-4 text-blue-600 shrink-0" />
                 ) : (
-                  <UserCheck className="h-4 w-4" />
+                  <UserCheck className="h-4 w-4 text-blue-600 shrink-0" />
                 )}
               </div>
-              {!isCollapsed && (
-                <div className="flex flex-col truncate">
-                  <span className="font-bold text-slate-800 text-xs sm:text-sm truncate leading-tight">
-                    {usuario.nombre || usuario.username}
-                  </span>
-                  <span className="text-[11px] text-blue-600 font-bold tracking-wide">
-                    {usuario.rol}
-                  </span>
+            ) : (
+              <div className="p-2 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex items-center justify-between gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 truncate">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0">
+                    {usuario.rol === "ADMIN" ? (
+                      <Shield className="h-4 w-4" />
+                    ) : (
+                      <UserCheck className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex flex-col min-w-0 truncate">
+                    <span
+                      className="text-xs font-bold text-slate-900 leading-tight truncate"
+                      title={usuario.nombre || usuario.username}
+                    >
+                      {usuario.nombre || usuario.username}
+                    </span>
+                    <span className="text-[10px] font-extrabold text-blue-600 tracking-wider">
+                      {usuario.rol}
+                    </span>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={cerrandoSesion}
-              title="Cerrar sesión y generar respaldo SQLite automático"
-              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition shrink-0"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={cerrandoSesion}
+                  title="Cerrar Sesión"
+                  className="w-8 h-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition shrink-0 cursor-pointer"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

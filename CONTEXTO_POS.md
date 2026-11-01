@@ -2659,3 +2659,44 @@ En las tres consolas independientes de mostrador (`/caja/pos`, `/caja/alquileres
 - **Compilación de Producción:** `npm run build` completado exitosamente (23 rutas estáticas y 24 rutas dinámicas generadas sin fallos).
 - **Servidor PM2:** Reiniciado en caliente con `npx pm2 restart all` (3 procesos online: `pos-llanomio`, `pos-llanomio-mdns`, `pos-llanomio-tunnel`).
 - **Pruebas HTTP en Vivo:** Confirmación de respuesta HTTP 200 en `/login` y HTTP 307 (protección de sesiones por middleware) en `/`, `/caja/pos`, `/caja/alquileres`, `/caja/apartados` y `/admin/dashboard`.
+
+
+---
+
+## 32. Rediseño del Menú Lateral Auto-Desplegable (Hover-Expand Rail) y Sincronización de Layout
+
+### 1. Comportamiento Hover-Expand Rail en Escritorio
+- **Riel Compacto por Defecto (`w-[68px]`):** En reposo, la barra lateral permanece en formato de riel delgado con solo los íconos centrados, permitiendo al usuario hacer clic directo en cualquier módulo que reconozca visualmente sin ocupar espacio útil en pantalla.
+- **Despliegue Flotante al Posar el Mouse (`onMouseEnter` -> `w-[292px]`):**
+  - Al posar el mouse sobre el riel izquierdo, el `<aside>` se despliega a `w-[292px]` con transición fluida (`transition-all duration-200 ease-out`) y sombra ejecutiva (`shadow-2xl shadow-slate-900/10`), flotando por encima del contenido con `z-50`.
+  - Al retirar el mouse (`onMouseLeave`), regresa automáticamente a `w-[68px]` salvo que el usuario active la fijación manual persistente con el botón de pin (`isPinned`).
+- **Margen Fijo en `AppLayout.tsx` (`lg:pl-[68px]`):**
+  - El contenedor principal conserva un margen izquierdo fijo de `68px` en pantallas de escritorio. De este modo, la barra compacta nunca cubre el contenido y la expansión a `292px` vuela como capa superior sin empujar las tablas, gráficas ni métricas de la página activa (cero reflow o saltos de layout).
+
+### 2. Exclusión Estricta en Consolas de Mostrador y Pantallas Completas
+- En `Sidebar.tsx` y `AppLayout.tsx`, se mantiene la validación estricta de exclusión:
+  - Rutas: `/caja/pos`, `/caja/alquileres`, `/caja/apartados`, `/login` e `/impresion`.
+  - El menú lateral no se renderiza en el DOM (`return null`), garantizando el 100% del área de trabajo para la operación rápida de mostrador.
+
+### 3. Armonía Textual e Iconográfica (0% Puntos Suspensivos)
+- Proporciones ajustadas para lectura íntegra en los `292px` de ancho desplegado:
+  - Íconos: `w-[18px] h-[18px] shrink-0`.
+  - Textos de módulos: `text-[13px] font-semibold leading-tight tracking-tight whitespace-nowrap` sin recortes ni puntos suspensivos (`...`).
+  - Badges ultracompactos: `text-[9.5px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ml-auto uppercase`.
+- **Los 11 Módulos Oficiales:**
+  1. `Panel Principal` (`/`)
+  2. `Métricas y Rendimiento` (`/admin/dashboard`) — Badge: `EN VIVO`
+  3. `Terminal POS (Ventas)` (`/caja/pos`) — Badge: `POS`
+  4. `Sistema de Alquileres` (`/caja/alquileres`) — Badge: `ALQUILER`
+  5. `Apartados y Reservas` (`/caja/apartados`) — Badge: `SEPARE`
+  6. `Control y Arqueo de Caja` (`/admin/caja`)
+  7. `Historial y Monitoreo` (`/admin/monitoreo`) — Badge: `CARTERA`
+  8. `Directorio de Clientes` (`/admin/clientes`)
+  9. `Inventario de Prendas` (`/admin/inventario`)
+  10. `Usuarios y Permisos` (`/admin/usuarios`)
+  11. `Configuración y Factura` (`/admin/configuracion`)
+
+### 4. Cabecera y Pie Armónicos
+- **Cabecera:** En modo compacto (`68px`) muestra el logotipo centrado; en modo expandido (`292px`) muestra el logotipo, el nombre `LLANOMIO POS`, subtítulo y el botón para fijar/desfijar con ícono `Pin`.
+- **Indicador de Red Local:** En reposo muestra el recuadro centrado con indicador pulsante verde; desplegado muestra `"LAN Activa · llanomio.local"`.
+- **Tarjeta de Usuario y Cierre de Sesión:** En reposo muestra el avatar o escudo centrado; desplegado muestra avatar, nombre completo en texto legible (`Administrador Principal`), rol `ADMIN` y botón para cerrar sesión con confirmación de respaldo.
