@@ -2751,3 +2751,31 @@ Al presionar el botón verde `"Conectar Celular / PC en Red"` en el Panel Princi
      - **Columna Derecha (5 cols):**
        - Código QR nítido y proporcionado (`w-36 h-36` / `w-40 h-40`) con tooltip informativo.
        - Estado de red en una sola línea (`Server` hostname y badge `"LAN Activo"`).
+
+
+---
+
+## 35. Optimización de Proporción, Ancho Completo y Zoom Lightbox del Código QR LAN
+
+### 1. Diagnóstico de Usabilidad y Espacio
+- En la vista dedicada de Configuración del Sistema (`/admin/configuracion`), la tarjeta de conexión de red se mostraba reducida a la mitad izquierda de la pantalla debido a una restricción rígida de `max-w-2xl` pensada originalmente para el diálogo modal, desaprovechando el ancho del monitor.
+- El Código QR en ambas vistas se mostraba en un tamaño reducido (`144px a 160px`), dificultando el escaneo rápido desde teléfonos móviles colocados a distancia de mostrador o con lentes de cámara estándar.
+
+### 2. Acciones Realizadas
+1. **Adaptabilidad Responsiva de Ancho Completo (`src/components/red/TarjetaConexionLAN.tsx`):**
+   - Se añadió la propiedad `modoModal?: boolean`, calculando internamente `const esModal = modoModal !== undefined ? modoModal : Boolean(onClose);`.
+   - Cuando se visualiza en páginas completas como `/admin/configuracion` (`!esModal`), la tarjeta utiliza el 100% del ancho del contenedor (`w-full`) con espaciado equilibrado (`p-5 md:p-6`) y distribución de rejilla (`lg:grid-cols-12`).
+   - Cuando se abre como modal superpuesto en el Panel Principal (`esModal`), se expande armónicamente a `max-w-3xl` en `src/app/page.tsx` sin generar desbordamiento ni barras de desplazamiento.
+2. **Generación de Código QR en Alta Resolución:**
+   - Se optimizó la generación del QR vía `QRCode.toDataURL` configurando un lienzo base nítido de `420px`, margen de `2` y nivel de corrección de errores `M` (`errorCorrectionLevel: 'M'`).
+   - Se aplicó la propiedad CSS `style={{ imageRendering: "crisp-edges" }}` para garantizar bordes vectoriales y eliminar cualquier artefacto de difuminado o pixelado.
+   - Tamaños en pantalla:
+     - En Configuración (`!esModal`): `w-56 h-56 md:w-64 md:h-64` (224px a 256px), enmarcado con degradado sutil y borde azul de acento.
+     - En Modal (`esModal`): `w-48 h-48 sm:w-56 sm:h-56` (192px a 224px) con pastilla de URL activa y pie de estado de servidor.
+3. **Visor de Zoom en 1 Clic (Lightbox para Escaneo a Larga Distancia):**
+   - Se añadió el estado interactivo `zoomQrAbierto` y un indicador visual con ícono `ZoomIn` en la esquina superior del marco del QR con cursor `cursor-zoom-in`.
+   - Al pulsar sobre el código QR, se despliega un lightbox modal de alta prioridad (`z-[200]`) con fondo desenfocado (`bg-slate-900/80 backdrop-blur-sm`).
+   - El lightbox presenta el Código QR en tamaño gigante (`w-72 h-72 sm:w-80 sm:h-80 md:w-96 md:h-96`, hasta 384px), insignia de "ESCANEO A LARGA DISTANCIA", enlace activo con botón de copia rápida en 1 clic y botón de cierre `X` (además de cierre con clic exterior).
+4. **Verificación y Calidad de Código:**
+   - Verificación de tipos estricta con `npx tsc --noEmit` (0 errores).
+   - Compilación exitosa en producción (`npm run build`).

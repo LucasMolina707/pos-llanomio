@@ -17,6 +17,7 @@ import {
   X,
   ExternalLink,
   HelpCircle,
+  ZoomIn,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import { RespuestaRedLocal } from "@/app/api/red-local/route";
@@ -26,13 +27,17 @@ interface TarjetaConexionLANProps {
   subtitulo?: string;
   className?: string;
   onClose?: () => void;
+  modoModal?: boolean;
 }
 
 export default function TarjetaConexionLAN({
   titulo = "Conexión en Red Local (LAN)",
   className = "",
   onClose,
+  modoModal,
 }: TarjetaConexionLANProps) {
+  const esModal = modoModal !== undefined ? modoModal : Boolean(onClose);
+
   const [datosRed, setDatosRed] = useState<RespuestaRedLocal | null>(null);
   const [cargando, setCargando] = useState(true);
   const [errorRed, setErrorRed] = useState<string | null>(null);
@@ -47,6 +52,7 @@ export default function TarjetaConexionLAN({
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copiado, setCopiado] = useState(false);
   const [mostrarDiagnostico, setMostrarDiagnostico] = useState(false);
+  const [zoomQrAbierto, setZoomQrAbierto] = useState(false);
 
   // Cargar información de interfaces de red
   const cargarDatosRed = async () => {
@@ -98,13 +104,13 @@ export default function TarjetaConexionLAN({
 
   const urlActiva = obtenerUrlActiva();
 
-  // Generar código QR 100% offline
+  // Generar código QR en alta resolución (420px, margin: 2, errorCorrection: M) para máxima nitidez
   useEffect(() => {
     if (!urlActiva) return;
 
     QRCode.toDataURL(urlActiva, {
-      width: 240,
-      margin: 1,
+      width: 420,
+      margin: 2,
       color: {
         dark: "#0f172a",
         light: "#ffffff",
@@ -139,7 +145,9 @@ export default function TarjetaConexionLAN({
 
   return (
     <div
-      className={`w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden text-slate-900 select-none ${className}`}
+      className={`w-full ${
+        esModal ? "max-w-3xl shadow-2xl" : "shadow-xs"
+      } bg-white rounded-2xl border border-slate-200 overflow-hidden text-slate-900 select-none ${className}`}
     >
       {/* ===================================================================== */}
       {/* 1. ÚNICA CABECERA COMPACTA SIN DUPLICACIONES                          */}
@@ -247,11 +255,17 @@ export default function TarjetaConexionLAN({
       )}
 
       {/* ===================================================================== */}
-      {/* 3. CUERPO EN 2 COLUMNAS COMPACTAS QUE CABEN AL 100% SIN SCROLL        */}
+      {/* 3. CUERPO: DISTRIBUCIÓN ADAPTABLE (PÁGINA COMPLETA VS MODAL)          */}
       {/* ===================================================================== */}
-      <div className="p-4 grid grid-cols-12 gap-4 items-center">
+      <div
+        className={`${
+          esModal
+            ? "p-4 grid grid-cols-12 gap-4 items-center"
+            : "p-5 md:p-6 grid grid-cols-12 gap-6 items-center"
+        }`}
+      >
         {/* Columna Izquierda: Configuración de Acceso y Guía (7 columnas) */}
-        <div className="col-span-12 sm:col-span-7 space-y-3">
+        <div className={`col-span-12 ${esModal ? "sm:col-span-7 space-y-3" : "lg:col-span-7 space-y-4"}`}>
           {/* Selector de Método: IP Directa vs mDNS */}
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -393,40 +407,67 @@ export default function TarjetaConexionLAN({
           </div>
         </div>
 
-        {/* Columna Derecha: Código QR Proporcionado y Compacto (5 columnas) */}
-        <div className="col-span-12 sm:col-span-5 flex flex-col items-center justify-center bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
-          <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1.5">
+        {/* Columna Derecha: Tarjeta de Código QR Amplia, Nítida y con Zoom en 1 Clic (5 columnas) */}
+        <div
+          className={`col-span-12 ${
+            esModal
+              ? "sm:col-span-5 flex flex-col items-center justify-center bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center"
+              : "lg:col-span-5 flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-white border-2 border-blue-100 rounded-2xl p-5 shadow-xs text-center"
+          }`}
+        >
+          {/* Badge Superior QR */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-extrabold uppercase tracking-wider mb-2.5">
             <QrCode className="w-3.5 h-3.5 text-blue-600" />
             <span>Escaneo Rápido Wi-Fi</span>
           </div>
 
-          {/* Código QR Proporcionado */}
+          {/* Marco del Código QR con Zoom en 1 Clic */}
           <div
-            className="p-2 bg-white rounded-xl border border-slate-200 shadow-2xs inline-block transition-transform hover:scale-105 duration-150 cursor-help"
-            title="Apunta la cámara de tu celular a este código QR para abrir el sistema POS en red local"
+            onClick={() => setZoomQrAbierto(true)}
+            className="p-3 bg-white rounded-2xl border-2 border-slate-200 hover:border-blue-500 shadow-sm hover:shadow-md inline-block transition-all duration-200 cursor-zoom-in group relative"
+            title="Clic para ampliar Código QR y escanear desde lejos"
           >
             {qrDataUrl ? (
               <img
                 src={qrDataUrl}
                 alt={`Código QR para ${urlActiva}`}
-                className="w-36 h-36 sm:w-40 sm:h-40 object-contain rounded-lg"
+                className={`${
+                  esModal
+                    ? "w-48 h-48 sm:w-56 sm:h-56"
+                    : "w-56 h-56 md:w-64 md:h-64"
+                } object-contain rounded-xl`}
+                style={{ imageRendering: "crisp-edges" }}
               />
             ) : (
-              <div className="w-36 h-36 sm:w-40 sm:h-40 flex flex-col items-center justify-center text-slate-400">
-                <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mb-1" />
-                <span className="text-[11px] font-medium">Generando QR...</span>
+              <div
+                className={`${
+                  esModal ? "w-48 h-48 sm:w-56 sm:h-56" : "w-56 h-56 md:w-64 md:h-64"
+                } flex flex-col items-center justify-center text-slate-400`}
+              >
+                <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mb-2" />
+                <span className="text-xs font-medium">Generando QR...</span>
               </div>
             )}
+
+            {/* Icono de zoom en esquina superior derecha del marco */}
+            <div className="absolute top-2 right-2 p-1.5 rounded-lg bg-white/90 border border-slate-200 text-slate-500 group-hover:text-blue-600 group-hover:border-blue-300 shadow-2xs transition">
+              <ZoomIn className="w-3.5 h-3.5" />
+            </div>
           </div>
 
-          {/* Pie debajo del QR */}
-          <div className="mt-2 flex items-center gap-2 text-[11px] font-semibold text-slate-600">
+          {/* Pastilla con URL activa debajo del QR */}
+          <div className="mt-2.5 px-3 py-1 rounded-lg bg-slate-100/90 border border-slate-200/80 text-slate-900 font-mono text-xs font-bold truncate max-w-full">
+            {urlActiva}
+          </div>
+
+          {/* Pie de estado de red */}
+          <div className="mt-1.5 flex items-center justify-center gap-2 text-[11px] font-semibold text-slate-600">
             <span
               className="flex items-center gap-1 truncate cursor-help"
               title="Nombre del equipo servidor y socket 0.0.0.0 activo"
             >
               <Server className="w-3 h-3 text-slate-400 shrink-0" />
-              <span className="truncate max-w-[110px]">{datosRed?.hostname || "localhost"}</span>
+              <span className="truncate max-w-[120px]">{datosRed?.hostname || "localhost"}</span>
             </span>
             <span className="text-slate-300">•</span>
             <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
@@ -436,6 +477,63 @@ export default function TarjetaConexionLAN({
           </div>
         </div>
       </div>
+
+      {/* ===================================================================== */}
+      {/* 4. LIGHTBOX / MODAL DE ZOOM GIGANTE EN 1 CLIC                         */}
+      {/* ===================================================================== */}
+      {zoomQrAbierto && (
+        <div
+          onClick={() => setZoomQrAbierto(false)}
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 max-w-lg w-full flex flex-col items-center text-center animate-in zoom-in-95 duration-150 relative"
+          >
+            <button
+              type="button"
+              onClick={() => setZoomQrAbierto(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-500 transition cursor-pointer"
+              title="Cerrar ampliación (Esc)"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-extrabold uppercase tracking-wider mb-4">
+              <QrCode className="w-4 h-4 text-blue-600" />
+              <span>ESCANEO A LARGA DISTANCIA</span>
+            </div>
+
+            <div className="p-3 bg-white rounded-2xl border-2 border-slate-300 shadow-md inline-block">
+              {qrDataUrl && (
+                <img
+                  src={qrDataUrl}
+                  alt={`Código QR ampliado para ${urlActiva}`}
+                  className="w-72 h-72 sm:w-80 sm:h-80 md:w-96 md:h-96 object-contain rounded-xl"
+                  style={{ imageRendering: "crisp-edges" }}
+                />
+              )}
+            </div>
+
+            <p className="text-xs text-slate-500 mt-3 font-medium">
+              Apunta la cámara de tu celular o tablet desde cualquier distancia en la tienda.
+            </p>
+
+            <div className="mt-3 w-full p-2.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-between gap-2">
+              <span className="font-mono text-xs sm:text-sm font-bold text-blue-950 truncate select-all">
+                {urlActiva}
+              </span>
+              <IconButtonTooltip
+                icon={copiado ? Check : Copy}
+                variant={copiado ? "emerald" : "primary"}
+                size="sm"
+                label={copiado ? "¡Enlace copiado!" : "Copiar enlace"}
+                onClick={handleCopiar}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
