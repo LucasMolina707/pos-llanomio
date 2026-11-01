@@ -1,56 +1,79 @@
-Manual Técnico Definitivo: Instalación y Configuración del Sistema POS "Llanomio"
-1. Arquitectura y Requisitos Previos del Sistema Operativo
-Sistema Operativo Compatible: Windows 10 o Windows 11 (Ediciones Home o Pro).
-Entorno de Ejecución (Node.js): Se requiere instalar el motor oficial de Node.js en su versión LTS (Long Term Support) desde nodejs.org. Esto incluye automáticamente el gestor de paquetes npm.
-Herramienta de Control de Versiones (Git): Necesaria para la descarga del código fuente desde el repositorio privado, disponible en git-scm.com.
-2. Métodos de Adquisición del Código Fuente
-El proyecto puede desplegarse en el equipo de mostrador mediante dos alternativas directas:
-Método A: Descarga Directa desde GitHub
-Abre la terminal de comandos (PowerShell) en la ruta del disco donde se alojará el sistema (por ejemplo, C:\Proyectos).
-Clona el repositorio privado oficial utilizando el enlace del proyecto:
-Bash
-git clone https://github.com/LucasMolina707/pos-llanomio.git
+# SISTEMA POS LLANOMIO
+## Sistema de Facturación, Inventario, Alquiler de Trajes Típicos y Control POS Local
 
+---
 
-Accede al directorio recién creado:
-Bash
-cd pos-llanomio
+### Descripción General
 
+**POS Llanomio** es una plataforma integral de punto de venta (POS) y facturación local desarrollada con tecnologías web modernas de alto rendimiento, optimizada para operar de forma 100% autónoma en servidores locales Windows sin dependencia obligatoria de conexión a Internet externa.
 
-Método B: Instalación sin Conexión mediante Memoria USB
-Conecta la memoria USB al equipo de mostrador.
-Copia la carpeta contenedora del proyecto (que contiene previamente la estructura descargada de GitHub) y pégala en la ruta local del disco duro del nuevo equipo (por ejemplo, en C:\Proyectos\pos-llanomio).
-Retira la memoria USB de manera segura e ingresa a la carpeta mediante la terminal de comandos.
-3. Instalación de Dependencias y Estructura de Base de Datos
-Estando ubicados dentro de la carpeta raíz del proyecto (C:\Proyectos\pos-llanomio) en la terminal:
-Instala los paquetes y librerías necesarias para el funcionamiento del servidor web y los módulos de interfaz:
-Bash
-npm install
+El sistema administra de punta a punta:
+- Facturación comercial de venta de productos y prendas.
+- Sistema especializado de alquiler de trajes típicos y disfraces con control de depósitos en garantía, fechas límite de retorno, recargos de mora y liquidación / paz y salvo.
+- Sistema de apartados y separes de mercancía.
+- Control de arqueo y turnos de caja (gavetas independientes o compartidas).
+- Apertura automática de cajón monedero vía pulso electromagnético RJ11/DK sobre impresoras térmicas ESC/POS.
+- Generación de comprobantes e impresión directa en formatos Tirilla (80mm), Media Carta y Carta completa sin códigos QR publicitarios.
+- Copias de seguridad atómicas en caliente con SQLite `VACUUM INTO`, rotación de respaldos, sincronización en la nube (Google Drive / OneDrive) y migración web entre computadores (Punto A ➔ Punto B).
 
+---
 
-Ejecuta la inicialización y migración del esquema de base de datos local SQLite con Prisma ORM:
-Bash
-npx prisma migrate dev --name init
+### Stack Tecnológico
 
-(Este comando genera automáticamente el archivo de base de datos llanomio.db dentro de la carpeta /database del sistema).
-4. Automatización y Persistencia en Segundo Plano (PM2)
-Para asegurar que la aplicación web de Next.js se ejecute de manera permanente en segundo plano y se recupere automáticamente ante posibles cortes de energía o reinicios del equipo de la tienda:
-Instala y configura el administrador de procesos PM2 utilizando el archivo maestro del proyecto:
-Bash
-pm2 start ecosystem.config.js
+- **Frontend & Backend:** Next.js 15 (App Router) + React 19.
+- **Tipado & Estructura:** TypeScript 5 (Modo estricto, 0 errores de tipado).
+- **Capa de Persistencia:** Prisma ORM 6.
+- **Motor de Base de Datos:** SQLite 3 (`database/llanomio.db`) en modo WAL (*Write-Ahead Logging*).
+- **Estilos & UI:** TailwindCSS 3.4 + Lucide React Icons (Cero emojis, diseño profesional antifatiga).
+- **Gestor de Procesos:** PM2 (Persistencia y recuperación automática ante reinicios de Windows).
+- **Red Local & Descubrimiento:** Protocolo mDNS / Bonjour (`http://llanomio.local:<PUERTO>`).
 
+---
 
-Configura el servicio para que despegue automáticamente con el inicio de Windows y guarda el estado actual de los procesos:
-Bash
-pm2 startup
-pm2 save
+### Portal Oficial de Instalación y Despliegue
 
+La suite completa de despliegue, guías paso a paso y herramientas de instalación se encuentra organizada de forma modular en la carpeta `/instalador_tienda`:
 
-5. Configuración de Red Local (Acceso sin IPs complejas)
-Para permitir que las tablets, celulares o equipos secundarios de los empleados interactúen con el POS desde cualquier lugar de la tienda mediante la red Wi-Fi local:
-El servidor principal se encarga de exponer el servicio en el puerto estándar del navegador.
-Puedes acceder directamente desde cualquier dispositivo conectado a la misma red escribiendo la dirección IP fija del equipo principal seguida del puerto (ejemplo: [http://192.168.1.50:3000](http://192.168.1.50:3000)) o mediante el servicio de resolución local configurado en la red del establecimiento.
-6. Sistema de Respaldo Automático de Datos (Nube o Dispositivo Externo)
-Para garantizar la seguridad de la información financiera, el inventario y las cuentas por cobrar de la sastrería y disfraces:
-Sincronización Automática en Nube (Google Drive / OneDrive): Instala la aplicación de escritorio de tu servicio de nube preferido y apunta la carpeta de respaldos del POS para que el archivo de respaldo generado automáticamente mediante la función VACUUM INTO al cerrar sesión o cerrar caja (llanomio_ULTIMO.db y sus copias fechadas en /historial) se cargue en tiempo real a la nube.
-Respaldo Físico Manual (USB o Dispositivo de Apoyo): Copia periódicamente los archivos de base de datos alojados en la carpeta /database hacia una unidad de almacenamiento externa conectada por USB para mantener copias físicas fuera del equipo de caja principal.
+- **[Portal Maestro de Instalación](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/LEEME_GUIA_INSTALACION_TIENDA.md):** Índice central y matriz selectora para elegir el método adecuado.
+- **[Método 1: Scripts BAT Automatizados](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_scripts_bat/GUIA_INSTALACION_SCRIPTS.md):** Asistentes visuales numerados en ventanas de diálogo (Recomendado para personal de tienda).
+- **[Método 2: Clonación Directa desde GitHub](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_github/GUIA_INSTALACION_GITHUB.md):** Para implementadores con Git y conexión a Internet.
+- **[Método 3: Paquete Portable Offline USB / ZIP](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_usb_zip/GUIA_INSTALACION_USB.md):** Para equipos de mostrador sin Git o con conexión limitada.
+- **[Método 4: Línea de Comandos CLI](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_comandos/GUIA_INSTALACION_COMANDOS.md):** Guía paso a paso para soporte técnico y administradores de sistemas.
+
+---
+
+### Manuales Especializados
+
+- **[Manual de Copias de Seguridad, Exportación y Migración Web](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md):**
+  Detalle exhaustivo de las copias automáticas post-arqueo, rotación de los últimos 15 respaldos, sincronización en nube y migración asistida entre dos computadores mediante la interfaz web de `/admin/configuracion`.
+- **[Manual de Conexión y Apertura de Cajón Monedero e Impresora](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_CAJON_MONEDERO_E_IMPRESORA.md):**
+  Guía de conexión del cable telefónico RJ11/RJ12, posiciones de la cerradura física de la gaveta y configuración del Spooler RAW de Windows.
+
+---
+
+### Inicio Rápido en 3 Pasos
+
+1. Ejecute el escaneo de puertos libres del equipo:
+   ```bash
+   node scripts/escanear-y-elegir-puertos.js
+   ```
+2. Instale dependencias y compile el proyecto:
+   ```bash
+   npm install
+   npx prisma db push --skip-generate
+   npm run build
+   ```
+3. Inicie el servidor con PM2:
+   ```bash
+   npx pm2 start ecosystem.config.js
+   npx pm2 save
+   ```
+4. Abra su navegador en: `http://localhost:3000` (o el puerto configurado).
+   - **Usuario Administrador:** `admin`
+   - **Contraseña Inicial:** `admin123`
+
+---
+
+### Documentación de Arquitectura
+
+Para conocer la bitácora completa de arquitectura, modelo de datos y decisiones técnicas de desarrollo, consulte el archivo maestro [CONTEXTO_POS.md](file:///d:/Proyectos%20IA/pos-llanomio/CONTEXTO_POS.md) en la raíz del proyecto.

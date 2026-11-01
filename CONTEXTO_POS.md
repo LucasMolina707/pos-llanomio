@@ -2813,3 +2813,27 @@ Se diseñó, perfeccionó y validó de punta a punta el sistema de copias de seg
 6. **Control de Calidad (QA):**
    - Pruebas automatizadas de exportación, cierre, validación estructural y restauración con 100% de éxito (`scripts/test-qa-respaldos-modulo.ts` y `scripts/test-qa-http-backup.ts`).
    - Verificación de tipos `npx tsc --noEmit` limpia y compilación de producción `npm run build` exitosa.
+
+
+---
+
+## 37. Depuración Integral de Documentación y Reestructuración Modular de Manuales
+
+### 1. Resumen de la Implementación
+Se ejecutó una auditoría y reestructuración completa de los manuales y guías del sistema POS Llanomio, consolidando la arquitectura modular de instalación y eliminando redundancias:
+1. **Eliminación de Manuales Redundantes:**
+   - Se depuró el archivo `instalador_tienda/MANUAL_MAESTRO_INSTALACION.md` por constituir una duplicidad no sincronizada del portal de instalación.
+2. **Consolidación del Portal Maestro (`instalador_tienda/LEEME_GUIA_INSTALACION_TIENDA.md`):**
+   - Rediseño como portal central de documentación con árbol de navegación de la suite, matriz selectora comparativa de los 4 métodos de instalación y guía de puesta en marcha en 5 pasos.
+   - Enlaces directos a los manuales especializados de Hardware (`MANUAL_CAJON_MONEDERO_E_IMPRESORA.md`) y de Respaldos y Migración (`MANUAL_RESPALDOS_Y_MIGRACION.md`).
+   - Énfasis en la filosofía de autonomía de rutas (`%CD%` y `%~dp0`, sin rutas fijas a `C:\Proyectos`) y escaneo interactivo de puertos (`node scripts/escanear-y-elegir-puertos.js`).
+3. **Estructuración y Actualización de los 4 Métodos de Instalación:**
+   - **Método 1 (`metodo_scripts_bat/GUIA_INSTALACION_SCRIPTS.md`):** Detalle de la suite de scripts `.bat` numerados, escáner de puertos y enlaces a los manuales especializados.
+   - **Método 2 (`metodo_github/GUIA_INSTALACION_GITHUB.md`):** Clonación técnica directa, inicialización de base de datos limpia y sincronización continua con `git pull origin main`.
+   - **Método 3 (`metodo_usb_zip/GUIA_INSTALACION_USB.md`):** Despliegue portable 100% offline para equipos sin Git o sin Internet, transporte de paquetes y puesta a punto.
+   - **Método 4 (`metodo_comandos/GUIA_INSTALACION_COMANDOS.md`):** Secuencia granular comando por comando (Node.js, Prisma, PM2, Firewall, VACUUM INTO) para soporte técnico y sysadmins.
+4. **Modernización de la Portada Principal (`README.md`):**
+   - Reestructuración ejecutiva con stack tecnológico, capacidades de facturación y alquileres, inicio rápido y enlaces directos a los manuales modulares.
+5. **Control de Calidad (QA):**
+   - Se verificó que ningún archivo de código fuente de la lógica de negocio (`src/`, `prisma/`, `database/`) fuera alterado.
+   - Verificación estricta de tipos `npx tsc --noEmit` y compilación de producción limpias.

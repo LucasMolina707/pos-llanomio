@@ -1,80 +1,114 @@
-# SISTEMA POS LOCAL LLANOMIO - SUITE OFICIAL DE INSTALACION Y DESPLIEGUE
-**Manual Maestro de Métodos de Instalación, Configuración de Red y Portabilidad**
+# SISTEMA POS LOCAL LLANOMIO — PORTAL MAESTRO DE INSTALACIÓN Y DOCUMENTACIÓN
+## Suite Oficial de Despliegue, Hardware POS, Respaldos y Portabilidad
 
 ---
 
-## 1. INTRODUCCION Y ESTRUCTURA METODOLOGICA
+### 1. INTRODUCCIÓN Y ARQUITECTURA GENERAL
 
-Para garantizar la maxima flexibilidad operativa, portabilidad y simplicidad de implementacion en cualquier negocio o computador con Windows (sin importar la unidad de disco `C:`, `D:`, etc., ni la ruta fija donde se aloje el software), los manuales y herramientas de instalacion han sido completamente organizados y aislados en **4 metodos independientes y autosuficientes**:
+El Sistema POS Local LLANOMIO es una solución integral de punto de venta, inventario, facturación, alquiler de trajes y apartados construida sobre **Next.js 15 (App Router)**, **TypeScript 5**, **Prisma ORM 6** y persistencia local en **SQLite 3** en modo WAL (*Write-Ahead Logging*).
+
+Para garantizar máxima flexibilidad operativa y simplicidad en cualquier computador con Windows (sin importar la unidad de disco `C:`, `D:`, `E:` ni la ruta donde se aloje el software), la documentación y herramientas de instalación se organizan en **4 métodos modulares e independientes** y **2 manuales especializados de hardware y respaldos**:
 
 ```text
 instalador_tienda/
 │
-├── MENU_DE_INSTALACION.bat               # Menu interactivo general para abrir o elegir metodos
-├── MANUAL_CAJON_MONEDERO_E_IMPRESORA.md  # Manual de conexion RJ11 y guia de apertura de cajon
-├── MANUAL_MAESTRO_INSTALACION.md         # Manual maestro de despliegue y hardware
-├── LEEME_GUIA_INSTALACION_TIENDA.md      # Este manual de referencia
+├── MENU_DE_INSTALACION.bat                  # Menú interactivo general para abrir o elegir métodos
+├── LEEME_GUIA_INSTALACION_TIENDA.md         # Este portal maestro de documentación
 │
-├── metodo_scripts_bat/                   # METODO 1: AUTOMATIZACION MEDIANTE SCRIPTS .BAT
-│   ├── GUIA_INSTALACION_SCRIPTS.md       # Manual operativo del metodo asistido
-│   ├── escanear-y-elegir-puertos.js      # Motor interactivo de escaneo nativo de puertos
-│   ├── 1_INSTALAR_POS_GITHUB.bat         # Instalador maestro paso a paso
-│   ├── 2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat # Gestor de arranque y cambio de puerto en caliente
-│   ├── 3_ACTUALIZAR_SISTEMA.bat          # Actualizador seguro desde GitHub con respaldo previo
-│   ├── 4_RESPALDO_MANUAL.bat             # Respaldo manual y mantenimiento VACUUM
-│   ├── 5_RESTAURAR_RESPALDO.bat          # Restaurador seguro con salvaguarda automatica
-│   ├── 6_ABRIR_FIREWALL_LAN_ADMIN.bat    # Configurador de Firewall de Windows
-│   ├── 7_OPTIMIZAR_BASE_DATOS.bat        # Optimizador y compactador SQLite
-│   ├── 8_INICIAR_TUNEL_CLOUDFLARE.bat    # Tunel seguro para acceso remoto
-│   ├── 9_INSTALAR_SERVICIO_CLOUDFLARE_ADMIN.bat # Servicio Cloudflare de Windows
-│   └── CONFIGURAR_PUERTOS_RED.bat        # Lanzador directo de escaneo de puertos
+├── MANUAL_RESPALDOS_Y_MIGRACION.md          # Manual de copias en caliente, exportación y migración web
+├── MANUAL_CAJON_MONEDERO_E_IMPRESORA.md     # Conexión RJ11, llaves mecánicas e impresora térmica
 │
-├── metodo_github/                        # METODO 2: CLONACION DIRECTA DESDE GITHUB
-│   ├── GUIA_INSTALACION_GITHUB.md        # Guia completa para clonar e instalar en la ruta actual
-│   └── CLONAR_E_INSTALAR_AQUI.bat        # Script de clonacion y despliegue rapido en %CD%
+├── metodo_scripts_bat/                      # MÉTODO 1: ASISTIDO POR SCRIPTS .BAT (RECOMENDADO)
+│   ├── GUIA_INSTALACION_SCRIPTS.md          # Manual operativo del método asistido
+│   ├── 1_INSTALAR_POS_GITHUB.bat            # Instalador automatizado paso a paso
+│   ├── 2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat # Gestor de arranque y selector de puertos
+│   ├── 3_ACTUALIZAR_SISTEMA.bat             # Actualizador seguro desde GitHub con respaldo
+│   ├── 4_RESPALDO_MANUAL.bat                # Respaldo manual y compactación SQLite
+│   ├── 5_RESTAURAR_RESPALDO.bat             # Restaurador guiado con salvaguarda previa
+│   ├── 6_ABRIR_FIREWALL_LAN_ADMIN.bat       # Configurador de Firewall de Windows
+│   ├── 7_OPTIMIZAR_BASE_DATOS.bat           # Optimizador y compactador SQLite VACUUM
+│   ├── 8_INICIAR_TUNEL_CLOUDFLARE.bat       # Túnel perimetral para acceso remoto seguro
+│   ├── 9_INSTALAR_SERVICIO_CLOUDFLARE_ADMIN.bat # Instalador de servicio de túnel persistente
+│   ├── CONFIGURAR_PUERTOS_RED.bat           # Acceso directo al selector interactivo de puertos
+│   └── escanear-y-elegir-puertos.js         # Motor interactivo de escaneo nativo de puertos
 │
-├── metodo_usb_zip/                       # METODO 3: INSTALACION PORTABLE VIA MEMORIA USB O ZIP
-│   ├── GUIA_INSTALACION_USB.md           # Guia de extraccion e instalacion offline/portable
-│   └── INSTALAR_DESDE_USB_AQUI.bat       # Script instalador para paquetes descomprimidos
+├── metodo_github/                           # MÉTODO 2: CLONACIÓN DIRECTA DESDE GITHUB
+│   ├── GUIA_INSTALACION_GITHUB.md           # Guía completa de clonación y sincronización Git
+│   └── CLONAR_E_INSTALAR_AQUI.bat           # Script de clonación y despliegue rápido en %CD%
 │
-└── metodo_comandos/                      # METODO 4: MANUAL DETALLADO DE CONSOLA (CLI)
-    └── GUIA_INSTALACION_COMANDOS.md      # Guia paso a paso de comandos Node.js, Prisma y PM2
+├── metodo_usb_zip/                          # MÉTODO 3: PAQUETE PORTABLE OFFLINE VÍA USB O ZIP
+│   ├── GUIA_INSTALACION_USB.md              # Guía de extracción y despliegue sin Internet
+│   └── INSTALAR_DESDE_USB_AQUI.bat          # Script instalador para paquetes transportados
+│
+└── metodo_comandos/                         # MÉTODO 4: LÍNEA DE COMANDOS PURA (CLI)
+    └── GUIA_INSTALACION_COMANDOS.md         # Guía técnica paso a paso para soporte y sysadmins
 ```
 
 ---
 
-## 2. COMPARATIVA Y ELECCION DEL METODO ADECUADO
+### 2. MATRIZ SELECTORA: ¿QUÉ MÉTODO DE INSTALACIÓN ELEGIR?
 
-| Metodo | Directorio | Dirigido A | Descripcion |
-| :--- | :--- | :--- | :--- |
-| **1. Scripts BAT** | `metodo_scripts_bat/` | Administrador de tienda o cajero | **El metodo mas recomendado.** Asistentes visuales numerados que realizan todo el proceso con un solo clic. |
-| **2. GitHub** | `metodo_github/` | Implementador tecnico con Internet | Clona la ultima version en la ruta actual (`%CD%`) y permite actualizar periodicamente con `git pull`. |
-| **3. USB / ZIP** | `metodo_usb_zip/` | Tiendas sin Git o conexion lenta | Permite transportar el software en una memoria USB y desplegarlo en cualquier carpeta o disco sin internet. |
-| **4. Comandos CLI** | `metodo_comandos/` | Soporte TI y desarrolladores | Detalle exhaustivo de cada comando de consola para auditorias, servidores dedicados o scripts de automatizacion. |
+Consulte esta tabla para identificar rápidamente el método que mejor se adapta a su caso:
 
----
-
-## 3. AUTONOMIA DE RUTA (%CD% / %~dp0) Y CERO RUTAS FIJAS
-
-Todos los scripts y herramientas de esta suite han sido disenados con **anclaje dinamico de ruta**:
-- **Cero dependencias de `C:\Proyectos`:** Si usted extrae el sistema en `D:\pos-llanomio`, `E:\MiTienda\pos-llanomio` o cualquier otra carpeta, el sistema se ancla de forma relativa a la raiz del proyecto mediante `cd /d "%~dp0..\.."`.
-- **Carpetas de Respaldo Portables:** Los respaldos utilizan una estrategia escalonada (`%SYSTEMDRIVE%\POS_LLANOMIO_BACKUPS`, `%USERPROFILE%\POS_LLANOMIO_BACKUPS` y siempre `database\backups_locales`), garantizando que jamas ocurran errores de disco inexistente o fallos de permisos.
+| Método | Directorio | Dirigido A | Ventajas Principales | Documentación |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Scripts BAT** | `metodo_scripts_bat/` | Administrador de tienda o cajero | **El método más recomendado.** Todo el proceso se ejecuta mediante asistentes visuales numerados en ventanas de diálogo sin tocar la terminal. | [Leer Guía Scripts](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_scripts_bat/GUIA_INSTALACION_SCRIPTS.md) |
+| **2. GitHub** | `metodo_github/` | Implementador técnico con Internet | Clona la versión oficial en la ruta actual (`%CD%`) y permite actualizar en segundos con `git pull origin main`. | [Leer Guía GitHub](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_github/GUIA_INSTALACION_GITHUB.md) |
+| **3. USB / ZIP** | `metodo_usb_zip/` | Tiendas sin Git o sin Internet | Permite transportar el paquete precompilado en una memoria USB e instalar de forma 100% offline. | [Leer Guía USB](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_usb_zip/GUIA_INSTALACION_USB.md) |
+| **4. Comandos CLI** | `metodo_comandos/` | Personal de TI y soporte técnico | Desglose exhaustivo comando por comando (Node.js, Prisma, PM2, Firewall) para diagnóstico y auditoría. | [Leer Guía Comandos](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_comandos/GUIA_INSTALACION_COMANDOS.md) |
 
 ---
 
-## 4. MOTOR DE ESCANEO INTERACTIVO DE PUERTOS
-En cualquiera de los metodos seleccionados, el sistema **NUNCA impone puertos predeterminados**:
-1. Escanea los puertos del sistema operativo Windows en tiempo real.
-2. Muestra que puertos estan ocupados (con su proceso y PID) y cuales estan 100% libres.
-3. Pregunta interactivamente al usuario que puerto desea asignar.
-4. Valida en caliente que el puerto digitado este libre antes de persistirlo en `.env`.
-5. Permite conectarse desde cualquier celular o tablet conectado al Wi-Fi de la tienda mediante:
-   - `http://<IP_LOCAL>:<PUERTO>`
-   - `http://llanomio.local:<PUERTO>`
+### 3. MANUALES ESPECIALIZADOS DE OPERACIÓN Y HARDWARE
+
+Adicional a los manuales de instalación, esta suite incluye dos guías técnicas y operativas clave:
+
+1. **[Manual de Copias de Seguridad, Exportación y Migración Web](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md):**
+   - Arquitectura inmutable de copias en caliente con la directiva nativa SQLite `VACUUM INTO`.
+   - Ubicaciones físicas: carpetas locales (`database/backups_locales/`), carpeta externa (`C:\POS_LLANOMIO_BACKUPS\`) y sincronización automática en la nube con **Google Drive** o **OneDrive**.
+   - Protocolo de exportación gerencial de la base de datos completa (`.db`) en 1 clic desde `/admin/configuracion`.
+   - Protocolo de migración de una PC a otra (Punto A ➔ Punto B) subiendo el archivo `.db` desde la interfaz web, con verificación defensiva de integridad (`PRAGMA integrity_check`) y salvaguarda previa de emergencia sin usar comandos.
+
+2. **[Manual de Conexión y Apertura de Cajón Monedero e Impresora Térmica](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_CAJON_MONEDERO_E_IMPRESORA.md):**
+   - Conexión del cable telefónico RJ11/RJ12 al puerto **DK** (*Drawer Kick*) de la impresora térmica.
+   - Posiciones de la llave física frontal (modo electrónico en vertical vs bloqueo nocturno).
+   - Configuración en el panel administrativo con detección automática de impresoras térmicas Windows.
+   - Apertura instantánea por Spooler RAW ESC/POS sin imprimir papel ni abrir diálogos del navegador.
 
 ---
 
-## 5. CREDENCIALES DE FABRICA
-- **Usuario Administrador:** `admin`
-- **Contrasena:** `admin123`
-- **Rol:** `ADMIN` (Acceso total al sistema)
+### 4. GUÍA RÁPIDA: PUESTA EN MARCHA EN 5 PASOS
+
+Si desea poner a punto el sistema rápidamente en la tienda:
+
+1. Ingrese a la carpeta `instalador_tienda/` y ejecute `MENU_DE_INSTALACION.bat` (o abra la carpeta `metodo_scripts_bat/`).
+2. Ejecute el script `1_INSTALAR_POS_GITHUB.bat`:
+   - El asistente escaneará los puertos disponibles del equipo y le permitirá elegir el puerto deseado (ej. `3000`).
+   - Instalará automáticamente dependencias, base de datos SQLite limpia y compilará la versión de producción.
+3. Al finalizar, el servidor iniciará automáticamente en segundo plano bajo el gestor de procesos **PM2**.
+4. Conecte su impresora térmica por USB y el cajón monedero por cable RJ11 a la impresora, siguiendo el [Manual de Hardware](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_CAJON_MONEDERO_E_IMPRESORA.md).
+5. Abra el navegador en `http://localhost:3000` (o la IP asignada) e inicie sesión con las credenciales de fábrica:
+   - **Usuario:** `admin`
+   - **Contraseña:** `admin123`
+
+---
+
+### 5. PILARES DE ARQUITECTURA Y PORTABILIDAD
+
+#### 5.1. Autonomía de Ruta (`%CD%` / `%~dp0`)
+Todos los scripts y módulos de esta suite operan con rutas relativas dinámicas:
+- **Cero dependencias de rutas fijas (`C:\Proyectos`):** El sistema puede extraerse y ejecutarse en cualquier disco (`C:`, `D:`, `E:`) o carpeta sin requerir modificaciones en el código.
+- Las carpetas de respaldo utilizan una estrategia jerárquica defensiva (`C:\POS_LLANOMIO_BACKUPS`, `%USERPROFILE%\POS_LLANOMIO_BACKUPS` y siempre `database/backups_locales/`), garantizando que jamás se produzcan errores por disco inexistente o restricciones de permisos.
+
+#### 5.2. Motor Interactivo de Escaneo de Puertos
+El sistema nunca impone puertos de forma estática:
+- Ejecuta `node scripts/escanear-y-elegir-puertos.js`.
+- Comprueba sockets TCP en tiempo real e identifica qué procesos o PIDs ocupan puertos en Windows.
+- Permite seleccionar puertos alternativos si el puerto `3000` o `80` está ocupado por otro servicio de la tienda.
+- Persiste la configuración automáticamente en el archivo `.env`.
+
+#### 5.3. Conectividad en Red Local (LAN y Wi-Fi)
+- **Desde la computadora servidor:** `http://localhost:<PUERTO>`
+- **Desde celulares y tablets en la tienda:** `http://<IP_LOCAL>:<PUERTO>`
+- **Resolución mDNS (Bonjour):** `http://llanomio.local:<PUERTO>`
+- El script `metodo_scripts_bat/6_ABRIR_FIREWALL_LAN_ADMIN.bat` configura automáticamente las excepciones del Firewall de Windows para el puerto web elegido y el puerto UDP `5353` de mDNS.

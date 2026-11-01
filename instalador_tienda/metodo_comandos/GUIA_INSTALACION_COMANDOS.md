@@ -1,25 +1,25 @@
-# GUIA DE INSTALACION METODO COMANDOS (CLI) - POS LLANOMIO
-**Manual de Despliegue Manual y Paso a Paso para Desarrolladores y Administradores de Sistemas**
+# GUÍA DE INSTALACIÓN — MÉTODO 4: LÍNEA DE COMANDOS PURA (CLI)
+## Sistema POS Llanomio · Manual de Despliegue Técnico Paso a Paso para Desarrolladores y Soporte TI
 
 ---
 
-## 1. INTRODUCCION Y FILOSOFIA CLI
+### 1. INTRODUCCIÓN Y FILOSOFÍA CLI
 
-Este manual documenta de forma minuciosa y transparente cada uno de los comandos individuales que conforman el ciclo de vida, instalacion, configuracion de red, migracion de base de datos y despliegue del Sistema POS Local LLANOMIO.
+Este manual documenta de forma minuciosa y transparente cada uno de los comandos individuales que conforman el ciclo de vida, instalación, configuración de red, migración de base de datos y despliegue del Sistema POS Local LLANOMIO.
 
 Este enfoque permite:
-- Comprender exactamente que accion realiza cada instruccion en el sistema operativo.
+- Comprender exactamente qué acción realiza cada instrucción en el sistema operativo.
 - Diagnosticar y resolver cualquier advertencia o fallo de forma granular.
 - Operar en entornos de servidor dedicados, consolas remotas o automatizaciones CI/CD.
 - Funcionar en cualquier unidad de almacenamiento y directorio sin dependencias de rutas fijas.
 
 ---
 
-## 2. ARQUITECTURA DE ENTORNO Y REQUISITOS
+### 2. ARQUITECTURA DE ENTORNO Y REQUISITOS
 
-- **Motor de Ejecucion:** Node.js LTS (v20.x o v22.x recomendado).
+- **Motor de Ejecución:** Node.js LTS (v20.x o v22.x recomendado).
 - **Gestor de Paquetes:** npm (v10 o superior).
-- **Base de Datos:** SQLite 3 (embebida localmente en `database/llanomio.db` a traves de Prisma ORM 6).
+- **Base de Datos:** SQLite 3 (embebida localmente en `database/llanomio.db` a través de Prisma ORM 6).
 - **Framework:** Next.js 15 (App Router) + TypeScript 5.
 
 Verifique sus herramientas en la consola de comandos de Windows (PowerShell o CMD):
@@ -30,22 +30,22 @@ npm -v
 
 ---
 
-## 3. SECUENCIA PASO A PASO DE COMANDOS
+### 3. SECUENCIA PASO A PASO DE COMANDOS
 
-Abra la consola de comandos y posicionese en la carpeta raiz del proyecto:
+Abra la consola de comandos y posiciónese en la carpeta raíz del proyecto:
 ```bash
 cd /d "D:\Ruta\De\Su\Proyecto\pos-llanomio"
 ```
-*(O simplemente abra la consola dentro del directorio donde extrajo o clono el repositorio).*
+*(O simplemente abra la consola dentro del directorio donde extrajo o clonó el repositorio).*
 
 ---
 
-### Paso 1: Escaneo y Asignacion Interactiva de Puertos de Red
+#### Paso 1: Escaneo y Asignación Interactiva de Puertos de Red
 Para garantizar que el servidor no colisione con otros programas instalados en el equipo (como Skype, IIS, software contable o servicios previos), ejecute el asistente interactivo:
 ```bash
 node scripts/escanear-y-elegir-puertos.js
 ```
-**Que hace este comando:**
+**Qué hace este comando:**
 1. Escanea sockets TCP en tiempo real mediante APIs nativas de Node.js.
 2. Muestra los puertos ocupados con su respectivo PID y nombre de proceso.
 3. Muestra una lista de puertos 100% libres disponibles en el equipo.
@@ -60,19 +60,19 @@ node scripts/escanear-y-elegir-puertos.js
 
 ---
 
-### Paso 2: Instalacion de Librerias y Dependencias del Proyecto
-Ejecute la instalacion de los modulos de Node.js:
+#### Paso 2: Instalación de Librerías y Dependencias del Proyecto
+Ejecute la instalación de los módulos de Node.js:
 ```bash
 npm install
 ```
-**Que hace este comando:**
-- Descarga y valida los paquetes de produccion (`@prisma/client`, `jose`, `bcryptjs`, `bonjour-service`, `lucide-react`, `jspdf`, `qrcode`, `xlsx`, `clsx`, `tailwind-merge`).
-- Descarga las herramientas de compilacion de desarrollo (`typescript`, `prisma`, `tailwindcss`, `tsx`, `pm2`).
+**Qué hace este comando:**
+- Descarga y valida los paquetes de producción (`@prisma/client`, `jose`, `bcryptjs`, `bonjour-service`, `lucide-react`, `jspdf`, `qrcode`, `xlsx`, `clsx`, `tailwind-merge`).
+- Descarga las herramientas de compilación y desarrollo (`typescript`, `prisma`, `tailwindcss`, `tsx`, `pm2`).
 
 ---
 
-### Paso 3: Generacion de Tipos y Sincronizacion de Base de Datos SQLite
-Asegurese de que la base de datos local SQLite y los tipos de TypeScript de Prisma esten al dia:
+#### Paso 3: Generación de Tipos y Sincronización de Base de Datos SQLite
+Asegúrese de que la base de datos local SQLite y los tipos de TypeScript de Prisma estén al día:
 ```bash
 # 1. Generar los tipos fuertemente tipados de TypeScript para el cliente Prisma
 npx prisma generate
@@ -83,57 +83,57 @@ npx prisma db push --skip-generate
 
 ---
 
-### Paso 4: Sembrado de Datos Limpios de Fabrica (Seed Inicial)
-Si la base de datos es nueva o requiere inicializar los registros maestros (usuario Administrador y configuracion empresarial):
+#### Paso 4: Sembrado de Datos Limpios de Fábrica (Seed Inicial)
+Si la base de datos es nueva o requiere inicializar los registros maestros (usuario Administrador y configuración empresarial):
 ```bash
 npm run db:seed
 ```
-**Credenciales generadas de fabrica:**
+**Credenciales generadas de fábrica:**
 - Usuario: `admin`
-- Contrasena: `admin123`
+- Contraseña: `admin123`
 - Rol: `ADMIN`
 
 ---
 
-### Paso 5: Compilacion Optimizada de Produccion
-Compile la aplicacion Next.js con Server-Side Rendering (SSR) y rutas estaticas optimizadas:
+#### Paso 5: Compilación Optimizada de Producción
+Compile la aplicación Next.js con Server-Side Rendering (SSR) y rutas estáticas optimizadas:
 ```bash
 npm run build
 ```
-**Verificacion de exito:** El comando debe finalizar con **codigo 0 y 0 errores de compilacion de TypeScript**, mostrando la tabla de rutas generadas.
+**Verificación de éxito:** El comando debe finalizar con **código 0 y 0 errores de compilación de TypeScript**, mostrando la tabla de rutas generadas.
 
 ---
 
-### Paso 6: Apertura del Firewall de Windows (Para Red Local Wi-Fi)
+#### Paso 6: Apertura del Firewall de Windows (Para Red Local Wi-Fi)
 Para permitir que otros computadores, celulares y tablets conectados al Wi-Fi de la tienda puedan conectarse, abra una consola CMD como **Administrador** y ejecute:
 ```cmd
 netsh advfirewall firewall add rule name="POS_LLANOMIO_PUERTOS_WEB" dir=in action=allow protocol=TCP localport=3000,80
 netsh advfirewall firewall add rule name="POS_LLANOMIO_MDNS" dir=in action=allow protocol=UDP localport=5353
 ```
-*(Ajuste los numeros de puerto si selecciono puertos diferentes en el Paso 1).*
+*(Ajuste los números de puerto si seleccionó puertos diferentes en el Paso 1).*
 
 ---
 
-### Paso 7: Arranque del Servidor
+#### Paso 7: Arranque del Servidor
 
-#### Opcion A: Arranque Directo en Consola (Primer Plano)
+##### Opción A: Arranque Directo en Consola (Primer Plano)
 Para iniciar el servidor y ver los registros directamente en la terminal:
 ```bash
 npm start
 ```
-*El comando ejecutara `start-pos.js`, el cual lee las variables de entorno desde `.env` y enlaza el servidor en `0.0.0.0` en el puerto elegido.*
+*El comando ejecutará `start-pos.js`, el cual lee las variables de entorno desde `.env` y enlaza el servidor en `0.0.0.0` en el puerto elegido.*
 
-#### Opcion B: Arranque Persistente en Segundo Plano con PM2 (Recomendado para Produccion)
-PM2 mantiene el servidor activo permanentemente, reiniciandolo automaticamente si ocurre algun fallo o si se reinicia el computador:
+##### Opción B: Arranque Persistente en Segundo Plano con PM2 (Recomendado para Producción)
+PM2 mantiene el servidor activo permanentemente, reiniciándolo automáticamente si ocurre algún fallo o si se reinicia el computador:
 ```bash
-# 1. Levantar la aplicacion Next.js y el servicio de red mDNS
+# 1. Levantar la aplicación Next.js y el servicio de red mDNS
 npx pm2 start ecosystem.config.js
 
-# 2. Guardar la configuracion activa para restaurar tras reinicios de Windows
+# 2. Guardar la configuración activa para restaurar tras reinicios de Windows
 npx pm2 save
 ```
 
-**Comandos Utiles de Administracion con PM2:**
+**Comandos Útiles de Administración con PM2:**
 ```bash
 # Ver estado de los procesos y consumo de memoria
 npx pm2 status
@@ -142,7 +142,7 @@ npx pm2 status
 npx pm2 logs
 
 # Reiniciar todos los servicios
-npx pm2 restart ecosystem.config.js
+npx pm2 restart all
 
 # Detener los servicios
 npx pm2 stop all
@@ -153,28 +153,30 @@ npx pm2 delete all
 
 ---
 
-## 4. COMANDOS DE MANTENIMIENTO Y RESPALDO
+### 4. COMANDOS DE MANTENIMIENTO Y RESPALDO
 
-### Compactacion y Auditoria Fisica de SQLite (VACUUM):
+#### Compactación y Auditoría Física de SQLite (VACUUM):
 Para optimizar el rendimiento, activar modo WAL y compactar el archivo de base de datos:
 ```bash
 npm run db:vacuum
 ```
 
-### Respaldo Manual de Emergencia:
-Para crear una copia de respaldo timestamped de la base de datos en la consola:
-```powershell
-# PowerShell
-$fecha = Get-Date -Format "yyyyMMdd_HHmmss"
-Copy-Item "database\llanomio.db" "database\backups_locales\llanomio_manual_$fecha.db"
+#### Respaldo Atómico en Caliente (VACUUM INTO):
+Para disparar un respaldo in situ con rotación automática mediante el motor oficial:
+```bash
+npx tsx -e "import { ejecutarRespaldoEnCaliente } from './src/lib/backup'; ejecutarRespaldoEnCaliente('MANUAL_CLI');"
 ```
-```cmd
-:: CMD
-copy /y "database\llanomio.db" "database\backups_locales\llanomio_manual_respaldo.db"
-```
+*Las copias se almacenan con retención de los últimos 15 respaldos en `database/backups_locales/` y en `C:\POS_LLANOMIO_BACKUPS\`.*
 
-### Restablecimiento Total de Fabrica (Factory Reset):
+#### Restablecimiento Total de Fábrica (Clean Slate Seed):
 Para purgar todas las transacciones de prueba y dejar la base de datos en estado virgen:
 ```bash
 npx tsx scripts/reset-db-fabrica.ts
 ```
+
+---
+
+### 5. DOCUMENTACIÓN COMPLEMENTARIA
+- **Portal Maestro:** [LEEME_GUIA_INSTALACION_TIENDA.md](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/LEEME_GUIA_INSTALACION_TIENDA.md).
+- **Respaldos y Migración Web:** [MANUAL_RESPALDOS_Y_MIGRACION.md](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md).
+- **Hardware POS:** [MANUAL_CAJON_MONEDERO_E_IMPRESORA.md](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_CAJON_MONEDERO_E_IMPRESORA.md).
