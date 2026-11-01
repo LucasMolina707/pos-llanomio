@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { exec } from "child_process";
 import prisma from "./prisma";
 
 export interface ResultadoRespaldo {
@@ -102,6 +103,193 @@ export function purgarRespaldosExcedentes(directorio: string, limiteMaximo = 15)
 }
 
 /**
+ * Purga archivos excedentes según su extensión (ej. .json) en un directorio,
+ * conservando los últimos N más recientes y protegiendo un archivo maestro.
+ */
+export function purgarRespaldosExcedentesPorExtension(
+  directorio: string,
+  extension = ".json",
+  limiteMaximo = 15,
+  archivoProtegido = ""
+): number {
+  if (!fs.existsSync(directorio)) return 0;
+  try {
+    const archivos = fs
+      .readdirSync(directorio)
+      .filter((f) => f.endsWith(extension) && f !== archivoProtegido)
+      .map((nombre) => {
+        const rutaCompleta = path.join(directorio, nombre);
+        const stats = fs.statSync(rutaCompleta);
+        return { nombre, rutaCompleta, mtime: stats.mtimeMs };
+      })
+      .sort((a, b) => b.mtime - a.mtime);
+
+    const excedentes = archivos.slice(limiteMaximo);
+    let eliminados = 0;
+    for (const archivo of excedentes) {
+      try {
+        fs.unlinkSync(archivo.rutaCompleta);
+        eliminados++;
+      } catch {}
+    }
+    return eliminados;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Genera volcados estructurados por carpetas para auditoría e inspección humana:
+ * - inventario/ (catálogo de productos, precios y stock)
+ * - clientes/ (directorio de clientes y datos fiscales)
+ * - historial_facturas/ (últimas facturas, abonos y detalles)
+ * - movimientos_caja/ (arqueos, turnos y cierres consolidados)
+ */
+export async function generarVolcadosEstructurados(
+  directorioRaiz: string,
+  timestamp: string
+): Promise<void> {
+  if (!fs.existsSync(directorioRaiz)) {
+    try {
+      fs.mkdirSync(directorioRaiz, { recursive: true });
+    } catch {
+      return;
+    }
+  }
+
+  const subcarpetas = [
+    "inventario",
+    "clientes",
+    "historial_facturas",
+    "movimientos_caja",
+  ];
+
+  for (const sub of subcarpetas) {
+    const dir = path.join(directorioRaiz, sub);
+    if (!fs.existsSync(dir)) {
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+      } catch {}
+    }
+  }
+
+  try {
+    // 1. Inventario
+    const productos = await prisma.producto.findMany({
+      orderBy: { nombre: "asc" },
+    });
+    const dirInventario = path.join(directorioRaiz, "inventario");
+    fs.writeFileSync(
+      path.join(dirInventario, "inventario_ULTIMO.json"),
+      JSON.stringify(productos, null, 2),
+      "utf-8"
+    );
+    fs.writeFileSync(
+      path.join(dirInventario, `inventario_${timestamp}.json`),
+      JSON.stringify(productos, null, 2),
+      "utf-8"
+    );
+    purgarRespaldosExcedentesPorExtension(dirInventario, ".json", 15, "inventario_ULTIMO.json");
+
+    // 2. Clientes
+    const clientes = await prisma.cliente.findMany({
+      orderBy: { nombre: "asc" },
+    });
+    const dirClientes = path.join(directorioRaiz, "clientes");
+    fs.writeFileSync(
+      path.join(dirClientes, "clientes_ULTIMO.json"),
+      JSON.stringify(clientes, null, 2),
+      "utf-8"
+    );
+    fs.writeFileSync(
+      path.join(dirClientes, `clientes_${timestamp}.json`),
+      JSON.stringify(clientes, null, 2),
+      "utf-8"
+    );
+    purgarRespaldosExcedentesPorExtension(dirClientes, ".json", 15, "clientes_ULTIMO.json");
+
+    // 3. Historial Facturas (con abonos y prendas de alquiler)
+    const facturas = await prisma.factura.findMany({
+      take: 500,
+      orderBy: { fechaCreacion: "desc" },
+      include: {
+        detalles: true,
+        abonos: true,
+        cliente: {
+          select: { id: true, nombre: true, documento: true, telefono: true, telefonoSecundario: true },
+        },
+      },
+    });
+    const dirFacturas = path.join(directorioRaiz, "historial_facturas");
+    fs.writeFileSync(
+      path.join(dirFacturas, "facturas_ULTIMO.json"),
+      JSON.stringify(facturas, null, 2),
+      "utf-8"
+    );
+    fs.writeFileSync(
+      path.join(dirFacturas, `facturas_${timestamp}.json`),
+      JSON.stringify(facturas, null, 2),
+      "utf-8"
+    );
+    purgarRespaldosExcedentesPorExtension(dirFacturas, ".json", 15, "facturas_ULTIMO.json");
+
+    // 4. Movimientos Caja (turnos y cierres consolidados)
+    const cierres = await prisma.cierreCaja.findMany({
+      take: 100,
+      orderBy: { fechaFin: "desc" },
+    });
+    const turnos = await prisma.turnoCaja.findMany({
+      take: 100,
+      orderBy: { fechaApertura: "desc" },
+    });
+    const movimientos = { cierres, turnos };
+    const dirCaja = path.join(directorioRaiz, "movimientos_caja");
+    fs.writeFileSync(
+      path.join(dirCaja, "movimientos_caja_ULTIMO.json"),
+      JSON.stringify(movimientos, null, 2),
+      "utf-8"
+    );
+    fs.writeFileSync(
+      path.join(dirCaja, `movimientos_caja_${timestamp}.json`),
+      JSON.stringify(movimientos, null, 2),
+      "utf-8"
+    );
+    purgarRespaldosExcedentesPorExtension(dirCaja, ".json", 15, "movimientos_caja_ULTIMO.json");
+  } catch (errDump) {
+    console.warn("[BACKUP ESTRUCTURADO] Advertencia al generar volcados estructurados:", errDump);
+  }
+}
+
+/**
+ * Abre la carpeta de respaldos en el Explorador de Windows en el servidor local.
+ */
+export function abrirCarpetaEnExplorador(ruta?: string): { ok: boolean; mensaje: string; ruta: string } {
+  const rutaDestino = ruta || "C:\\POS_LLANOMIO_BACKUPS";
+  try {
+    if (!fs.existsSync(rutaDestino)) {
+      fs.mkdirSync(rutaDestino, { recursive: true });
+    }
+    exec(`explorer.exe "${rutaDestino}"`, (err) => {
+      if (err) {
+        console.warn("[EXPLORER] Advertencia al ejecutar explorer.exe:", err);
+      }
+    });
+    return {
+      ok: true,
+      mensaje: `Carpeta de respaldos abierta en el Explorador de Windows: ${rutaDestino}`,
+      ruta: rutaDestino,
+    };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      mensaje: `No se pudo abrir la carpeta en el Explorador: ${msg}`,
+      ruta: rutaDestino,
+    };
+  }
+}
+
+/**
  * Ejecuta un respaldo en caliente de la base de datos SQLite utilizando VACUUM INTO.
  * Garantiza consistencia atómica sin bloquear ni corromper las transacciones activas.
  */
@@ -176,6 +364,16 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
       }
     } catch (errCopiaExterna) {
       console.warn("[BACKUP] Advertencia al replicar en almacenamiento externo C:\\POS_LLANOMIO_BACKUPS:", errCopiaExterna);
+    }
+
+    // 6.b Generar volcados estructurados por carpetas (inventario, clientes, facturas, caja)
+    try {
+      await generarVolcadosEstructurados(carpetaLocal, timestamp);
+      if (fs.existsSync(carpetaPrincipal)) {
+        await generarVolcadosEstructurados(carpetaPrincipal, timestamp);
+      }
+    } catch (errDump) {
+      console.warn("[BACKUP] Advertencia al generar volcados estructurados:", errDump);
     }
 
     // 7. Rotación y retención automática: conservar únicamente los últimos 15 respaldos

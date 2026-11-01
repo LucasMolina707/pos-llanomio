@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  abrirCarpetaEnExplorador,
   ejecutarRespaldoEnCaliente,
   restaurarBaseDeDatosDesdeBuffer,
 } from "@/lib/backup";
@@ -16,6 +17,13 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
+
+    // Abrir carpeta en el Explorador de Windows bajo demanda
+    if (searchParams.get("abrirCarpeta") === "true") {
+      const resultadoApertura = abrirCarpetaEnExplorador();
+      return NextResponse.json(resultadoApertura);
+    }
+
     const soloInfo =
       searchParams.get("info") === "true" ||
       searchParams.get("metadata") === "true";
@@ -85,8 +93,33 @@ export async function GET(req: NextRequest) {
           .slice(0, 10);
       }
 
+      const subcarpetasEstructuradas = [
+        "inventario",
+        "clientes",
+        "historial_facturas",
+        "movimientos_caja",
+      ];
+      const subcarpetasDetectadas: { nombre: string; ruta: string; cantidadArchivos: number }[] = [];
+      const dirBaseSubcarpetas = fs.existsSync(carpetaPrincipal) ? carpetaPrincipal : carpetaLocal;
+      for (const sub of subcarpetasEstructuradas) {
+        const rutaSub = path.join(dirBaseSubcarpetas, sub);
+        if (fs.existsSync(rutaSub)) {
+          try {
+            const archivos = fs.readdirSync(rutaSub);
+            subcarpetasDetectadas.push({
+              nombre: sub,
+              ruta: rutaSub,
+              cantidadArchivos: archivos.length,
+            });
+          } catch {}
+        }
+      }
+
       return NextResponse.json({
         ok: true,
+        rutaCarpetaPrincipal: carpetaPrincipal,
+        rutaCarpetaLocal: carpetaLocal,
+        subcarpetas: subcarpetasDetectadas,
         ultimoRespaldo,
         historialReciente: archivosHistorial,
       });
@@ -244,13 +277,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // CASO 3: Petición JSON para ejecutar un respaldo manual bajo demanda
+    // CASO 3: Petición JSON (respaldo manual o apertura de carpeta en Windows)
     let motivo = "SOLICITUD_MANUAL";
+    let accion = "";
     try {
       const body = await req.json();
+      if (body?.accion) accion = String(body.accion).toUpperCase();
+      if (body?.abrirCarpeta) accion = "ABRIR_CARPETA";
       if (body?.motivo) motivo = String(body.motivo);
     } catch {
       // Sin cuerpo JSON
+    }
+
+    if (accion === "ABRIR_CARPETA") {
+      const resultadoApertura = abrirCarpetaEnExplorador();
+      return NextResponse.json(resultadoApertura);
     }
 
     const resultado = await ejecutarRespaldoEnCaliente(motivo);

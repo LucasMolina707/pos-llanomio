@@ -2837,3 +2837,44 @@ Se ejecutó una auditoría y reestructuración completa de los manuales y guías
 5. **Control de Calidad (QA):**
    - Se verificó que ningún archivo de código fuente de la lógica de negocio (`src/`, `prisma/`, `database/`) fuera alterado.
    - Verificación estricta de tipos `npx tsc --noEmit` y compilación de producción limpias.
+
+
+---
+
+## 38. Instalador Maestro Multi-Instancia, Volcados Estructurados por Carpetas y Apertura de Respaldos en Windows
+
+### 1. Resumen de la Implementación
+Se perfeccionó el instalador autónomo multi-instancia, la validación defensiva del entorno de ejecución (Node.js / npm / PM2), y el módulo de respaldos con volcados estructurados por módulos funcionales y apertura en el explorador de Windows:
+
+1. **Validador Defensivo de Entorno (Node.js / PM2):**
+   - En `instalador_tienda/MENU_DE_INSTALACION.bat` y `instalador_tienda/metodo_scripts_bat/1_INSTALAR_POS_GITHUB.bat`, se implementó una verificación preventiva con `where node >nul 2>&1`.
+   - Si Node.js no está instalado o no se encuentra en el PATH del sistema, la consola muestra de inmediato un mensaje claro y guiado indicando la descarga oficial desde `https://nodejs.org/` (versión LTS recomendada), recordando marcar la casilla de verificación *"Add to PATH"* durante el asistente y reiniciar la consola de Windows.
+   - Verificación adaptativa de PM2 resolviendo tanto `pm2` global como `npx --no-install pm2` local.
+
+2. **Asistente Interactivo Multi-Instancia (`scripts/escanear-y-elegir-puertos.js`):**
+   - Incorporación del parámetro `INSTANCE_ID` para individualizar cada tienda o sucursal desplegada en el mismo servidor Windows.
+   - Detección y normalización alfanumérica en minúsculas (ej. `pos-llanomio`, `pos-sucursal-centro`).
+   - Admite argumento directo `--instance=<nombre>` o solicitud interactiva en consola con valor predeterminado `pos-llanomio`.
+   - Persistencia automática de `INSTANCE_ID`, `PORT`, `HTTP_PORT`, `LOCAL_DOMAIN` y `DATABASE_URL` en el archivo `.env`.
+   - Compatibilidad nativa con `ecosystem.config.js`, permitiendo que múltiples instancias de la aplicación POS coexistan pacíficamente sin conflictos de nombres de proceso ni solapamiento de puertos de red.
+   - Sincronización idéntica con `instalador_tienda/metodo_scripts_bat/escanear-y-elegir-puertos.js`.
+
+3. **Volcados Estructurados por Carpetas para Auditoría Humana (`src/lib/backup.ts`):**
+   - En cada respaldo en caliente (tanto manual como por cierre de turno de caja), el sistema genera automáticamente instantáneas en formato JSON estructurado dentro de 4 subdirectorios especializados:
+     - **`inventario/`**: Exporta `inventario_ULTIMO.json` e históricos fechados con el catálogo de artículos, códigos, precios y stock activo.
+     - **`clientes/`**: Exporta `clientes_ULTIMO.json` e históricos fechados con el directorio completo de clientes, teléfonos primarios/secundarios y datos tributarios.
+     - **`historial_facturas/`**: Exporta `facturas_ULTIMO.json` e históricos fechados con facturas emitidas, prendas de alquiler en curso y abonos.
+     - **`movimientos_caja/`**: Exporta `movimientos_caja_ULTIMO.json` e históricos fechados con arqueos de turnos, bases iniciales y cierres definitivos.
+   - Replicación tanto en el directorio interno del proyecto (`database/backups_locales/`) como en el almacenamiento externo (`C:\POS_LLANOMIO_BACKUPS\`).
+   - Política de retención y rotación de máximo 15 archivos `.json` por subcarpeta mediante `purgarRespaldosExcedentesPorExtension()`, protegiendo siempre los archivos maestros `*_ULTIMO.json`.
+
+4. **Apertura de Carpeta en Explorador de Windows en 1 Clic (`/admin/configuracion` y `/api/backup`):**
+   - Función `abrirCarpetaEnExplorador()` en `src/lib/backup.ts` que ejecuta de forma segura `explorer.exe "C:\POS_LLANOMIO_BACKUPS"` en el servidor local.
+   - Endpoint `GET /api/backup?abrirCarpeta=true` y `POST /api/backup` con `{ accion: "ABRIR_CARPETA" }`.
+   - Botón interactivo en `/admin/configuracion` con icono `FolderOpen`, copia automática de la ruta física al portapapeles y retroalimentación visual al usuario sin emojis.
+   - Bloque informativo en cuadrícula que detalla visualmente el contenido y propósito de las 4 subcarpetas estructuradas.
+
+5. **Manuales y QA:**
+   - Actualización completa de `instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md` detallando subcarpetas estructuradas, apertura en Windows y arquitectura multi-instancia.
+   - Verificación estricta de tipos TypeScript con `npx tsc --noEmit` (0 errores).
+   - Compilación exitosa en producción con `npm run build`.

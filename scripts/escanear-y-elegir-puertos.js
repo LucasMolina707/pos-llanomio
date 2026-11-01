@@ -223,6 +223,21 @@ function guardarVariablesEnv(nuevasVars) {
 }
 
 /**
+ * Normaliza el identificador de instancia para PM2
+ */
+function normalizarIdentificadorInstancia(input) {
+  if (!input || input.trim() === "") {
+    return "pos-llanomio";
+  }
+  let str = input.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-").replace(/^-+|-+$/g, "");
+  if (!str) return "pos-llanomio";
+  if (!str.startsWith("pos-")) {
+    str = `pos-${str}`;
+  }
+  return str;
+}
+
+/**
  * Normaliza el nombre del archivo de base de datos SQLite
  */
 function normalizarNombreBd(input) {
@@ -284,6 +299,9 @@ async function main() {
   const args = process.argv.slice(2);
   const esNoInteractivo = args.includes("--no-interactive");
   const esForzado = args.includes("--force");
+
+  const argInstanceParam = args.find((a) => a.startsWith("--instance="));
+  const argInstanceForzado = argInstanceParam ? argInstanceParam.split("=")[1] : null;
 
   const argPuertoParam = args.find((a) => a.startsWith("--port="));
   const argPuertoForzado = argPuertoParam ? parseInt(argPuertoParam.split("=")[1], 10) : null;
@@ -348,6 +366,7 @@ async function main() {
   console.log("");
 
   const envActual = leerVariablesEnv();
+  const instanceEnvActual = envActual.INSTANCE_ID || "pos-llanomio";
   const puertoEnvActual = envActual.PORT ? parseInt(envActual.PORT, 10) : null;
   const proxyEnvActual = envActual.HTTP_PORT ? parseInt(envActual.HTTP_PORT, 10) : null;
   const dbEnvActual = envActual.DATABASE_URL
@@ -355,15 +374,17 @@ async function main() {
     : "llanomio.db";
   const domainEnvActual = envActual.LOCAL_DOMAIN || "llanomio.local";
 
-  if (puertoEnvActual) {
+  if (puertoEnvActual || envActual.INSTANCE_ID) {
     console.log("[CONFIGURACION ACTUAL PREVIA EN .ENV]");
-    console.log(`  - Puerto Principal Next.js: ${puertoEnvActual}`);
-    console.log(`  - Puerto Proxy LAN / HTTP:  ${proxyEnvActual || puertoEnvActual}`);
+    console.log(`  - Identificador PM2:        ${instanceEnvActual}`);
+    console.log(`  - Puerto Principal Next.js: ${puertoEnvActual || 3000}`);
+    console.log(`  - Puerto Proxy LAN / HTTP:  ${proxyEnvActual || puertoEnvActual || 3000}`);
     console.log(`  - Base de Datos SQLite:     ${dbEnvActual}`);
     console.log(`  - Dominio Local mDNS:       ${domainEnvActual}`);
     console.log("");
   }
 
+  let instanceIdSeleccionado = null;
   let puertoSeleccionado = null;
   let puertoProxySeleccionado = null;
   let nombreBdSeleccionada = null;
@@ -378,6 +399,7 @@ async function main() {
         process.exit(1);
       }
     }
+    instanceIdSeleccionado = normalizarIdentificadorInstancia(argInstanceForzado || instanceEnvActual);
     puertoSeleccionado = argPuertoForzado;
     puertoProxySeleccionado = argProxyForzado || argPuertoForzado;
     nombreBdSeleccionada = normalizarNombreBd(argDbForzado);
@@ -385,7 +407,23 @@ async function main() {
   } else {
     const rl = crearPrompt();
 
-    // 1. Pregunta Puerto Principal Next.js
+    // 1. Pregunta Identificador de Instancia PM2
+    console.log("-------------------------------------------------------------------------------");
+    console.log("1. IDENTIFICADOR DE INSTANCIA DE SERVICIO (PM2):");
+    console.log("-------------------------------------------------------------------------------");
+    console.log("Nombre del proceso en el gestor PM2 para aislar multiples tiendas en este equipo.");
+    console.log("Ejemplos: presione ENTER para 'pos-llanomio' o escriba 'pos-tienda2', 'pos-norte', etc.");
+    console.log("");
+    const respInstance = await preguntar(
+      rl,
+      `>> Ingrese IDENTIFICADOR DE INSTANCIA PM2 [Enter para '${instanceEnvActual}']: `
+    );
+    instanceIdSeleccionado = respInstance && respInstance !== ""
+      ? normalizarIdentificadorInstancia(respInstance)
+      : instanceEnvActual;
+    console.log(`[SELECCION] Identificador PM2 asignado: ${instanceIdSeleccionado}\n`);
+
+    // 2. Pregunta Puerto Principal Next.js
     while (!puertoSeleccionado) {
       console.log("Por favor indique el puerto que desea asignar.");
       const respuesta = await preguntar(
@@ -518,9 +556,10 @@ async function main() {
     rl.close();
   }
 
-  // Generar identificador de instancia único para procesos PM2
-  const baseId = dominioLocalSeleccionado.replace(/\.local$/i, "").replace(/[^a-z0-9_-]/g, "-");
-  const instanceId = baseId.startsWith("pos-") ? baseId : `pos-${baseId}`;
+  // Determinar identificador de instancia para procesos PM2
+  const instanceId =
+    instanceIdSeleccionado ||
+    (argInstanceForzado ? normalizarIdentificadorInstancia(argInstanceForzado) : instanceEnvActual);
 
   // Guardar en .env
   console.log("-------------------------------------------------------------------------------");

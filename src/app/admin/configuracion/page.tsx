@@ -34,6 +34,7 @@ import {
   Cloud,
   FileCheck2,
   FolderSync,
+  FolderOpen,
   X,
 } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
@@ -109,6 +110,7 @@ export default function ConfiguracionAdminPage() {
   // Estado del respaldo en caliente y migración
   const [respaldando, setRespaldando] = useState(false);
   const [descargandoRespaldo, setDescargandoRespaldo] = useState(false);
+  const [abriendoCarpeta, setAbriendoCarpeta] = useState(false);
   const [restaurandoRespaldo, setRestaurandoRespaldo] = useState(false);
   const [archivoRestaurar, setArchivoRestaurar] = useState<File | null>(null);
   const [modalRestaurar, setModalRestaurar] = useState(false);
@@ -435,6 +437,35 @@ export default function ConfiguracionAdminPage() {
   };
 
   /**
+   * Abre la carpeta local de respaldos en el Explorador de Windows en el servidor
+   * y copia la ruta C:\POS_LLANOMIO_BACKUPS al portapapeles del navegador.
+   */
+  const handleAbrirCarpetaExplorador = async () => {
+    setAbriendoCarpeta(true);
+    setMensajeExito(null);
+    setMensajeError(null);
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText("C:\\POS_LLANOMIO_BACKUPS").catch(() => {});
+      }
+
+      const res = await fetch("/api/backup?abrirCarpeta=true", { cache: "no-store" });
+      const data = await res.json();
+      if (data.ok) {
+        setMensajeExito("Carpeta de respaldos abierta en el Explorador de Windows y ruta copiada al portapapeles.");
+      } else {
+        setMensajeExito("Ruta de respaldos copiada al portapapeles: C:\\POS_LLANOMIO_BACKUPS");
+      }
+      setTimeout(() => setMensajeExito(null), 5000);
+    } catch {
+      setMensajeExito("Ruta de respaldos copiada al portapapeles: C:\\POS_LLANOMIO_BACKUPS");
+      setTimeout(() => setMensajeExito(null), 5000);
+    } finally {
+      setAbriendoCarpeta(false);
+    }
+  };
+
+  /**
    * Al seleccionar un archivo .db, valida la extensión y abre el diálogo modal de confirmación
    */
   const handleSeleccionarArchivoRestaurar = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -641,7 +672,7 @@ export default function ConfiguracionAdminPage() {
             <span>
               {descargandoRespaldo
                 ? "Generando y Descargando Respaldo..."
-                : "Descargar Copia de Seguridad Completa del Sistema (.db)"}
+                : "Descargar Copia de Seguridad Completa (.db)"}
             </span>
           </button>
 
@@ -670,6 +701,79 @@ export default function ConfiguracionAdminPage() {
                 : "Subir y Restaurar Respaldo .db"}
             </span>
           </button>
+
+          <button
+            type="button"
+            onClick={handleAbrirCarpetaExplorador}
+            disabled={abriendoCarpeta}
+            className="flex-1 inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
+          >
+            {abriendoCarpeta ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <FolderOpen className="w-4 h-4 text-amber-400" />
+            )}
+            <span>
+              {abriendoCarpeta
+                ? "Abriendo en Servidor..."
+                : "Abrir Carpeta en Explorador de Windows"}
+            </span>
+          </button>
+        </div>
+
+        {/* Subcarpetas Estructuradas por Módulos para Auditoría e Inspección Humana */}
+        <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <FolderSync className="w-4 h-4 text-blue-600" />
+              Volcados Estructurados por Carpetas (Archivos JSON Legibles)
+            </span>
+            <span className="text-[11px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+              C:\POS_LLANOMIO_BACKUPS\
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-bold text-slate-900 text-[11px]">inventario/</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold">Productos</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-tight">
+                Catálogo completo de productos, referencias, precios y stock activo en JSON.
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-bold text-slate-900 text-[11px]">clientes/</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">Directorio</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-tight">
+                Clientes, teléfonos principales, celulares secundarios y cédulas DIAN.
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-bold text-slate-900 text-[11px]">historial_facturas/</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">Ventas</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-tight">
+                Facturas emitidas, abonos recibidos y prendas de alquiler registradas.
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-bold text-slate-900 text-[11px]">movimientos_caja/</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">Arqueos</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-tight">
+                Turnos de cajero, arqueos de apertura, bases de caja y cierres de turno.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Recuadro Informativo de Rutas y Nube */}

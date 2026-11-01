@@ -23,9 +23,13 @@ echo [1/8] Verificando instalacion de Node.js en este equipo...
 where node >nul 2>nul
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR CRITICO] Node.js no esta instalado o no se encuentra en el PATH.
-    echo Por favor descargue e instale Node.js LTS (v20 o superior) desde https://nodejs.org/
-    echo y vuelva a ejecutar este instalador.
+    echo ===============================================================================
+    echo                     ATENCION: PRERREQUISITO NO ENCONTRADO
+    echo ===============================================================================
+    echo.
+    echo ATENCION: Node.js (LTS v20 o superior) no esta instalado o no se encuentra
+    echo en las variables de entorno PATH. Por favor instalelo desde https://nodejs.org/
+    echo asegurandose de marcar la casilla 'Add to PATH'.
     echo.
     pause
     exit /b 1
