@@ -26,6 +26,15 @@ import {
   ExternalLink,
   HelpCircle,
   RefreshCw,
+  Download,
+  UploadCloud,
+  ShieldCheck,
+  AlertTriangle,
+  HardDrive,
+  Cloud,
+  FileCheck2,
+  FolderSync,
+  X,
 } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
 
@@ -97,8 +106,13 @@ export default function ConfiguracionAdminPage() {
   // Formato simulado en la columna derecha
   const [formatoSimulador, setFormatoSimulador] = useState<"TIRILLA" | "MEDIA_CARTA" | "CARTA">("MEDIA_CARTA");
 
-  // Estado del respaldo en caliente
+  // Estado del respaldo en caliente y migración
   const [respaldando, setRespaldando] = useState(false);
+  const [descargandoRespaldo, setDescargandoRespaldo] = useState(false);
+  const [restaurandoRespaldo, setRestaurandoRespaldo] = useState(false);
+  const [archivoRestaurar, setArchivoRestaurar] = useState<File | null>(null);
+  const [modalRestaurar, setModalRestaurar] = useState(false);
+  const inputArchivoRef = React.useRef<HTMLInputElement | null>(null);
   const [ultimoRespaldoInfo, setUltimoRespaldoInfo] = useState<{
     bytes: number;
     timestamp?: string;
@@ -218,7 +232,7 @@ export default function ConfiguracionAdminPage() {
 
   const cargarInfoRespaldo = async () => {
     try {
-      const res = await fetch("/api/backup", { cache: "no-store" });
+      const res = await fetch("/api/backup?info=true", { cache: "no-store" });
       const data = await res.json();
       if (data.ok && data.ultimoRespaldo) {
         setUltimoRespaldoInfo({
@@ -379,6 +393,109 @@ export default function ConfiguracionAdminPage() {
     }
   };
 
+  /**
+   * Inicia la descarga directa del archivo binario .db completo del sistema
+   */
+  const handleDescargarRespaldo = async () => {
+    setDescargandoRespaldo(true);
+    setMensajeError(null);
+    try {
+      const res = await fetch("/api/backup", { cache: "no-store" });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "No se pudo generar el archivo de respaldo para descarga.");
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition");
+      let nombreArchivo = "Respaldo_Sistema_Llanomio.db";
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) nombreArchivo = match[1];
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const enlace = document.createElement("a");
+      enlace.href = url;
+      enlace.download = nombreArchivo;
+      document.body.appendChild(enlace);
+      enlace.click();
+      document.body.removeChild(enlace);
+      window.URL.revokeObjectURL(url);
+
+      setMensajeExito(`Copia de seguridad descargada exitosamente (${nombreArchivo}).`);
+      cargarInfoRespaldo();
+      setTimeout(() => setMensajeExito(null), 5000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error durante la descarga del respaldo.";
+      setMensajeError(msg);
+    } finally {
+      setDescargandoRespaldo(false);
+    }
+  };
+
+  /**
+   * Al seleccionar un archivo .db, valida la extensión y abre el diálogo modal de confirmación
+   */
+  const handleSeleccionarArchivoRestaurar = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".db")) {
+      setMensajeError("El archivo seleccionado debe ser un respaldo válido con extensión .db.");
+      if (inputArchivoRef.current) inputArchivoRef.current.value = "";
+      return;
+    }
+
+    setArchivoRestaurar(file);
+    setModalRestaurar(true);
+  };
+
+  /**
+   * Envía el archivo seleccionado a /api/backup para verificación de integridad SQLite
+   * y posterior sobrescritura segura con respaldo de emergencia.
+   */
+  const handleConfirmarRestauracion = async () => {
+    if (!archivoRestaurar) return;
+
+    setRestaurandoRespaldo(true);
+    setMensajeError(null);
+    setMensajeExito(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("archivo", archivoRestaurar);
+
+      const res = await fetch("/api/backup", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || data.mensaje || "Error durante la restauración de la base de datos.");
+      }
+
+      setMensajeExito(
+        data.mensaje || "Base de datos restaurada y migrada exitosamente. Recargando el sistema..."
+      );
+      setModalRestaurar(false);
+      setArchivoRestaurar(null);
+      if (inputArchivoRef.current) inputArchivoRef.current.value = "";
+
+      // Recargar la página tras 2.5 segundos para que la interfaz cargue los datos de la nueva BD
+      setTimeout(() => {
+        window.location.reload();
+      }, 2500);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Fallo durante la restauración de la base de datos.";
+      setMensajeError(msg);
+    } finally {
+      setRestaurandoRespaldo(false);
+    }
+  };
+
   if (cargando) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -470,6 +587,133 @@ export default function ConfiguracionAdminPage() {
 
       {/* Conexión de Dispositivos en Red Local LAN */}
       <TarjetaConexionLAN />
+
+      {/* ===================================================================== */}
+      {/* SECCIÓN: COPIAS DE SEGURIDAD, MIGRACIÓN Y RECUPERACIÓN DE DESASTRES   */}
+      {/* ===================================================================== */}
+      <section className="bg-white rounded-2xl border border-slate-200/90 p-5 md:p-6 shadow-xs text-slate-900 space-y-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl shrink-0 mt-0.5">
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                  Copias de Seguridad, Migración y Recuperación de Desastres
+                </h2>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                  SQLite VACUUM INTO
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
+                Exporte respaldos completos del sistema para migrar de un computador a otro (Punto A a Punto B) o suba un archivo de respaldo para restaurar la base de datos desde cualquier memoria USB o carpeta. El sistema genera respaldos automáticos en caliente cada vez que se cierra un turno de caja.
+              </p>
+            </div>
+          </div>
+
+          {ultimoRespaldoInfo && (
+            <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>
+                Última copia:{" "}
+                <strong className="text-slate-900">
+                  {Math.round(ultimoRespaldoInfo.bytes / 1024)} KB
+                </strong>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Botonera Operativa Principal */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <button
+            type="button"
+            onClick={handleDescargarRespaldo}
+            disabled={descargandoRespaldo}
+            className="flex-1 inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
+          >
+            {descargandoRespaldo ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span>
+              {descargandoRespaldo
+                ? "Generando y Descargando Respaldo..."
+                : "Descargar Copia de Seguridad Completa del Sistema (.db)"}
+            </span>
+          </button>
+
+          <input
+            type="file"
+            ref={inputArchivoRef}
+            accept=".db"
+            onChange={handleSeleccionarArchivoRestaurar}
+            className="hidden"
+          />
+
+          <button
+            type="button"
+            onClick={() => inputArchivoRef.current?.click()}
+            disabled={restaurandoRespaldo}
+            className="flex-1 inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
+          >
+            {restaurandoRespaldo ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <UploadCloud className="w-4 h-4" />
+            )}
+            <span>
+              {restaurandoRespaldo
+                ? "Restaurando Base de Datos..."
+                : "Subir y Restaurar Respaldo .db"}
+            </span>
+          </button>
+        </div>
+
+        {/* Recuadro Informativo de Rutas y Nube */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 text-xs space-y-1">
+            <div className="flex items-center gap-2 text-slate-700 font-bold">
+              <HardDrive className="w-4 h-4 text-blue-600" />
+              <span>Ruta Local Principal</span>
+            </div>
+            <p className="font-mono text-[11px] text-slate-800 bg-white px-2 py-1 rounded border border-slate-200/80 truncate select-all">
+              database/backups_locales/
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Historial rotativo interno con retención automática de las últimas 15 copias.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 text-xs space-y-1">
+            <div className="flex items-center gap-2 text-slate-700 font-bold">
+              <Cloud className="w-4 h-4 text-emerald-600" />
+              <span>Ruta Externa / Nube</span>
+            </div>
+            <p className="font-mono text-[11px] text-slate-800 bg-white px-2 py-1 rounded border border-slate-200/80 truncate select-all">
+              C:\POS_LLANOMIO_BACKUPS\
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Carpeta sincronizable con Google Drive o OneDrive para custodia fuera del equipo.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 text-xs space-y-1">
+            <div className="flex items-center gap-2 text-slate-700 font-bold">
+              <FileCheck2 className="w-4 h-4 text-purple-600" />
+              <span>Nomenclatura Automática</span>
+            </div>
+            <p className="font-mono text-[11px] text-slate-800 bg-white px-2 py-1 rounded border border-slate-200/80 truncate">
+              llanomio_CIERRE_CAJA_*.db
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Archivo maestro sincronizado: <code className="font-bold text-slate-700">llanomio_ULTIMO.db</code>
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* Distribución Principal en 2 Columnas */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -1206,6 +1450,109 @@ export default function ConfiguracionAdminPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Confirmación de Restauración */}
+      {modalRestaurar && archivoRestaurar && (
+        <div
+          onClick={() => {
+            if (!restaurandoRespaldo) {
+              setModalRestaurar(false);
+              setArchivoRestaurar(null);
+              if (inputArchivoRef.current) inputArchivoRef.current.value = "";
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150 relative space-y-4"
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-black text-slate-900">
+                  Confirmar Restauración de Base de Datos
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Operación crítica de migración y sustitución de datos.
+                </p>
+              </div>
+              {!restaurandoRespaldo && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalRestaurar(false);
+                    setArchivoRestaurar(null);
+                    if (inputArchivoRef.current) inputArchivoRef.current.value = "";
+                  }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 text-xs leading-relaxed space-y-1.5">
+              <p className="font-bold">
+                Advertencia de Alto Impacto:
+              </p>
+              <p>
+                Esta acción sobrescribirá por completo la base de datos activa con el contenido del archivo seleccionado. Todas las transacciones que no estén incluidas en este respaldo serán reemplazadas.
+              </p>
+              <p className="text-[11px] text-amber-800 pt-1 border-t border-amber-200/60">
+                El sistema realizará automáticamente una copia de seguridad de emergencia previa antes de aplicar los cambios.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                Archivo Seleccionado para Restaurar:
+              </span>
+              <p className="font-mono text-xs font-bold text-slate-900 truncate">
+                {archivoRestaurar.name}
+              </p>
+              <p className="text-[11px] text-slate-500">
+                Tamaño: {(archivoRestaurar.size / 1024).toFixed(1)} KB
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={restaurandoRespaldo}
+                onClick={() => {
+                  setModalRestaurar(false);
+                  setArchivoRestaurar(null);
+                  if (inputArchivoRef.current) inputArchivoRef.current.value = "";
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={restaurandoRespaldo}
+                onClick={handleConfirmarRestauracion}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
+              >
+                {restaurandoRespaldo ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Verificando y Restaurando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-4 h-4" />
+                    <span>Sí, Sobrescribir y Restaurar</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

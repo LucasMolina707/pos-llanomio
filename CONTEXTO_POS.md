@@ -2779,3 +2779,37 @@ Al presionar el botón verde `"Conectar Celular / PC en Red"` en el Panel Princi
 4. **Verificación y Calidad de Código:**
    - Verificación de tipos estricta con `npx tsc --noEmit` (0 errores).
    - Compilación exitosa en producción (`npm run build`).
+
+
+---
+
+## 36. Módulo Integral de Copias de Seguridad, Exportación/Restauración Web y Respaldo Post-Arqueo
+
+### 1. Resumen de la Implementación
+Se diseñó, perfeccionó y validó de punta a punta el sistema de copias de seguridad continuas y migración del sistema POS Llanomio (Next.js 15 App Router + SQLite + Prisma ORM 6):
+1. **Motor de Respaldo Atómico en Caliente (`src/lib/backup.ts`):**
+   - Ejecución atómica no bloqueante mediante la directiva nativa SQLite `VACUUM INTO`.
+   - Nomenclatura descriptiva automática:
+     - Cierres de caja: `llanomio_CIERRE_CAJA_YYYYMMDD_HHmmss.db`
+     - Respaldos manuales / gerenciales: `llanomio_RESPALDO_GERENCIAL_YYYYMMDD_HHmmss.db`
+     - Salvaguarda previa a restauraciones: `llanomio_EMERGENCIA_PRE_RESTAURACION_YYYYMMDD_HHmmss.db`
+     - Archivo maestro fijo sincronizable con Google Drive / OneDrive: `C:\POS_LLANOMIO_BACKUPS\llanomio_ULTIMO.db`
+   - Rotación y purga automática con retención estricta de las últimas 15 copias tanto en la carpeta local (`database/backups_locales/`) como en el almacenamiento externo (`C:\POS_LLANOMIO_BACKUPS\historial/`).
+   - Validación defensiva de integridad SQLite (`validarIntegridadSqlite`): comprobación de firma mágica `SQLite format 3`, conexión temporal `ATTACH DATABASE` con `PRAGMA integrity_check` y verificación de tablas esenciales del esquema (`usuarios`, `facturas`, `productos`, `configuracion_empresa`).
+   - Restauración segura con vaciado WAL (`wal_checkpoint(TRUNCATE)`), desconexión y reconexión en caliente de Prisma Client y reconfiguración de parámetros WAL.
+2. **Endpoints de Exportación y Restauración (`src/app/api/backup/route.ts`):**
+   - `GET /api/backup`: Genera un respaldo fresco in situ y retorna el binario SQLite con cabeceras de adjunto `Content-Type: application/octet-stream` y nombre dinámico `Respaldo_Sistema_Llanomio_YYYY-MM-DD_HH-mm-ss.db`. Soporta parámetro `?info=true` para metadatos de diagnóstico en la UI.
+   - `POST /api/backup`: Admite `FormData` (subida web) y cuerpos binarios directos para validación de integridad y restauración con copia de emergencia previa.
+3. **Sección Visual en Configuración de la Tienda (`src/app/admin/configuracion/page.tsx`):**
+   - Tarjeta en paleta clara antifatiga titulada **"Copias de Seguridad, Migración y Recuperación de Desastres"**.
+   - Botón primario: `"Descargar Copia de Seguridad Completa del Sistema (.db)"` con descarga directa en 1 clic.
+   - Botón secundario: `"Subir y Restaurar Respaldo .db"` con selector de archivos `.db`.
+   - Diálogo modal de confirmación de alto impacto con advertencias de sobrescritura, detalles del archivo seleccionado y garantía de respaldo de emergencia previo.
+   - Cuadrícula informativa de rutas locales, carpeta externa sincronizable en la nube y formato de nomenclatura.
+4. **Respaldo Automático Post-Arqueo (`src/app/api/caja/route.ts`):**
+   - Invocación garantizada de `ejecutarRespaldoEnCaliente("CIERRE_CAJA")` inmediatamente después de asentar el cierre del turno en la base de datos.
+5. **Manual Operativo y Técnico (`instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md`):**
+   - Documento completo con arquitectura de salvaguarda, sincronización en nube con Google Drive / OneDrive, nomenclatura, protocolo de exportación, migración paso a paso (Punto A ➔ Punto B) y contingencia ante fallos de hardware.
+6. **Control de Calidad (QA):**
+   - Pruebas automatizadas de exportación, cierre, validación estructural y restauración con 100% de éxito (`scripts/test-qa-respaldos-modulo.ts` y `scripts/test-qa-http-backup.ts`).
+   - Verificación de tipos `npx tsc --noEmit` limpia y compilación de producción `npm run build` exitosa.
