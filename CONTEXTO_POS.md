@@ -2570,6 +2570,32 @@ Se incorporó la infraestructura de control de calidad, observabilidad y diagnó
   - 🔵 **Mejoras Pendientes:** 0
 - **Compilación de Producción:** `npx tsc --noEmit` exitoso (0 errores) y `npm run build` exitoso (23 rutas estáticas, 24 dinámicas, First Load JS compartido de 103 kB). Transiciones entre páginas instantáneas (<50ms).
 
+---
+
+## 29. Restauración Integral de la Tubería CSS y Compilación Tailwind (Parte 1 de 3)
+
+### 1. Diagnóstico y Causa Raíz
+- **Desincronización de Procesos en PM2 y Caché Huérfana:** Un proceso huérfano de Node/PM2 permanecía en ejecución en el puerto 3000 desde una sesión anterior, reteniendo en memoria referencias a bundles CSS desactualizados o inexistentes.
+- **Inyección y Precedencia en el Layout Raíz:** En `src/app/layout.tsx`, la importación de `globals.css` no se encontraba en la primera línea absoluta del archivo raíz, provocando posibles desajustes de orden de precedencia en la inyección de estilos de Next.js.
+- **Alcance del Selector `content` en Tailwind:** Se amplió la cobertura de `tailwind.config.ts` para abarcar todos los submódulos de `./src/**/*.{js,ts,jsx,tsx,mdx}` sin omitir ningún componente o hook.
+
+### 2. Acciones de Reparación Implementadas
+1. **`package.json`:** Verificación de versiones estables alineadas para Tailwind v3 (`tailwindcss: ^3.4.17`, `postcss: ^8.5.3`, `autoprefixer: ^10.4.20`).
+2. **`postcss.config.mjs`:** Estandarización a exportación limpia ESM sin archivos `.js` duplicados en la raíz.
+3. **`tailwind.config.ts`:** Inclusión explícita de `./src/**/*.{js,ts,jsx,tsx,mdx}` en el array `content` y configuración de la paleta clara antifatiga.
+4. **`src/app/globals.css`:** Directivas iniciales `@tailwind base; @tailwind components; @tailwind utilities;`, declaración de variables CSS (`--background: #F4F6F9`, `--surface: #FFFFFF`, `--text-primary: #0F172A`) y reglas base `html, body`.
+5. **`src/app/layout.tsx`:** Ubicación de `import "./globals.css";` en la línea 1 absoluta y estandarización de clases en `body` (`bg-[#F4F6F9] text-slate-900 antialiased min-h-screen`).
+6. **Purga Total de Caché:** Eliminación recursiva forzada de `.next` y compilación limpia con `npm run build`.
+7. **Reinicio de Procesos PM2 y Verificación HTTP:**
+   - Reinicio de servicios PM2 (`pos-llanomio`, `pos-llanomio-mdns`, `pos-llanomio-tunnel`).
+   - Verificación HTTP en vivo contra `http://127.0.0.1:3000/login`:
+     - Código de estado HTML: `200 OK`.
+     - Enlace CSS detectado: `/_next/static/css/43b128631ff0c6c4.css`.
+     - Código de estado CSS: `200 OK`.
+     - Tamaño CSS servido: `67.830 bytes` (`> 25 kB`).
+     - Contenido: Directivas completas y clases utilitarias de Tailwind v3 presentes y activas.
+
+
 
 
 

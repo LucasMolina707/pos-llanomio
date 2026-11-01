@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
 import "./globals.css";
+import type { Metadata } from "next";
 import AppLayout from "@/components/layout/AppLayout";
 
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className="antialiased bg-slate-50 text-slate-900 min-h-screen selection:bg-blue-600 selection:text-white">
+      <body className="bg-[#F4F6F9] text-slate-900 antialiased min-h-screen selection:bg-blue-600 selection:text-white">
         <AppLayout>{children}</AppLayout>
       </body>
     </html>
