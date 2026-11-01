@@ -14,6 +14,10 @@ instalador_tienda/
 │
 ├── MENU_DE_INSTALACION.bat                  # Menú interactivo general para abrir o elegir métodos
 ├── LEEME_GUIA_INSTALACION_TIENDA.md         # Este portal maestro de documentación
+├── GUIA_INSTALADOR_PORTABLE_EXE.md          # Manual del instalador autodescomprimible Inno Setup (.exe)
+├── crear_instalador_inno.iss                # Script maestro de compilación de Inno Setup
+├── compilar_instalador_inno.bat             # Compilador de Instalador_POS_Llanomio_Setup.exe
+├── asistente-post-instalacion.bat           # Asistente post-instalación (Puertos, Firewall, PM2 y Accesos)
 │
 ├── MANUAL_RESPALDOS_Y_MIGRACION.md          # Manual de copias en caliente, exportación y migración web
 ├── MANUAL_CAJON_MONEDERO_E_IMPRESORA.md     # Conexión RJ11, llaves mecánicas e impresora térmica
@@ -50,9 +54,10 @@ instalador_tienda/
 
 Consulte esta tabla para identificar rápidamente el método que mejor se adapta a su caso:
 
-| Método | Directorio | Dirigido A | Ventajas Principales | Documentación |
+| Método | Directorio / Archivo | Dirigido A | Ventajas Principales | Documentación |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Scripts BAT** | `metodo_scripts_bat/` | Administrador de tienda o cajero | **El método más recomendado.** Todo el proceso se ejecuta mediante asistentes visuales numerados en ventanas de diálogo sin tocar la terminal. | [Leer Guía Scripts](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_scripts_bat/GUIA_INSTALACION_SCRIPTS.md) |
+| **0. Paquete EXE Inno Setup** | `dist_instalador/` | Cualquier usuario o técnico | **Máxima portabilidad offline-first.** Despliegue en 1 solo archivo `.exe` que autodescomprime, configura puertos, abre Firewall, arranca PM2 y crea accesos directos. | [Leer Guía EXE](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/GUIA_INSTALADOR_PORTABLE_EXE.md) |
+| **1. Scripts BAT** | `metodo_scripts_bat/` | Administrador de tienda o cajero | **El método asistido más flexible.** Todo el proceso se ejecuta mediante asistentes visuales numerados en ventanas de diálogo sin tocar la terminal. | [Leer Guía Scripts](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_scripts_bat/GUIA_INSTALACION_SCRIPTS.md) |
 | **2. GitHub** | `metodo_github/` | Implementador técnico con Internet | Clona la versión oficial en la ruta actual (`%CD%`) y permite actualizar en segundos con `git pull origin main`. | [Leer Guía GitHub](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_github/GUIA_INSTALACION_GITHUB.md) |
 | **3. USB / ZIP** | `metodo_usb_zip/` | Tiendas sin Git o sin Internet | Permite transportar el paquete precompilado en una memoria USB e instalar de forma 100% offline. | [Leer Guía USB](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_usb_zip/GUIA_INSTALACION_USB.md) |
 | **4. Comandos CLI** | `metodo_comandos/` | Personal de TI y soporte técnico | Desglose exhaustivo comando por comando (Node.js, Prisma, PM2, Firewall) para diagnóstico y auditoría. | [Leer Guía Comandos](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_comandos/GUIA_INSTALACION_COMANDOS.md) |

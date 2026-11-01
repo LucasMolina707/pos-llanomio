@@ -57,34 +57,42 @@ echo.
 echo   [1] Asistente Interactivo de Parametrizacion y Puertos (Multi-Instancia)
 echo       Configurar Identificador PM2, Puerto, Dominio mDNS y Base de Datos SQLite.
 echo.
-echo   [2] METODO 1: Scripts BAT Automatizados (RECOMENDADO para la Tienda)
+echo   [2] Asistente Post-Instalacion Automatizado (Configuracion Inicial)
+echo       Aplica parametros, abre Firewall, arranca PM2 y genera accesos directos.
+echo.
+echo   [3] METODO 1: Scripts BAT Automatizados (RECOMENDADO para la Tienda)
 echo       Asistentes visuales numerados para instalar, iniciar, respaldar y actualizar.
 echo.
-echo   [3] METODO 2: Clonacion e Instalacion desde GitHub
+echo   [4] METODO 2: Clonacion e Instalacion desde GitHub
 echo       Para computadores conectados a Internet usando Git y repositorios remotos.
 echo.
-echo   [4] METODO 3: Instalacion Portable desde Memoria USB / Archivo ZIP
+echo   [5] METODO 3: Instalacion Portable desde Memoria USB / Archivo ZIP
 echo       Para tiendas sin Git o con conectividad limitada.
 echo.
-echo   [5] METODO 4: Instalacion Manual por Comandos (CLI Node.js / Prisma)
+echo   [6] METODO 4: Instalacion Manual por Comandos (CLI Node.js / Prisma)
 echo       Manual detallado paso a paso para administradores de sistemas y soporte TI.
 echo.
-echo   [6] Abrir Carpeta Central de Respaldos de la Tienda (C:\POS_LLANOMIO_BACKUPS)
+echo   [7] Compilar Paquete Autodescomprimible Inno Setup (.exe / Offline)
+echo       Genera el instalador ejecutable portable con Inno Setup Compiler.
 echo.
-echo   [7] Ver Estado de Servicios Activos (PM2)
+echo   [8] Abrir Carpeta Central de Respaldos de la Tienda (C:\POS_LLANOMIO_BACKUPS)
 echo.
-echo   [8] Salir
+echo   [9] Ver Estado de Servicios Activos (PM2)
 echo.
-set /p OPC=">> Ingrese su opcion [1-8]: "
+echo   [10] Salir
+echo.
+set /p OPC=">> Ingrese su opcion [1-10]: "
 
 if "%OPC%"=="1" goto ASISTENTE_PUERTOS
-if "%OPC%"=="2" goto METODO_BAT
-if "%OPC%"=="3" goto METODO_GITHUB
-if "%OPC%"=="4" goto METODO_USB
-if "%OPC%"=="5" goto METODO_CLI
-if "%OPC%"=="6" goto ABRIR_BACKUPS
-if "%OPC%"=="7" goto ESTADO_PM2
-if "%OPC%"=="8" goto SALIR
+if "%OPC%"=="2" goto ASISTENTE_POST_INSTALACION
+if "%OPC%"=="3" goto METODO_BAT
+if "%OPC%"=="4" goto METODO_GITHUB
+if "%OPC%"=="5" goto METODO_USB
+if "%OPC%"=="6" goto METODO_CLI
+if "%OPC%"=="7" goto COMPILAR_INNO
+if "%OPC%"=="8" goto ABRIR_BACKUPS
+if "%OPC%"=="9" goto ESTADO_PM2
+if "%OPC%"=="10" goto SALIR
 
 echo.
 echo [ERROR] Opcion no valida.
@@ -103,6 +111,11 @@ echo.
 echo Presione cualquier tecla para volver al menu principal...
 pause >nul
 cd /d "%~dp0"
+goto MENU
+
+:ASISTENTE_POST_INSTALACION
+cls
+call "%~dp0asistente-post-instalacion.bat"
 goto MENU
 
 :METODO_BAT
@@ -127,6 +140,11 @@ goto MENU
 cls
 echo Abriendo carpeta del Metodo Comandos...
 start "" "%~dp0metodo_comandos"
+goto MENU
+
+:COMPILAR_INNO
+cls
+call "%~dp0compilar_instalador_inno.bat"
 goto MENU
 
 :ABRIR_BACKUPS

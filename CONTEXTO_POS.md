@@ -2878,3 +2878,52 @@ Se perfeccionó el instalador autónomo multi-instancia, la validación defensiv
    - Actualización completa de `instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md` detallando subcarpetas estructuradas, apertura en Windows y arquitectura multi-instancia.
    - Verificación estricta de tipos TypeScript con `npx tsc --noEmit` (0 errores).
    - Compilación exitosa en producción con `npm run build`.
+
+
+---
+
+## 39. Paquete de Instalación Autodescomprimible y Portable (.exe / Inno Setup)
+
+### 1. Resumen de la Implementación
+Se diseñó, estructuró y automatizó el paquete de instalación portable y autodescomprimible para Windows basado en **Inno Setup 6**, orientado al despliegue autónomo en computadores de mostrador sin requerir conexión a internet (*Offline-First*):
+
+1. **Script de Compilación Maestro Inno Setup (`instalador_tienda/crear_instalador_inno.iss`):**
+   - Configuración de empaquetado con compresión sólida `lzma2/ultra64` para reducir el tamaño final de `node_modules` y `.next`.
+   - Permite al usuario elegir libremente la unidad de disco y ruta de instalación (por defecto `C:\POS_Llanomio`).
+   - Empaqueta de forma integral:
+     - Código compilado optimizado de producción (`.next/`).
+     - Dependencias completas (`node_modules/`).
+     - Base de datos SQLite neutra de fábrica (`database/llanomio.db`) y esquemas Prisma.
+     - Suite completa de scripts, asistentes de red y manuales de tienda (`instalador_tienda/`).
+     - Archivos de arranque (`start-pos.js`, `ecosystem.config.js`, `.env.example`, `package.json`, etc.).
+     - Icono corporativo oficial (`instalador_tienda/recursos/llanomio.ico`).
+     - Compatibilidad opcional con runtime portable de Node.js en `runtime/`.
+   - Generación de accesos directos en el Grupo de Programas y en el Escritorio.
+   - Creación automática de directorios locales y externos (`C:\POS_LLANOMIO_BACKUPS\` y sus 4 subcarpetas estructuradas).
+   - Invocación post-instalación de `asistente-post-instalacion.bat`.
+
+2. **Asistente Automatizado Post-Instalación (`instalador_tienda/asistente-post-instalacion.bat`):**
+   - Ejecución autónoma con elevación de privilegios de Administrador (UAC).
+   - Detección de runtime de Node.js (portable local en `runtime/node.exe` o en PATH de Windows).
+   - Validación defensiva: si Node.js no está instalado, orienta amigablemente con el enlace a `https://nodejs.org/` ("Add to PATH").
+   - Inicialización automática del archivo de configuración `.env` desde `.env.example` si no existe.
+   - Invocación del asistente interactivo `scripts/escanear-y-elegir-puertos.js` para parametrizar `INSTANCE_ID`, `PORT`, `HTTP_PORT`, `LOCAL_DOMAIN` y `DATABASE_URL`.
+   - Configuración automática de excepciones en el Firewall de Windows para los puertos web TCP y el puerto UDP `5353` de mDNS.
+   - Registro y arranque de servicios en segundo plano con PM2 (`pos-llanomio` y `pos-llanomio-mdns`), guardando el estado con `pm2 save`.
+   - Configuración de persistencia en la carpeta Inicio de Windows (`shell:startup`) para arranque automático al encender el equipo.
+   - Creación de accesos directos limpios en el Escritorio con icono corporativo.
+   - Apertura automática de la terminal POS en el navegador web predeterminado (`http://localhost:3000`).
+
+3. **Compilador Asistido (`instalador_tienda/compilar_instalador_inno.bat`):**
+   - Detecta automáticamente el compilador `ISCC.exe` de Inno Setup en el PATH o en `C:\Program Files (x86)\Inno Setup 6\`.
+   - Compila el proyecto en `dist_instalador/Instalador_POS_Llanomio_Setup.exe`.
+   - Si Inno Setup no está instalado en la máquina de desarrollo, guía al usuario para su descarga gratuita desde `https://jrsoftware.org/isdl.php`.
+
+4. **Integración en el Portal y Menú de Tienda:**
+   - Enlace añadido como Opción `[2]` y `[7]` en `instalador_tienda/MENU_DE_INSTALACION.bat`.
+   - Creación de la guía detallada `instalador_tienda/GUIA_INSTALADOR_PORTABLE_EXE.md`.
+   - Actualización del portal maestro `instalador_tienda/LEEME_GUIA_INSTALACION_TIENDA.md` incorporando el Método 0 a la matriz selectora.
+
+5. **Control de Calidad (QA):**
+   - Verificación estricta de tipos TypeScript con `npx tsc --noEmit` completada con **0 errores**.
+   - Compilación exitosa de producción con `npm run build` en las 22 rutas del sistema.
