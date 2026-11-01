@@ -2722,3 +2722,32 @@ Al presionar el botón verde `"Conectar Celular / PC en Red"` en el Panel Princi
      - Botón **`X`** prominente a la derecha con fondo suave rojizo `bg-rose-50 text-rose-700 hover:bg-rose-100` y tooltip accesible `"Cerrar ventana"`.
    - **Atajo de Teclado `Escape`:** `useEffect` que escucha `keydown` para `e.key === "Escape"` y cierra la vista de forma inmediata.
    - Peticiones y renderizado 100% verificado sin errores de tipos (`npx tsc --noEmit`) y empaquetado en producción (`npm run build`).
+
+
+---
+
+## 34. Rediseño Compacto de Modal LAN (Zero-Scroll, Cero Redundancias y Hover Tooltips)
+
+### 1. Diagnóstico de Usabilidad
+- El modal superpuesto de red local presentaba doble barra de cabecera (una externa en `src/app/page.tsx` y otra interna en `TarjetaConexionLAN.tsx`), duplicando los botones de retroceso (`← Regresar`) y cierre (`X`).
+- Las dimensiones verticales superaban los 700px debido a bloques de texto explicativos extensos y 3 tarjetas inferiores grandes, provocando scroll vertical en pantallas estándar y desplazamiento accidental de la página posterior al usar la rueda del ratón.
+
+### 2. Acciones Realizadas
+1. **Bloqueo del Scroll de Fondo en `src/app/page.tsx`:**
+   - Se añadió un efecto reactivo que fija `document.body.style.overflow = "hidden"` mientras `mostrarModalQR` esté activo, y restaura `document.body.style.overflow = ""` al cerrarse o desmontarse.
+   - Se eliminó el contenedor externo duplicado, permitiendo que `TarjetaConexionLAN` gestione su única cabecera compacta integrada.
+2. **Rediseño Integral de `src/components/red/TarjetaConexionLAN.tsx`:**
+   - **Dimensiones Compactas (`max-w-2xl`, altura total < 450px):** Cabe al 100% en una sola vista sin barras de desplazamiento vertical ni recortes inferiores.
+   - **Única Cabecera Integrada (`h-13`):**
+     - Botón de retroceso `<IconButtonTooltip icon={ArrowLeft} label="Regresar al Panel Principal" size="sm" onClick={onClose} />`.
+     - Título único: `"Conexión en Red Local (LAN)"` + badge interactivo `"100% Offline"`.
+     - Barra de herramientas con iconos uniformes y tooltips al pasar el mouse: Diagnóstico (`Activity`), Refrescar (`RefreshCw`), Guía rápida (`HelpCircle`) y Cierre (`X`).
+   - **Cuerpo en 2 Columnas Equilibradas:**
+     - **Columna Izquierda (7 cols):**
+       - Selector rápido `IP Directa` vs `Dominio mDNS` con tooltips informativos.
+       - Adaptador de red física y selector píldora de puerto (`:3000` / `:80`) en una sola fila compacta.
+       - Caja de enlace activo con botones de icono para copiar (`Copy`) y abrir en pestaña nueva (`ExternalLink`).
+       - Fila compacta de guía en 3 pasos con iconos interactivos y tooltips descriptivos al posar el cursor.
+     - **Columna Derecha (5 cols):**
+       - Código QR nítido y proporcionado (`w-36 h-36` / `w-40 h-40`) con tooltip informativo.
+       - Estado de red en una sola línea (`Server` hostname y badge `"LAN Activo"`).
