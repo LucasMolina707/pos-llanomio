@@ -2470,3 +2470,62 @@ Ubicada en `src/lib/caja-control.ts`, constituye la **única fuente de verdad ma
 3. **Caso 3 — Cierre con Faltante de Dinero en turno atrasado de 5 días:** Cierre procesado sin bloqueos, guardando la diferencia negativa y la nota de novedad en `TurnoCaja` y `CierreCaja`.
 4. **Validación de Tipos y Compilación:** `npx tsc --noEmit` completado con 0 errores y `npm run build` generado exitosamente en 19 segundos.
 
+---
+
+## 26. Sistema de Auditorías Continuas y Repositorio Histórico de Diagnósticos (`AUDITORIAS/`)
+
+### 1. Propósito y Arquitectura No Destructiva
+Se incorporó la infraestructura de control de calidad, observabilidad y diagnóstico continuo pre-edición para auditar el sistema en modo **100% Lectura (READ-ONLY)** sin alterar el código fuente de la aplicación:
+
+1. **Carpeta de Informes Históricos Inmutables (`AUDITORIAS/`):**
+   - Repositorio central donde se generan y almacenan de forma acumulativa y numerada todos los diagnósticos de calidad.
+   - Cada ejecución genera un informe Markdown nuevo bajo el formato exacto:
+     `AUDITORIAS/AUDITORIA_Nro_[CONSECUTIVO]_[YYYY-MM-DD]_[HH-mm-ss].md` (ej. `AUDITORIA_Nro_001_2026-10-31_23-58-30.md`).
+   - Mantiene el archivo maestro `AUDITORIAS/INDICE_HISTORIAL_AUDITORIAS.md` con tabla de trazabilidad cronológica (fecha/hora local de Colombia UTC-5, conteo de hallazgos clasificados y estado).
+2. **Script Automatizado Reutilizable (`scripts/ejecutar-auditoria-sistema.ts`):**
+   - Script de inspección estricta que examina las 7 dimensiones del sistema:
+     - **Dimensión 1:** Compilación estricta TypeScript (`tsc --noEmit`), hashes de esquemas Prisma y salud SQLite (`PRAGMA integrity_check`).
+     - **Dimensión 2:** Arqueo de caja y sincronización matemática 1:1 entre `GET` y `POST /api/caja`.
+     - **Dimensión 3:** Consolas de mostrador a pantalla completa (`100vw x 100vh`), sin sidebar ni scroll global, con botones de solo ícono y tooltips, e idempotencia `facturaEnCursoId`.
+     - **Dimensión 4:** Regletas, importación y exportación masiva Excel en inventario y clientes.
+     - **Dimensión 5:** Motor de impresión multiformato sin códigos QR a clientes y cajón monedero con consolas invisibles (`windowsHide: true`).
+     - **Dimensión 6:** Seguridad RBAC (respuestas JSON en `/api/*`), login sin credenciales expuestas y respaldos `VACUUM INTO`.
+     - **Dimensión 7:** Plan de acción preventivo priorizado (Críticos 🔴, Importantes 🟡, Mejoras 🔵) con archivo, línea y propuesta para autorización previa del usuario.
+
+### 2. Resultados de la Auditoría Inicial #001
+- **Compilación TypeScript:** Aprobada al 100% con 0 errores.
+- **Esquemas Prisma:** Hashes SHA-256 (`5b9899015429499e...`) 100% idénticos.
+- **Base de Datos SQLite:** Integridad `ok` con 11 tablas relacionales mapeadas y verificadas.
+- **Matriz de Hallazgos:** 0 fallos críticos bloqueantes, 1 recomendación preventiva importante (rotación histórica de respaldos) y 2 mejoras de clean code/ergonomía.
+
+---
+
+## 27. Implementación de Mejoras de Auditoría: Retención de Respaldos, Tipado Estricto y Atajos de Teclado F2/F9
+
+### 1. Ejecución de los 3 Puntos de la Matriz de Hallazgos
+
+1. **Hallazgo #1 (🟡 Importante) — Poda y Rotación Automática de Respaldos (`src/lib/backup.ts`):**
+   - Se implementó la función `purgarRespaldosExcedentes(directorio, limiteMaximo = 15)` que inspecciona las copias fechadas (`.db`), las ordena descendentemente por fecha de modificación (`mtimeMs`) y elimina los archivos que excedan el límite de 15 respaldos.
+   - Preserva de forma inviolable el archivo maestro `llanomio_ULTIMO.db`, la base activa `llanomio.db` y `.gitkeep`.
+   - Invocación dual tras cada respaldo atómico: purga en `database/backups_locales/` y en `C:\POS_LLANOMIO_BACKUPS\historial\`.
+
+2. **Hallazgo #2 (🔵 Mejora) — Tipado Estricto y Cero `any[]` en Actualización de Facturas (`src/app/api/facturas/[id]/route.ts`):**
+   - Declaración de la interfaz tipada `AbonoEnCursoInput` conteniendo `monto`, `metodoPago`, `referenciaPago`, `referenciaComprobante`, `observaciones`, `notas`, `concepto`, `montoRecibido` y `vueltasEntregadas`.
+   - Eliminación definitiva de `any[]` en el método `PUT`, logrando tipado 100% estricto acorde al estándar de arquitectura.
+
+3. **Hallazgo #3 (🔵 Mejora) — Hook Global de Teclado y Atajos F2 / F9 para Cajón Monedero:**
+   - Creación del hook reutilizable `src/hooks/useAtajoTeclado.ts` que escucha eventos `keydown` en `window` con prevención por defecto (`preventDefault`).
+   - Integración directa en `src/components/caja/BotonAbrirCajon.tsx` permitiendo activar el cajón o abrir el modal de apertura rápida presionando indistintamente **F2** o **F9**.
+   - Actualización de tooltips y badges visuales indicando `"Abrir Cajón Monedero (F2 / F9)"` en Mostrador POS, Alquileres, Apartados y Control de Caja.
+
+### 2. Resultados de la Auditoría de Cierre #002
+- **Ejecución Automatizada:** `scripts/ejecutar-auditoria-sistema.ts` generó el informe `AUDITORIAS/AUDITORIA_Nro_002_2026-11-01_00-27-17.md`.
+- **Balance Global de Hallazgos:**
+  - 🔴 **Críticos:** 0
+  - 🟡 **Importantes:** 0
+  - 🔵 **Mejoras Pendientes:** 0
+- **Compilación de Producción:** `npx tsc --noEmit` con 0 errores y `next build` generado con éxito (23 rutas estáticas y 24 dinámicas).
+- **Restablecimiento de Fábrica:** Ejecución exitosa de `scripts/reset-db-fabrica.ts` dejando la base de datos `database/llanomio.db` en estado virgen (1 admin, 1 empresa base, 0 clientes, 0 productos, 0 facturas y `VACUUM` ejecutado).
+
+
+

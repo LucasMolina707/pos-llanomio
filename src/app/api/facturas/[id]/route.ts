@@ -11,6 +11,18 @@ interface Params {
   params: Promise<{ id: string }>;
 }
 
+export interface AbonoEnCursoInput {
+  monto?: number | string;
+  metodoPago?: string;
+  referenciaPago?: string | null;
+  referenciaComprobante?: string | null;
+  observaciones?: string | null;
+  notas?: string | null;
+  concepto?: string | null;
+  montoRecibido?: number | string | null;
+  vueltasEntregadas?: number | string | null;
+}
+
 /**
  * GET /api/facturas/[id]
  * Obtiene la información completa de una factura
@@ -801,11 +813,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const totalFactura = Math.round((subtotalProductos + subtotalArreglosLibres) * 100) / 100;
 
     // Procesar abono inicial corregido
-    const abonosInput: any[] = Array.isArray(body.abonos) && body.abonos.length > 0
-      ? body.abonos
+    const abonosInput: AbonoEnCursoInput[] = Array.isArray(body.abonos) && body.abonos.length > 0
+      ? (body.abonos as AbonoEnCursoInput[])
       : (typeof abonoInicial === "number" && abonoInicial > 0
           ? [{ monto: abonoInicial, metodoPago: body.metodoPagoAbono || MetodoPago.EFECTIVO }]
-          : (abonoInicial && Number(abonoInicial.monto) > 0 ? [abonoInicial] : []));
+          : (abonoInicial && typeof abonoInicial === "object" && Number((abonoInicial as AbonoEnCursoInput).monto) > 0
+              ? [abonoInicial as AbonoEnCursoInput]
+              : []));
 
     const abonosDataCreacion: {
       monto: number;

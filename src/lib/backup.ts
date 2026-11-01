@@ -27,6 +27,44 @@ export function obtenerTimestamp(): string {
 }
 
 /**
+ * Purga los respaldos fechados excedentes en un directorio, conservando únicamente
+ * los últimos N archivos más recientes según su fecha de modificación (mtime).
+ * NUNCA elimina 'llanomio_ULTIMO.db', 'llanomio.db' ni '.gitkeep'.
+ */
+export function purgarRespaldosExcedentes(directorio: string, limiteMaximo = 15): number {
+  if (!fs.existsSync(directorio)) return 0;
+  try {
+    const archivos = fs
+      .readdirSync(directorio)
+      .filter((f) => f.endsWith(".db") && f !== "llanomio_ULTIMO.db" && f !== "llanomio.db" && f !== ".gitkeep")
+      .map((nombre) => {
+        const rutaCompleta = path.join(directorio, nombre);
+        const stats = fs.statSync(rutaCompleta);
+        return { nombre, rutaCompleta, mtime: stats.mtimeMs };
+      })
+      .sort((a, b) => b.mtime - a.mtime); // Más recientes primero
+
+    const excedentes = archivos.slice(limiteMaximo);
+    let eliminados = 0;
+    for (const archivo of excedentes) {
+      try {
+        fs.unlinkSync(archivo.rutaCompleta);
+        eliminados++;
+      } catch (errUnlink) {
+        console.warn(`[ROTACION RESPALDOS] No se pudo eliminar ${archivo.nombre}:`, errUnlink);
+      }
+    }
+    if (eliminados > 0) {
+      console.log(`[ROTACION RESPALDOS] Se purgaron ${eliminados} respaldos antiguos en ${directorio}.`);
+    }
+    return eliminados;
+  } catch (err) {
+    console.warn(`[ROTACION RESPALDOS] Error durante purga en ${directorio}:`, err);
+    return 0;
+  }
+}
+
+/**
  * Ejecuta un respaldo en caliente de la base de datos SQLite utilizando VACUUM INTO.
  * Garantiza consistencia atómica sin bloquear ni corromper las transacciones activas.
  */
@@ -78,8 +116,12 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
     fs.copyFileSync(rutaUltimo, rutaHistorial);
     fs.copyFileSync(rutaUltimo, rutaLocal);
 
+    // 7. Rotación y retención automática: conservar únicamente los últimos 15 respaldos
+    const eliminadosLocal = purgarRespaldosExcedentes(carpetaLocal, 15);
+    const eliminadosHistorial = purgarRespaldosExcedentes(carpetaHistorial, 15);
+
     console.log(
-      `[RESPALDO EXITOSO] Motivo: ${motivo} | Bytes: ${stat.size} | Archivo: ${rutaUltimo} | Historial: ${rutaHistorial}`
+      `[RESPALDO EXITOSO] Motivo: ${motivo} | Bytes: ${stat.size} | Archivo: ${rutaUltimo} | Historial: ${rutaHistorial} | Purgados Local/Ext: ${eliminadosLocal}/${eliminadosHistorial}`
     );
 
     return {

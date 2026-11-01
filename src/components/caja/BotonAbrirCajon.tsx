@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { LockOpen, CheckCircle2, AlertCircle, X, Sparkles, KeyRound } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
+import { useAtajoTeclado } from "@/hooks/useAtajoTeclado";
 
 import IconButtonTooltip, { IconButtonSize } from "@/components/ui/IconButtonTooltip";
 
@@ -56,18 +57,10 @@ export default function BotonAbrirCajon({
     texto: string;
   } | null>(null);
 
-  // Escuchar atajo de teclado F9
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F9") {
-        e.preventDefault();
-        setModalAbierto((prev) => !prev);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  // Escuchar atajos globales de teclado F2 y F9 para apertura rápida
+  useAtajoTeclado(["F2", "F9"], () => {
+    setModalAbierto((prev) => !prev);
+  });
 
   const ejecutarApertura = async (motivoId: string, motivoTexto: string) => {
     try {
@@ -118,7 +111,7 @@ export default function BotonAbrirCajon({
       {(soloIcono || variante === "icono") && (
         <IconButtonTooltip
           icon={LockOpen}
-          label="Abrir Cajón Monedero Manualmente (Atajo: F9)"
+          label="Abrir Cajón Monedero (F2 / F9)"
           variant="amber"
           size={size}
           onClick={() => setModalAbierto(true)}
@@ -131,14 +124,14 @@ export default function BotonAbrirCajon({
         <button
           type="button"
           onClick={() => setModalAbierto(true)}
-          title="Abrir cajón monedero manualmente (Atajo: F9)"
+          title="Abrir cajón monedero manualmente (Atajo: F2 / F9)"
           className={`h-9 px-3 rounded-xl bg-amber-50 hover:bg-amber-100/90 text-amber-900 border border-amber-300 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 ${className}`}
         >
           <LockOpen className="h-4 w-4 text-amber-700 shrink-0" />
           <span className="hidden sm:inline">Abrir Cajón</span>
           {mostrarAtajo && (
             <span className="text-[10px] bg-amber-200/70 text-amber-950 font-mono px-1 py-0.5 rounded-md border border-amber-300">
-              F9
+              F2 / F9
             </span>
           )}
         </button>
@@ -148,13 +141,14 @@ export default function BotonAbrirCajon({
         <button
           type="button"
           onClick={() => setModalAbierto(true)}
+          title="Abrir cajón monedero manualmente (Atajo: F2 / F9)"
           className={`px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 ${className}`}
         >
           <LockOpen className="h-4 w-4 text-slate-950 shrink-0" />
           <span>Abrir Cajón Monedero</span>
           {mostrarAtajo && (
             <span className="text-[10px] bg-amber-600 text-slate-950 px-1.5 py-0.5 rounded font-mono">
-              F9
+              F2 / F9
             </span>
           )}
         </button>
