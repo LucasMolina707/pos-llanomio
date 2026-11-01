@@ -2700,3 +2700,25 @@ En las tres consolas independientes de mostrador (`/caja/pos`, `/caja/alquileres
 - **Cabecera:** En modo compacto (`68px`) muestra el logotipo centrado; en modo expandido (`292px`) muestra el logotipo, el nombre `LLANOMIO POS`, subtítulo y el botón para fijar/desfijar con ícono `Pin`.
 - **Indicador de Red Local:** En reposo muestra el recuadro centrado con indicador pulsante verde; desplegado muestra `"LAN Activa · llanomio.local"`.
 - **Tarjeta de Usuario y Cierre de Sesión:** En reposo muestra el avatar o escudo centrado; desplegado muestra avatar, nombre completo en texto legible (`Administrador Principal`), rol `ADMIN` y botón para cerrar sesión con confirmación de respaldo.
+
+
+---
+
+## 33. Corrección Quirúrgica de Navegación y Cierre en Modal de Conexión LAN
+
+### 1. Problema Identificado
+Al presionar el botón verde `"Conectar Celular / PC en Red"` en el Panel Principal (`src/app/page.tsx`), la tarjeta de red local se abría en un contenedor superpuesto sin botones de retroceso accesibles y con un botón de cierre en posición absoluta negativa que quedaba oculto o fuera de pantalla, dificultando el cierre para el usuario sin recargar la página.
+
+### 2. Acciones Realizadas
+1. **`src/components/red/TarjetaConexionLAN.tsx`:**
+   - Incorporación de la prop opcional `onClose?: () => void`.
+   - Inclusión de botones de control integrados: botón `← Regresar` y botón `X` con estilos ejecutivos en el encabezado de la tarjeta cuando `onClose` está presente.
+2. **`src/app/page.tsx`:**
+   - **Telón de fondo interactivo (`backdrop`):** `fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4` con cierre directo al hacer clic en el exterior del recuadro.
+   - **Contenedor interno protegido:** `onClick={(e) => e.stopPropagation()}` con dimensiones máximas seguras `max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200 flex flex-col`.
+   - **Barra Superior Fija (`sticky top-0 z-20`):**
+     - Botón **`← Regresar`** a la izquierda (`ArrowLeft`) con hover suave y cursor pointer.
+     - Título central destacado: `"Conectar Celular / PC en Red Local"`.
+     - Botón **`X`** prominente a la derecha con fondo suave rojizo `bg-rose-50 text-rose-700 hover:bg-rose-100` y tooltip accesible `"Cerrar ventana"`.
+   - **Atajo de Teclado `Escape`:** `useEffect` que escucha `keydown` para `e.key === "Escape"` y cierra la vista de forma inmediata.
+   - Peticiones y renderizado 100% verificado sin errores de tipos (`npx tsc --noEmit`) y empaquetado en producción (`npm run build`).

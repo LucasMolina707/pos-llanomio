@@ -19,6 +19,8 @@ import {
   Network,
   Cpu,
   Layers,
+  ArrowLeft,
+  X,
 } from "lucide-react";
 import { RespuestaRedLocal, InfoInterfazRed } from "@/app/api/red-local/route";
 
@@ -26,12 +28,14 @@ interface TarjetaConexionLANProps {
   titulo?: string;
   subtitulo?: string;
   className?: string;
+  onClose?: () => void;
 }
 
 export default function TarjetaConexionLAN({
   titulo = "Conectar Celulares, Tablets y Computadores en Red Local",
   subtitulo = "Escanea el código QR o copia el enlace para acceder al sistema desde cualquier dispositivo conectado al Wi-Fi de la tienda sin internet.",
   className = "",
+  onClose,
 }: TarjetaConexionLANProps) {
   const [datosRed, setDatosRed] = useState<RespuestaRedLocal | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -160,7 +164,19 @@ export default function TarjetaConexionLAN({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold shadow-xs transition cursor-pointer"
+              title="Regresar al panel principal"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Regresar</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setMostrarDiagnostico(!mostrarDiagnostico)}
@@ -185,6 +201,17 @@ export default function TarjetaConexionLAN({
             <RefreshCw className={`w-3.5 h-3.5 ${cargando ? "animate-spin text-blue-600" : ""}`} />
             <span>Refrescar</span>
           </button>
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center transition cursor-pointer"
+              title="Cerrar ventana"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

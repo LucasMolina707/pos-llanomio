@@ -14,6 +14,7 @@ import {
   Vault,
   ArrowRight,
   QrCode,
+  ArrowLeft,
   X,
 } from "lucide-react";
 import TarjetaConexionLAN from "@/components/red/TarjetaConexionLAN";
@@ -65,6 +66,18 @@ export default function HomePage() {
       activo = false;
     };
   }, []);
+
+  // Cierre del modal con tecla Escape
+  useEffect(() => {
+    if (!mostrarModalQR) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMostrarModalQR(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mostrarModalQR]);
 
   const modulos = [
     {
@@ -308,17 +321,45 @@ export default function HomePage() {
 
       {/* Modal Flotante de Conexión Rápida QR */}
       {mostrarModalQR && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs p-4 sm:p-6 flex items-center justify-center animate-in fade-in duration-200">
-          <div className="relative w-full max-w-4xl">
-            <button
-              type="button"
-              onClick={() => setMostrarModalQR(false)}
-              className="absolute -top-3 -right-3 z-10 p-2 rounded-full bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 shadow-md border border-slate-200 transition cursor-pointer"
-              title="Cerrar modal"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <TarjetaConexionLAN />
+        <div
+          onClick={() => setMostrarModalQR(false)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200 flex flex-col animate-in zoom-in-95 duration-150"
+          >
+            {/* Barra Superior Fija y Visible */}
+            <div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => setMostrarModalQR(false)}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm flex items-center gap-2 transition-colors cursor-pointer"
+                title="Regresar al panel principal"
+              >
+                <ArrowLeft className="w-4 h-4 text-slate-700" />
+                <span>← Regresar</span>
+              </button>
+
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                Conectar Celular / PC en Red Local
+              </h3>
+
+              <button
+                type="button"
+                onClick={() => setMostrarModalQR(false)}
+                className="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center transition-colors cursor-pointer"
+                title="Cerrar ventana"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Componente de Conexión LAN con onClose integrado */}
+            <TarjetaConexionLAN
+              className="border-0 shadow-none rounded-none"
+              onClose={() => setMostrarModalQR(false)}
+            />
           </div>
         </div>
       )}
