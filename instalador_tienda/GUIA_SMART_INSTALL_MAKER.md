@@ -50,6 +50,7 @@ La estructura de archivos que debe incluirse en la compilación contiene:
 │   ├── MANUAL_RESPALDOS_Y_MIGRACION.md           # Manual de respaldos y recuperacion
 │   └── GUIA_SMART_INSTALL_MAKER.md               # Esta guia paso a paso
 ├── INICIAR_SERVIDOR_POS.bat                      # Lanzador maestro con menu de inicio y configuracion
+├── DETENER_TODOS_LOS_SERVICIOS_POS.bat           # Script para detener y cerrar todos los procesos del POS
 ├── ABRIR_TERMINAL_POS_DIRECTO.bat                # Lanzador en ventana nativa dedicada (Modo App Edge/Chrome)
 ├── REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat      # Script de rescate y auto-recuperacion en 1 clic
 ├── ecosystem.config.js                           # Configuracion de procesos PM2
@@ -135,19 +136,27 @@ Configure los accesos directos principales del sistema:
   - **Working Directory:** `{InstallDir}`
   - **Icon File:** `{InstallDir}\instalador_tienda\recursos\llanomio.ico`
 
-* **Acceso 4: Menú Administrativo y de Respaldos**
+* **Acceso 4: Detención Total y Segura del Sistema**
+  - **Location:** Desktop (Escritorio).
+  - **Name:** `POS Llanomio - Detener Servicios`
+  - **Target:** `{InstallDir}\DETENER_TODOS_LOS_SERVICIOS_POS.bat`
+  - **Working Directory:** `{InstallDir}`
+  - **Icon File:** `{InstallDir}\instalador_tienda\recursos\llanomio.ico`
+
+* **Acceso 5: Menú Administrativo y de Respaldos**
   - **Location:** Programs Menu (Menú Inicio) y Desktop.
   - **Name:** `POS Llanomio - Menu Administrador`
   - **Target:** `{InstallDir}\instalador_tienda\MENU_DE_INSTALACION.bat`
   - **Working Directory:** `{InstallDir}`
   - **Icon File:** `{InstallDir}\instalador_tienda\recursos\llanomio.ico`
 
-*(Nota: Adicionalmente, `POST_INSTALADOR_MAESTRO.bat` crea o actualiza estos 4 accesos directos de forma automática al completarse la instalación).*
+*(Nota: Adicionalmente, `POST_INSTALADOR_MAESTRO.bat` crea o actualiza estos 5 accesos directos de forma automática en el Escritorio al completarse la instalación).*
 
 #### Pestaña 7: Uninstaller (Desinstalador)
 - **Create Uninstaller (Crear Desinstalador):** Activado.
 - **Uninstaller Executable Name:** `uninstall.exe`
-- **Commands Before Uninstall (Opcional):** `pm2 stop all`
+- **Commands Before Uninstall (Comandos Antes de Desinstalar):**
+  - Ejecutar: `{InstallDir}\DETENER_TODOS_LOS_SERVICIOS_POS.bat --silencioso`
 
 ---
 

@@ -120,3 +120,4 @@ if "%MODO_SILENCIOSO%"=="1" exit /b 0
 
 timeout /t 3 >nul 2>&1
 exit /b 0
+

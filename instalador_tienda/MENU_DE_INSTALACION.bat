@@ -165,10 +165,15 @@ goto MENU
 
 :DETENER_SERVICIOS
 cls
-echo Deteniendo procesos del POS...
-call !PM2_CMD! stop all >nul 2>&1
-echo [OK] Servicios detenidos.
-timeout /t 2 > nul
+if exist "%PROJECT_ROOT%\DETENER_TODOS_LOS_SERVICIOS_POS.bat" (
+    call "%PROJECT_ROOT%\DETENER_TODOS_LOS_SERVICIOS_POS.bat"
+) else (
+    echo Deteniendo procesos del POS...
+    call !PM2_CMD! stop all >nul 2>&1
+    call !PM2_CMD! kill >nul 2>&1
+    echo [OK] Servicios detenidos.
+    timeout /t 2 > nul
+)
 goto MENU
 
 :REINICIAR_SERVICIOS

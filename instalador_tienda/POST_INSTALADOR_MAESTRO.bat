@@ -230,12 +230,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$s4.WorkingDirectory = '%PROJECT_ROOT%'; " ^
   "$s4.IconLocation = '%ICON_FILE%'; " ^
   "$s4.Description = 'Auto-Recuperacion y Reinicio Rapido del Servidor'; " ^
-  "$s4.Save();" >nul 2>&1
+  "$s4.Save(); " ^
+  "$s5 = $ws.CreateShortcut([System.IO.Path]::Combine($desktop, 'POS Llanomio - Detener Servicios.lnk')); " ^
+  "$s5.TargetPath = '%PROJECT_ROOT%\DETENER_TODOS_LOS_SERVICIOS_POS.bat'; " ^
+  "$s5.WorkingDirectory = '%PROJECT_ROOT%'; " ^
+  "$s5.IconLocation = '%ICON_FILE%'; " ^
+  "$s5.Description = 'Detener Todos los Procesos y Servicios del POS'; " ^
+  "$s5.Save();" >nul 2>&1
 
 echo [OK] Accesos directos creados en el Escritorio:
 echo      - Iniciar POS Llanomio.lnk
 echo      - POS Llanomio - Modo App Directo.lnk
 echo      - POS Llanomio - Recuperar Servidor.lnk
+echo      - POS Llanomio - Detener Servicios.lnk
 echo      - POS Llanomio - Menu Administrador.lnk
 echo.
 

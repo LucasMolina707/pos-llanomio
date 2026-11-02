@@ -3039,12 +3039,13 @@ Se creó la infraestructura de instalación autónoma (.exe) para Smart Install 
 ### 2. Menú Interactivo y Personalización en `INICIAR_SERVIDOR_POS.bat`
 - **Interfaz Consolidada sin Emojis:**
   - Encabezado con estado en vivo de `.env`: Puerto Next.js (`PORT`), Puerto Salida Red/Proxy (`HTTP_PORT`), Dominio mDNS (`LOCAL_DOMAIN`) e Identificador PM2 (`INSTANCE_ID`).
-  - Menú de 5 opciones:
+  - Menú de 6 opciones:
     1. Iniciar servidor normalmente y abrir en navegador predeterminado.
     2. Iniciar servidor en Ventana Nativa POS (Modo App dedicado sin navegador).
     3. Cambiar / Personalizar Puertos y Dominio Local (invocación directa de `scripts/escanear-y-elegir-puertos.js` y actualización en caliente de PM2).
     4. Reiniciar servicios de PM2 forzadamente.
-    5. Salir.
+    5. Detener todos los procesos y servicios del POS.
+    6. Salir.
 - **Soporte Silencioso Desatendido:** Preservada la bandera `--silencioso` para arranques limpios de fondo desde el script VBS en la carpeta de Inicio de Windows (`shell:startup`) o el Programador de Tareas.
 
 ### 3. Script de Rescate y Reinicio Rápido (`REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat`)
@@ -3054,7 +3055,14 @@ Se creó la infraestructura de instalación autónoma (.exe) para Smart Install 
   - Si el puerto no responde, reactiva de inmediato los servicios con `pm2 restart [INSTANCE_ID]` (o arranca `ecosystem.config.js`), con fallback automático al motor Node.js portable interno.
   - Ejecuta bucle de espera de hasta 4 intentos verificando la apertura del puerto y abre automáticamente la consola web en `http://localhost:[PORT]/login`.
 
-### 4. Lanzador Directo en Ventana Nativa / Modo App (`ABRIR_TERMINAL_POS_DIRECTO.bat`)
+### 4. Script de Detención Total y Cierre Seguro (`DETENER_TODOS_LOS_SERVICIOS_POS.bat`)
+- **Cierre Integral de Procesos en 3 Fases:**
+  1. Detiene, elimina y mata el daemon global y local de PM2 (`pm2 stop all`, `pm2 delete all`, `pm2 kill`).
+  2. Libera mediante PowerShell los sockets TCP activos en los puertos configurados en `.env` (`PORT` y `HTTP_PORT`).
+  3. Cierra de forma forzada cualquier proceso huérfano de `node.exe` vinculado al proyecto (`start-pos.js`, `servidor-lan-mdns.js`).
+  4. Cuenta con guardián de ventana y soporte para la bandera `--silencioso`.
+
+### 5. Lanzador Directo en Ventana Nativa / Modo App (`ABRIR_TERMINAL_POS_DIRECTO.bat`)
 - **Experiencia de Terminal de Mostrador sin Distracciones:**
   - Detecta la presencia de Microsoft Edge (`msedge.exe`) o Google Chrome (`chrome.exe`) en directorios de programas de 64 y 32 bits y en `%LocalAppData%`.
   - Comprueba preventivamente si el servidor local está activo; si no lo está, invoca silenciosamente a `REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat` antes de mostrar la ventana.
@@ -3062,14 +3070,15 @@ Se creó la infraestructura de instalación autónoma (.exe) para Smart Install 
     `msedge.exe --app="http://localhost:[PORT]/login"`
   - Proporciona una ventana limpia con el icono corporativo, sin barra de direcciones, sin pestañas y sin controles estándar que puedan interrumpir la facturación.
 
-### 5. Accesos Directos en el Escritorio (`POST_INSTALADOR_MAESTRO.bat`)
-- El script de post-instalación ahora genera automáticamente 4 accesos directos en el Escritorio de Windows:
+### 6. Accesos Directos en el Escritorio (`POST_INSTALADOR_MAESTRO.bat`)
+- El script de post-instalación genera automáticamente 5 accesos directos en el Escritorio de Windows:
   1. `Iniciar POS Llanomio.lnk` -> `INICIAR_SERVIDOR_POS.bat`
   2. `POS Llanomio - Modo App Directo.lnk` -> `ABRIR_TERMINAL_POS_DIRECTO.bat`
   3. `POS Llanomio - Recuperar Servidor.lnk` -> `REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat`
-  4. `POS Llanomio - Menu Administrador.lnk` -> `instalador_tienda/MENU_DE_INSTALACION.bat`
+  4. `POS Llanomio - Detener Servicios.lnk` -> `DETENER_TODOS_LOS_SERVICIOS_POS.bat`
+  5. `POS Llanomio - Menu Administrador.lnk` -> `instalador_tienda/MENU_DE_INSTALACION.bat`
 
-### 6. Control de Calidad (QA) y Verificación
+### 7. Control de Calidad (QA) y Verificación
 - **Verificación de Tipos TypeScript (`npx tsc --noEmit`):** 0 errores.
 - **Preparación del Paquete (`npm run preparar:instalador`):** 6/6 fases verificadas exitosamente.
 - **Compilación de Producción (`npm run build`):** Ejecución limpia y optimizada de las 22 rutas con código 0.

@@ -69,19 +69,21 @@ echo [1] Iniciar servidor y abrir en navegador predeterminado
 echo [2] Iniciar servidor en Ventana Nativa POS (Modo App sin navegador)
 echo [3] Cambiar / Personalizar Puertos y Dominio Local (Escaner interactivo)
 echo [4] Reiniciar servicios de PM2 forzadamente
-echo [5] Salir
+echo [5] Detener todos los procesos y servicios del POS
+echo [6] Salir
 echo ===============================================================================
 echo.
-set /p OPCION_INICIO=">> Seleccione una opcion [1-5]: "
+set /p OPCION_INICIO=">> Seleccione una opcion [1-6]: "
 
 if "%OPCION_INICIO%"=="1" goto :opcion_navegador_normal
 if "%OPCION_INICIO%"=="2" goto :opcion_modo_app
 if "%OPCION_INICIO%"=="3" goto :opcion_personalizar_puertos
 if "%OPCION_INICIO%"=="4" goto :opcion_reiniciar_pm2
-if "%OPCION_INICIO%"=="5" exit /b 0
+if "%OPCION_INICIO%"=="5" goto :opcion_detener_procesos
+if "%OPCION_INICIO%"=="6" exit /b 0
 
 echo.
-echo [ERROR] Opcion no valida. Por favor ingrese un numero del 1 al 5.
+echo [ERROR] Opcion no valida. Por favor ingrese un numero del 1 al 6.
 timeout /t 2 >nul
 goto :MENU_PRINCIPAL
 
@@ -167,6 +169,10 @@ pause >nul
 goto :MENU_PRINCIPAL
 
 :: -------------------------------------------------------------------------------
+:: OPCION 5: Detener todos los procesos y servicios del POS
+:: -------------------------------------------------------------------------------
+:opcion_detener_procesos
+:: -------------------------------------------------------------------------------
 :: OPCION 4: Reiniciar servicios PM2 forzadamente
 :: -------------------------------------------------------------------------------
 :opcion_reiniciar_pm2
@@ -188,6 +194,19 @@ if exist "%PROJECT_ROOT%\REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat" (
 echo.
 echo Presione cualquier tecla para volver al menu principal...
 pause >nul
+goto :MENU_PRINCIPAL
+
+:: -------------------------------------------------------------------------------
+:: OPCION 5: Detener todos los procesos y servicios del POS
+:: -------------------------------------------------------------------------------
+:opcion_detener_procesos
+cls
+if exist "%PROJECT_ROOT%\DETENER_TODOS_LOS_SERVICIOS_POS.bat" (
+    call "%PROJECT_ROOT%\DETENER_TODOS_LOS_SERVICIOS_POS.bat"
+) else (
+    where pm2 >nul 2>&1
+    if %errorlevel% equ 0 call pm2 stop all
+)
 goto :MENU_PRINCIPAL
 
 :: -------------------------------------------------------------------------------

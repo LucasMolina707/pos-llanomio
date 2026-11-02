@@ -164,6 +164,7 @@ if (fs.existsSync(dirNext) && fs.existsSync(path.join(dirNext, "BUILD_ID"))) {
 console.log("\n[6/6] Verificando scripts lanzadores y manuales...");
 const archivosCriticos = [
   "INICIAR_SERVIDOR_POS.bat",
+  "DETENER_TODOS_LOS_SERVICIOS_POS.bat",
   "REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat",
   "ABRIR_TERMINAL_POS_DIRECTO.bat",
   "instalador_tienda/POST_INSTALADOR_MAESTRO.bat",

@@ -53,6 +53,7 @@ La instalación ubica en el Escritorio los siguientes accesos directos:
 | **Iniciar POS Llanomio** | [`INICIAR_SERVIDOR_POS.bat`](file:///d:/Proyectos%20IA/pos-llanomio/INICIAR_SERVIDOR_POS.bat) | Menú de control interactivo para iniciar el sistema, cambiar puertos o reiniciar servicios. |
 | **POS Llanomio (Modo App Directo)** | [`ABRIR_TERMINAL_POS_DIRECTO.bat`](file:///d:/Proyectos%20IA/pos-llanomio/ABRIR_TERMINAL_POS_DIRECTO.bat) | Abre la terminal en ventana nativa dedicada sin interfaz de navegador (ideal para cajeros). |
 | **Recuperar / Reiniciar Servidor** | [`REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat`](file:///d:/Proyectos%20IA/pos-llanomio/REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat) | Rescate en 1 clic: verifica el puerto, limpia procesos y levanta el servicio si se cayó. |
+| **Detener Servicios POS** | [`DETENER_TODOS_LOS_SERVICIOS_POS.bat`](file:///d:/Proyectos%20IA/pos-llanomio/DETENER_TODOS_LOS_SERVICIOS_POS.bat) | Cierre total y seguro de todos los procesos Node.js, gestor PM2 y liberación de puertos TCP. |
 | **POS Llanomio - Menú Administrador** | [`instalador_tienda/MENU_DE_INSTALACION.bat`](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MENU_DE_INSTALACION.bat) | Consola técnica completa de diagnóstico, estado de PM2 y gestión de respaldos. |
 
 ---
@@ -122,3 +123,4 @@ El sistema cuenta con un triple mecanismo de salvaguarda de datos:
 - **Impresoras Térmicas y Cajón Monedero:** Consulte [`instalador_tienda/MANUAL_CAJON_MONEDERO_E_IMPRESORA.md`](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_CAJON_MONEDERO_E_IMPRESORA.md) para la configuración de comandos ESC/POS y puertos COM/USB.
 - **Respaldos y Migración Avanzada:** Consulte [`instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md`](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md).
 - **Empaquetado Smart Install Maker:** Consulte [`instalador_tienda/GUIA_SMART_INSTALL_MAKER.md`](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/GUIA_SMART_INSTALL_MAKER.md).
+
