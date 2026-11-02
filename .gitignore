@@ -54,3 +54,7 @@ desktop.ini
 *.sln
 *.sw?
 *.tsbuildinfo
+
+# Runtime portable binaries (generados por npm run preparar:instalador)
+/runtime/node/*
+!/runtime/node/.gitkeep

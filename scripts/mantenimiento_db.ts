@@ -1,3 +1,9 @@
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "file:./llanomio.db";
+} else if (process.env.DATABASE_URL.startsWith("file:./database/")) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL.replace("file:./database/", "file:./");
+}
+
 import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";

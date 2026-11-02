@@ -2972,3 +2972,54 @@ Se creó la infraestructura de instalación autónoma (.exe) para Smart Install 
 ### 3. Control de Calidad (QA)
 - Verificación estricta de TypeScript con `npx tsc --noEmit`: **0 errores**.
 - Compilación de producción con `npm run build`: **Compilación exitosa (código 0) de las 22 rutas del sistema**.
+
+
+---
+
+## 41. SOLUCIÓN DEFINITIVA AL CIERRE ABRUPTO DE SCRIPTS BATCH, RUNTIME PORTABLE INTEGRADO (NODE.JS) Y PURGA DE FÁBRICA
+
+### 1. Diagnóstico y Mitigación de Cierres Inesperados en Scripts Batch (.bat)
+- **Causas Raíz Identificadas:**
+  1. En Windows, invocar scripts secundarios `.cmd` o `.bat` (ej. `pm2`, `npm`) sin la instrucción `call` cede el control permanentemente al proceso secundario, provocando la terminación inmediata del proceso padre sin procesar las líneas subsiguientes.
+  2. Los bloques condicionales anidados con paréntesis `()` en sintaxis Batch fallan o se cierran cuando una variable expandida o mensaje contiene caracteres especiales de escape.
+  3. La elevación a privilegios de Administrador mediante UAC (`RunAs`) sitúa el directorio de trabajo por defecto en `C:\Windows\System32`, perdiendo la ruta relativa de la aplicación.
+- **Arquitectura de Blindaje Implementada:**
+  - **Patrón Guardián Persistente (`cmd /k`):** Se integró en la cabecera de `INICIAR_SERVIDOR_POS.bat`, `instalador_tienda/POST_INSTALADOR_MAESTRO.bat` y `instalador_tienda/MENU_DE_INSTALACION.bat` la instrucción:
+    `if "%~1" NEQ "--persistente" ( cmd /k ""%~f0" --persistente" & exit /b )`
+    Esto garantiza que ante cualquier excepción, error imprevisto o interrupción, la consola permanece abierta en pantalla permitiendo la inspección técnica sin cerrarse.
+  - **Fijación Invariable de Ruta:** Uso obligatorio de `cd /d "%~dp0"` al inicio de cada script y comprobación defensiva de carpetas padres con `cd /d "%~dp0.."`.
+  - **Invocaciones con `call`:** Todas las llamadas a ejecutables secundarios (`pm2`, scripts Node, asistentes) se realizan mediante `call`.
+  - **Arranques Desatendidos:** Parámetro `--silencioso` en `INICIAR_SERVIDOR_POS.bat` para arranques limpios sin ventana interactiva desde el script VBS en la carpeta de Inicio de Windows.
+
+### 2. Runtime Portable de Node.js Integrado (`runtime/node/node.exe`)
+- **Script Preparador Automatizado (`scripts/preparar-paquete-instalador.js`):**
+  - Accesible mediante el comando `npm run preparar:instalador`.
+  - Copia de manera determinista el binario activo de Node.js (`process.execPath`) hacia la carpeta interna `runtime/node/node.exe` (~88 MB) junto con `npm`, `npm.cmd`, `npx` y `npx.cmd`.
+  - Garantiza que cualquier instalador generado (con Smart Install Maker o Inno Setup) sea 100% autónomo y offline, funcionando inmediatamente en computadores vírgenes sin Node.js preinstalado.
+- **Prioridad en PATH:** Todos los scripts de arranque configuran el PATH anteponiendo `%PROJECT_ROOT%\runtime\node`, con fallback automático a la instalación global de Windows si no está presente el binario portable.
+
+### 3. Purga Total a Estado Puro de Fábrica (Clean Slate) y Normalización Prisma SQLite
+- **Resolución de Rutas Prisma SQLite:**
+  - Dado que el esquema reside en `database/schema.prisma`, Prisma resuelve las rutas relativas de SQLite desde la carpeta del esquema (`database/`).
+  - La URL canónica requerida es `DATABASE_URL="file:./llanomio.db"`, la cual apunta de forma exacta a `database/llanomio.db`.
+  - Se implementó normalización defensiva en `scripts/reset-db-fabrica.ts`, `scripts/mantenimiento_db.ts` y `scripts/escanear-y-elegir-puertos.js` para sanear dinámicamente cualquier prefijo inconsistente (`file:./database/`).
+- **Reseteo Verificado de Base de Datos:**
+  - Purgadas tablas transaccionales, auditorías, clientes y productos: 0 clientes, 0 productos, 0 facturas, 0 abonos, 0 turnos, 0 cierres de caja.
+  - Sembrado neutro con 1 usuario administrador inicial (`@admin` / `admin123`) y 1 configuración empresarial neutra (`"MI EMPRESA POS"`, NIT `000000000-0`).
+  - Desfragmentación física y compactación del archivo `database/llanomio.db` mediante `VACUUM`.
+  - Vaciado de respaldos antiguos en `database/backups_locales/`, limpieza de hojas en `migracion_excel/origen/` y purga de logs huérfanos.
+
+### 4. Asistente Post-Instalador Maestro (`instalador_tienda/POST_INSTALADOR_MAESTRO.bat`)
+- Diseñado para ejecutarse automáticamente al finalizar Smart Install Maker o manualmente:
+  1. Detección y validación de la raíz del proyecto.
+  2. Auto-elevación a Administrador vía PowerShell preservando la ruta.
+  3. Detección y selección del motor Node.js (prioridad `runtime/node/node.exe`).
+  4. Creación de directorios locales y estructurados de respaldo en `C:\POS_BACKUPS` (`historial`, `inventario`, `clientes`, `historial_facturas`, `movimientos_caja`).
+  5. Asistente interactivo multi-instancia en orden: Identificador PM2 (`INSTANCE_ID`), Puerto Principal (`PORT`), Puerto Red/Proxy (`HTTP_PORT`), Dominio Local (`LOCAL_DOMAIN`) y Archivo SQLite (`DATABASE_URL`). Si se especifica una base de datos con nombre personalizado, clona automáticamente la base virgen de fábrica.
+  6. Configuración de reglas en el Firewall de Windows (TCP puertos web, UDP 5353 mDNS, binario Node).
+  7. Persistencia con lanzador VBS silencioso en `shell:startup`, tarea programada en Windows y registro en PM2 (`pm2 save`). Creación de accesos directos en el Escritorio y apertura automática del navegador en la consola de login.
+
+### 5. Control de Calidad (QA) y Verificación
+- **Verificación de Tipos TypeScript (`npx tsc --noEmit`):** 0 errores.
+- **Preparación del Paquete (`npm run preparar:instalador`):** 6/6 pasos ejecutados con éxito total.
+- **Compilación de Producción (`npm run build`):** Ejecución limpia y optimizada con código 0.

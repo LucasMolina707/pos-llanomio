@@ -8,6 +8,12 @@
  * con VACUUM y deja el sistema virgen con un único usuario administrador inicial.
  */
 
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "file:./llanomio.db";
+} else if (process.env.DATABASE_URL.startsWith("file:./database/")) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL.replace("file:./database/", "file:./");
+}
+
 import { PrismaClient } from "@prisma/client";
 import { seedBaseDeDatos } from "../database/seed";
 

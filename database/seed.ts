@@ -23,8 +23,8 @@ export async function seedBaseDeDatos(prismaClient: PrismaClient = prisma) {
   if (!configExistente) {
     await prismaClient.configuracionEmpresa.create({
       data: {
-        nombreTienda: "Mi Empresa",
-        nombreComercial: "Mi Empresa",
+        nombreTienda: "MI EMPRESA POS",
+        nombreComercial: "MI EMPRESA POS",
         eslogan: "Sistema de Control POS y Facturación Local",
         nit: "000000000-0",
         regimenFiscal: "No Responsable de IVA",

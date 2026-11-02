@@ -21,7 +21,8 @@
     "db:reset-fabrica": "tsx scripts/reset-db-fabrica.ts",
     "escanear:puertos": "node scripts/escanear-y-elegir-puertos.js",
     "verificar:puertos": "node scripts/escanear-y-elegir-puertos.js",
-    "configurar:puertos": "node scripts/escanear-y-elegir-puertos.js"
+    "configurar:puertos": "node scripts/escanear-y-elegir-puertos.js",
+    "preparar:instalador": "node scripts/preparar-paquete-instalador.js"
   },
   "prisma": {
     "schema": "database/schema.prisma",
