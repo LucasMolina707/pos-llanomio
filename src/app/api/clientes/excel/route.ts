@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
       const buffer = generarExcelExportacionClientes(clientes);
       const hoy = new Date().toISOString().split("T")[0];
-      const filename = `Respaldo_Clientes_Llanomio_${hoy}.xlsx`;
+      const filename = `Respaldo_Clientes_${hoy}.xlsx`;
 
       return new NextResponse(buffer as unknown as BodyInit, {
         status: 200,
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 
     // Modo Plantilla por defecto
     const buffer = generarExcelPlantillaClientes();
-    const filename = "Plantilla_Regleta_Clientes_Llanomio.xlsx";
+    const filename = "Plantilla_Regleta_Clientes.xlsx";
 
     return new NextResponse(buffer as unknown as BodyInit, {
       status: 200,

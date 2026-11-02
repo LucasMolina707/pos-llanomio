@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       searchParams.get("info") === "true" ||
       searchParams.get("metadata") === "true";
 
-    const carpetaPrincipal = "C:\\POS_LLANOMIO_BACKUPS";
+    const carpetaPrincipal = "C:\\POS_BACKUPS";
     const carpetaHistorial = path.join(carpetaPrincipal, "historial");
     const carpetaLocal = path.join(process.cwd(), "database", "backups_locales");
 
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
         fechaModificacion: Date;
       }[] = [];
 
-      const rutaUltimo = path.join(carpetaPrincipal, "llanomio_ULTIMO.db");
+      const rutaUltimo = path.join(carpetaPrincipal, "pos_ULTIMO.db");
       if (fs.existsSync(rutaUltimo)) {
         const stat = fs.statSync(rutaUltimo);
         ultimoRespaldo = {
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
       if (fs.existsSync(dirHistorial)) {
         archivosHistorial = fs
           .readdirSync(dirHistorial)
-          .filter((f) => f.endsWith(".db") && f !== "llanomio_ULTIMO.db")
+          .filter((f) => f.endsWith(".db") && f !== "pos_ULTIMO.db")
           .map((archivo) => {
             const ruta = path.join(dirHistorial, archivo);
             const stat = fs.statSync(ruta);
@@ -156,7 +156,7 @@ export async function GET(req: NextRequest) {
     const stat = fs.statSync(rutaArchivoFisico);
     const fileBuffer = fs.readFileSync(rutaArchivoFisico);
 
-    // Formatear fecha para el archivo descargado: Respaldo_Sistema_Llanomio_YYYY-MM-DD_HH-mm-ss.db
+    // Formatear fecha para el archivo descargado: Respaldo_Sistema_YYYY-MM-DD_HH-mm-ss.db
     const ahora = new Date();
     const anio = ahora.getFullYear();
     const mes = String(ahora.getMonth() + 1).padStart(2, "0");
@@ -164,7 +164,7 @@ export async function GET(req: NextRequest) {
     const horas = String(ahora.getHours()).padStart(2, "0");
     const minutos = String(ahora.getMinutes()).padStart(2, "0");
     const segundos = String(ahora.getSeconds()).padStart(2, "0");
-    const nombreDescarga = `Respaldo_Sistema_Llanomio_${anio}-${mes}-${dia}_${horas}-${minutos}-${segundos}.db`;
+    const nombreDescarga = `Respaldo_Sistema_${anio}-${mes}-${dia}_${horas}-${minutos}-${segundos}.db`;
 
     return new NextResponse(fileBuffer, {
       status: 200,

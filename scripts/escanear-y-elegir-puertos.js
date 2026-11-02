@@ -1,6 +1,6 @@
 /**
  * Asistente Interactivo de Red, Puertos y Multi-Instancia
- * POS LLANOMIO - Automatizacion de Infraestructura Windows (Agentes 1, 4 y 5)
+ * POS LOCAL - Automatizacion de Infraestructura Windows (Agentes 1, 4 y 5)
  *
  * NOTA DE ARQUITECTURA:
  * Este script utiliza EXCLUSIVAMENTE modulos nativos de Node.js (net, readline, fs, path, os, child_process)
@@ -193,7 +193,7 @@ function guardarVariablesEnv(nuevasVars) {
     contenido = fs.readFileSync(RUTA_ENV, "utf-8");
   } else {
     contenido =
-      '# Configuracion de Entorno POS LLANOMIO\nDATABASE_URL="file:./llanomio.db"\nNODE_ENV="production"\n';
+      '# Configuracion de Entorno POS LOCAL\nDATABASE_URL="file:./llanomio.db"\nNODE_ENV="production"\n';
   }
 
   const lineas = contenido.split(/\r?\n/);
@@ -227,10 +227,10 @@ function guardarVariablesEnv(nuevasVars) {
  */
 function normalizarIdentificadorInstancia(input) {
   if (!input || input.trim() === "") {
-    return "pos-llanomio";
+    return "pos-empresa";
   }
   let str = input.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-").replace(/^-+|-+$/g, "");
-  if (!str) return "pos-llanomio";
+  if (!str) return "pos-empresa";
   if (!str.startsWith("pos-")) {
     str = `pos-${str}`;
   }
@@ -263,14 +263,14 @@ function normalizarNombreBd(input) {
  */
 function normalizarDominioLocal(input) {
   if (!input || input.trim() === "") {
-    return "llanomio.local";
+    return "pos-local.local";
   }
   let str = input.trim().toLowerCase();
   if (str.endsWith(".local")) {
     str = str.slice(0, -6);
   }
   let limpio = str.replace(/[^a-z0-9-]/g, "-").replace(/^-+|-+$/g, "");
-  if (!limpio) return "llanomio.local";
+  if (!limpio) return "pos-local.local";
   return `${limpio}.local`;
 }
 
@@ -316,7 +316,7 @@ async function main() {
   const argDomainForzado = argDomainParam ? argDomainParam.split("=")[1] : null;
 
   console.log("===============================================================================");
-  console.log("   SISTEMA POS LLANOMIO - ASISTENTE MULTI-INSTANCIA Y PUERTOS DE RED LOCAL    ");
+  console.log("   SISTEMA POS LOCAL - ASISTENTE MULTI-INSTANCIA Y PUERTOS DE RED LOCAL    ");
   console.log("===============================================================================");
   console.log("");
 
@@ -366,13 +366,13 @@ async function main() {
   console.log("");
 
   const envActual = leerVariablesEnv();
-  const instanceEnvActual = envActual.INSTANCE_ID || "pos-llanomio";
+  const instanceEnvActual = envActual.INSTANCE_ID || "pos-empresa";
   const puertoEnvActual = envActual.PORT ? parseInt(envActual.PORT, 10) : null;
   const proxyEnvActual = envActual.HTTP_PORT ? parseInt(envActual.HTTP_PORT, 10) : null;
   const dbEnvActual = envActual.DATABASE_URL
     ? envActual.DATABASE_URL.replace(/file:\.\/|file:/g, "")
     : "llanomio.db";
-  const domainEnvActual = envActual.LOCAL_DOMAIN || "llanomio.local";
+  const domainEnvActual = envActual.LOCAL_DOMAIN || "pos-local.local";
 
   if (puertoEnvActual || envActual.INSTANCE_ID) {
     console.log("[CONFIGURACION ACTUAL PREVIA EN .ENV]");
@@ -412,7 +412,7 @@ async function main() {
     console.log("1. IDENTIFICADOR DE INSTANCIA DE SERVICIO (PM2):");
     console.log("-------------------------------------------------------------------------------");
     console.log("Nombre del proceso en el gestor PM2 para aislar multiples tiendas en este equipo.");
-    console.log("Ejemplos: presione ENTER para 'pos-llanomio' o escriba 'pos-tienda2', 'pos-norte', etc.");
+    console.log("Ejemplos: presione ENTER para 'pos-empresa' o escriba 'pos-tienda2', 'pos-norte', etc.");
     console.log("");
     const respInstance = await preguntar(
       rl,
@@ -527,7 +527,7 @@ async function main() {
     console.log("CONFIGURACION DE BASE DE DATOS SQLITE (MULTI-INSTANCIA):");
     console.log("-------------------------------------------------------------------------------");
     console.log("Permite separar los datos contables de distintas tiendas o sedes en el mismo PC.");
-    console.log("Ejemplos: presione ENTER para 'llanomio.db' o escriba 'tienda1', 'llanomio_norte', etc.");
+    console.log("Ejemplos: presione ENTER para 'llanomio.db' o escriba 'tienda1', 'pos_norte', etc.");
     console.log("");
 
     const respBd = await preguntar(
@@ -542,7 +542,7 @@ async function main() {
     console.log("CONFIGURACION DE DOMINIO LOCAL EN RED WI-FI (mDNS / BONJOUR):");
     console.log("-------------------------------------------------------------------------------");
     console.log("Permite que celulares y tablets ingresen por nombre en lugar de recordar la IP.");
-    console.log("Ejemplos: presione ENTER para 'llanomio.local' o escriba 'tienda1', 'pos-sur.local', etc.");
+    console.log("Ejemplos: presione ENTER para 'pos-local.local' o escriba 'tienda1', 'pos-sur.local', etc.");
     console.log("");
 
     const respDomain = await preguntar(

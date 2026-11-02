@@ -53,9 +53,9 @@ export type TipoModalCajonRequerido =
   | "BLOQUEADO_DIA_ANTERIOR"
   | null;
 
-const STORAGE_DEVICE_KEY = "llanomio_device_id";
+const STORAGE_DEVICE_KEY = "pos_device_id";
 const getStorageCajonKey = (userId?: string) =>
-  userId ? `llanomio_cajon_vinculado_${userId}` : "llanomio_cajon_vinculado_default";
+  userId ? `pos_cajon_vinculado_${userId}` : "pos_cajon_vinculado_default";
 
 export function obtenerODefinirDeviceId(): string {
   if (typeof window === "undefined") return "server_device";
@@ -69,7 +69,7 @@ export function obtenerODefinirDeviceId(): string {
 
 export function notificarCajaActualizada(): void {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("llanomio_caja_actualizada"));
+    window.dispatchEvent(new CustomEvent("pos_caja_actualizada"));
   }
 }
 
@@ -409,7 +409,7 @@ export function useCajonSincronizado() {
       }
     };
 
-    window.addEventListener("llanomio_caja_actualizada", handleCajaEvent);
+    window.addEventListener("pos_caja_actualizada", handleCajaEvent);
     window.addEventListener("caja_actualizada", handleCajaEvent);
     window.addEventListener("focus", handleVisibilidadCaja);
     document.addEventListener("visibilitychange", handleVisibilidadCaja);
@@ -421,7 +421,7 @@ export function useCajonSincronizado() {
     }, 30000);
 
     return () => {
-      window.removeEventListener("llanomio_caja_actualizada", handleCajaEvent);
+      window.removeEventListener("pos_caja_actualizada", handleCajaEvent);
       window.removeEventListener("caja_actualizada", handleCajaEvent);
       window.removeEventListener("focus", handleVisibilidadCaja);
       document.removeEventListener("visibilitychange", handleVisibilidadCaja);
@@ -434,7 +434,7 @@ export function useCajonSincronizado() {
 
   const notificarCajaActualizada = useCallback(() => {
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("llanomio_caja_actualizada"));
+      window.dispatchEvent(new CustomEvent("pos_caja_actualizada"));
       window.dispatchEvent(new CustomEvent("caja_actualizada"));
     }
   }, []);

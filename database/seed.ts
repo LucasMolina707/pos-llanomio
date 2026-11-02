@@ -23,8 +23,8 @@ export async function seedBaseDeDatos(prismaClient: PrismaClient = prisma) {
   if (!configExistente) {
     await prismaClient.configuracionEmpresa.create({
       data: {
-        nombreTienda: "MI EMPRESA POS",
-        nombreComercial: "MI EMPRESA POS",
+        nombreTienda: "Mi Empresa",
+        nombreComercial: "Mi Empresa",
         eslogan: "Sistema de Control POS y Facturación Local",
         nit: "000000000-0",
         regimenFiscal: "No Responsable de IVA",
@@ -40,7 +40,7 @@ export async function seedBaseDeDatos(prismaClient: PrismaClient = prisma) {
         piePaginaFactura: "¡Gracias por su compra y confianza!",
         formatoPredeterminado: "MEDIA_CARTA",
         formatoImpresionDefault: FormatoImpresion.MEDIA_CARTA,
-        rutaCarpetaRespaldo: "C:\\POS_LLANOMIO_BACKUPS",
+        rutaCarpetaRespaldo: "C:\\POS_BACKUPS",
       },
     });
     console.log("-> [OK] Configuración empresarial neutra de fábrica creada.");
@@ -51,7 +51,7 @@ export async function seedBaseDeDatos(prismaClient: PrismaClient = prisma) {
   // 2. Cuenta Única de Administrador Inicial (admin / admin123)
   const passwordAdminHash = await bcrypt.hash("admin123", 10);
   const pinInicialHash = await bcrypt.hash("000000", 10);
-  const respuestaInicialHash = await bcrypt.hash("llanomio", 10);
+  const respuestaInicialHash = await bcrypt.hash("pos2026", 10);
 
   const adminUser = await prismaClient.user.upsert({
     where: { username: "admin" },

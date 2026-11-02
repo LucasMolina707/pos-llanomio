@@ -249,21 +249,21 @@ export default function PosPage() {
 
   // Configuración de la Empresa
   const [empresaConfig, setEmpresaConfig] = useState<any>({
-    nombreTienda: "LLANOMIO",
-    nombreComercial: "LLANOMIO",
-    eslogan: "Trajes Típicos, Disfraces y Sastrería",
+    nombreTienda: "Mi Empresa",
+    nombreComercial: "Mi Empresa",
+    eslogan: "Punto de Venta y Alquileres",
     nit: "900.123.456-7",
     regimenFiscal: "No Responsable de IVA",
-    direccion: "Calle 15 # 22-30, Barrio Siete de Agosto",
-    ciudad: "Villavicencio, Meta",
-    telefono: "310 123 4567",
-    email: "contacto@llanomio.com",
+    direccion: "Dirección Principal",
+    ciudad: "Ciudad Comercial",
+    telefono: "300 123 4567",
+    email: "contacto@miempresa.com",
     logoUrl: null,
-    encabezadoFactura: "Ropa, Disfraces, Trajes Típicos y Sastrería Profesional",
+    encabezadoFactura: "Punto de Venta, Alquileres y Servicios",
     mostrarVendedorFactura: true,
     politicasFactura:
-      "Prendas de alquiler deben devolverse en perfecto estado en la fecha pactada. Pasada la hora pactada se generará recargo de mora automático.",
-    piePaginaFactura: "¡Gracias por su preferencia! Sistema POS Local LLANOMIO",
+      "Prendas y artículos de alquiler deben devolverse en perfecto estado en la fecha pactada. Pasada la hora pactada se generará recargo de mora automático.",
+    piePaginaFactura: "¡Gracias por su preferencia!",
     formatoPredeterminado: "MEDIA_CARTA" as const,
   });
 

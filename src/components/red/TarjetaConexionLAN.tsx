@@ -285,7 +285,7 @@ export default function TarjetaConexionLAN({
             <button
               type="button"
               onClick={() => setModoAcceso("MDNS")}
-              title="Enlace http://llanomio.local ideal para dispositivos Apple/Bonjour y PCs en red local"
+              title="Enlace dominio local ideal para dispositivos Apple/Bonjour y PCs en red local"
               className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs font-bold cursor-pointer ${
                 modoAcceso === "MDNS"
                   ? "bg-blue-50/80 border-blue-500 text-blue-900 shadow-2xs ring-1 ring-blue-500/20"

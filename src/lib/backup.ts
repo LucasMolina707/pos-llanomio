@@ -48,19 +48,19 @@ export function obtenerTimestamp(): string {
 export function generarNombreArchivoRespaldo(motivo: string, timestamp: string): string {
   const motivoUpper = motivo.toUpperCase();
   if (motivoUpper.includes("CIERRE")) {
-    return `llanomio_CIERRE_CAJA_${timestamp}.db`;
+    return `pos_CIERRE_CAJA_${timestamp}.db`;
   }
   if (motivoUpper.includes("GERENCIAL") || motivoUpper === "MANUAL" || motivoUpper.includes("ADMIN")) {
-    return `llanomio_RESPALDO_GERENCIAL_${timestamp}.db`;
+    return `pos_RESPALDO_GERENCIAL_${timestamp}.db`;
   }
   const limpio = motivoUpper.replace(/[^A-Z0-9_]/g, "_");
-  return `llanomio_${limpio}_${timestamp}.db`;
+  return `pos_${limpio}_${timestamp}.db`;
 }
 
 /**
  * Purga los respaldos fechados excedentes en un directorio, conservando únicamente
  * los últimos N archivos más recientes según su fecha de modificación (mtime).
- * NUNCA elimina 'llanomio_ULTIMO.db', 'llanomio.db', '.gitkeep' ni respaldos de emergencia.
+ * NUNCA elimina 'pos_ULTIMO.db', 'llanomio.db', '.gitkeep' ni respaldos de emergencia.
  */
 export function purgarRespaldosExcedentes(directorio: string, limiteMaximo = 15): number {
   if (!fs.existsSync(directorio)) return 0;
@@ -70,10 +70,10 @@ export function purgarRespaldosExcedentes(directorio: string, limiteMaximo = 15)
       .filter(
         (f) =>
           f.endsWith(".db") &&
-          f !== "llanomio_ULTIMO.db" &&
+          f !== "pos_ULTIMO.db" &&
           f !== "llanomio.db" &&
           f !== ".gitkeep" &&
-          !f.startsWith("llanomio_EMERGENCIA")
+          !f.startsWith("pos_EMERGENCIA")
       )
       .map((nombre) => {
         const rutaCompleta = path.join(directorio, nombre);
@@ -264,7 +264,7 @@ export async function generarVolcadosEstructurados(
  * Abre la carpeta de respaldos en el Explorador de Windows en el servidor local.
  */
 export function abrirCarpetaEnExplorador(ruta?: string): { ok: boolean; mensaje: string; ruta: string } {
-  const rutaDestino = ruta || "C:\\POS_LLANOMIO_BACKUPS";
+  const rutaDestino = ruta || "C:\\POS_BACKUPS";
   try {
     if (!fs.existsSync(rutaDestino)) {
       fs.mkdirSync(rutaDestino, { recursive: true });
@@ -297,11 +297,11 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
   const timestamp = obtenerTimestamp();
   const nombreArchivo = generarNombreArchivoRespaldo(motivo, timestamp);
 
-  const carpetaPrincipal = "C:\\POS_LLANOMIO_BACKUPS";
+  const carpetaPrincipal = "C:\\POS_BACKUPS";
   const carpetaHistorial = path.join(carpetaPrincipal, "historial");
   const carpetaLocal = path.join(process.cwd(), "database", "backups_locales");
 
-  const rutaUltimo = path.join(carpetaPrincipal, "llanomio_ULTIMO.db");
+  const rutaUltimo = path.join(carpetaPrincipal, "pos_ULTIMO.db");
   const rutaHistorial = path.join(carpetaHistorial, nombreArchivo);
   const rutaLocal = path.join(carpetaLocal, nombreArchivo);
 
@@ -311,7 +311,7 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
       try {
         fs.mkdirSync(carpetaPrincipal, { recursive: true });
       } catch (errDir) {
-        console.warn("[BACKUP] No se pudo crear directorio externo C:\\POS_LLANOMIO_BACKUPS:", errDir);
+        console.warn("[BACKUP] No se pudo crear directorio externo C:\\POS_BACKUPS:", errDir);
       }
     }
     if (fs.existsSync(carpetaPrincipal) && !fs.existsSync(carpetaHistorial)) {
@@ -348,7 +348,7 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
       throw new Error("El archivo de respaldo generado tiene tamaño de 0 bytes.");
     }
 
-    // 6. Replicar a la carpeta externa (llanomio_ULTIMO.db y subcarpeta historial)
+    // 6. Replicar a la carpeta externa (pos_ULTIMO.db y subcarpeta historial)
     try {
       if (fs.existsSync(carpetaPrincipal)) {
         // Actualizar el archivo maestro de sincronización con la nube
@@ -363,7 +363,7 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
         }
       }
     } catch (errCopiaExterna) {
-      console.warn("[BACKUP] Advertencia al replicar en almacenamiento externo C:\\POS_LLANOMIO_BACKUPS:", errCopiaExterna);
+      console.warn("[BACKUP] Advertencia al replicar en almacenamiento externo C:\\POS_BACKUPS:", errCopiaExterna);
     }
 
     // 6.b Generar volcados estructurados por carpetas (inventario, clientes, facturas, caja)
@@ -418,7 +418,7 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
  * Valida la integridad física y lógica de un archivo SQLite antes de usarlo.
  * 1. Verifica la cabecera mágica "SQLite format 3\0".
  * 2. Ejecuta PRAGMA integrity_check mediante conexión temporal ATTACH DATABASE.
- * 3. Comprueba que contenga las tablas esenciales del sistema POS Llanomio.
+ * 3. Comprueba que contenga las tablas esenciales del sistema POS.
  */
 export async function validarIntegridadSqlite(
   rutaArchivoTemporal: string
@@ -488,7 +488,7 @@ export async function validarIntegridadSqlite(
       return {
         valido: false,
         tablasDetectadas: tablasEncontradas.map((t) => t.name),
-        error: `El archivo SQLite no corresponde a una base de datos del POS Llanomio (tablas esenciales no encontradas en el esquema).`,
+        error: `El archivo SQLite no corresponde a una base de datos del POS (tablas esenciales no encontradas en el esquema).`,
       };
     }
 
@@ -530,15 +530,15 @@ export async function restaurarBaseDeDatosDesdeBuffer(
 
   const rutaTemp = path.join(carpetaDatabase, `temp_restauracion_${timestamp}.db`);
   const carpetaBackupsLocales = path.join(carpetaDatabase, "backups_locales");
-  const carpetaPrincipal = "C:\\POS_LLANOMIO_BACKUPS";
+  const carpetaPrincipal = "C:\\POS_BACKUPS";
 
   const rutaEmergenciaLocal = path.join(
     carpetaBackupsLocales,
-    `llanomio_EMERGENCIA_PRE_RESTAURACION_${timestamp}.db`
+    `pos_EMERGENCIA_PRE_RESTAURACION_${timestamp}.db`
   );
   const rutaEmergenciaExterna = path.join(
     carpetaPrincipal,
-    `llanomio_EMERGENCIA_PRE_RESTAURACION_${timestamp}.db`
+    `pos_EMERGENCIA_PRE_RESTAURACION_${timestamp}.db`
   );
 
   try {
@@ -570,7 +570,7 @@ export async function restaurarBaseDeDatosDesdeBuffer(
         }
         fs.copyFileSync(rutaDbActiva, rutaEmergenciaExterna);
         // También actualizar el archivo estático de emergencia
-        const rutaEmergenciaFija = path.join(carpetaPrincipal, "llanomio_EMERGENCIA_PRE_RESTAURACION.db");
+        const rutaEmergenciaFija = path.join(carpetaPrincipal, "pos_EMERGENCIA_PRE_RESTAURACION.db");
         fs.copyFileSync(rutaDbActiva, rutaEmergenciaFija);
       } catch (errExt) {
         console.warn("[RESTAURACION] Advertencia al copiar respaldo de emergencia externo:", errExt);

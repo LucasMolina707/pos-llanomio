@@ -1,4 +1,4 @@
-# REGISTRO MAESTRO DE USUARIOS, CREDENCIALES Y PROTOCOLO DE RECUPERACIÓN POS LLANOMIO
+# REGISTRO MAESTRO DE USUARIOS, CREDENCIALES Y PROTOCOLO DE RECUPERACIÓN POS LOCAL
 
 > **AVISO DE SEGURIDAD OPERATIVA:** Este documento reside en el servidor local de la tienda (`C:\Proyectos\pos-llanomio`). Contiene las credenciales base, la matriz oficial de roles y permisos (RBAC), el Protocolo Criptográfico de 3 Factores Locales contra SQLite (`database/llanomio.db`) y el registro auto-sincronizado de cuentas.
 
@@ -18,12 +18,12 @@ Para restaurar la contraseña del Administrador directamente desde la pantalla d
 
 1. **Factor 1 - Identificación Registrada:** Cédula de Ciudadanía o NIT del titular asignado (Valor de fábrica: `0000000000`, personalizable en `/admin/usuarios`).
 2. **Factor 2 - PIN de Seguridad de 6 Dígitos:** Código numérico confidencial (Valor de fábrica: `000000`, hasheado con `bcryptjs` en BD).
-3. **Factor 3 - Pregunta y Respuesta de Seguridad:** Pregunta y respuesta secreta (Valor de fábrica: `llanomio`, hasheado con `bcryptjs` en BD).
+3. **Factor 3 - Pregunta y Respuesta de Seguridad:** Pregunta y respuesta secreta (Valor de fábrica: `pos2026`, hasheado con `bcryptjs` en BD).
 
 > **Protección Anti-Fuerza Bruta en SQLite:** Si se introducen datos incorrectos 3 veces consecutivas, la cuenta entra en un bloqueo persistente en base de datos (`bloqueadoHasta`) durante **15 minutos**, impidiendo ataques por recarga de página o reinicio del navegador.
 
 #### ¿Cómo restaurar una contraseña olvidada desde el navegador?
-1. Dirígete a la pantalla de inicio de sesión (`http://llanomio.local/login` o `http://localhost:3000/login`).
+1. Dirígete a la pantalla de inicio de sesión (`http://localhost:3000/login` o `http://localhost:3000/login`).
 2. Haz clic en el enlace discreto: **"Restaurar contraseña mediante verificación de identidad"**.
 3. **Paso 1:** Ingresa el usuario (`admin`) y el Documento de Identidad registrado. El servidor verifica que la cuenta no esté bloqueada y retorna únicamente la pregunta secreta asignada.
 4. **Paso 2:** Ingresa la Respuesta secreta, el PIN de Seguridad de 6 dígitos y la Nueva Contraseña (mínimo 6 caracteres).
@@ -52,7 +52,7 @@ El sistema opera bajo un modelo de control de acceso basado en roles con permiso
 
 ## 3. Directorio Auto-Sincronizado de Usuarios en SQLite (`database/llanomio.db`)
 
-> **Última sincronización automática:** 1/11/2026, 3:55 p. m. (Hora Colombia)
+> **Última sincronización automática:** 1/11/2026, 4:27 p. m. (Hora Colombia)
 > Total de cuentas registradas: **1** (1 Administradores, 0 Cajeros)
 
 | Nombre Completo | Usuario (`username`) | Rol | Estado | Seguridad 3-Factores | Intentos Fallidos | Transacciones | Último Cambio de Clave |

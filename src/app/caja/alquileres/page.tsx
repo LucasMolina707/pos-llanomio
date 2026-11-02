@@ -1247,7 +1247,7 @@ export default function TerminalAlquileresPage() {
             ALQUILERES
           </span>
           <span className="text-xs text-slate-500 font-bold hidden md:inline truncate">
-            • {empresaConfig?.nombreComercial || "LLANOMIO"}
+            • {empresaConfig?.nombreComercial || "Mi Empresa"}
           </span>
         </div>
 

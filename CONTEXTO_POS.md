@@ -2927,3 +2927,48 @@ Se diseñó, estructuró y automatizó el paquete de instalación portable y aut
 5. **Control de Calidad (QA):**
    - Verificación estricta de tipos TypeScript con `npx tsc --noEmit` completada con **0 errores**.
    - Compilación exitosa de producción con `npm run build` en las 22 rutas del sistema.
+
+
+---
+
+## 40. LIMPIEZA Y NEUTRALIZACIÓN TOTAL DE MARCA ("MI EMPRESA") Y ASISTENTE SMART INSTALL MAKER (NOVIEMBRE 2026)
+
+### 1. Generalización y Personalización Completa de Marca ("Mi Empresa")
+Se ejecutó una depuración exhaustiva en todo el código fuente, base de datos y esquemas para erradicar cualquier texto estático hardcoded de "LLANOMIO", reemplazándolo por el nombre base configurable **"Mi Empresa"**:
+- **Interfaz de Usuario y Componentes Visuales:**
+  - `src/components/brand/LogoEmpresa.tsx`: Nombre por defecto cambiado a "Mi Empresa", subtítulo genérico "Punto de Venta y Alquileres".
+  - `src/app/layout.tsx`: Título metadata global actualizado a "Mi Empresa POS - Sistema de Facturación e Inventario Local".
+  - `src/components/layout/Sidebar.tsx`: Cabecera integrada con `LogoEmpresa` dinámico y badges de red local neutralizados.
+  - `src/components/layout/Navbar.tsx`: Indicador de red local desacoplado a "Red Local LAN".
+  - `src/app/page.tsx`: Badges y sesiones actualizadas a identificadores neutros (`pos_user`).
+  - `src/components/layout/AppLayout.tsx`: Manejo de caché de sesión desacoplado a `pos_user`.
+  - `src/app/login/page.tsx`: Avisos de conectividad en red Wi-Fi generalizados.
+  - `src/components/red/TarjetaConexionLAN.tsx`: Tooltip mDNS actualizado sin dominios hardcoded.
+  - `src/hooks/useCajonSincronizado.ts`: Claves de almacenamiento y eventos renombrados a `pos_device_id` y `caja_actualizada`.
+- **Plantillas de Impresión y Facturas:**
+  - `src/components/impresion/PlantillaImpresion.tsx`: Fallbacks de nombre comercial, razón social, encabezados y pies de página actualizados a "Mi Empresa" o valores dinámicos configurables.
+  - `src/lib/pdf-media-carta.ts`: Títulos de caja y firmas cambiados a "Caja Principal" y nombres comerciales dinámicos.
+  - `src/lib/whatsapp.ts`: Mensajes salientes modificados para referenciar "nuestra empresa".
+  - `src/app/api/facturas/[id]/pdf/route.ts` y `src/app/api/impresion/[id]/route.ts`: Fallbacks de datos corporativos cambiados a "Mi Empresa", NIT genérico y correo `contacto@miempresa.com`.
+- **Servicios Backend, Autenticación y Seguridad:**
+  - `src/lib/auth.ts` y `src/middleware.ts`: Nombre de la cookie de sesión estandarizado a `pos_session` y secret por defecto genérico.
+  - `src/app/api/auth/recuperar/route.ts`: Pregunta institucional cambiada a "¿Cuál es la clave de seguridad de recuperación del sistema?" y soporte para palabra maestra configurable.
+  - `src/app/api/auth/logout/route.ts`: Respaldo automático dirigido a `C:\POS_BACKUPS`.
+  - `src/app/api/empresa/publico/route.ts`: Fallback público totalmente neutro para Login y mostrador.
+  - `src/app/api/configuracion/route.ts`: Creación inicial de configuración con valores neutros de fábrica.
+  - `src/app/admin/configuracion/page.tsx`: Formulario, simuladores y botones de respaldo apuntando a `C:\POS_BACKUPS`.
+  - `src/app/admin/usuarios/page.tsx`: Preguntas de seguridad y textos contables neutralizados.
+  - `src/app/api/clientes/excel/route.ts` e `inventario/excel/route.ts`: Nombres de descarga y plantillas renombrados a `Respaldo_Clientes_*.xlsx` y `Respaldo_Inventario_*.xlsx`.
+  - `src/server-mdns.ts`: Parametrización dinámica desde variables de entorno (`INSTANCE_ID`, `LOCAL_DOMAIN`, `MDNS_NAME`) con valores neutros por defecto.
+- **Esquema de Base de Datos y Sembrado:**
+  - `prisma/schema.prisma`: Valores `@default("Mi Empresa")`, NIT `000.000.000-0`, correo `contacto@miempresa.com` y ruta `C:\POS_BACKUPS`.
+  - `database/seed.ts`: Sembrado de fábrica con "Mi Empresa" y hashes iniciales neutralizados.
+
+### 2. Paquete de Distribución para Smart Install Maker
+Se creó la infraestructura de instalación autónoma (.exe) para Smart Install Maker:
+- `instalador_tienda/paquete_portable/post-instalar.bat`: Script maestro post-extracción que auto-eleva privilegios de administrador, verifica el motor Node.js (portable o global), crea las carpetas de respaldo en `C:\POS_BACKUPS`, invoca el asistente interactivo de puertos, abre las reglas en el Firewall de Windows, registra los servicios en PM2 con auto-arranque en Startup y crea los accesos directos en el Escritorio.
+- `instalador_tienda/GUIA_SMART_INSTALL_MAKER.md`: Manual operativo técnico detallado paso a paso para configurar las 7 pestañas de Smart Install Maker y generar el instalador final `.exe`.
+
+### 3. Control de Calidad (QA)
+- Verificación estricta de TypeScript con `npx tsc --noEmit`: **0 errores**.
+- Compilación de producción con `npm run build`: **Compilación exitosa (código 0) de las 22 rutas del sistema**.

@@ -242,17 +242,9 @@ export default function Sidebar({
             <Link
               href="/"
               onClick={() => isMobile && onCloseMobile && onCloseMobile()}
-              className="flex items-center gap-2.5 min-w-0 truncate hover:opacity-90 transition"
+              className="flex items-center gap-2 min-w-0 truncate hover:opacity-90 transition"
             >
-              <LogoEmpresa size="sm" showText={false} />
-              <div className="flex flex-col min-w-0 truncate">
-                <span className="text-sm font-extrabold text-slate-900 leading-tight truncate">
-                  LLANOMIO POS
-                </span>
-                <span className="text-[11px] font-medium text-slate-500 leading-tight truncate">
-                  Sistema de Mostrador
-                </span>
-              </div>
+              <LogoEmpresa size="sm" showText={true} showSubtitle={true} />
             </Link>
 
             {/* Controles de fijado o cierre según escritorio o móvil */}
@@ -367,7 +359,7 @@ export default function Sidebar({
         {!isExpanded ? (
           <div
             className="h-9 w-full flex items-center justify-center rounded-xl bg-slate-100/90 border border-slate-200/80 text-slate-700 cursor-default"
-            title="LAN Activa · llanomio.local (Servicio mDNS activo)"
+            title="LAN Activa · Red Local (Servicio mDNS activo)"
           >
             <div className="relative flex h-2 w-2 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -377,13 +369,13 @@ export default function Sidebar({
         ) : (
           <div
             className="px-3 py-2 rounded-xl bg-slate-100/90 border border-slate-200/80 flex items-center gap-2.5 text-xs font-semibold text-slate-700 cursor-default"
-            title="Servicio mDNS activo en http://llanomio.local (Puerto 80)"
+            title="Servicio mDNS y acceso activo en red local"
           >
             <div className="relative flex h-2 w-2 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </div>
-            <span className="truncate">LAN Activa · llanomio.local</span>
+            <span className="truncate">Red Local LAN Activa</span>
           </div>
         )}
 

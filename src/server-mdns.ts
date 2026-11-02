@@ -23,10 +23,13 @@ export function obtenerIpLocal(): string {
 
 const PUERTO_PROXY = parseInt(process.env.PORT_PROXY || process.env.HTTP_PORT || "80", 10);
 const PUERTO_DESTINO = parseInt(process.env.PORT_NEXT || process.env.PORT || "3000", 10);
+const NOMBRE_MDNS = process.env.MDNS_NAME || process.env.INSTANCE_ID || "pos-local";
+const HOST_MDNS = process.env.LOCAL_DOMAIN || "pos-local.local";
+const APP_NAME = process.env.INSTANCE_ID || "pos-local";
 const ipLocal = obtenerIpLocal();
 
 console.log("=============================================================");
-console.log("  INICIANDO SERVICIO mDNS (BONJOUR) Y PROXY LAN - LLANOMIO  ");
+console.log("  INICIANDO SERVICIO mDNS (BONJOUR) Y PROXY LAN - POS LOCAL  ");
 console.log("=============================================================");
 console.log(`[mDNS] IP Local detectada en red: ${ipLocal}`);
 
@@ -35,20 +38,20 @@ const bonjour = new Bonjour();
 
 try {
   const servicioMdns = bonjour.publish({
-    name: "llanomio",
+    name: NOMBRE_MDNS,
     type: "http",
     port: PUERTO_PROXY,
-    host: "llanomio.local",
+    host: HOST_MDNS,
     txt: {
-      app: "pos-llanomio",
+      app: APP_NAME,
       version: "1.0.0",
-      description: "Punto de Venta Local LLANOMIO",
+      description: "Punto de Venta Local",
     },
   });
 
   servicioMdns.on("up", () => {
-    console.log(`[mDNS] Anuncio Zero-Config activo: http://llanomio.local:${PUERTO_PROXY}`);
-    console.log(`[mDNS] Cualquier celular o tablet en el Wi-Fi puede ingresar a: http://llanomio.local`);
+    console.log(`[mDNS] Anuncio Zero-Config activo: http://${HOST_MDNS}:${PUERTO_PROXY}`);
+    console.log(`[mDNS] Cualquier celular o tablet en el Wi-Fi puede ingresar a: http://${HOST_MDNS}`);
   });
 
   servicioMdns.on("error", (err: unknown) => {
@@ -68,9 +71,9 @@ if (PUERTO_PROXY !== PUERTO_DESTINO) {
       method: req.method,
       headers: {
         ...req.headers,
-        host: req.headers.host || `llanomio.local:${PUERTO_PROXY}`,
+        host: req.headers.host || `${HOST_MDNS}:${PUERTO_PROXY}`,
         "x-forwarded-for": req.socket.remoteAddress || "",
-        "x-forwarded-host": req.headers.host || "llanomio.local",
+        "x-forwarded-host": req.headers.host || HOST_MDNS,
         "x-forwarded-proto": "http",
       },
     };
@@ -94,7 +97,7 @@ if (PUERTO_PROXY !== PUERTO_DESTINO) {
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <meta http-equiv="refresh" content="2">
-            <title>LLANOMIO POS - Inicializando</title>
+            <title>Mi Empresa POS - Inicializando</title>
             <style>
               body { font-family: system-ui, -apple-system, sans-serif; background-color: #f8fafc; color: #1e293b; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
               .card { background: white; border-radius: 16px; padding: 32px; max-width: 440px; width: 100%; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); text-align: center; border: 1px solid #e2e8f0; }
@@ -107,7 +110,7 @@ if (PUERTO_PROXY !== PUERTO_DESTINO) {
           <body>
             <div class="card">
               <div class="spinner"></div>
-              <h2>LLANOMIO POS - Conectando al Sistema</h2>
+              <h2>Mi Empresa POS - Conectando al Sistema</h2>
               <p>El motor de la tienda se esta inicializando en segundo plano.</p>
               <p>Esta pagina se actualizara automaticamente en un instante...</p>
             </div>
@@ -134,12 +137,12 @@ if (PUERTO_PROXY !== PUERTO_DESTINO) {
 
   proxy.listen(PUERTO_PROXY, "0.0.0.0", () => {
     console.log(`[PROXY] Escuchando en puerto ${PUERTO_PROXY} (0.0.0.0) -> Reenviando a Next.js (127.0.0.1:${PUERTO_DESTINO})`);
-    console.log(`[ACCESO] Desde esta maquina: http://localhost o http://llanomio.local`);
-    console.log(`[ACCESO] Desde celulares en Wi-Fi: http://llanomio.local o http://${ipLocal}`);
+    console.log(`[ACCESO] Desde esta maquina: http://localhost o http://${HOST_MDNS}`);
+    console.log(`[ACCESO] Desde celulares en Wi-Fi: http://${HOST_MDNS} o http://${ipLocal}`);
   });
 } else {
   console.log(`[MODO NATIVO] Next.js configurado directamente en el puerto ${PUERTO_DESTINO}.`);
-  console.log(`[ACCESO] Celulares y tablets: http://llanomio.local o http://${ipLocal}`);
+  console.log(`[ACCESO] Celulares y tablets: http://${HOST_MDNS} o http://${ipLocal}`);
 }
 
 // 3. Manejo de señales de terminación

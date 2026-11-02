@@ -286,7 +286,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-slate-500 mt-4">
-          Red Local LAN activa en <span className="font-semibold text-slate-700">http://llanomio.local</span>
+          Red Local LAN activa en <span className="font-semibold text-slate-700">Red Wi-Fi</span>
         </p>
       </div>
 

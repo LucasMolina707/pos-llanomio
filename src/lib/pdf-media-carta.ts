@@ -263,7 +263,7 @@ function dibujarPaginaMediaCarta(
   const cajeroTexto =
     empresa.mostrarVendedorFactura !== false && factura.usuarioCajero?.nombre
       ? `Cajero: ${factura.usuarioCajero.nombre}`
-      : "Caja Principal LLANOMIO";
+      : "Caja Principal";
   doc.text(cajeroTexto, xColOp, cursorY + 11.2);
 
   if (esAlquiler) {
@@ -438,7 +438,7 @@ function dibujarPaginaMediaCarta(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(5.8);
   doc.setTextColor(148, 163, 184);
-  const pie = empresa.piePaginaFactura || "Sistema POS Local LLANOMIO — Impreso sin códigos QR externos";
+  const pie = empresa.piePaginaFactura || "Sistema POS Local — Impreso sin códigos QR externos";
   doc.text(pie, ANCHO_MEDIA_CARTA_MM / 2, ALTO_MEDIA_CARTA_MM - 3, { align: "center" });
 }
 
@@ -652,7 +652,7 @@ function dibujarPaginaCarta(
     const cajeroNom =
       empresa.mostrarVendedorFactura !== false && factura.usuarioCajero?.nombre
         ? factura.usuarioCajero.nombre
-        : "Caja Principal LLANOMIO";
+        : "Caja Principal";
     doc.text(`Atendido por: ${cajeroNom}`, colDerX, cursorY + 17.5);
   }
 
@@ -827,7 +827,7 @@ function dibujarPaginaCarta(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   doc.setTextColor(148, 163, 184);
-  const pieFinal = empresa.piePaginaFactura || `Comprobante Oficial LLANOMIO POS — Consecutivo ${factura.numeroFactura} — Impreso sin códigos QR externos`;
+  const pieFinal = empresa.piePaginaFactura || `Comprobante Oficial POS — Consecutivo ${factura.numeroFactura} — Impreso sin códigos QR externos`;
   doc.text(pieFinal, anchoCartaMm / 2, altoCartaMm - 6, { align: "center" });
 }
 
@@ -1066,7 +1066,7 @@ function dibujarContenidoTirilla(
   doc.setFontSize(6);
   doc.text("¡GRACIAS POR SU PREFERENCIA!", anchoMm / 2, cursorY, { align: "center" });
   cursorY += 2.8;
-  doc.text(empresa.piePaginaFactura || "Sistema POS Local LLANOMIO — Cero QR", anchoMm / 2, cursorY, { align: "center" });
+  doc.text(empresa.piePaginaFactura || "Sistema POS Local — Cero QR", anchoMm / 2, cursorY, { align: "center" });
 
   return cursorY + 4;
 }

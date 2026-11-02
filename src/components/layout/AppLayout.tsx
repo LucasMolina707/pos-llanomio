@@ -19,7 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [usuario, setUsuario] = useState<UsuarioSesion | null>(() => {
     if (typeof window !== "undefined") {
       try {
-        const cached = sessionStorage.getItem("pos_llanomio_user");
+        const cached = sessionStorage.getItem("pos_user");
         if (cached) return JSON.parse(cached);
       } catch {}
     }
@@ -41,14 +41,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         setUsuario(data.user);
         if (typeof window !== "undefined") {
           try {
-            sessionStorage.setItem("pos_llanomio_user", JSON.stringify(data.user));
+            sessionStorage.setItem("pos_user", JSON.stringify(data.user));
           } catch {}
         }
       } else {
         setUsuario(null);
         if (typeof window !== "undefined") {
           try {
-            sessionStorage.removeItem("pos_llanomio_user");
+            sessionStorage.removeItem("pos_user");
           } catch {}
         }
       }

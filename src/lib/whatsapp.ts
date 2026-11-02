@@ -75,17 +75,17 @@ export function generarMensajeCobroWhatsApp({
       ? new Date(fechaEntregaPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })
       : "la fecha pactada";
 
-    return `Hola ${nombreCliente}, te saludamos de LLANOMIO. Te recordamos que aunque tu factura${refFactura} fue pagada inicialmente, la prenda ${nombrePrenda} tenía fecha de entrega el ${fechaTexto} y presenta un retraso de ${tiempoTexto}, generando un saldo adicional por mora de ${moraFormateada}. Te esperamos hoy mismo para recibir la prenda y generar tu Paz y Salvo.`;
+    return `Hola ${nombreCliente}, te saludamos de nuestra empresa. Te recordamos que aunque tu factura${refFactura} fue pagada inicialmente, la prenda ${nombrePrenda} tenía fecha de entrega el ${fechaTexto} y presenta un retraso de ${tiempoTexto}, generando un saldo adicional por mora de ${moraFormateada}. Te esperamos hoy mismo para recibir la prenda y generar tu Paz y Salvo.`;
   }
 
   if (tipoMensaje === "MORA") {
-    return `Hola ${nombreCliente}, le saludamos de LLANOMIO. Le recordamos que tiene pendiente la devolución/saldo de la prenda ${nombrePrenda}${refFactura} con un retraso de ${tiempoTexto}. El saldo actual a la fecha es ${saldoFormateado}. Lo esperamos en nuestra tienda para su recepción y liquidación.`;
+    return `Hola ${nombreCliente}, le saludamos de nuestra empresa. Le recordamos que tiene pendiente la devolución/saldo de la prenda ${nombrePrenda}${refFactura} con un retraso de ${tiempoTexto}. El saldo actual a la fecha es ${saldoFormateado}. Lo esperamos en nuestra tienda para su recepción y liquidación.`;
   }
 
   if (tipoMensaje === "RECORDATORIO") {
-    return `Hola ${nombreCliente}, un cordial saludo de LLANOMIO. Le recordamos amablemente la devolución pactada de la prenda ${nombrePrenda}${refFactura}. Quedamos atentos para recibirla en nuestra tienda. Que tenga un excelente día.`;
+    return `Hola ${nombreCliente}, un cordial saludo de nuestra empresa. Le recordamos amablemente la devolución pactada de la prenda ${nombrePrenda}${refFactura}. Quedamos atentos para recibirla en nuestra tienda. Que tenga un excelente día.`;
   }
 
   // SALDO_PENDIENTE
-  return `Hola ${nombreCliente}, un saludo de LLANOMIO. Le recordamos que registra un saldo pendiente de ${saldoFormateado} correspondiente a su factura${refFactura}. Puede acercarse a nuestra tienda o realizar su pago mediante transferencia o Nequi.`;
+  return `Hola ${nombreCliente}, un saludo de nuestra empresa. Le recordamos que registra un saldo pendiente de ${saldoFormateado} correspondiente a su factura${refFactura}. Puede acercarse a nuestra tienda o realizar su pago mediante transferencia o Nequi.`;
 }

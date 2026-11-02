@@ -1,9 +1,9 @@
 # ==============================================================================
-# LLANOMIO POS - Script de Desbloqueo de Red LAN y Diagnóstico de Firewall
+# POS LOCAL - Script de Desbloqueo de Red LAN y Diagnóstico de Firewall
 # ==============================================================================
 
 Write-Host "=========================================================================" -ForegroundColor Cyan
-Write-Host "   LLANOMIO POS - CONFIGURACION DE RED LAN Y FIREWALL DE WINDOWS" -ForegroundColor Cyan
+Write-Host "   POS LOCAL - CONFIGURACION DE RED LAN Y FIREWALL DE WINDOWS" -ForegroundColor Cyan
 Write-Host "=========================================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -35,7 +35,7 @@ Write-Host "[2/4] Limpiando reglas anteriores de LLANOMIO..." -ForegroundColor Y
 
 # 4. Crear Regla TCP Puertos 80 y 3000
 Write-Host "[3/4] Creando regla de Firewall para puertos TCP 80 y 3000..." -ForegroundColor Yellow
-$resTcp = & netsh advfirewall firewall add rule name="LLANOMIO_POS_WEB_LAN" dir=in action=allow protocol=TCP localport=80,3000 profile=any description="Acceso web a LLANOMIO POS desde la LAN"
+$resTcp = & netsh advfirewall firewall add rule name="LLANOMIO_POS_WEB_LAN" dir=in action=allow protocol=TCP localport=80,3000 profile=any description="Acceso web a POS LOCAL desde la LAN"
 if ($LASTEXITCODE -eq 0) {
     Write-Host "  [OK] Puertos TCP 80 y 3000 abiertos para perfiles Privado y Público." -ForegroundColor Green
 } else {
@@ -59,7 +59,7 @@ if (-not $nodeExe -and (Test-Path "C:\Program Files\nodejs\node.exe")) {
 
 if ($nodeExe) {
     Write-Host "  Autorizando ejecutable: $nodeExe" -ForegroundColor Gray
-    & netsh advfirewall firewall add rule name="LLANOMIO_NODE_APP" dir=in action=allow program="$nodeExe" enable=yes profile=any description="Servidor Node.js LLANOMIO POS" | Out-Null
+    & netsh advfirewall firewall add rule name="LLANOMIO_NODE_APP" dir=in action=allow program="$nodeExe" enable=yes profile=any description="Servidor Node.js POS LOCAL" | Out-Null
     Write-Host "  [OK] Proceso Node.js autorizado en el Firewall." -ForegroundColor Green
 }
 

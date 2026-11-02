@@ -17,7 +17,7 @@ interface Params {
 /**
  * GET /api/impresion/[id]
  * Retorna los datos estructurados en vivo de una factura junto con la última
- * configuración corporativa y logo de LLANOMIO para impresión 1:1 o descarga en PDF.
+ * configuración corporativa y logo de la empresa para impresión 1:1 o descarga en PDF.
  */
 export async function GET(req: NextRequest, { params }: Params) {
   try {
@@ -90,32 +90,32 @@ export async function GET(req: NextRequest, { params }: Params) {
       );
     }
 
-    // 2. Obtener datos corporativos actualizados de LLANOMIO
+    // 2. Obtener datos corporativos actualizados de la empresa
     const empresa = await prisma.configuracionEmpresa.findFirst();
 
     const formatoEfectivo =
       empresa?.formatoPredeterminado || empresa?.formatoImpresionDefault || "MEDIA_CARTA";
 
     const datosEmpresa = {
-      nombreTienda: empresa?.nombreTienda || "LLANOMIO",
-      nombreComercial: empresa?.nombreComercial || "LLANOMIO",
-      eslogan: empresa?.eslogan || "Trajes Típicos, Disfraces y Sastrería",
-      nit: empresa?.nit || "900.123.456-7",
+      nombreTienda: empresa?.nombreTienda || "Mi Empresa",
+      nombreComercial: empresa?.nombreComercial || "Mi Empresa",
+      eslogan: empresa?.eslogan || "Punto de Venta y Servicios",
+      nit: empresa?.nit || "000.000.000-0",
       regimenFiscal: empresa?.regimenFiscal || "No Responsable de IVA",
-      direccion: empresa?.direccion || "Calle 15 # 22-30, Barrio Siete de Agosto",
-      ciudad: empresa?.ciudad || "Villavicencio, Meta",
-      telefono: empresa?.telefono || "310 123 4567",
-      email: empresa?.email || "contacto@llanomio.com",
+      direccion: empresa?.direccion || "Dirección de la empresa",
+      ciudad: empresa?.ciudad || "Ciudad, Departamento",
+      telefono: empresa?.telefono || "000 000 0000",
+      email: empresa?.email || "contacto@miempresa.com",
       logoUrl: empresa?.logoUrl || null,
       encabezadoFactura:
-        empresa?.encabezadoFactura || "Ropa, Disfraces, Trajes Típicos y Sastrería Profesional",
+        empresa?.encabezadoFactura || "Comprobante de Venta y Servicios",
       mostrarVendedorFactura:
         empresa?.mostrarVendedorFactura !== undefined ? empresa.mostrarVendedorFactura : true,
       politicasFactura:
         empresa?.politicasFactura ||
         "El cliente se compromete a devolver las prendas en la fecha pactada en el mismo estado en que las recibe. Todo retraso generará cobro de recargo de mora. Cuide su comprobante de pago.",
       piePaginaFactura:
-        empresa?.piePaginaFactura || "¡Gracias por su preferencia! Sistema POS Local LLANOMIO",
+        empresa?.piePaginaFactura || "¡Gracias por su preferencia!",
       formatoPredeterminado: formatoEfectivo,
       formatoImpresionDefault: formatoEfectivo,
     };

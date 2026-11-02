@@ -121,7 +121,7 @@ export default function GestionUsuariosPage() {
   const [adminSeguridadId, setAdminSeguridadId] = useState("");
   const [docSeguridad, setDocSeguridad] = useState("");
   const [pinSeguridad, setPinSeguridad] = useState("");
-  const [preguntaSeguridad, setPreguntaSeguridad] = useState("¿Cuál es la clave de seguridad institucional de LLANOMIO?");
+  const [preguntaSeguridad, setPreguntaSeguridad] = useState("¿Cuál es la clave de seguridad de recuperación del sistema?");
   const [respuestaSeguridad, setRespuestaSeguridad] = useState("");
   const [mostrarPinSeguridad, setMostrarPinSeguridad] = useState(false);
   const [mostrarRespuestaSeguridad, setMostrarRespuestaSeguridad] = useState(false);
@@ -139,10 +139,10 @@ export default function GestionUsuariosPage() {
         const primerAdmin = lista.find((u) => u.rol === "ADMIN");
         if (primerAdmin) {
           setAdminSeguridadId(primerAdmin.id);
-          setDocSeguridad(primerAdmin.documentoIdentidad || "900123456");
+          setDocSeguridad(primerAdmin.documentoIdentidad || "0000000000");
           setPreguntaSeguridad(
             primerAdmin.preguntaSeguridad ||
-              "¿Cuál es la clave de seguridad institucional de LLANOMIO?"
+              "¿Cuál es la clave de seguridad de recuperación del sistema?"
           );
         }
       }
@@ -705,7 +705,7 @@ export default function GestionUsuariosPage() {
                       setDocSeguridad(sel.documentoIdentidad || "");
                       setPreguntaSeguridad(
                         sel.preguntaSeguridad ||
-                          "¿Cuál es la clave de seguridad institucional de LLANOMIO?"
+                          "¿Cuál es la clave de seguridad de recuperación del sistema?"
                       );
                     }
                   }}
@@ -1642,7 +1642,7 @@ export default function GestionUsuariosPage() {
             {/* Explicación Contable e Integridad */}
             <div className="space-y-3 mb-5">
               <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                Esta acción revocará de forma permanente el acceso de este usuario al sistema POS. Sus facturas, abonos y cierres de caja históricos se conservarán intactos para la contabilidad de LLANOMIO.
+                Esta acción revocará de forma permanente el acceso de este usuario al sistema POS. Sus facturas, abonos y cierres de caja históricos se conservarán intactos para la contabilidad de la empresa.
               </p>
 
               {usuarioParaEliminar.conteoFacturas > 0 && (

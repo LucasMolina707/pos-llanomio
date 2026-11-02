@@ -1,10 +1,10 @@
 /**
  * Servicio Ligero de Red Local mDNS (Bonjour) y Proxy Inverso HTTP
- * POS LLANOMIO - Automatizacion de Red LAN (Agentes 1 y 4)
+ * POS LOCAL - Automatizacion de Red LAN (Agentes 1 y 4)
  *
  * Funciones:
  * 1. Lee dinamicamente PORT y HTTP_PORT / PORT_PROXY desde el archivo .env.
- * 2. Anuncia el nombre local 'llanomio.local' en toda la red Wi-Fi / Ethernet mediante Bonjour / mDNS.
+ * 2. Anuncia el nombre local 'pos-local.local' en toda la red Wi-Fi / Ethernet mediante Bonjour / mDNS.
  * 3. Si HTTP_PORT es diferente a PORT (ej. 80 frente a 3000), actua como proxy HTTP inverso
  *    para permitir acceso directo sin escribir el numero de puerto en el navegador.
  * 4. CERO emojis en codigo, logs o salidas.
@@ -71,13 +71,13 @@ const PUERTO_PROXY = parseInt(
     String(PUERTO_DESTINO),
   10
 );
-const DOMINIO_LOCAL = process.env.LOCAL_DOMAIN || configEnv.LOCAL_DOMAIN || "llanomio.local";
-const INSTANCIA_ID = process.env.INSTANCE_ID || configEnv.INSTANCE_ID || "pos-llanomio";
+const DOMINIO_LOCAL = process.env.LOCAL_DOMAIN || configEnv.LOCAL_DOMAIN || "pos-local.local";
+const INSTANCIA_ID = process.env.INSTANCE_ID || configEnv.INSTANCE_ID || "pos-local";
 const nombreServicioBonjour = DOMINIO_LOCAL.replace(/\.local$/i, "");
 const ipLocal = obtenerIpLocal();
 
 console.log("===============================================================================");
-console.log("      INICIANDO SERVICIO mDNS (BONJOUR) Y ENLACE DE RED LAN - POS LLANOMIO     ");
+console.log("      INICIANDO SERVICIO mDNS (BONJOUR) Y ENLACE DE RED LAN - POS LOCAL     ");
 console.log("===============================================================================");
 console.log(`[RED]   IP Local detectada en red:         ${ipLocal}`);
 console.log(`[RED]   Dominio Local mDNS (Bonjour):      ${DOMINIO_LOCAL}`);
@@ -190,14 +190,14 @@ if (PUERTO_PROXY !== PUERTO_DESTINO) {
     console.log(`[PROXY] Escuchando en 0.0.0.0:${PUERTO_PROXY} -> Reenviando a 127.0.0.1:${PUERTO_DESTINO}`);
     console.log(`[URL]   Acceso local: http://localhost${PUERTO_PROXY === 80 ? "" : ":" + PUERTO_PROXY}`);
     console.log(`[URL]   Acceso Wi-Fi: http://${ipLocal}${PUERTO_PROXY === 80 ? "" : ":" + PUERTO_PROXY}`);
-    console.log(`[URL]   Dominio LAN:  http://llanomio.local${PUERTO_PROXY === 80 ? "" : ":" + PUERTO_PROXY}`);
+    console.log(`[URL]   Dominio LAN:  http://pos-local.local${PUERTO_PROXY === 80 ? "" : ":" + PUERTO_PROXY}`);
     console.log("===============================================================================");
   });
 } else {
   console.log(`[MODO NATIVO] El servidor opera directamente en el puerto ${PUERTO_DESTINO}.`);
   console.log(`[URL]         Acceso local: http://localhost:${PUERTO_DESTINO}`);
   console.log(`[URL]         Acceso Wi-Fi: http://${ipLocal}:${PUERTO_DESTINO}`);
-  console.log(`[URL]         Dominio LAN:  http://llanomio.local:${PUERTO_DESTINO}`);
+  console.log(`[URL]         Dominio LAN:  http://pos-local.local:${PUERTO_DESTINO}`);
   console.log("===============================================================================");
 }
 

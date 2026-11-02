@@ -318,7 +318,7 @@ export default function PlantillaImpresion({
       <html lang="es">
       <head>
         <meta charset="utf-8">
-        <title>Factura ${factura.numeroFactura || ""} - LLANOMIO</title>
+        <title>Factura ${factura.numeroFactura || ""} - ${empresa.nombreComercial || "Mi Empresa"}</title>
         ${styleTags}
         <style>
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
@@ -451,12 +451,12 @@ export default function PlantillaImpresion({
               {empresa.logoUrl && (
                 <img
                   src={empresa.logoUrl}
-                  alt={empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+                  alt={empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
                   className="max-h-14 mx-auto object-contain mb-1"
                 />
               )}
               <h1 className="text-sm font-black font-sans tracking-tight uppercase">
-                {empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+                {empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
               </h1>
               {empresa.eslogan && (
                 <p className="text-[9.5px] italic font-sans text-slate-700">{empresa.eslogan}</p>
@@ -594,7 +594,7 @@ export default function PlantillaImpresion({
             </div>
 
             <div className="text-center text-[8.5px] pt-1 text-slate-500">
-              {empresa.piePaginaFactura || "Sistema POS Local LLANOMIO — CERO códigos QR"}
+              {empresa.piePaginaFactura || "¡Gracias por su preferencia! — Comprobante POS"}
             </div>
           </div>
         );
@@ -606,12 +606,12 @@ export default function PlantillaImpresion({
             {empresa.logoUrl && (
               <img
                 src={empresa.logoUrl}
-                alt={empresa.nombreComercial || "LLANOMIO"}
+                alt={empresa.nombreComercial || "Mi Empresa"}
                 className="max-h-14 mx-auto object-contain mb-1"
               />
             )}
             <h1 className="text-sm font-black font-sans tracking-tight uppercase">
-              {empresa.nombreComercial || "LLANOMIO"}
+              {empresa.nombreComercial || "Mi Empresa"}
             </h1>
             {empresa.eslogan && (
               <p className="text-[9.5px] italic font-sans text-slate-700">{empresa.eslogan}</p>
@@ -851,7 +851,7 @@ export default function PlantillaImpresion({
           </div>
 
           <div className="text-center text-[8.5px] pt-1 text-slate-500">
-            {empresa.piePaginaFactura || "¡Gracias por su preferencia! LLANOMIO POS"}
+            {empresa.piePaginaFactura || "¡Gracias por su preferencia! — Comprobante POS"}
           </div>
         </div>
       );
@@ -871,13 +871,13 @@ export default function PlantillaImpresion({
                   {empresa.logoUrl && (
                     <img
                       src={empresa.logoUrl}
-                      alt={empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+                      alt={empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
                       className="max-h-12 object-contain"
                     />
                   )}
                   <div>
                     <h1 className="text-base font-black tracking-tight text-slate-900 uppercase">
-                      {empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+                      {empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
                     </h1>
                     {empresa.eslogan && (
                       <p className="text-[9.5px] italic text-slate-600">{empresa.eslogan}</p>
@@ -1021,13 +1021,13 @@ export default function PlantillaImpresion({
                 {empresa.logoUrl && (
                   <img
                     src={empresa.logoUrl}
-                    alt={empresa.nombreComercial || "LLANOMIO"}
+                    alt={empresa.nombreComercial || "Mi Empresa"}
                     className="max-h-12 object-contain"
                   />
                 )}
                 <div>
                   <h1 className="text-base font-black tracking-tight text-slate-900 uppercase">
-                    {empresa.nombreComercial || "LLANOMIO"}
+                    {empresa.nombreComercial || "Mi Empresa"}
                   </h1>
                   {empresa.eslogan && (
                     <p className="text-[9.5px] italic text-slate-600">{empresa.eslogan}</p>
@@ -1228,13 +1228,13 @@ export default function PlantillaImpresion({
                 {empresa.logoUrl && (
                   <img
                     src={empresa.logoUrl}
-                    alt={empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+                    alt={empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
                     className="max-h-16 object-contain"
                   />
                 )}
                 <div>
                   <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
-                    {empresa.nombreTienda || empresa.nombreComercial || "LLANOMIO"}
+                    {empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
                   </h1>
                   {empresa.eslogan && (
                     <p className="text-xs italic text-slate-600">{empresa.eslogan}</p>
@@ -1370,7 +1370,7 @@ export default function PlantillaImpresion({
             </div>
 
             <div className="text-center text-[9px] text-slate-400 mt-3 font-mono">
-              {empresa.piePaginaFactura || "Comprobante Oficial LLANOMIO POS — CERO códigos QR externos"}
+              {empresa.piePaginaFactura || "Comprobante Oficial POS — Facturación y Control"}
             </div>
           </div>
         </div>
@@ -1386,13 +1386,13 @@ export default function PlantillaImpresion({
               {empresa.logoUrl && (
                 <img
                   src={empresa.logoUrl}
-                  alt={empresa.nombreComercial || "LLANOMIO"}
+                  alt={empresa.nombreComercial || "Mi Empresa"}
                   className="max-h-16 object-contain"
                 />
               )}
               <div>
                 <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
-                  {empresa.nombreComercial || "LLANOMIO"}
+                  {empresa.nombreComercial || "Mi Empresa"}
                 </h1>
                 {empresa.eslogan && (
                   <p className="text-xs italic text-slate-600">{empresa.eslogan}</p>
@@ -1615,7 +1615,7 @@ export default function PlantillaImpresion({
           </div>
 
           <div className="text-center text-[9px] text-slate-400 mt-3 font-mono">
-            {empresa.piePaginaFactura || "Comprobante Oficial LLANOMIO POS — CERO códigos QR externos"}
+            {empresa.piePaginaFactura || "Comprobante Oficial POS — Facturación y Control"}
           </div>
         </div>
       </div>

@@ -5,7 +5,7 @@ async function seedSeguridad() {
   console.log("Configurando protocolo de 3 factores en SQLite para admin...");
 
   const pinHash = await bcrypt.hash("123456", 10);
-  const respuestaHash = await bcrypt.hash("llanomio2026", 10);
+  const respuestaHash = await bcrypt.hash("pos2026", 10);
 
   const admin = await prisma.user.findUnique({ where: { username: "admin" } });
   if (admin) {

@@ -588,7 +588,7 @@ export default function ApartadosPage() {
             APARTADOS
           </span>
           <span className="text-xs text-slate-500 font-bold hidden md:inline truncate">
-            • {configuracionEmpresa?.nombreComercial || "LLANOMIO"}
+            • {configuracionEmpresa?.nombreComercial || "Mi Empresa"}
           </span>
         </div>
 

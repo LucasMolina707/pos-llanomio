@@ -259,7 +259,7 @@ function extraerPrendasDeArchivo(rutaArchivo: string): PrendaNormalizada[] {
  */
 export async function ejecutarMigracionMasiva(directorioFuente?: string) {
   console.log("======================================================================");
-  console.log("       SISTEMA POS LLANOMIO - MIGRACION MASIVA DE EXCEL A SQLITE      ");
+  console.log("       SISTEMA POS LOCAL - MIGRACION MASIVA DE EXCEL A SQLITE      ");
   console.log("======================================================================");
 
   // 1. Determinar directorios de origen

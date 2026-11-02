@@ -32,15 +32,15 @@ export async function GET() {
     });
 
     const empresaData = config || {
-      nombreTienda: "LLANOMIO",
-      nombreComercial: "LLANOMIO",
-      eslogan: "Trajes Típicos, Disfraces y Sastrería",
+      nombreTienda: "Mi Empresa",
+      nombreComercial: "Mi Empresa",
+      eslogan: "Punto de Venta y Servicios",
       logoUrl: null,
-      nit: "900.123.456-7",
-      telefono: "310 123 4567",
-      direccion: "Calle 15 # 22-30, Barrio Siete de Agosto",
-      ciudad: "Villavicencio, Meta",
-      email: "contacto@llanomio.com",
+      nit: "000.000.000-0",
+      telefono: "000 000 0000",
+      direccion: "Dirección de la empresa",
+      ciudad: "Ciudad, Departamento",
+      email: "contacto@miempresa.com",
     };
 
     return NextResponse.json(
@@ -58,15 +58,15 @@ export async function GET() {
         ok: false,
         error: errorMensaje,
         empresa: {
-          nombreTienda: "LLANOMIO",
-          nombreComercial: "LLANOMIO",
-          eslogan: "Trajes Típicos, Disfraces y Sastrería",
+          nombreTienda: "Mi Empresa",
+          nombreComercial: "Mi Empresa",
+          eslogan: "Punto de Venta y Servicios",
           logoUrl: null,
-          nit: "900.123.456-7",
-          telefono: "310 123 4567",
-          direccion: "Calle 15 # 22-30, Barrio Siete de Agosto",
-          ciudad: "Villavicencio, Meta",
-          email: "contacto@llanomio.com",
+          nit: "000.000.000-0",
+          telefono: "000 000 0000",
+          direccion: "Dirección de la empresa",
+          ciudad: "Ciudad, Departamento",
+          email: "contacto@miempresa.com",
         },
       },
       { status: 200, headers: NO_CACHE_HEADERS }

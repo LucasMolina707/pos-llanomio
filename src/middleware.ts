@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-const NOMBRE_COOKIE_SESION = "llanomio_session";
+const NOMBRE_COOKIE_SESION = "pos_session";
 const SECRET_JWT = new TextEncoder().encode(
-  process.env.JWT_SECRET || "llanomio_jwt_secret_token_seguro_2026_local_pos_key"
+  process.env.JWT_SECRET || "pos_jwt_secret_token_seguro_2026_local_pos_key"
 );
 
 // Cabeceras estrictas antifatiga de caché para evitar retrocesos sin sesión

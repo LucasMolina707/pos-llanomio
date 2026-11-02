@@ -67,24 +67,24 @@ export default function ConfiguracionAdminPage() {
   const router = useRouter();
   const [config, setConfig] = useState<Configuracion>({
     id: "",
-    nombreTienda: "LLANOMIO",
-    nombreComercial: "LLANOMIO",
-    eslogan: "Trajes Típicos, Disfraces y Sastrería",
+    nombreTienda: "Mi Empresa",
+    nombreComercial: "Mi Empresa",
+    eslogan: "Punto de Venta y Alquileres",
     nit: "900.123.456-7",
     regimenFiscal: "No Responsable de IVA",
-    direccion: "Calle 15 # 22-30, Barrio Siete de Agosto",
-    ciudad: "Villavicencio, Meta",
-    telefono: "310 123 4567",
-    email: "contacto@llanomio.com",
+    direccion: "Calle 15 # 22-30",
+    ciudad: "Ciudad Comercial",
+    telefono: "300 123 4567",
+    email: "contacto@miempresa.com",
     logoUrl: null,
-    encabezadoFactura: "Ropa, Disfraces, Trajes Típicos y Sastrería Profesional",
+    encabezadoFactura: "Punto de Venta, Alquileres y Servicios",
     mostrarVendedorFactura: true,
     politicasFactura:
-      "Términos y Condiciones de Alquiler: Las prendas deben devolverse en la fecha pactada en el mismo estado en que se reciben. Todo retraso generará cobro de recargo de mora. Cuide su comprobante de pago.",
-    piePaginaFactura: "¡Gracias por preferir a LLANOMIO! Tradición, calidad y distinción.",
+      "Términos y Condiciones: Las prendas y artículos deben devolverse en la fecha pactada en el mismo estado en que se reciben. Todo retraso generará cobro de recargo de mora. Cuide su comprobante de pago.",
+    piePaginaFactura: "¡Gracias por su preferencia!",
     formatoPredeterminado: "MEDIA_CARTA",
     formatoImpresionDefault: "MEDIA_CARTA",
-    rutaCarpetaRespaldo: "C:\\POS_LLANOMIO_BACKUPS",
+    rutaCarpetaRespaldo: "C:\\POS_BACKUPS",
     nombreImpresoraPos: "",
     abrirCajonAutoEfectivo: true,
     pinCajon: 0,
@@ -136,8 +136,8 @@ export default function ConfiguracionAdminPage() {
         const formatoDefinido = c.formatoPredeterminado || c.formatoImpresionDefault || "MEDIA_CARTA";
         setConfig({
           id: c.id || "",
-          nombreTienda: c.nombreTienda || "LLANOMIO",
-          nombreComercial: c.nombreComercial || "LLANOMIO",
+          nombreTienda: c.nombreTienda || "Mi Empresa",
+          nombreComercial: c.nombreComercial || "Mi Empresa",
           eslogan: c.eslogan || "",
           nit: c.nit || "900.123.456-7",
           regimenFiscal: c.regimenFiscal || "No Responsable de IVA",
@@ -152,7 +152,7 @@ export default function ConfiguracionAdminPage() {
           piePaginaFactura: c.piePaginaFactura || "",
           formatoPredeterminado: formatoDefinido,
           formatoImpresionDefault: formatoDefinido,
-          rutaCarpetaRespaldo: c.rutaCarpetaRespaldo || "C:\\POS_LLANOMIO_BACKUPS",
+          rutaCarpetaRespaldo: c.rutaCarpetaRespaldo || "C:\\POS_BACKUPS",
           nombreImpresoraPos: c.nombreImpresoraPos || "",
           abrirCajonAutoEfectivo: c.abrirCajonAutoEfectivo !== undefined ? c.abrirCajonAutoEfectivo : true,
           pinCajon: c.pinCajon !== undefined ? Number(c.pinCajon) : 0,
@@ -385,7 +385,7 @@ export default function ConfiguracionAdminPage() {
           bytes: data.resultado.tamanioBytes,
           timestamp: new Date().toISOString(),
         });
-        setMensajeExito("Respaldo SQLite generado con éxito en C:\\POS_LLANOMIO_BACKUPS.");
+        setMensajeExito("Respaldo SQLite generado con éxito en C:\\POS_BACKUPS.");
         setTimeout(() => setMensajeExito(null), 4000);
       }
     } catch {
@@ -410,7 +410,7 @@ export default function ConfiguracionAdminPage() {
 
       const blob = await res.blob();
       const disposition = res.headers.get("content-disposition");
-      let nombreArchivo = "Respaldo_Sistema_Llanomio.db";
+      let nombreArchivo = "Respaldo_Sistema.db";
       if (disposition && disposition.includes("filename=")) {
         const match = disposition.match(/filename="?([^"]+)"?/);
         if (match && match[1]) nombreArchivo = match[1];
@@ -438,7 +438,7 @@ export default function ConfiguracionAdminPage() {
 
   /**
    * Abre la carpeta local de respaldos en el Explorador de Windows en el servidor
-   * y copia la ruta C:\POS_LLANOMIO_BACKUPS al portapapeles del navegador.
+   * y copia la ruta C:\POS_BACKUPS al portapapeles del navegador.
    */
   const handleAbrirCarpetaExplorador = async () => {
     setAbriendoCarpeta(true);
@@ -446,7 +446,7 @@ export default function ConfiguracionAdminPage() {
     setMensajeError(null);
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText("C:\\POS_LLANOMIO_BACKUPS").catch(() => {});
+        await navigator.clipboard.writeText("C:\\POS_BACKUPS").catch(() => {});
       }
 
       const res = await fetch("/api/backup?abrirCarpeta=true", { cache: "no-store" });
@@ -454,11 +454,11 @@ export default function ConfiguracionAdminPage() {
       if (data.ok) {
         setMensajeExito("Carpeta de respaldos abierta en el Explorador de Windows y ruta copiada al portapapeles.");
       } else {
-        setMensajeExito("Ruta de respaldos copiada al portapapeles: C:\\POS_LLANOMIO_BACKUPS");
+        setMensajeExito("Ruta de respaldos copiada al portapapeles: C:\\POS_BACKUPS");
       }
       setTimeout(() => setMensajeExito(null), 5000);
     } catch {
-      setMensajeExito("Ruta de respaldos copiada al portapapeles: C:\\POS_LLANOMIO_BACKUPS");
+      setMensajeExito("Ruta de respaldos copiada al portapapeles: C:\\POS_BACKUPS");
       setTimeout(() => setMensajeExito(null), 5000);
     } finally {
       setAbriendoCarpeta(false);
@@ -729,7 +729,7 @@ export default function ConfiguracionAdminPage() {
               Volcados Estructurados por Carpetas (Archivos JSON Legibles)
             </span>
             <span className="text-[11px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-              C:\POS_LLANOMIO_BACKUPS\
+              C:\POS_BACKUPS\
             </span>
           </div>
 
@@ -797,7 +797,7 @@ export default function ConfiguracionAdminPage() {
               <span>Ruta Externa / Nube</span>
             </div>
             <p className="font-mono text-[11px] text-slate-800 bg-white px-2 py-1 rounded border border-slate-200/80 truncate select-all">
-              C:\POS_LLANOMIO_BACKUPS\
+              C:\POS_BACKUPS\
             </p>
             <p className="text-[11px] text-slate-500">
               Carpeta sincronizable con Google Drive o OneDrive para custodia fuera del equipo.
@@ -810,10 +810,10 @@ export default function ConfiguracionAdminPage() {
               <span>Nomenclatura Automática</span>
             </div>
             <p className="font-mono text-[11px] text-slate-800 bg-white px-2 py-1 rounded border border-slate-200/80 truncate">
-              llanomio_CIERRE_CAJA_*.db
+              pos_CIERRE_CAJA_*.db
             </p>
             <p className="text-[11px] text-slate-500">
-              Archivo maestro sincronizado: <code className="font-bold text-slate-700">llanomio_ULTIMO.db</code>
+              Archivo maestro sincronizado: <code className="font-bold text-slate-700">pos_ULTIMO.db</code>
             </p>
           </div>
         </div>
@@ -843,7 +843,7 @@ export default function ConfiguracionAdminPage() {
                   {config.logoUrl ? (
                     <img
                       src={config.logoUrl}
-                      alt="Logo LLANOMIO"
+                      alt={`Logo ${config.nombreComercial || "Mi Empresa"}`}
                       className="w-full h-full object-contain p-2"
                     />
                   ) : (
@@ -906,7 +906,7 @@ export default function ConfiguracionAdminPage() {
                     name="nombreComercial"
                     value={config.nombreComercial}
                     onChange={handleChange}
-                    placeholder="LLANOMIO"
+                    placeholder="Mi Empresa"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
@@ -920,7 +920,7 @@ export default function ConfiguracionAdminPage() {
                     name="eslogan"
                     value={config.eslogan}
                     onChange={handleChange}
-                    placeholder="Trajes Típicos, Disfraces y Sastrería"
+                    placeholder="Punto de Venta y Servicios"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
@@ -935,7 +935,7 @@ export default function ConfiguracionAdminPage() {
                     name="nit"
                     value={config.nit}
                     onChange={handleChange}
-                    placeholder="900.123.456-7"
+                    placeholder="000.000.000-0"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
                   />
                 </div>
@@ -963,7 +963,7 @@ export default function ConfiguracionAdminPage() {
                     name="telefono"
                     value={config.telefono}
                     onChange={handleChange}
-                    placeholder="310 123 4567"
+                    placeholder="000 000 0000"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
                   />
                 </div>
@@ -977,7 +977,7 @@ export default function ConfiguracionAdminPage() {
                     name="email"
                     value={config.email}
                     onChange={handleChange}
-                    placeholder="contacto@llanomio.com"
+                    placeholder="contacto@miempresa.com"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
@@ -1329,7 +1329,7 @@ export default function ConfiguracionAdminPage() {
                 {/* Encabezado */}
                 <div className="text-center space-y-0.5 mb-2.5">
                   <p className="font-bold text-xs uppercase tracking-wide">
-                    {config.nombreComercial || "LLANOMIO"}
+                    {config.nombreComercial || "Mi Empresa"}
                   </p>
                   {config.eslogan && <p className="text-[9px] italic">{config.eslogan}</p>}
                   <p>NIT: {config.nit || "900.123.456-7"}</p>
@@ -1546,7 +1546,7 @@ export default function ConfiguracionAdminPage() {
 
                 {/* Firmas */}
                 <div className="grid grid-cols-2 gap-4 text-center pt-2 text-[8px] text-slate-500">
-                  <div className="border-t pt-0.5">Firma Autorizada LLANOMIO</div>
+                  <div className="border-t pt-0.5">Firma Autorizada {config.nombreComercial || "Mi Empresa"}</div>
                   <div className="border-t pt-0.5">Firma y Cédula Cliente</div>
                 </div>
               </div>

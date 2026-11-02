@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
           paso: 2,
           preguntaSeguridad:
             usuario.preguntaSeguridad ||
-            "¿Cuál es la clave de seguridad institucional de LLANOMIO?",
+            "¿Cuál es la clave de seguridad de recuperación del sistema?",
         },
         { headers: NO_CACHE_HEADERS }
       );
@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
       if (usuario.pinSeguridadHash) {
         pinValido = await bcrypt.compare(pinLimpio, usuario.pinSeguridadHash);
       } else {
-        pinValido = pinLimpio === "123456" || pinLimpio === (process.env.MASTER_RECOVERY_KEY || "LLANOMIO-ADMIN-2026");
+        pinValido = pinLimpio === "123456" || pinLimpio === (process.env.MASTER_RECOVERY_KEY || "POS-ADMIN-2026");
       }
 
       // 2. Validar Respuesta de Seguridad (contra hash bcrypt o respuesta inicial)
@@ -232,9 +232,9 @@ export async function POST(req: NextRequest) {
         }
       } else {
         respuestaValida =
-          respuestaLimpia === "llanomio2026" ||
-          respuestaLimpia.replace(/\s+/g, "") === "llanomio2026" ||
-          respuestaLimpia === "llanomio";
+          respuestaLimpia === "pos2026" ||
+          respuestaLimpia.replace(/\s+/g, "") === "pos2026" ||
+          respuestaLimpia === "admin";
       }
 
       // Si alguno de los factores falla

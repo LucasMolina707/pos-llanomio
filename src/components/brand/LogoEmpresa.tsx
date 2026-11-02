@@ -154,8 +154,8 @@ export default function LogoEmpresa({
   }, [fetchEmpresa]);
 
   const config = SIZE_MAP[size] || SIZE_MAP.md;
-  const nombreFinal = customNombre || empresa?.nombreComercial || empresa?.nombreTienda || "LLANOMIO";
-  const subtituloFinal = customSubtitle || empresa?.eslogan || "Trajes Típicos & Sastrería";
+  const nombreFinal = customNombre || empresa?.nombreComercial || empresa?.nombreTienda || "Mi Empresa";
+  const subtituloFinal = customSubtitle || empresa?.eslogan || "Punto de Venta y Alquileres";
   const hasLogo = Boolean(empresa?.logoUrl && !imgError);
 
   const logoNode = (

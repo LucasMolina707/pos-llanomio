@@ -139,15 +139,15 @@ export async function GET(req: NextRequest, { params }: Params) {
         })),
       },
       empresa: {
-        nombreTienda: empresaConfig?.nombreTienda || "LLANOMIO",
-        nombreComercial: empresaConfig?.nombreComercial || "LLANOMIO",
-        eslogan: empresaConfig?.eslogan || "Trajes Típicos, Disfraces y Sastrería",
-        nit: empresaConfig?.nit || "900.123.456-7",
+        nombreTienda: empresaConfig?.nombreTienda || "Mi Empresa",
+        nombreComercial: empresaConfig?.nombreComercial || "Mi Empresa",
+        eslogan: empresaConfig?.eslogan || "Punto de Venta y Servicios",
+        nit: empresaConfig?.nit || "000.000.000-0",
         regimenFiscal: empresaConfig?.regimenFiscal || "No Responsable de IVA",
-        direccion: empresaConfig?.direccion || "Calle 15 # 22-30, Barrio Siete de Agosto",
-        ciudad: empresaConfig?.ciudad || "Villavicencio, Meta",
-        telefono: empresaConfig?.telefono || "310 123 4567",
-        email: empresaConfig?.email || "contacto@llanomio.com",
+        direccion: empresaConfig?.direccion || "Dirección de la empresa",
+        ciudad: empresaConfig?.ciudad || "Ciudad, Departamento",
+        telefono: empresaConfig?.telefono || "000 000 0000",
+        email: empresaConfig?.email || "contacto@miempresa.com",
         logoUrl: empresaConfig?.logoUrl || null,
         encabezadoFactura: empresaConfig?.encabezadoFactura || null,
         mostrarVendedorFactura:
@@ -156,7 +156,7 @@ export async function GET(req: NextRequest, { params }: Params) {
           empresaConfig?.politicasFactura ||
           "El cliente se compromete a devolver las prendas en la fecha pactada en el mismo estado en que las recibe. Todo retraso generará cobro de tarifa de mora.",
         piePaginaFactura:
-          empresaConfig?.piePaginaFactura || "Sistema POS Local LLANOMIO — Impreso sin códigos QR externos",
+          empresaConfig?.piePaginaFactura || "¡Gracias por su compra y preferencia!",
         formatoPredeterminado: formatoSeleccionado,
         formatoImpresionDefault: formatoSeleccionado,
       },

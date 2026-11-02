@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
       const buffer = generarExcelExportacionInventario(productos);
       const hoy = new Date().toISOString().split("T")[0];
-      const filename = `Respaldo_Inventario_Llanomio_${hoy}.xlsx`;
+      const filename = `Respaldo_Inventario_${hoy}.xlsx`;
 
       return new NextResponse(buffer as unknown as BodyInit, {
         status: 200,
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 
     // Modo Plantilla por defecto
     const buffer = generarExcelPlantillaInventario();
-    const filename = "Plantilla_Regleta_Inventario_Llanomio.xlsx";
+    const filename = "Plantilla_Regleta_Inventario.xlsx";
 
     return new NextResponse(buffer as unknown as BodyInit, {
       status: 200,

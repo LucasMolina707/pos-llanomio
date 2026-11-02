@@ -32,7 +32,7 @@ export default function HomePage() {
   const [usuario, setUsuario] = useState<UsuarioSesion | null>(() => {
     if (typeof window !== "undefined") {
       try {
-        const cached = sessionStorage.getItem("pos_llanomio_user");
+        const cached = sessionStorage.getItem("pos_user");
         if (cached) return JSON.parse(cached);
       } catch {}
     }
@@ -48,14 +48,14 @@ export default function HomePage() {
         setUsuario(data.user);
         if (typeof window !== "undefined") {
           try {
-            sessionStorage.setItem("pos_llanomio_user", JSON.stringify(data.user));
+            sessionStorage.setItem("pos_user", JSON.stringify(data.user));
           } catch {}
         }
       } else {
         setUsuario(null);
         if (typeof window !== "undefined") {
           try {
-            sessionStorage.removeItem("pos_llanomio_user");
+            sessionStorage.removeItem("pos_user");
           } catch {}
         }
       }
@@ -210,7 +210,7 @@ export default function HomePage() {
             />
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
               <Radio className="h-3.5 w-3.5 text-blue-600 animate-pulse" />
-              <span>Red Local LAN Activa &bull; llanomio.local</span>
+              <span>Red Local LAN Activa &bull; Punto de Venta Local</span>
             </div>
           </div>
 

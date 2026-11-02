@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Disparar el respaldo en caliente SQLite (VACUUM INTO) hacia C:\POS_LLANOMIO_BACKUPS
+    // 2. Disparar el respaldo en caliente SQLite (VACUUM INTO) hacia C:\POS_BACKUPS
     // Try/catch robusto: un fallo en el disco secundario NUNCA debe bloquear el logout del cajero
     try {
       const motivo = `LOGOUT_${sesion?.username || "DESCONOCIDO"}`;
