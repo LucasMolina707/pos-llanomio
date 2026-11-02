@@ -93,22 +93,24 @@ Configure los pasos que verá el usuario durante la instalación:
 #### Pestaña 5: Commands (Automatización Post-Instalación - PASO CRÍTICO)
 En esta sección se configura la ejecución automática del script maestro para parametrizar la tienda:
 - **Execute After Installation (Ejecutar Después de Instalar):**
-  - **Executable / File:** `{InstallDir}\instalador_tienda\paquete_portable\post-instalar.bat`
+  - **Executable / File:** `{InstallDir}\instalador_tienda\POST_INSTALADOR_MAESTRO.bat` (o `{InstallDir}\instalador_tienda\paquete_portable\post-instalar.bat`)
   - **Working Directory:** `{InstallDir}`
   - **Execution Mode:** Normal (o Visible) para que el técnico o usuario interactúe con el asistente de selección de puertos y dominios de red.
   - **Wait Until Termination (Esperar hasta que termine):** Sí.
 
 #### Pestaña 6: Shortcuts (Accesos Directos)
 Configure los accesos directos principales del sistema:
-- **Acceso 1 (Terminal POS):**
+- **Acceso 1 (Terminal POS - Lanzador Principal):**
   - **Location:** Desktop (Escritorio) y Programs Menu (Menú Inicio).
-  - **Name:** `Mi Empresa POS`
-  - **Target:** `http://localhost:3000` (o el acceso directo generado por `post-instalar.bat`).
+  - **Name:** `Iniciar POS Llanomio` (o `Iniciar Mi Empresa POS`)
+  - **Target:** `{InstallDir}\INICIAR_SERVIDOR_POS.bat`
+  - **Working Directory:** `{InstallDir}`
   - **Icon File:** `{InstallDir}\instalador_tienda\recursos\llanomio.ico`
 - **Acceso 2 (Panel Administrativo):**
   - **Location:** Programs Menu (Menú Inicio).
   - **Name:** `Mi Empresa POS - Panel de Control`
   - **Target:** `{InstallDir}\instalador_tienda\MENU_DE_INSTALACION.bat`
+  - **Working Directory:** `{InstallDir}`
   - **Icon File:** `{InstallDir}\instalador_tienda\recursos\llanomio.ico`
 
 #### Pestaña 7: Uninstaller (Desinstalador)

@@ -1,4 +1,16 @@
 @echo off
+setlocal EnableExtensions
+
+:: Si existe el instalador maestro blindado, delegar directamente en el
+if exist "%~dp0..\POST_INSTALADOR_MAESTRO.bat" (
+    call "%~dp0..\POST_INSTALADOR_MAESTRO.bat" %*
+    exit /b %errorlevel%
+)
+if exist "%~dp0..\..\instalador_tienda\POST_INSTALADOR_MAESTRO.bat" (
+    call "%~dp0..\..\instalador_tienda\POST_INSTALADOR_MAESTRO.bat" %*
+    exit /b %errorlevel%
+)
+
 setlocal EnableDelayedExpansion
 title Mi Empresa POS - Asistente de Configuracion Post-Instalacion
 color 0B
