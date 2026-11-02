@@ -218,9 +218,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$s2.WorkingDirectory = '%PROJECT_ROOT%'; " ^
   "$s2.IconLocation = '%ICON_FILE%'; " ^
   "$s2.Description = 'Menu de Administracion y Respaldos'; " ^
-  "$s2.Save();" >nul 2>&1
+  "$s2.Save(); " ^
+  "$s3 = $ws.CreateShortcut([System.IO.Path]::Combine($desktop, 'POS Llanomio - Modo App Directo.lnk')); " ^
+  "$s3.TargetPath = '%PROJECT_ROOT%\ABRIR_TERMINAL_POS_DIRECTO.bat'; " ^
+  "$s3.WorkingDirectory = '%PROJECT_ROOT%'; " ^
+  "$s3.IconLocation = '%ICON_FILE%'; " ^
+  "$s3.Description = 'Terminal POS en Ventana Nativa'; " ^
+  "$s3.Save(); " ^
+  "$s4 = $ws.CreateShortcut([System.IO.Path]::Combine($desktop, 'POS Llanomio - Recuperar Servidor.lnk')); " ^
+  "$s4.TargetPath = '%PROJECT_ROOT%\REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat'; " ^
+  "$s4.WorkingDirectory = '%PROJECT_ROOT%'; " ^
+  "$s4.IconLocation = '%ICON_FILE%'; " ^
+  "$s4.Description = 'Auto-Recuperacion y Reinicio Rapido del Servidor'; " ^
+  "$s4.Save();" >nul 2>&1
 
-echo [OK] Acceso directo 'Iniciar POS Llanomio.lnk' creado en el Escritorio.
+echo [OK] Accesos directos creados en el Escritorio:
+echo      - Iniciar POS Llanomio.lnk
+echo      - POS Llanomio - Modo App Directo.lnk
+echo      - POS Llanomio - Recuperar Servidor.lnk
+echo      - POS Llanomio - Menu Administrador.lnk
 echo.
 
 :: ===============================================================================

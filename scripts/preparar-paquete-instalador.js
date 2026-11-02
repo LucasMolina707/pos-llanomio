@@ -164,8 +164,11 @@ if (fs.existsSync(dirNext) && fs.existsSync(path.join(dirNext, "BUILD_ID"))) {
 console.log("\n[6/6] Verificando scripts lanzadores y manuales...");
 const archivosCriticos = [
   "INICIAR_SERVIDOR_POS.bat",
+  "REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat",
+  "ABRIR_TERMINAL_POS_DIRECTO.bat",
   "instalador_tienda/POST_INSTALADOR_MAESTRO.bat",
   "instalador_tienda/MENU_DE_INSTALACION.bat",
+  "instalador_tienda/MANUAL_OFICIAL_INSTALACION_Y_OPERACION.md",
   "instalador_tienda/recursos/llanomio.ico",
   "scripts/escanear-y-elegir-puertos.js",
   "ecosystem.config.js",

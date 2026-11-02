@@ -68,35 +68,41 @@ echo Motor:      !NODE_EXE!
 echo.
 echo Seleccione una opcion:
 echo.
-echo   [1] Iniciar / Levantar Servidor POS (Abre navegador en puerto activo)
+echo   [1] Iniciar Servidor POS (Menu interactivo y navegador)
 echo.
-echo   [2] Asistente Maestro Post-Instalacion (Firewall, Puertos, Accesos y PM2)
+echo   [2] Abrir Terminal POS en Ventana Nativa (Modo App sin navegador)
 echo.
-echo   [3] Asistente Interactivo de Red y Puertos (escanear y cambiar puertos)
+echo   [3] Rescate y Reinicio Rapido del Servidor (Auto-recuperacion)
 echo.
-echo   [4] Preparar Paquete Limpio para Instalador .exe (npm run preparar:instalador)
+echo   [4] Asistente Interactivo de Red y Puertos (escanear y cambiar puertos)
 echo.
-echo   [5] Ver Estado de Servicios en Segundo Plano (PM2 Status)
+echo   [5] Asistente Maestro Post-Instalacion (Firewall, Puertos, Accesos y PM2)
 echo.
-echo   [6] Detener Todos los Servicios del POS
+echo   [6] Preparar Paquete Limpio para Instalador .exe (npm run preparar:instalador)
 echo.
-echo   [7] Reiniciar Servicios del POS
+echo   [7] Ver Estado de Servicios en Segundo Plano (PM2 Status)
 echo.
-echo   [8] Abrir Carpeta de Respaldos (C:\POS_BACKUPS)
+echo   [8] Detener Todos los Servicios del POS
 echo.
-echo   [9] Salir
+echo   [9] Reiniciar Servicios del POS
 echo.
-set /p OPC=">> Ingrese su opcion [1-9]: "
+echo   [10] Abrir Carpeta de Respaldos (C:\POS_BACKUPS)
+echo.
+echo   [11] Salir
+echo.
+set /p OPC=">> Ingrese su opcion [1-11]: "
 
 if "%OPC%"=="1" goto INICIAR_SERVIDOR
-if "%OPC%"=="2" goto POST_INSTALADOR
-if "%OPC%"=="3" goto ASISTENTE_PUERTOS
-if "%OPC%"=="4" goto PREPARAR_PAQUETE
-if "%OPC%"=="5" goto ESTADO_PM2
-if "%OPC%"=="6" goto DETENER_SERVICIOS
-if "%OPC%"=="7" goto REINICIAR_SERVICIOS
-if "%OPC%"=="8" goto ABRIR_BACKUPS
-if "%OPC%"=="9" goto SALIR
+if "%OPC%"=="2" goto MODO_APP
+if "%OPC%"=="3" goto RESCATE_RAPIDO
+if "%OPC%"=="4" goto ASISTENTE_PUERTOS
+if "%OPC%"=="5" goto POST_INSTALADOR
+if "%OPC%"=="6" goto PREPARAR_PAQUETE
+if "%OPC%"=="7" goto ESTADO_PM2
+if "%OPC%"=="8" goto DETENER_SERVICIOS
+if "%OPC%"=="9" goto REINICIAR_SERVICIOS
+if "%OPC%"=="10" goto ABRIR_BACKUPS
+if "%OPC%"=="11" goto SALIR
 
 echo.
 echo [ERROR] Opcion no valida.
@@ -106,6 +112,19 @@ goto MENU
 :INICIAR_SERVIDOR
 cls
 call "%PROJECT_ROOT%\INICIAR_SERVIDOR_POS.bat"
+goto MENU
+
+:MODO_APP
+cls
+call "%PROJECT_ROOT%\ABRIR_TERMINAL_POS_DIRECTO.bat"
+goto MENU
+
+:RESCATE_RAPIDO
+cls
+call "%PROJECT_ROOT%\REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat"
+echo.
+echo Presione cualquier tecla para volver al menu principal...
+pause >nul
 goto MENU
 
 :POST_INSTALADOR

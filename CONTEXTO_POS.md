@@ -3023,3 +3023,53 @@ Se creó la infraestructura de instalación autónoma (.exe) para Smart Install 
 - **Verificación de Tipos TypeScript (`npx tsc --noEmit`):** 0 errores.
 - **Preparación del Paquete (`npm run preparar:instalador`):** 6/6 pasos ejecutados con éxito total.
 - **Compilación de Producción (`npm run build`):** Ejecución limpia y optimizada con código 0.
+
+
+---
+
+## 42. CONSOLIDACIÓN DE INFRAESTRUCTURA: MENÚ INTERACTIVO, MODO APP NATIVO, RESCATE RÁPIDO Y MANUAL OFICIAL UNIFICADO
+
+### 1. Depuración de Métodos Legacy y Unificación Documental
+- **Eliminación de Estructuras Obsoletas:** Dado que la distribución se estandarizó en el paquete ejecutable autónomo (`setup.exe`), se depuraron las carpetas y manuales redundantes dentro de `instalador_tienda/`:
+  - Eliminados: `metodo_comandos/`, `metodo_github/`, `metodo_scripts_bat/`, `metodo_usb_zip/`, `1_INSTALAR_POS_GITHUB.bat`, `2_INICIAR_O_CAMBIAR_PUERTO_SERVIDOR.bat`, `asistente-post-instalacion.bat`, `compilar_instalador_inno.bat`, `crear_instalador_inno.iss`, `GUIA_INSTALADOR_PORTABLE_EXE.md` y `LEEME_GUIA_INSTALACION_TIENDA.md`.
+- **Manual Maestro Unificado (`instalador_tienda/MANUAL_OFICIAL_INSTALACION_Y_OPERACION.md`):**
+  - Guía central estructurada en 8 secciones: arquitectura offline-first, protocolo de instalación en 1 clic (`Setup.exe`), credenciales maestras de fábrica, catálogo de lanzadores rápidos, modo app dedicado, reconfiguración de puertos y mDNS, protocolo de rescate rápido y protocolo de respaldos automáticos con SQLite `VACUUM INTO`.
+  - Actualizado el portal de bienvenida en `README.md` apuntando a esta nueva guía oficial.
+
+### 2. Menú Interactivo y Personalización en `INICIAR_SERVIDOR_POS.bat`
+- **Interfaz Consolidada sin Emojis:**
+  - Encabezado con estado en vivo de `.env`: Puerto Next.js (`PORT`), Puerto Salida Red/Proxy (`HTTP_PORT`), Dominio mDNS (`LOCAL_DOMAIN`) e Identificador PM2 (`INSTANCE_ID`).
+  - Menú de 5 opciones:
+    1. Iniciar servidor normalmente y abrir en navegador predeterminado.
+    2. Iniciar servidor en Ventana Nativa POS (Modo App dedicado sin navegador).
+    3. Cambiar / Personalizar Puertos y Dominio Local (invocación directa de `scripts/escanear-y-elegir-puertos.js` y actualización en caliente de PM2).
+    4. Reiniciar servicios de PM2 forzadamente.
+    5. Salir.
+- **Soporte Silencioso Desatendido:** Preservada la bandera `--silencioso` para arranques limpios de fondo desde el script VBS en la carpeta de Inicio de Windows (`shell:startup`) o el Programador de Tareas.
+
+### 3. Script de Rescate y Reinicio Rápido (`REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat`)
+- **Herramienta de Auto-Recuperación en 1 Clic:**
+  - Diseñado para que el cajero o administrador recupere el sistema si el servidor se cerró o congeló.
+  - Verifica el socket TCP del puerto configurado en `.env` mediante `netstat`.
+  - Si el puerto no responde, reactiva de inmediato los servicios con `pm2 restart [INSTANCE_ID]` (o arranca `ecosystem.config.js`), con fallback automático al motor Node.js portable interno.
+  - Ejecuta bucle de espera de hasta 4 intentos verificando la apertura del puerto y abre automáticamente la consola web en `http://localhost:[PORT]/login`.
+
+### 4. Lanzador Directo en Ventana Nativa / Modo App (`ABRIR_TERMINAL_POS_DIRECTO.bat`)
+- **Experiencia de Terminal de Mostrador sin Distracciones:**
+  - Detecta la presencia de Microsoft Edge (`msedge.exe`) o Google Chrome (`chrome.exe`) en directorios de programas de 64 y 32 bits y en `%LocalAppData%`.
+  - Comprueba preventivamente si el servidor local está activo; si no lo está, invoca silenciosamente a `REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat` antes de mostrar la ventana.
+  - Lanza la URL en modo aplicación dedicada:
+    `msedge.exe --app="http://localhost:[PORT]/login"`
+  - Proporciona una ventana limpia con el icono corporativo, sin barra de direcciones, sin pestañas y sin controles estándar que puedan interrumpir la facturación.
+
+### 5. Accesos Directos en el Escritorio (`POST_INSTALADOR_MAESTRO.bat`)
+- El script de post-instalación ahora genera automáticamente 4 accesos directos en el Escritorio de Windows:
+  1. `Iniciar POS Llanomio.lnk` -> `INICIAR_SERVIDOR_POS.bat`
+  2. `POS Llanomio - Modo App Directo.lnk` -> `ABRIR_TERMINAL_POS_DIRECTO.bat`
+  3. `POS Llanomio - Recuperar Servidor.lnk` -> `REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat`
+  4. `POS Llanomio - Menu Administrador.lnk` -> `instalador_tienda/MENU_DE_INSTALACION.bat`
+
+### 6. Control de Calidad (QA) y Verificación
+- **Verificación de Tipos TypeScript (`npx tsc --noEmit`):** 0 errores.
+- **Preparación del Paquete (`npm run preparar:instalador`):** 6/6 fases verificadas exitosamente.
+- **Compilación de Producción (`npm run build`):** Ejecución limpia y optimizada de las 22 rutas con código 0.

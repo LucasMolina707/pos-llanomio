@@ -32,22 +32,12 @@ El sistema administra de punta a punta:
 
 ### Portal Oficial de Instalación y Despliegue
 
-La suite completa de despliegue, guías paso a paso y herramientas de instalación se encuentra organizada de forma modular en la carpeta `/instalador_tienda`:
+La suite completa de despliegue, guías paso a paso y herramientas de instalación se encuentra organizada en la carpeta `/instalador_tienda`:
 
-- **[Portal Maestro de Instalación](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/LEEME_GUIA_INSTALACION_TIENDA.md):** Índice central y matriz selectora para elegir el método adecuado.
-- **[Método 1: Scripts BAT Automatizados](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_scripts_bat/GUIA_INSTALACION_SCRIPTS.md):** Asistentes visuales numerados en ventanas de diálogo (Recomendado para personal de tienda).
-- **[Método 2: Clonación Directa desde GitHub](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_github/GUIA_INSTALACION_GITHUB.md):** Para implementadores con Git y conexión a Internet.
-- **[Método 3: Paquete Portable Offline USB / ZIP](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_usb_zip/GUIA_INSTALACION_USB.md):** Para equipos de mostrador sin Git o con conexión limitada.
-- **[Método 4: Línea de Comandos CLI](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/metodo_comandos/GUIA_INSTALACION_COMANDOS.md):** Guía paso a paso para soporte técnico y administradores de sistemas.
-
----
-
-### Manuales Especializados
-
-- **[Manual de Copias de Seguridad, Exportación y Migración Web](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md):**
-  Detalle exhaustivo de las copias automáticas post-arqueo, rotación de los últimos 15 respaldos, sincronización en nube y migración asistida entre dos computadores mediante la interfaz web de `/admin/configuracion`.
-- **[Manual de Conexión y Apertura de Cajón Monedero e Impresora](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_CAJON_MONEDERO_E_IMPRESORA.md):**
-  Guía de conexión del cable telefónico RJ11/RJ12, posiciones de la cerradura física de la gaveta y configuración del Spooler RAW de Windows.
+- **[Manual Oficial de Instalación y Operación](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_OFICIAL_INSTALACION_Y_OPERACION.md):** Guía central unificada de instalación en 1 clic mediante paquete ejecutable autónomo, configuración de puertos y rescate de servicios.
+- **[Guía de Empaquetado Smart Install Maker](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/GUIA_SMART_INSTALL_MAKER.md):** Paso a paso para generar el archivo instalador autónomo offline (`Setup_MiEmpresa_POS.exe`).
+- **[Manual de Copias de Seguridad, Exportación y Migración Web](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md):** Detalle exhaustivo de las copias automáticas post-arqueo, rotación de los últimos 15 respaldos y migración asistida entre dos computadores mediante la interfaz web de `/admin/configuracion`.
+- **[Manual de Conexión y Apertura de Cajón Monedero e Impresora](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_CAJON_MONEDERO_E_IMPRESORA.md):** Guía de conexión del cable telefónico RJ11/RJ12, posiciones de la cerradura física de la gaveta y configuración del Spooler RAW de Windows.
 
 ---
 
