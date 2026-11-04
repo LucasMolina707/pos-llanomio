@@ -415,6 +415,18 @@ export default function ApartadosPage() {
   // Guardado Seguro del Apartado (Paso 3 -> Paso 4)
   // ---------------------------------------------------------------------------
   const procesarGuardadoApartado = async () => {
+    // 1. Verificación de seguridad de caja única transversal
+    if (cajon.seguridadCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
+      setMensajeError(cajon.motivoBloqueo || "Existe un turno de caja del día anterior sin cerrar. Debe realizar el cierre formal antes de operar.");
+      cajon.abrirModal();
+      return;
+    }
+    if (cajon.seguridadCaja.estado === "SIN_TURNO" && !cajon.cajonConectado && !cajon.turnoAbierto) {
+      setMensajeError("No existe un turno de caja iniciado para la jornada de hoy. Debe registrar la base de efectivo inicial.");
+      cajon.abrirModal();
+      return;
+    }
+
     if (!clienteSeleccionado) {
       alert("Debes seleccionar o crear un cliente antes de continuar.");
       setPaso(1);
@@ -448,6 +460,9 @@ export default function ApartadosPage() {
         fechaDevolucionEstimada: fechaDevolucion ? new Date(fechaDevolucion).toISOString() : null,
         montoDeposito: depositoNumerico,
         depositoEntregado: depositoEntregadoHoy,
+        depositoRecibidoHoy: depositoEntregadoHoy && depositoNumerico > 0,
+        metodoPagoDeposito: depositoEntregadoHoy && depositoNumerico > 0 ? "EFECTIVO" : null,
+        turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
         observaciones: observaciones.trim() || null,
         abonoInicial: abonoNumerico > 0
           ? {
@@ -531,6 +546,19 @@ export default function ApartadosPage() {
   // ---------------------------------------------------------------------------
   const registrarAbonoHistorial = async () => {
     if (!apartadoParaAbonar) return;
+
+    // Validación de seguridad de caja
+    if (cajon.seguridadCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
+      setMensajeError(cajon.motivoBloqueo || "Existe un turno de caja del día anterior sin cerrar. Debe realizar el cierre formal antes de operar.");
+      cajon.abrirModal();
+      return;
+    }
+    if (cajon.seguridadCaja.estado === "SIN_TURNO" && !cajon.cajonConectado && !cajon.turnoAbierto) {
+      setMensajeError("No existe un turno de caja iniciado para la jornada de hoy. Debe registrar la base de efectivo inicial.");
+      cajon.abrirModal();
+      return;
+    }
+
     const monto = Math.max(0, Number(montoNuevoAbono) || 0);
     if (monto <= 0) {
       alert("Ingresa un monto válido para el abono.");
@@ -545,6 +573,7 @@ export default function ApartadosPage() {
         body: JSON.stringify({
           monto,
           metodoPago: metodoNuevoAbono,
+          turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
           notas: "Abono adicional a apartado registrado desde historial",
         }),
       });
@@ -552,6 +581,10 @@ export default function ApartadosPage() {
       if (!res.ok || (!res.data?.success && !res.data?.ok)) {
         throw new Error(res.error || "No se pudo registrar el abono.");
       }
+
+      // Sincronizar en vivo el saldo de cajón si se recibió dinero hoy
+      cajon.actualizarCajon(true);
+      cajon.notificarCajaActualizada();
 
       // Disparar apertura automática de cajón si el abono fue en efectivo
       if (metodoNuevoAbono === "EFECTIVO" && monto > 0) {
@@ -1635,6 +1668,15 @@ export default function ApartadosPage() {
                           </td>
                           <td className="py-2 px-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
+                              {!esConvertido && (
+                                <IconButtonTooltip
+                                  icon={ShoppingBag}
+                                  label="Entregar / Convertir en Alquiler Activo"
+                                  variant="indigo"
+                                  size="sm"
+                                  href={`/caja/alquileres?apartadoId=${item.id}`}
+                                />
+                              )}
                               {!esConvertido && item.saldoPendiente > 0 && (
                                 <IconButtonTooltip
                                   icon={DollarSign}

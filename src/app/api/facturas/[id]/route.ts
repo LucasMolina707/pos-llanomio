@@ -319,6 +319,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           data: {
             tipoOperacion: TipoOperacion.ALQUILER,
             estado: EstadoFactura.ACTIVA_ALQUILADA,
+            turnoCajaId: turnoAbierto?.id || facturaPrevia.turnoCajaId || null,
             totalAbonado: nuevoTotalAbonado,
             saldoPendiente: nuevoSaldo,
             tarifaMoraDiaria: body.tarifaMoraDiaria !== undefined ? Number(body.tarifaMoraDiaria) : (facturaPrevia.tarifaMoraDiaria || 3000),

@@ -855,7 +855,7 @@ export default function TerminalAlquileresPage() {
         };
 
         const res = await safeFetchJson<any>(`/api/facturas/${apartadoOrigen.id}`, {
-          method: "POST",
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payloadConversion),
         });
@@ -1331,16 +1331,19 @@ export default function TerminalAlquileresPage() {
             <BotonAbrirCajon soloIcono={true} size="md" />
           </div>
 
-          <IconButtonTooltip
-            icon={FolderDown}
-            label="Tomar Reserva desde Apartados"
-            variant="indigo"
-            size="md"
+          <button
+            type="button"
             onClick={() => {
               cargarApartadosActivos();
               setModalCargarApartadoAbierto(true);
             }}
-          />
+            className="px-3.5 py-1.5 rounded-xl font-bold text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-2xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
+            title="Tomar desde Apartados / Reservas: Cargar reserva previa con cliente, prendas y abono"
+          >
+            <ShoppingBag className="w-4 h-4 text-indigo-600" />
+            <span className="hidden sm:inline">Tomar desde Apartados / Reservas</span>
+            <span className="sm:hidden">Apartados</span>
+          </button>
 
           <IconButtonTooltip
             icon={PlusCircle}
@@ -1941,7 +1944,35 @@ export default function TerminalAlquileresPage() {
                   {pasoActual === 1 && (
                     <>
                       {/* Cabecera Fija Paso 1 (shrink-0) */}
-                      <div className="shrink-0 p-3 border-b border-slate-100 bg-white space-y-2.5">
+                      <div className="shrink-0 p-3 border-b border-slate-100 bg-white space-y-3">
+                        {/* Botón Superior Destacado: Tomar desde Apartados (Antes de seleccionar cliente) */}
+                        <div className="p-3 bg-indigo-50/90 border border-indigo-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                              <ShoppingBag className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h3 className="text-xs sm:text-sm font-black text-indigo-950">
+                                ¿El cliente ya tiene un traje apartado?
+                              </h3>
+                              <p className="text-[11px] text-indigo-700 font-medium">
+                                Seleccione el producto apartado antes de buscar al cliente: arrastra el cliente, trajes y abono automáticamente.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              cargarApartadosActivos();
+                              setModalCargarApartadoAbierto(true);
+                            }}
+                            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer shrink-0"
+                          >
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>Tomar desde Apartados / Reservas</span>
+                          </button>
+                        </div>
+
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div>
                             <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
@@ -1949,21 +1980,11 @@ export default function TerminalAlquileresPage() {
                               Paso 1: Selección del Cliente Arrendatario
                             </h2>
                             <p className="text-xs text-slate-500">
-                              Selecciona un cliente o crea uno nuevo con su teléfono primario para el contrato
+                              O busque un cliente existente o cree uno nuevo con su teléfono primario para el contrato
                             </p>
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            <IconButtonTooltip
-                              icon={FolderDown}
-                              label="Tomar Reserva desde Apartados"
-                              variant="indigo"
-                              size="md"
-                              onClick={() => {
-                                cargarApartadosActivos();
-                                setModalCargarApartadoAbierto(true);
-                              }}
-                            />
                             <IconButtonTooltip
                               icon={UserPlus}
                               label="Crear Nuevo Cliente Rápido"
@@ -2100,16 +2121,19 @@ export default function TerminalAlquileresPage() {
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            <IconButtonTooltip
-                              icon={FolderDown}
-                              label="Tomar Reserva desde Apartados"
-                              variant="indigo"
-                              size="md"
+                            <button
+                              type="button"
                               onClick={() => {
                                 cargarApartadosActivos();
                                 setModalCargarApartadoAbierto(true);
                               }}
-                            />
+                              className="px-3 py-1.5 rounded-xl font-bold text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-2xs flex items-center gap-1.5 transition cursor-pointer"
+                              title="Tomar desde Apartados / Reservas"
+                            >
+                              <ShoppingBag className="w-4 h-4 text-indigo-600" />
+                              <span className="hidden sm:inline">Tomar desde Apartados / Reservas</span>
+                              <span className="sm:hidden">Apartados</span>
+                            </button>
                             <IconButtonTooltip
                               icon={PackagePlus}
                               label="Crear Nuevo Traje en Catálogo"
@@ -3400,14 +3424,14 @@ export default function TerminalAlquileresPage() {
             <div className="p-4 bg-slate-50 border-b border-slate-200 text-slate-800 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center">
-                  <CalendarClock className="w-4 h-4 text-indigo-600" />
+                  <ShoppingBag className="w-4 h-4 text-indigo-600" />
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900">
-                    Tomar Prenda / Reserva desde el Sistema de Apartados
+                    Tomar desde Apartados / Reservas
                   </h3>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    Seleccione un apartado activo para precargar cliente, prendas y descontar el abono previo pagado.
+                    Seleccione un apartado activo para precargar el cliente, prendas y descontar el abono previo pagado.
                   </p>
                 </div>
               </div>
@@ -3536,10 +3560,10 @@ export default function TerminalAlquileresPage() {
                           <button
                             type="button"
                             onClick={() => seleccionarApartadoParaAlquilar(apt)}
-                            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                           >
-                            <CalendarClock className="w-4 h-4" />
-                            <span>Cargar en Alquiler</span>
+                            <ShoppingBag className="w-4 h-4" />
+                            <span>Tomar y Cargar en Alquiler</span>
                           </button>
                         </div>
                       </div>

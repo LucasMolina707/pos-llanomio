@@ -376,14 +376,14 @@ export async function calcularArqueoExactoTurno(
     }
   }
 
-  // 2. Facturas de alquiler vinculadas para depósitos en garantía
+  // 2. Facturas de alquiler o apartados vinculadas para depósitos en garantía
   const facturasAlquiler = await prismaClient.factura.findMany({
     where: {
       OR: [
         { turnoCajaId: turno.id },
         { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
       ],
-      tipoOperacion: "ALQUILER",
+      tipoOperacion: { in: ["ALQUILER", "SEPARE"] },
     },
     select: {
       id: true,

@@ -317,14 +317,14 @@ export default function ModalConexionCajon({
             </div>
             <div>
               <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-700 block mb-1">
-                Apertura de Cajón del Día
+                Apertura de Caja Única &bull; Jornada Actual
               </span>
               <h2 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
-                Inicializar Cajón de Dinero
+                Apertura Única de Caja
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-slate-600 max-w-sm mx-auto font-medium">
-              No hay un cajón abierto para hoy en la tienda. Registre la Base Inicial en Efectivo para empezar a facturar y alquilar.
+              No hay una caja abierta para hoy en la tienda. Ingrese el dinero real físico total en gaveta para autorizar simultáneamente Ventas, Alquileres y Apartados.
             </p>
           </div>
 
@@ -338,7 +338,7 @@ export default function ModalConexionCajon({
           <form onSubmit={handleSubmitAperturaInicial} className="space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
-                Base Inicial en Efectivo ($ COP) *
+                Dinero Real Físico Total en Gaveta ($ COP) *
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
@@ -407,12 +407,12 @@ export default function ModalConexionCajon({
                 {procesandoLocal || cargando ? (
                   <>
                     <RefreshCw className="w-5 h-5 animate-spin" />
-                    <span>Iniciando Cajón de Dinero...</span>
+                    <span>Iniciando Turno Único de Caja...</span>
                   </>
                 ) : (
                   <>
                     <Unlock className="w-5 h-5" />
-                    <span>Abrir Cajón y Comenzar a Facturar</span>
+                    <span>Abrir Caja y Habilitar Mostrador</span>
                   </>
                 )}
               </button>

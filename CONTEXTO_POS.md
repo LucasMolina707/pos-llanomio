@@ -3577,3 +3577,75 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
 - **Tipado TypeScript:** `npx tsc --noEmit` completado con 0 errores.
 - **Build de Producción:** `npx next build --no-lint` exitoso en 23.6s (22/22 rutas generadas).
 - **PM2:** Procesos en línea y funcionando en `http://localhost:3000`.
+
+
+---
+
+## SECCIÓN 53: APERTURA DE CAJA ÚNICA TRANSVERSAL Y ARQUEO CONSOLIDADO EN MOSTRADOR
+
+### 1. Reglas de Negocio Implementadas
+1. **Apertura de Caja Única Transversal:**
+   - Una sola apertura de caja por jornada laboral abastece y autoriza simultáneamente las tres terminales de mostrador: **Ventas (`/caja/pos`)**, **Alquileres (`/caja/alquileres`)** y **Apartados (`/caja/apartados`)**.
+   - Al registrar la apertura, el cajero ingresa el **dinero real físico total que hay en gaveta** (base inicial para cambio y efectivo acumulado), sin requerir desgloses manuales complejos.
+   - Sincronización en vivo y universal mediante `useCajonSincronizado.ts`, `ModalConexionCajon.tsx` y eventos globales de ventana (`pos_caja_actualizada`, `caja_actualizada`).
+2. **Impacto Contable Unificado en Arqueo de Turno:**
+   - Todos los ingresos recibidos (ventas directas, abonos iniciales de apartados, abonos adicionales desde historial, pagos de canon de alquileres y depósitos en custodia en efectivo) se acumulan de manera transparente en el `TurnoCaja` activo correspondiente.
+   - En `calcularArqueoExactoTurno` (`src/lib/caja-control.ts`), la búsqueda de depósitos en garantía netos abarca `{ tipoOperacion: { in: ["ALQUILER", "SEPARE"] } }`, consolidando en gaveta física el dinero en custodia de reservas y contratos activos.
+
+### 2. Archivos Modificados
+1. `src/lib/caja-control.ts`:
+   - Depósitos en garantía vinculados a turnos incluyen tanto `ALQUILER` como `SEPARE`.
+   - `verificarEstadoCajaParaFacturacion` autoriza de inmediato a cualquier terminal cuando hay turno abierto hoy.
+2. `src/components/caja/ModalConexionCajon.tsx`:
+   - Textos unificados a **"Apertura de Caja Única &bull; Jornada Actual"** y **"Dinero Real Físico Total en Gaveta ($ COP)"**.
+   - Botón de acción: **"Abrir Caja y Habilitar Mostrador"**.
+3. `src/hooks/useCajonSincronizado.ts`:
+   - Conexión silenciosa inmediata y propagación de `turnoCajaId` transversal a todas las pestañas.
+4. `src/app/caja/pos/page.tsx`, `src/app/caja/alquileres/page.tsx` y `src/app/caja/apartados/page.tsx`:
+   - Bloqueo preventivo de seguridad si no hay caja abierta hoy o si existe turno del día anterior sin cerrar.
+   - Propagación automática de `turnoCajaId` en payloads de creación y abonos.
+
+---
+
+## SECCIÓN 54: BLINDAJE INTEGRAL DEL PUENTE DE CONVERSIÓN ATÓMICA DE APARTADOS A ALQUILERES
+
+### 1. Objetivos Técnicos y Reglas de Negocio
+1. **Selector y Arrastre Directo desde Alquileres (`/caja/alquileres`):**
+   - En el **Paso 1** (antes del selector y buscador de clientes), en el **Paso 2** (catálogo de trajes) y en la barra de herramientas superior, se incorporó el botón visible:
+     > **`"Tomar desde Apartados / Reservas"`**
+   - Abre un modal interactivo con búsqueda en tiempo real (por número de apartado, cliente, documento o teléfono).
+   - Al seleccionar un apartado, arrastra de inmediato y sin fricciones:
+     - El cliente titular (con su nombre, documento, teléfono primario y secundario).
+     - Las prendas o trajes reservados con sus descripciones detalladas, tallas, colores y precios pactados.
+     - El abono previo depositado para descontarlo automáticamente del canon de alquiler.
+     - Monto estipulado de depósito en garantía y fechas pactadas.
+     - Avanza fluidamente al Paso 2 para confirmación visual.
+   - Soporte para carga directa mediante URL param `?apartadoId=...`.
+2. **Botón de Redirección Rápida en Apartados (`/caja/apartados`):**
+   - En la tabla del historial de apartados, cada apartado pendiente cuenta con el botón de acción:
+     > **`"Entregar / Convertir en Alquiler Activo"`** (`/caja/alquileres?apartadoId=${item.id}`).
+3. **Conversión Atómica en Backend (`PATCH /api/facturas/[id]` y `POST /api/facturas/[id]`):**
+   - Acción `CONVERTIR_APARTADO_A_ALQUILER` ejecutada dentro de `prisma.$transaction`:
+     1. Transiciona `tipoOperacion: ALQUILER` y `estado: ACTIVA_ALQUILADA`.
+     2. Actualiza el estado físico de los trajes en inventario a `estado: "ALQUILADO"` y `estadoPrenda: "ALQUILADO"`.
+     3. Registra el nuevo dinero recibido hoy (excedente / saldo restante) como un nuevo abono vinculado al `turnoCajaId` del turno activo, incrementando el efectivo recaudado del turno sin duplicar abonos previos.
+     4. Al cambiar `tipoOperacion` a `ALQUILER`, el apartado deja de figurar automáticamente en la bandeja de apartados pendientes y pasa a figurar como alquiler activo.
+
+### 2. Archivos Modificados
+1. `src/app/caja/alquileres/page.tsx`:
+   - Botón superior visible `"Tomar desde Apartados / Reservas"` en Barra Superior, Paso 1 y Paso 2.
+   - Modal interactivo con búsqueda en tiempo real y precarga total de cliente, trajes y abono.
+   - Envío de conversión mediante `PATCH /api/facturas/[id]` con `accion: "CONVERTIR_APARTADO_A_ALQUILER"`.
+2. `src/app/api/facturas/[id]/route.ts`:
+   - Exportación de `PATCH = POST` para soporte universal de conversión atómica.
+   - Transición de `tipoOperacion: ALQUILER`, `estado: ACTIVA_ALQUILADA`, inventario a `ALQUILADO`, y recaudación exacta en turno de caja.
+3. `src/app/caja/apartados/page.tsx`:
+   - Incorporado botón de acción rápida `"Entregar / Convertir en Alquiler Activo"` (`/caja/alquileres?apartadoId=...`).
+4. `scripts/test-auditoria-conversion-apartado-alquiler.cjs`:
+   - Script de prueba automatizada integral QA verificando creación de apartado, conversión atómica, actualización de inventario a `ALQUILADO` y arqueo de caja.
+
+### 3. Resultados de Calidad (QA) y Certificación
+- **Prueba Automatizada QA (`scripts/test-auditoria-conversion-apartado-alquiler.cjs`):** 100% de aserciones aprobadas con código 0.
+- **Tipado TypeScript:** `npx tsc --noEmit` completado con 0 errores.
+- **Compilación de Producción:** `npm run build` exitoso con 22/22 rutas generadas.
+- **Servicio PM2:** Procesos en línea (`online`) y operativos en `http://localhost:3000`.

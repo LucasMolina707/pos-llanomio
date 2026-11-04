@@ -819,7 +819,7 @@ export default function PosPage() {
           fechaEntrega: item.fechaEntrega,
           fechaDevolucion: item.fechaDevolucion,
         })),
-        turnoCajaId: cajon.cajonConectado?.id || undefined,
+        turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
         abonoInicial:
           valorACobrarHoy > 0
             ? {
