@@ -255,3 +255,4 @@ echo.
 echo Presione cualquier tecla para finalizar el asistente...
 pause >nul
 exit /b 0
+

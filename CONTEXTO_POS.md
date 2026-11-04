@@ -3213,5 +3213,61 @@ Con la consolidación de la arquitectura portable y el instalador desatendido `.
 - `instalador_tienda/LEEME_INDICE_GENERAL.md`: Documento de 1 página con el mapa general y enlaces funcionales.
 - `instalador_tienda/recursos/llanomio.ico`: Icono de identidad corporativa para los accesos directos de Windows.
 
+---
+
+## 46. REFACTORIZACIÓN QUIRÚRGICA DEL MOTOR DE IMPRESIÓN Y PDF: SEGREGACIÓN TOTAL DE VENTAS VS ALQUILERES, ELIMINACIÓN DE DEPÓSITO EN VENTAS Y TIPOGRAFÍA AUMENTADA (NOVIEMBRE 2026)
+
+### 1. Motivación y Reglas de Negocio Implementadas
+En respuesta a las necesidades operativas de mostrador y claridad contable para clientes y cajeros, se ejecutó una refactorización integral en el motor de impresión en pantalla e iframe (`src/components/impresion/PlantillaImpresion.tsx`), en el generador vectorial de PDF (`src/lib/pdf-media-carta.ts`) y en el simulador en vivo de configuración (`src/app/admin/configuracion/page.tsx`):
+
+1. **Eliminación Estricta de la Etiqueta Amarilla "Sección B — Depósito Separado" en Ventas y Alquileres sin Depósito:**
+   - La tarjeta/recuadro de color amarillo (`Sección B: Depósito en Garantía / Cobro Separado`) **SE ELIMINA POR COMPLETO** de todas las facturas de Venta o Arreglo (`tipoOperacion !== 'ALQUILER'`).
+   - En Alquileres (`tipoOperacion === 'ALQUILER'`), la Sección B **SOLO se renderiza si `montoDeposito > 0`**. Si un alquiler tiene depósito `$0`, tampoco se muestra recuadro amarillo vacío ni constancias de depósito.
+
+2. **Segregación Contable Total de Textos en Sección A ("VENTA" vs "ALQUILER" vs "APARTADO"):**
+   - Se determinan inequívocamente los estados:
+     - `esAlquiler = factura.tipoOperacion === 'ALQUILER'`
+     - `esApartado = factura.tipoOperacion === 'SEPARE' || factura.tipoOperacion === 'APARTADO'`
+     - `esVenta = !esAlquiler && !esApartado`
+   - **En Facturas de Venta (`esVenta`):**
+     - Título Oficial: `"FACTURA DE VENTA"` (o `"COMPROBANTE DE VENTA — SALDO PENDIENTE"` si tiene saldo). **PROHIBIDO** mostrar la palabra `"ALQUILER"` en facturas de venta.
+     - Sección A rotulada como: `"SECCIÓN A — LIQUIDACIÓN DE OPERACIÓN DE VENTA"`.
+     - Totales rotulados como: `"TOTAL VENTA:"` (jamás `"Total Alquiler"`).
+     - Subtotal rotulado como: `"Subtotal Venta / Servicios:"`.
+     - Cliente rotulado como: `"CLIENTE / ADQUIRIENTE:"`.
+     - **CERO** fechas de devolución ni estados de mora de prendas.
+   - **En Facturas de Alquiler (`esAlquiler`):**
+     - Título Oficial: `"FACTURA DE ALQUILER"` (o `"COMPROBANTE DE ALQUILER"`).
+     - Sección A rotulada como: `"SECCIÓN A — LIQUIDACIÓN DE OPERACIÓN DE ALQUILER"`.
+     - Totales rotulados como: `"TOTAL ALQUILER:"`.
+     - Cliente rotulado como: `"CLIENTE / ARRENDATARIO:"`.
+     - Fechas de salida, devolución pactada y estados de mora detallados.
+   - **En Formatos de Apartado (`esApartado`):**
+     - Título Oficial: `"FORMATO DE APARTADO"`.
+     - Sección A rotulada como: `"SECCIÓN A — LIQUIDACIÓN DE APARTADO / SEPARE"`.
+     - Totales rotulados como: `"TOTAL APARTADO:"`.
+     - Cliente rotulado como: `"CLIENTE / APARTANTE:"`.
+
+3. **Separación Estricta de Normas y Políticas (Cero Cruce de Políticas de Apartados en Ventas o Alquileres):**
+   - **En Ventas (`esVenta`):** Nota comercial de garantía: `"Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento."` (**SIN** cláusulas de depósito, **SIN** mora y **SIN** `"PLATA DE TRAJES APARTADOS NO SE DEVUELVE"`).
+   - **En Alquileres (`esAlquiler`):** Políticas de cuidado y entrega: `empresa.politicasFactura || "Las prendas en alquiler deben devolverse en la fecha pactada en óptimas condiciones. Todo retraso generará cobro de recargo por mora. Cuide su comprobante."` (**PROHIBIDO** incluir `"PLATA DE TRAJES APARTADOS NO SE DEVUELVE"` en alquileres).
+   - **En Apartados (`esApartado`):** Norma exclusiva de reserva: `"PLATA DE TRAJES APARTADOS NO SE DEVUELVE. El cliente cuenta con un plazo determinado para retirar las prendas; en caso de desistir de la reserva, el abono no es reembolsable."`
+
+4. **Tipografía Más Grande, Uniforme y de Alta Legibilidad en los 4 Formatos Oficiales:**
+   - **TIRILLA (80mm):** Base en `text-xs font-semibold text-slate-950 leading-snug`, encabezados de empresa en `11pt bold`, tablas de ítems en `7.2pt`, totales en `8.5pt bold` y `14px-15px` en pantalla.
+   - **MEDIA_CARTA Individual (`215.9mm x 139.7mm`):** Cuerpo en `text-xs sm:text-[12.5px] font-medium text-slate-950 leading-tight`, totales en `8pt-10.5pt bold` (`15px-16px` en pantalla). Altura máxima garantizada `<= 127mm`.
+   - **MEDIA_CARTA_DOBLE (2 en 1 Hoja Carta Vertical `215.9mm x 279.4mm`):** Ambos ejemplares en 1 sola hoja Carta apilados verticalmente y separados por línea central de corte (`Y = 139.7mm`). Tipografía uniforme de `11.5px-12.5px` (`text-[11.5px] font-semibold text-slate-950 leading-tight`), totales `14px-15px`, altura `<= 130mm` por ejemplar. Garantía inquebrantable de **1 sola página física** (`doc.getNumberOfPages() === 1`).
+   - **CARTA Completa (`215.9mm x 279.4mm`):** Cuerpo en `text-sm font-medium text-slate-900`, cabecera en `15pt bold`, subtítulos en `8.5pt`, totales en `9.5pt-12pt bold` (`17px-18px` en pantalla). Altura máxima `<= 258mm`.
+
+5. **Simulador en Vivo Dinámico (`src/app/admin/configuracion/page.tsx`):**
+   - Incorpora selector de simulación `"Venta (Sin Depósito)"` vs `"Alquiler (Con Depósito)"`.
+   - Permite al administrador comprobar en tiempo real cómo cambia la presentación tipográfica, los rótulos de venta vs alquiler y la presencia/ausencia de la Sección B de depósito.
+
+6. **Reglas Inquebrantables Preservadas:**
+   - **CERO códigos QR** en los 4 formatos de impresión y PDF.
+   - Apertura de cajón monedero RJ11 e impresión directa en iframe aislada 100% funcionales.
+   - Suite de pruebas automatizadas QA (`scripts/test-media-carta-doble-qa.ts`) con 5/5 validaciones superadas.
+
+
 
 

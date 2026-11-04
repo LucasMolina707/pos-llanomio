@@ -112,6 +112,7 @@ export default function ConfiguracionAdminPage() {
 
   // Formato simulado en la columna derecha
   const [formatoSimulador, setFormatoSimulador] = useState<"TIRILLA" | "MEDIA_CARTA" | "MEDIA_CARTA_DOBLE" | "CARTA">("MEDIA_CARTA");
+  const [tipoOperacionSimulador, setTipoOperacionSimulador] = useState<"VENTA" | "ALQUILER">("VENTA");
 
   // Estado del respaldo en caliente y migración
   const [respaldando, setRespaldando] = useState(false);
@@ -1730,9 +1731,40 @@ export default function ConfiguracionAdminPage() {
               </button>
             </div>
 
+            {/* Selector de Tipo de Operación para la Simulación */}
+            <div className="flex items-center justify-between bg-slate-100 p-1.5 rounded-xl text-xs font-semibold text-slate-700 mb-3">
+              <span className="text-[11px] px-2 font-bold text-slate-500 uppercase tracking-wider">
+                Simular Tipo de Factura:
+              </span>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTipoOperacionSimulador("VENTA")}
+                  className={`px-3 py-1 rounded-lg text-xs transition ${
+                    tipoOperacionSimulador === "VENTA"
+                      ? "bg-blue-600 text-white shadow-xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Venta (Sin Depósito)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoOperacionSimulador("ALQUILER")}
+                  className={`px-3 py-1 rounded-lg text-xs transition ${
+                    tipoOperacionSimulador === "ALQUILER"
+                      ? "bg-amber-600 text-white shadow-xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Alquiler (Con Depósito)
+                </button>
+              </div>
+            </div>
+
             {/* CONTENEDOR DEL SIMULADOR SEGÚN FORMATO */}
             {formatoSimulador === "TIRILLA" && (
-              <div className="bg-amber-50/40 border border-amber-200/60 rounded-xl p-4 font-mono text-[10.5px] text-slate-800 shadow-inner max-w-xs mx-auto">
+              <div className="bg-amber-50/40 border border-amber-200/60 rounded-xl p-4 font-mono text-xs text-slate-900 shadow-inner max-w-xs mx-auto">
                 {/* Logo en Tirilla */}
                 {config.logoUrl && (
                   <div className="flex justify-center mb-2">
@@ -1746,36 +1778,36 @@ export default function ConfiguracionAdminPage() {
 
                 {/* Encabezado */}
                 <div className="text-center space-y-0.5 mb-2.5">
-                  <p className="font-bold text-xs uppercase tracking-wide">
+                  <p className="font-bold text-sm uppercase tracking-wide">
                     {config.nombreComercial || "Mi Empresa"}
                   </p>
-                  {config.eslogan && <p className="text-[9px] italic">{config.eslogan}</p>}
-                  <p>NIT: {config.nit || "900.123.456-7"}</p>
-                  {config.regimenFiscal && <p className="text-[9px]">{config.regimenFiscal}</p>}
-                  <p>{config.direccion || "Villavicencio, Meta"}</p>
-                  <p>TEL: {config.telefono || "310 123 4567"}</p>
+                  {config.eslogan && <p className="text-[10px] italic text-slate-600">{config.eslogan}</p>}
+                  <p className="text-[11px]">NIT: {config.nit || "900.123.456-7"}</p>
+                  {config.regimenFiscal && <p className="text-[10px] text-slate-600">{config.regimenFiscal}</p>}
+                  <p className="text-[10.5px]">{config.direccion || "Villavicencio, Meta"}</p>
+                  <p className="text-[10.5px]">TEL: {config.telefono || "310 123 4567"}</p>
                 </div>
 
                 <div className="border-t border-dashed border-slate-400 my-2"></div>
 
                 {/* Datos Muestra */}
-                <div className="space-y-0.5 text-[10px]">
+                <div className="space-y-1 text-xs">
                   <div className="flex justify-between font-bold">
-                    <span>FACTURA:</span>
+                    <span>{tipoOperacionSimulador === "VENTA" ? "FACTURA DE VENTA:" : "FACTURA DE ALQUILER:"}</span>
                     <span>1001</span>
                   </div>
-                  <div className="flex justify-between text-slate-600">
+                  <div className="flex justify-between text-slate-600 text-[11px]">
                     <span>FECHA: 25/10/2026</span>
                     <span>HORA: 10:30 AM</span>
                   </div>
                   {config.mostrarVendedorFactura && (
-                    <div className="flex justify-between text-slate-600">
+                    <div className="flex justify-between text-slate-600 text-[11px]">
                       <span>CAJERO: admin</span>
-                      <span>OPERACIÓN: ALQUILER</span>
+                      <span>OP: {tipoOperacionSimulador}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-bold pt-1">
-                    <span>CLIENTE:</span>
+                    <span>{tipoOperacionSimulador === "VENTA" ? "CLIENTE:" : "ARRENDATARIO:"}</span>
                     <span>CARLOS ANDRÉS PÉREZ</span>
                   </div>
                 </div>
@@ -1783,212 +1815,279 @@ export default function ConfiguracionAdminPage() {
                 <div className="border-t border-dashed border-slate-400 my-2"></div>
 
                 {/* Ítems Muestra */}
-                <div className="space-y-1 mb-2 text-[10px]">
-                  <div className="flex justify-between font-bold">
+                <div className="space-y-1 mb-2 text-xs">
+                  <div className="flex justify-between font-bold text-[11px] text-slate-700">
                     <span>DESCRIPCIÓN</span>
                     <span>VALOR</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>1x Traje Llanero Blanco [TR-01]</span>
-                    <span>$85.000</span>
+                    <span>1x {tipoOperacionSimulador === "VENTA" ? "Camisa Llanera Blanca [CL-01]" : "Traje Llanero Blanco [TR-01]"}</span>
+                    <span className="font-bold">$85.000</span>
                   </div>
                   <div className="flex justify-between">
                     <span>1x Ajuste de Manga (Sastrería)</span>
-                    <span>$15.000</span>
+                    <span className="font-bold">$15.000</span>
                   </div>
                 </div>
 
                 <div className="border-t border-dashed border-slate-400 my-2"></div>
 
                 {/* Totales */}
-                <div className="space-y-0.5 font-bold text-[10.5px]">
-                  <div className="flex justify-between">
-                    <span>TOTAL FACTURA:</span>
+                <div className="space-y-1 font-bold text-xs">
+                  <div className="flex justify-between text-sm font-black">
+                    <span>{tipoOperacionSimulador === "VENTA" ? "TOTAL VENTA:" : "TOTAL ALQUILER:"}</span>
                     <span>$100.000</span>
                   </div>
                   <div className="flex justify-between text-emerald-800">
                     <span>ABONO RECIBIDO:</span>
                     <span>-$50.000</span>
                   </div>
-                  <div className="flex justify-between text-rose-700">
+                  <div className="flex justify-between text-rose-700 font-black">
                     <span>SALDO PENDIENTE:</span>
                     <span>$50.000</span>
                   </div>
                 </div>
 
+                {/* Sección B (Depósito) - SOLO EN ALQUILER */}
+                {tipoOperacionSimulador === "ALQUILER" && (
+                  <>
+                    <div className="border-t border-dashed border-amber-400 my-2"></div>
+                    <div className="bg-amber-100 border border-amber-300 rounded p-1.5 text-[10.5px] space-y-0.5">
+                      <div className="flex justify-between font-bold text-amber-900">
+                        <span>CONSTANCIA COBRO SEPARADO:</span>
+                        <span>$50.000</span>
+                      </div>
+                      <p className="text-[9.5px] text-amber-800">Depósito en Efectivo: $50.000 (Custodia reembolsable)</p>
+                    </div>
+                  </>
+                )}
+
                 <div className="border-t border-dashed border-slate-400 my-2"></div>
 
                 {/* Políticas */}
-                <div className="text-[9px] text-justify leading-tight text-slate-600 my-2">
-                  {config.politicasFactura || "Sin políticas registradas."}
+                <div className="text-[10px] text-justify leading-tight text-slate-600 my-2">
+                  {tipoOperacionSimulador === "VENTA"
+                    ? "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento."
+                    : config.politicasFactura || "Las prendas en alquiler deben devolverse en la fecha pactada en óptimas condiciones. Todo retraso genera recargo de mora."}
                 </div>
 
-                <div className="mt-2 text-center border-t border-dotted border-slate-300 pt-1.5 text-[8.5px] text-slate-500 uppercase font-sans">
+                <div className="mt-2 text-center border-t border-dotted border-slate-300 pt-1.5 text-[9.5px] text-slate-500 uppercase font-sans">
                   {config.piePaginaFactura || "¡GRACIAS POR SU PREFERENCIA! — CERO QR"}
                 </div>
               </div>
             )}
 
             {formatoSimulador === "MEDIA_CARTA" && (
-              <div className="bg-slate-50 border border-slate-300 rounded-xl p-3 text-[10px] text-slate-800 shadow-inner space-y-2">
+              <div className="bg-slate-50 border border-slate-300 rounded-xl p-3.5 text-xs text-slate-900 shadow-inner space-y-2.5">
                 {/* Cabecera Media Carta */}
                 <div className="flex items-start justify-between border-b pb-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     {config.logoUrl && (
                       <img src={config.logoUrl} alt="Logo" className="h-10 object-contain" />
                     )}
                     <div>
-                      <h3 className="font-bold text-xs uppercase">{config.nombreComercial}</h3>
-                      {config.eslogan && <p className="text-[8.5px] text-slate-500 italic">{config.eslogan}</p>}
-                      <p className="text-[8.5px]">NIT: {config.nit} | {config.regimenFiscal}</p>
-                      <p className="text-[8.5px] text-slate-500">{config.direccion}</p>
+                      <h3 className="font-bold text-sm uppercase text-slate-950">{config.nombreComercial}</h3>
+                      {config.eslogan && <p className="text-[9.5px] text-slate-500 italic">{config.eslogan}</p>}
+                      <p className="text-[9.5px]">NIT: {config.nit} | {config.regimenFiscal}</p>
+                      <p className="text-[9.5px] text-slate-500">{config.direccion}</p>
                     </div>
                   </div>
-                  <div className="border rounded p-1 text-right bg-white">
-                    <span className="block text-[8px] font-bold text-slate-500">FACTURA COMERCIAL</span>
-                    <span className="block font-mono font-bold text-xs text-blue-700">1001</span>
+                  <div className="border rounded-lg p-1.5 text-right bg-white shadow-2xs">
+                    <span className="block text-[8.5px] font-bold text-slate-500">
+                      {tipoOperacionSimulador === "VENTA" ? "FACTURA DE VENTA" : "FACTURA DE ALQUILER"}
+                    </span>
+                    <span className="block font-mono font-bold text-sm text-blue-700">1001</span>
+                    <span className="block text-[7.5px] font-bold text-slate-400">COPIA CLIENTE</span>
                   </div>
                 </div>
 
                 {/* Ficha Cliente */}
-                <div className="bg-white p-2 rounded border grid grid-cols-2 gap-2 text-[9px]">
+                <div className="bg-white p-2.5 rounded-lg border grid grid-cols-2 gap-2 text-[10px]">
                   <div>
-                    <span className="font-bold text-slate-500 block">CLIENTE:</span>
-                    <span className="font-bold">CARLOS ANDRÉS PÉREZ</span>
-                    <span className="block text-slate-500">Doc: 1.121.890.123 | Tel: 312 456 7890</span>
+                    <span className="font-bold text-slate-500 block">
+                      {tipoOperacionSimulador === "VENTA" ? "CLIENTE / ADQUIRIENTE:" : "CLIENTE / ARRENDATARIO:"}
+                    </span>
+                    <span className="font-bold text-xs">CARLOS ANDRÉS PÉREZ</span>
+                    <span className="block text-slate-500">CC: 1.121.890.123 | Tel: 312 456 7890</span>
                   </div>
                   <div>
-                    <span className="font-bold text-slate-500 block">DETALLES:</span>
-                    <span>Alquiler | Devolución: 28/10/2026</span>
+                    <span className="font-bold text-slate-500 block">DATOS DE LA OPERACIÓN:</span>
+                    <span>{tipoOperacionSimulador === "VENTA" ? "Venta Comercial | Pago con Saldo" : "Alquiler | Devolución: 28/10/2026"}</span>
                     {config.mostrarVendedorFactura && <span className="block text-slate-500">Cajero: admin</span>}
                   </div>
                 </div>
 
                 {/* Tabla */}
-                <div className="bg-white p-1.5 rounded border">
-                  <div className="flex justify-between font-bold border-b pb-0.5 text-[8.5px]">
+                <div className="bg-white p-2 rounded-lg border">
+                  <div className="flex justify-between font-bold border-b pb-1 text-[9.5px] text-slate-600">
                     <span>CANT | DESCRIPCIÓN</span>
                     <span>SUBTOTAL</span>
                   </div>
-                  <div className="flex justify-between py-0.5">
-                    <span>1x Traje Llanero Gala Blanco</span>
+                  <div className="flex justify-between py-1 border-b border-slate-50 text-[10.5px]">
+                    <span>1x {tipoOperacionSimulador === "VENTA" ? "Camisa Llanera Blanca [CL-01]" : "Traje Llanero Gala Blanco [TL-01]"}</span>
                     <span className="font-mono font-bold">$85.000</span>
                   </div>
-                  <div className="flex justify-between py-0.5">
+                  <div className="flex justify-between py-1 text-[10.5px]">
                     <span>1x Arreglo de Sastrería</span>
                     <span className="font-mono font-bold">$15.000</span>
                   </div>
                 </div>
 
-                {/* Pie Media Carta */}
-                <div className="flex justify-between items-start gap-2 pt-1 border-t text-[8.5px]">
-                  <div className="flex-1 text-slate-500 line-clamp-2">
-                    {config.politicasFactura}
+                {/* Sección B (Depósito) - SOLO EN ALQUILER */}
+                {tipoOperacionSimulador === "ALQUILER" && (
+                  <div className="bg-amber-50 border border-amber-300 rounded-lg p-2 text-[10px] space-y-0.5">
+                    <div className="flex justify-between font-bold text-amber-900">
+                      <span>CONSTANCIA DE COBRO SEPARADO (EFECTIVO):</span>
+                      <span>$50.000</span>
+                    </div>
+                    <p className="text-[9px] text-amber-800">
+                      Se recibió en EFECTIVO la suma de $50.000 por concepto de Depósito en Garantía (Reembolsable).
+                    </p>
                   </div>
-                  <div className="w-28 text-right font-mono">
-                    <div>Total: <strong>$100.000</strong></div>
+                )}
+
+                {/* Pie Media Carta */}
+                <div className="flex justify-between items-start gap-3 pt-1 border-t text-[10px]">
+                  <div className="flex-1 text-slate-500 line-clamp-2">
+                    <span className="font-bold text-slate-700 block mb-0.5">
+                      {tipoOperacionSimulador === "VENTA" ? "POLÍTICAS COMERCIALES:" : "TÉRMINOS DE ALQUILER:"}
+                    </span>
+                    {tipoOperacionSimulador === "VENTA"
+                      ? "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento."
+                      : config.politicasFactura || "Las prendas en alquiler deben devolverse en la fecha pactada en óptimas condiciones."}
+                  </div>
+                  <div className="w-32 text-right font-mono text-xs">
+                    <div className="font-black text-slate-900">
+                      {tipoOperacionSimulador === "VENTA" ? "TOTAL VENTA:" : "TOTAL ALQUILER:"} <strong>$100.000</strong>
+                    </div>
                     <div className="text-emerald-700">Abono: -$50.000</div>
-                    <div className="text-rose-700 font-bold">Saldo: $50.000</div>
+                    <div className="text-rose-700 font-black">Saldo: $50.000</div>
                   </div>
                 </div>
               </div>
             )}
 
             {formatoSimulador === "MEDIA_CARTA_DOBLE" && (
-              <div className="bg-white border-2 border-slate-300 rounded-xl p-3 text-[9px] text-slate-800 shadow-sm space-y-2">
+              <div className="bg-white border-2 border-slate-300 rounded-xl p-3.5 text-xs text-slate-900 shadow-sm space-y-2.5">
                 <div className="text-center pb-1 border-b border-slate-200">
-                  <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block">
+                  <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider block">
                     Hoja Tamaño Carta Vertical (2 Medias Cartas en 1 Sola Hoja)
                   </span>
-                  <span className="text-[8px] text-slate-400">
+                  <span className="text-[9px] text-slate-500">
                     Ahorro del 50% de papel — 1 original para el cliente y 1 copia para archivo
                   </span>
                 </div>
 
                 {/* Mitad Superior: EJEMPLAR 1 */}
-                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5">
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5 text-[10px]">
                   <div className="flex items-start justify-between border-b pb-1">
                     <div className="flex items-center gap-2">
                       {config.logoUrl && (
                         <img src={config.logoUrl} alt="Logo" className="h-7 object-contain" />
                       )}
                       <div>
-                        <h4 className="font-bold text-[10px] uppercase text-slate-900">{config.nombreComercial}</h4>
-                        <p className="text-[7.5px] text-slate-500">NIT: {config.nit} | {config.direccion}</p>
+                        <h4 className="font-bold text-[11px] uppercase text-slate-900">{config.nombreComercial}</h4>
+                        <p className="text-[8.5px] text-slate-500">NIT: {config.nit} | {config.direccion}</p>
                       </div>
                     </div>
                     <div className="border rounded px-1.5 py-0.5 text-right bg-white">
-                      <span className="block text-[7.5px] font-bold text-slate-500">FACTURA 1001</span>
-                      <span className="block text-[7px] font-black text-indigo-700">EJEMPLAR 1: ORIGINAL CLIENTE</span>
+                      <span className="block text-[8.5px] font-bold text-slate-500">
+                        {tipoOperacionSimulador === "VENTA" ? "VENTA 1001" : "ALQUILER 1001"}
+                      </span>
+                      <span className="block text-[7.5px] font-black text-indigo-700">EJEMPLAR 1: ORIGINAL CLIENTE</span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[8px] bg-white p-1 rounded border">
+                  <div className="grid grid-cols-2 gap-2 text-[9px] bg-white p-1 rounded border">
                     <div>
                       <span className="font-bold text-slate-600">Cliente:</span> CARLOS PÉREZ (1.121.890.123)
                     </div>
                     <div className="text-right">
-                      <span className="font-bold text-slate-600">Operación:</span> Alquiler | Devolución: 28/10/2026
+                      <span className="font-bold text-slate-600">Operación:</span> {tipoOperacionSimulador === "VENTA" ? "Venta Directa" : "Alquiler | Dev: 28/10/2026"}
                     </div>
                   </div>
 
-                  <div className="bg-white p-1 rounded border text-[8px] flex justify-between">
-                    <span>1x Traje Llanero Gala + Arreglo</span>
+                  <div className="bg-white p-1.5 rounded border text-[9.5px] flex justify-between font-medium">
+                    <span>1x {tipoOperacionSimulador === "VENTA" ? "Camisa Llanera + Arreglo" : "Traje Llanero Gala + Arreglo"}</span>
                     <span className="font-mono font-bold">$100.000</span>
                   </div>
 
-                  <div className="flex justify-between items-center text-[8px] pt-0.5">
-                    <span className="text-slate-500 text-[7px] truncate max-w-[180px]">{config.politicasFactura}</span>
-                    <div className="text-right font-mono font-bold text-slate-900">
-                      Total: $100.000 | <span className="text-rose-700">Saldo: $50.000</span>
+                  {tipoOperacionSimulador === "ALQUILER" && (
+                    <div className="bg-amber-50 border border-amber-200 rounded p-1 text-[8.5px] flex justify-between font-bold text-amber-900">
+                      <span>Constancia Depósito Efectivo:</span>
+                      <span>$50.000</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-[9px] pt-0.5">
+                    <span className="text-slate-500 text-[8px] truncate max-w-[190px]">
+                      {tipoOperacionSimulador === "VENTA"
+                        ? "Gracias por su compra. Conserve esta factura."
+                        : config.politicasFactura}
+                    </span>
+                    <div className="text-right font-mono font-black text-slate-950">
+                      {tipoOperacionSimulador === "VENTA" ? "TOTAL VENTA:" : "TOTAL ALQUILER:"} $100.000 | <span className="text-rose-700">Saldo: $50.000</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Línea Central de Corte */}
                 <div className="relative border-t-2 border-dashed border-slate-400 my-1 text-center">
-                  <span className="bg-white px-2 py-0.5 text-[7.5px] font-bold text-slate-500 absolute -top-2 left-1/2 -translate-x-1/2 rounded border border-slate-300 flex items-center gap-1">
-                    <Scissors className="w-2.5 h-2.5 text-slate-400" />
+                  <span className="bg-white px-2 py-0.5 text-[8.5px] font-bold text-slate-500 absolute -top-2.5 left-1/2 -translate-x-1/2 rounded border border-slate-300 flex items-center gap-1 shadow-2xs">
+                    <Scissors className="w-2.5 h-2.5 text-slate-500" />
                     <span>-- CORTAR POR ESTA LÍNEA (2 MEDIAS CARTAS EN 1 HOJA) --</span>
                   </span>
                 </div>
 
                 {/* Mitad Inferior: EJEMPLAR 2 */}
-                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5">
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5 text-[10px]">
                   <div className="flex items-start justify-between border-b pb-1">
                     <div className="flex items-center gap-2">
                       {config.logoUrl && (
                         <img src={config.logoUrl} alt="Logo" className="h-7 object-contain" />
                       )}
                       <div>
-                        <h4 className="font-bold text-[10px] uppercase text-slate-900">{config.nombreComercial}</h4>
-                        <p className="text-[7.5px] text-slate-500">NIT: {config.nit} | {config.direccion}</p>
+                        <h4 className="font-bold text-[11px] uppercase text-slate-900">{config.nombreComercial}</h4>
+                        <p className="text-[8.5px] text-slate-500">NIT: {config.nit} | {config.direccion}</p>
                       </div>
                     </div>
                     <div className="border rounded px-1.5 py-0.5 text-right bg-white">
-                      <span className="block text-[7.5px] font-bold text-slate-500">FACTURA 1001</span>
-                      <span className="block text-[7px] font-black text-slate-700">EJEMPLAR 2: COPIA ARCHIVO / TIENDA</span>
+                      <span className="block text-[8.5px] font-bold text-slate-500">
+                        {tipoOperacionSimulador === "VENTA" ? "VENTA 1001" : "ALQUILER 1001"}
+                      </span>
+                      <span className="block text-[7.5px] font-black text-slate-700">EJEMPLAR 2: COPIA ARCHIVO / TIENDA</span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[8px] bg-white p-1 rounded border">
+                  <div className="grid grid-cols-2 gap-2 text-[9px] bg-white p-1 rounded border">
                     <div>
                       <span className="font-bold text-slate-600">Cliente:</span> CARLOS PÉREZ (1.121.890.123)
                     </div>
                     <div className="text-right">
-                      <span className="font-bold text-slate-600">Operación:</span> Alquiler | Devolución: 28/10/2026
+                      <span className="font-bold text-slate-600">Operación:</span> {tipoOperacionSimulador === "VENTA" ? "Venta Directa" : "Alquiler | Dev: 28/10/2026"}
                     </div>
                   </div>
 
-                  <div className="bg-white p-1 rounded border text-[8px] flex justify-between">
-                    <span>1x Traje Llanero Gala + Arreglo</span>
+                  <div className="bg-white p-1.5 rounded border text-[9.5px] flex justify-between font-medium">
+                    <span>1x {tipoOperacionSimulador === "VENTA" ? "Camisa Llanera + Arreglo" : "Traje Llanero Gala + Arreglo"}</span>
                     <span className="font-mono font-bold">$100.000</span>
                   </div>
 
-                  <div className="flex justify-between items-center text-[8px] pt-0.5">
-                    <span className="text-slate-500 text-[7px] truncate max-w-[180px]">{config.politicasFactura}</span>
-                    <div className="text-right font-mono font-bold text-slate-900">
-                      Total: $100.000 | <span className="text-rose-700">Saldo: $50.000</span>
+                  {tipoOperacionSimulador === "ALQUILER" && (
+                    <div className="bg-amber-50 border border-amber-200 rounded p-1 text-[8.5px] flex justify-between font-bold text-amber-900">
+                      <span>Constancia Depósito Efectivo:</span>
+                      <span>$50.000</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-[9px] pt-0.5">
+                    <span className="text-slate-500 text-[8px] truncate max-w-[190px]">
+                      {tipoOperacionSimulador === "VENTA"
+                        ? "Gracias por su compra. Conserve esta factura."
+                        : config.politicasFactura}
+                    </span>
+                    <div className="text-right font-mono font-black text-slate-950">
+                      {tipoOperacionSimulador === "VENTA" ? "TOTAL VENTA:" : "TOTAL ALQUILER:"} $100.000 | <span className="text-rose-700">Saldo: $50.000</span>
                     </div>
                   </div>
                 </div>
@@ -1996,7 +2095,7 @@ export default function ConfiguracionAdminPage() {
             )}
 
             {formatoSimulador === "CARTA" && (
-              <div className="bg-slate-50 border border-slate-300 rounded-xl p-4 text-[10.5px] text-slate-800 shadow-inner space-y-3">
+              <div className="bg-slate-50 border border-slate-300 rounded-xl p-4 text-xs text-slate-900 shadow-inner space-y-3">
                 {/* Cabecera Carta */}
                 <div className="flex items-start justify-between border-b pb-2.5">
                   <div className="flex items-center gap-3">
@@ -2004,58 +2103,81 @@ export default function ConfiguracionAdminPage() {
                       <img src={config.logoUrl} alt="Logo" className="h-12 object-contain" />
                     )}
                     <div>
-                      <h3 className="font-black text-sm uppercase text-slate-900">{config.nombreComercial}</h3>
-                      {config.eslogan && <p className="text-[9px] text-slate-500 italic">{config.eslogan}</p>}
-                      <p className="text-[9px]">NIT: {config.nit} | {config.regimenFiscal}</p>
-                      <p className="text-[9px] text-slate-500">{config.direccion} — {config.ciudad}</p>
-                      <p className="text-[9px] text-slate-500">Tel: {config.telefono}</p>
+                      <h3 className="font-black text-base uppercase text-slate-950">{config.nombreComercial}</h3>
+                      {config.eslogan && <p className="text-[10px] text-slate-500 italic">{config.eslogan}</p>}
+                      <p className="text-[10px]">NIT: {config.nit} | {config.regimenFiscal}</p>
+                      <p className="text-[10px] text-slate-500">{config.direccion} — {config.ciudad}</p>
+                      <p className="text-[10px] text-slate-500">Tel: {config.telefono}</p>
                     </div>
                   </div>
-                  <div className="border-2 rounded-xl p-2 text-right bg-white">
-                    <span className="block text-[8.5px] font-bold text-slate-500">FACTURA COMERCIAL</span>
-                    <span className="block font-mono font-bold text-sm text-blue-700">1001</span>
-                    <span className="block text-[8px] text-slate-400">ORIGINAL CLIENTE</span>
+                  <div className="border-2 rounded-xl p-2 text-right bg-white shadow-xs">
+                    <span className="block text-[9px] font-bold text-slate-500">
+                      {tipoOperacionSimulador === "VENTA" ? "FACTURA DE VENTA" : "FACTURA DE ALQUILER"}
+                    </span>
+                    <span className="block font-mono font-bold text-base text-blue-700">1001</span>
+                    <span className="block text-[8px] font-bold text-slate-400">ORIGINAL CLIENTE</span>
                   </div>
                 </div>
 
                 {/* Ficha Cliente & Operación */}
-                <div className="bg-white p-2.5 rounded-xl border grid grid-cols-2 gap-3 text-[9.5px]">
+                <div className="bg-white p-2.5 rounded-xl border grid grid-cols-2 gap-3 text-[10.5px]">
                   <div>
-                    <span className="font-bold text-slate-500 block">DATOS DEL CLIENTE:</span>
-                    <p className="font-bold text-slate-900">CARLOS ANDRÉS PÉREZ</p>
+                    <span className="font-bold text-slate-500 block">
+                      {tipoOperacionSimulador === "VENTA" ? "DATOS DEL CLIENTE / ADQUIRIENTE:" : "DATOS DEL CLIENTE / ARRENDATARIO:"}
+                    </span>
+                    <p className="font-bold text-slate-950 text-xs">CARLOS ANDRÉS PÉREZ</p>
                     <p className="text-slate-500">C.C. 1.121.890.123 — Tel: 312 456 7890</p>
                   </div>
                   <div>
-                    <span className="font-bold text-slate-500 block">OPERACIÓN:</span>
-                    <p>Tipo: ALQUILER | Estado: ACTIVA</p>
+                    <span className="font-bold text-slate-500 block">DETALLES DE LA OPERACIÓN:</span>
+                    <p>Tipo: {tipoOperacionSimulador} | Estado: ACTIVA</p>
                     {config.mostrarVendedorFactura && <p className="text-slate-500">Atendido por: admin</p>}
                   </div>
                 </div>
 
                 {/* Tabla Resumen */}
                 <div className="bg-white p-2 rounded-xl border">
-                  <div className="flex justify-between font-bold border-b pb-1 text-[9px] uppercase text-slate-600">
+                  <div className="flex justify-between font-bold border-b pb-1 text-[10px] uppercase text-slate-600">
                     <span>Ítem / Descripción</span>
                     <span>Total</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span>1x Traje Llanero Gala Blanco [TL-01]</span>
+                  <div className="flex justify-between py-1 border-b border-slate-100 text-xs">
+                    <span>1x {tipoOperacionSimulador === "VENTA" ? "Camisa Llanera de Gala [CL-01]" : "Traje Llanero Gala Blanco [TL-01]"}</span>
                     <span className="font-mono font-bold">$85.000</span>
                   </div>
-                  <div className="flex justify-between py-1">
+                  <div className="flex justify-between py-1 text-xs">
                     <span>1x Arreglo de Sastrería Libre</span>
                     <span className="font-mono font-bold">$15.000</span>
                   </div>
                 </div>
 
-                {/* Totales y Políticas */}
-                <div className="flex justify-between items-start gap-3 pt-1 border-t text-[9px]">
-                  <div className="flex-1 p-2 bg-white rounded border text-slate-500 line-clamp-3">
-                    <span className="font-bold block text-slate-700 mb-0.5">TÉRMINOS Y CONDICIONES:</span>
-                    {config.politicasFactura}
+                {/* Sección B (Depósito) - SOLO EN ALQUILER */}
+                {tipoOperacionSimulador === "ALQUILER" && (
+                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-2.5 text-xs space-y-0.5">
+                    <div className="flex justify-between font-bold text-amber-900">
+                      <span>CONSTANCIA DE COBRO SEPARADO (EFECTIVO):</span>
+                      <span>$50.000</span>
+                    </div>
+                    <p className="text-[10px] text-amber-800">
+                      Se recibió en EFECTIVO la suma de $50.000 por concepto de Depósito en Garantía (Custodia reembolsable al devolver las prendas completas).
+                    </p>
                   </div>
-                  <div className="w-32 text-right font-mono space-y-0.5">
-                    <div>Total: <strong>$100.000</strong></div>
+                )}
+
+                {/* Totales y Políticas */}
+                <div className="flex justify-between items-start gap-3 pt-1 border-t text-[10px]">
+                  <div className="flex-1 p-2 bg-white rounded border text-slate-500 line-clamp-3">
+                    <span className="font-bold block text-slate-700 mb-0.5">
+                      {tipoOperacionSimulador === "VENTA" ? "POLÍTICAS COMERCIALES:" : "TÉRMINOS Y CONDICIONES:"}
+                    </span>
+                    {tipoOperacionSimulador === "VENTA"
+                      ? "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento."
+                      : config.politicasFactura}
+                  </div>
+                  <div className="w-36 text-right font-mono space-y-0.5 text-xs">
+                    <div className="font-black text-sm text-slate-950">
+                      {tipoOperacionSimulador === "VENTA" ? "TOTAL VENTA:" : "TOTAL ALQUILER:"} <strong>$100.000</strong>
+                    </div>
                     <div className="text-emerald-700">Abonado: -$50.000</div>
                     <div className="text-rose-700 font-bold p-1 bg-rose-50 rounded border border-rose-200">
                       Saldo: $50.000
@@ -2064,7 +2186,7 @@ export default function ConfiguracionAdminPage() {
                 </div>
 
                 {/* Firmas */}
-                <div className="grid grid-cols-2 gap-4 text-center pt-2 text-[8px] text-slate-500">
+                <div className="grid grid-cols-2 gap-4 text-center pt-2 text-[9px] text-slate-500">
                   <div className="border-t pt-0.5">Firma Autorizada {config.nombreComercial || "Mi Empresa"}</div>
                   <div className="border-t pt-0.5">Firma y Cédula Cliente</div>
                 </div>

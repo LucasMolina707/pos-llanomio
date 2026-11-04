@@ -120,3 +120,4 @@ if "%OPC_DIAG%"=="4" (
 if "%OPC_DIAG%"=="5" exit /b 0
 
 goto :DIAGNOSTICO_LOOP
+

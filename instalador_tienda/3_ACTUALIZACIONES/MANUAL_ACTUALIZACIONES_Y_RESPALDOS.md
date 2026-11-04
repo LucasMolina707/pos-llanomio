@@ -88,3 +88,4 @@ C:\POS_BACKUPS\
 └── salvaguarda_pre_actualizacion/ (Copias automaticas previas a cada parche)
 ```
 Se recomienda copiar semanalmente el contenido de `C:\POS_BACKUPS\` a una memoria USB externa.
+

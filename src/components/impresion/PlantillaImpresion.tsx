@@ -356,22 +356,35 @@ export default function PlantillaImpresion({
   };
 
   const renderDocumento = (tipoCopiaTexto: string) => {
-    const esSepare = factura.tipoOperacion === "SEPARE";
-    const esAlquiler =
-      !esSepare && (factura.tipoOperacion === "ALQUILER" || safeNumber(factura.montoDeposito) > 0);
+    // -------------------------------------------------------------------------
+    // DETERMINACIÓN INEQUÍVOCA DEL TIPO DE OPERACIÓN (VENTA vs ALQUILER vs APARTADO)
+    // -------------------------------------------------------------------------
+    const esAlquiler = factura.tipoOperacion === "ALQUILER";
+    const esApartado = factura.tipoOperacion === "SEPARE" || factura.tipoOperacion === "APARTADO";
+    const esVenta = !esAlquiler && !esApartado; // VENTA, ARREGLO, VENTA_ARREGLO
     const mostrarCajero = empresa.mostrarVendedorFactura !== false && Boolean(usuarioCajero?.nombre);
 
-    // 1. REGLA CONTABLE — SECCIÓN A: OPERACIÓN DE ALQUILER O APARTADO
+    // 1. REGLA CONTABLE — SECCIÓN A: OPERACIÓN PRINCIPAL
     const subtotalPrendas =
       safeNumber(factura.subtotalProductos) + safeNumber(factura.subtotalArreglosLibres);
-    const totalOperacionAlquiler = safeNumber(factura.totalFactura) || subtotalPrendas;
-    const recargoMora = safeNumber(factura.recargoMoraAcumulado);
-    const totalAbonadoAlquiler = safeNumber(factura.totalAbonado);
-    const saldoPendienteAlquiler = Math.max(0, safeNumber(factura.saldoPendiente));
-    const esPazYSalvo = saldoPendienteAlquiler <= 0;
+    const recargoMora = esAlquiler ? safeNumber(factura.recargoMoraAcumulado) : 0;
+    const totalOperacionPrincipal =
+      (safeNumber(factura.totalFactura) || subtotalPrendas) + recargoMora;
+    const totalAbonadoOperacion = safeNumber(factura.totalAbonado);
+    const saldoPendienteOperacion = Math.max(0, safeNumber(factura.saldoPendiente));
+    const esPazYSalvo = saldoPendienteOperacion <= 0;
 
-    // 2. REGLA CONTABLE — SECCIÓN B: APARTADO INDEPENDIENTE DE DEPÓSITO (NO SUMA A LA OPERACIÓN)
+    // Compatibilidad y alias unificados para submódulos de impresión
+    const esSepare = esApartado;
+    const totalOperacionAlquiler = totalOperacionPrincipal;
+    const totalAbonadoAlquiler = totalAbonadoOperacion;
+    const saldoPendienteAlquiler = saldoPendienteOperacion;
+
+    // 2. REGLA CONTABLE — SECCIÓN B: DEPÓSITO EXCLUSIVO DE ALQUILER CON VALOR > $0
+    // CERO Sección B en Ventas o en Alquileres con depósito $0
     const montoDepositoEfectivo = safeNumber(factura.montoDeposito);
+    const mostrarSeccionDeposito = esAlquiler && montoDepositoEfectivo > 0;
+
     let textoEstadoDeposito =
       "RECIBIDO EN CUSTODIA (Se devuelve el 100% al entregar las prendas completas y sin daños)";
     if (factura.estadoDeposito === "DEVUELTO_COMPLETO") {
@@ -387,10 +400,10 @@ export default function PlantillaImpresion({
       textoEstadoDeposito = `DEPÓSITO RETENIDO (${formatCOP(ret)} Retenido / ${formatCOP(dev)} Devuelto al cliente) — Motivo: ${motivo}`;
     }
 
-    // 3. REGLA CONTABLE — SECCIÓN C: CUADRE DE EFECTIVO RECIBIDO Y VUELTAS (DONDE SÍ SUMAN)
-    // Total exigido hoy en caja = Abono al alquiler recibido hoy + Depósito en garantía
-    const cobroAlquilerHoy = totalAbonadoAlquiler;
-    const totalCobradoEnCajaHoy = cobroAlquilerHoy + montoDepositoEfectivo;
+    // 3. REGLA CONTABLE — SECCIÓN C: CUADRE DE EFECTIVO RECIBIDO Y VUELTAS
+    const cobroOperacionHoy = totalAbonadoOperacion;
+    const depositoParaCobroHoy = mostrarSeccionDeposito ? montoDepositoEfectivo : 0;
+    const totalCobradoEnCajaHoy = cobroOperacionHoy + depositoParaCobroHoy;
     const efectivoRecibidoCliente =
       safeNumber(factura.efectivoRecibido) > 0
         ? safeNumber(factura.efectivoRecibido)
@@ -400,15 +413,26 @@ export default function PlantillaImpresion({
         ? safeNumber(factura.cambioEntregado)
         : Math.max(0, efectivoRecibidoCliente - totalCobradoEnCajaHoy);
 
-    // 4. Estados y textos dinámicos
+    // 4. ESTADOS Y TÍTULOS SEGREGADOS POR OPERACIÓN (PROHIBIDO "ALQUILER" EN VENTAS)
     const estaCerrada =
       factura.estado === "FINALIZADA" ||
       factura.estado === "CERRADA" ||
       Boolean(factura.fechaDevolucionReal);
 
-    let tituloComprobante = "FACTURA COMERCIAL";
-    if (esSepare) {
-      tituloComprobante = "FORMATO DE APARTADO";
+    let tituloComprobante = "FACTURA DE VENTA";
+    let labelSeccionA = "SECCIÓN A — LIQUIDACIÓN DE OPERACIÓN DE VENTA";
+    let labelTotalSeccionA = "TOTAL VENTA:";
+    let labelSubtotalSeccionA = "Subtotal Venta / Servicios:";
+    let labelCobroHoy = "Cobro Venta Recibido Hoy:";
+
+    if (esVenta) {
+      tituloComprobante = esPazYSalvo
+        ? "FACTURA DE VENTA"
+        : "COMPROBANTE DE VENTA — SALDO PENDIENTE";
+      labelSeccionA = "SECCIÓN A — LIQUIDACIÓN DE OPERACIÓN DE VENTA";
+      labelTotalSeccionA = "TOTAL VENTA:";
+      labelSubtotalSeccionA = "Subtotal Venta / Servicios:";
+      labelCobroHoy = "Cobro Venta Recibido Hoy:";
     } else if (esAlquiler) {
       if (estaCerrada) {
         tituloComprobante = "COMPROBANTE DE PAZ Y SALVO FINAL DE ALQUILER";
@@ -417,33 +441,55 @@ export default function PlantillaImpresion({
       } else {
         tituloComprobante = "COMPROBANTE DE ALQUILER — CON ABONO Y SALDO PENDIENTE";
       }
-    } else if (esPazYSalvo) {
-      tituloComprobante = "COMPROBANTE DE PAGO FINAL (PAZ Y SALVO)";
+      labelSeccionA = "SECCIÓN A — LIQUIDACIÓN DE OPERACIÓN DE ALQUILER";
+      labelTotalSeccionA = "TOTAL ALQUILER:";
+      labelSubtotalSeccionA = "Total Prendas Alquiler:";
+      labelCobroHoy = "Cobro Alquiler Recibido Hoy:";
+    } else if (esApartado) {
+      tituloComprobante = "FORMATO DE APARTADO";
+      labelSeccionA = "SECCIÓN A — LIQUIDACIÓN DE APARTADO / SEPARE";
+      labelTotalSeccionA = "TOTAL APARTADO:";
+      labelSubtotalSeccionA = "Total Prendas Separadas:";
+      labelCobroHoy = "Abono Apartado Recibido Hoy:";
     }
 
-    // Estado de Plazo y Llegada
+    // 5. NORMAS Y POLÍTICAS SEGREGADAS (CERO CRUCE DE POLÍTICAS DE APARTADO EN VENTAS/ALQUILERES)
+    let textoPoliticas =
+      "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento.";
+    if (esAlquiler) {
+      textoPoliticas =
+        empresa.politicasFactura ||
+        "Las prendas en alquiler deben devolverse en la fecha pactada en óptimas condiciones. Todo retraso generará cobro de recargo por mora. Cuide su comprobante.";
+    } else if (esApartado) {
+      textoPoliticas =
+        "PLATA DE TRAJES APARTADOS NO SE DEVUELVE. El cliente cuenta con un plazo determinado para retirar las prendas; en caso de desistir de la reserva, el abono no es reembolsable.";
+    }
+
+    // Estado de Plazo y Llegada (exclusivo para Alquiler)
     let textoPlazoYDevolucion = "ESTÁ EN PLAZO / AL DÍA";
     let estaEnMora = false;
     let diasRetraso = 0;
     let horasRetraso = 0;
 
-    if (factura.fechaDevolucionReal) {
-      textoPlazoYDevolucion = "PRENDAS DEVUELTAS A CONFORMIDAD";
-    } else if (factura.fechaDevolucionPactada) {
-      const ahora = new Date();
-      const limite = new Date(factura.fechaDevolucionPactada);
-      if (ahora > limite) {
-        estaEnMora = true;
-        const diffMs = ahora.getTime() - limite.getTime();
-        diasRetraso = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-        horasRetraso = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const detalleMora =
-          diasRetraso > 0 ? `${diasRetraso} d y ${horasRetraso} h` : `${horasRetraso} h`;
-        textoPlazoYDevolucion = `YA SE PASÓ DE LA FECHA DE ENTREGA (EN MORA — ${detalleMora} de retraso)`;
-      } else {
-        textoPlazoYDevolucion = esPazYSalvo
-          ? "ESTÁ EN PLAZO / AL DÍA (Prendas en custodia — Pago completo)"
-          : "ESTÁ EN PLAZO / AL DÍA (Prendas en custodia — Saldo pendiente)";
+    if (esAlquiler) {
+      if (factura.fechaDevolucionReal) {
+        textoPlazoYDevolucion = "PRENDAS DEVUELTAS A CONFORMIDAD";
+      } else if (factura.fechaDevolucionPactada) {
+        const ahora = new Date();
+        const limite = new Date(factura.fechaDevolucionPactada);
+        if (ahora > limite) {
+          estaEnMora = true;
+          const diffMs = ahora.getTime() - limite.getTime();
+          diasRetraso = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          horasRetraso = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const detalleMora =
+            diasRetraso > 0 ? `${diasRetraso} d y ${horasRetraso} h` : `${horasRetraso} h`;
+          textoPlazoYDevolucion = `YA SE PASÓ DE LA FECHA DE ENTREGA (EN MORA — ${detalleMora} de retraso)`;
+        } else {
+          textoPlazoYDevolucion = esPazYSalvo
+            ? "ESTÁ EN PLAZO / AL DÍA (Prendas en custodia — Pago completo)"
+            : "ESTÁ EN PLAZO / AL DÍA (Prendas en custodia — Saldo pendiente)";
+        }
       }
     }
 
@@ -608,7 +654,7 @@ export default function PlantillaImpresion({
         );
       }
       return (
-        <div className="w-[80mm] max-w-[80mm] min-w-[80mm] mx-auto p-3 bg-white text-black font-mono text-[11px] leading-tight select-none shadow-md border border-slate-300">
+        <div className="w-[80mm] max-w-[80mm] min-w-[80mm] mx-auto p-2.5 bg-white text-slate-950 font-sans text-xs font-semibold leading-snug select-none shadow-md border border-slate-300">
           {/* Cabecera Empresa */}
           <div className="text-center pb-2 border-b border-black space-y-0.5">
             {empresa.logoUrl && (
@@ -618,31 +664,31 @@ export default function PlantillaImpresion({
                 className="max-h-14 mx-auto object-contain mb-1"
               />
             )}
-            <h1 className="text-sm font-black font-sans tracking-tight uppercase">
+            <h1 className="text-sm font-black font-sans tracking-tight uppercase text-black">
               {empresa.nombreComercial || "Mi Empresa"}
             </h1>
             {empresa.eslogan && (
-              <p className="text-[9.5px] italic font-sans text-slate-700">{empresa.eslogan}</p>
+              <p className="text-[10px] italic font-sans text-slate-700">{empresa.eslogan}</p>
             )}
-            <p className="font-bold">NIT: {empresa.nit || "900.123.456-7"}</p>
+            <p className="font-bold text-xs">NIT: {empresa.nit || "900.123.456-7"}</p>
             {empresa.regimenFiscal && (
-              <p className="text-[9px] uppercase">{empresa.regimenFiscal}</p>
+              <p className="text-[10px] uppercase">{empresa.regimenFiscal}</p>
             )}
-            <p className="text-[10px]">{empresa.direccion || "Calle 15 # 22-30"}</p>
-            <p className="text-[10px]">Tel: {empresa.telefono || "310 123 4567"}</p>
-            <p className="text-[9px] uppercase font-bold pt-1 text-slate-800">
+            <p className="text-[11px]">{empresa.direccion || "Calle 15 # 22-30"}</p>
+            <p className="text-[11px]">Tel: {empresa.telefono || "310 123 4567"}</p>
+            <p className="text-[10px] uppercase font-bold pt-1 text-slate-900">
               ** {tipoCopiaTexto} **
             </p>
           </div>
 
           {/* Datos Factura / Título Dinámico */}
-          <div className="py-2 border-b border-dashed border-black space-y-1 text-[10px]">
-            <div className="font-black text-center text-[10.5px] uppercase border-b border-black pb-1">
+          <div className="py-2 border-b border-dashed border-black space-y-1 text-xs">
+            <div className="font-black text-center text-[12px] uppercase border-b border-black pb-1 text-black">
               {tituloComprobante}
             </div>
             <div className="flex justify-between font-bold">
               <span>FOLIO / N°:</span>
-              <span>{factura.numeroFactura}</span>
+              <span className="font-mono text-sm">{factura.numeroFactura}</span>
             </div>
             <div className="flex justify-between">
               <span>FECHA EMISIÓN:</span>
@@ -650,7 +696,7 @@ export default function PlantillaImpresion({
             </div>
             <div className="flex justify-between">
               <span>OPERACIÓN:</span>
-              <span className="uppercase font-semibold">{factura.tipoOperacion || "ALQUILER"}</span>
+              <span className="uppercase font-bold">{esVenta ? "VENTA" : (factura.tipoOperacion || "VENTA")}</span>
             </div>
             {mostrarCajero && (
               <div className="flex justify-between">
@@ -660,10 +706,10 @@ export default function PlantillaImpresion({
             )}
           </div>
 
-          {/* Datos Cliente (con 2 Teléfonos) */}
-          <div className="py-2 border-b border-dashed border-black space-y-0.5 text-[10px]">
-            <p className="font-bold uppercase text-[9px] text-slate-600">DATOS DEL CLIENTE:</p>
-            <p className="font-bold text-[11px] font-sans">
+          {/* Datos Cliente */}
+          <div className="py-2 border-b border-dashed border-black space-y-0.5 text-xs">
+            <p className="font-bold uppercase text-[10px] text-slate-700">DATOS DEL CLIENTE:</p>
+            <p className="font-black text-xs text-black">
               {(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}
             </p>
             <p>
@@ -683,9 +729,9 @@ export default function PlantillaImpresion({
             {cliente.direccion && <p>DIR: {cliente.direccion}</p>}
           </div>
 
-          {/* Fechas de Alquiler */}
+          {/* Fechas de Alquiler (SOLO SI ES ALQUILER) */}
           {esAlquiler && (
-            <div className="py-1.5 border-b border-dashed border-black text-[9.5px] space-y-0.5 bg-slate-50 p-1 rounded">
+            <div className="py-1.5 border-b border-dashed border-black text-[11px] space-y-0.5 bg-slate-50 p-1.5 rounded">
               <div className="flex justify-between">
                 <span className="font-bold">FECHA SALIDA:</span>
                 <span>{safeDate(factura.fechaEntregaAlquiler || factura.fechaCreacion)}</span>
@@ -702,35 +748,35 @@ export default function PlantillaImpresion({
                   <span>{safeDate(factura.fechaDevolucionReal, true)}</span>
                 </div>
               )}
-              <div className="pt-0.5 text-[8.5px] text-slate-700">
+              <div className="pt-0.5 text-[10px] text-slate-800">
                 <span>ESTADO PLAZO: </span>
-                <strong className={estaEnMora ? "text-rose-800" : "text-slate-900"}>
+                <strong className={estaEnMora ? "text-rose-800" : "text-slate-950"}>
                   {textoPlazoYDevolucion}
                 </strong>
               </div>
             </div>
           )}
 
-          {/* Tabla de Prendas / Ítems */}
-          <div className="py-2 border-b border-black text-[10px]">
-            <div className="flex justify-between font-bold pb-1 border-b border-black text-[9px]">
+          {/* Tabla de Artículos / Ítems */}
+          <div className="py-2 border-b border-black text-xs">
+            <div className="flex justify-between font-bold pb-1 border-b border-black text-[11px] uppercase">
               <span>CANT  DESCRIPCIÓN</span>
               <span>SUBTOTAL</span>
             </div>
             <div className="divide-y divide-slate-200 space-y-1 pt-1">
               {detalles.map((d, idx) => (
                 <div key={idx} className="pt-1">
-                  <div className="flex justify-between font-sans text-[10.5px]">
-                    <span className="font-bold">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-bold text-black max-w-[52mm] break-words">
                       {safeNumber(d.cantidad)}x{" "}
                       {d.esServicioLibre
                         ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
-                        : d.producto?.nombre || "Prenda de Alquiler"}
+                        : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Prenda")}
                     </span>
                     <span className="font-mono font-bold">{formatCOP(d.subtotal)}</span>
                   </div>
                   {d.producto?.codigo && (
-                    <p className="text-[9px] text-slate-600">
+                    <p className="text-[10px] text-slate-700">
                       Cód: {d.producto.codigo} {d.producto.talla ? `| T: ${d.producto.talla}` : ""}
                     </p>
                   )}
@@ -740,80 +786,82 @@ export default function PlantillaImpresion({
           </div>
 
           {/* ========================================================================= */}
-          {/* SECCIÓN A: LIQUIDACIÓN DE LA OPERACIÓN DE ALQUILER (PRENDAS)              */}
+          {/* SECCIÓN A: LIQUIDACIÓN DE LA OPERACIÓN (VENTA O ALQUILER)                 */}
           {/* ========================================================================= */}
-          <div className="py-2 border-b border-black space-y-1 text-[10.5px]">
-            <p className="text-[9px] font-black uppercase tracking-wider text-slate-700 border-b border-black pb-0.5">
-              SECCIÓN A — LIQUIDACIÓN DE LA OPERACIÓN DE ALQUILER
+          <div className="py-2 border-b border-black space-y-1 text-xs">
+            <p className="text-[11px] font-black uppercase tracking-wider text-slate-900 border-b border-black pb-0.5">
+              {labelSeccionA}
             </p>
             <div className="flex justify-between">
-              <span>Total Prendas Alquiler:</span>
+              <span>{labelSubtotalSeccionA}</span>
               <span>{formatCOP(subtotalPrendas)}</span>
             </div>
-            {recargoMora > 0 && (
+            {recargoMora > 0 && esAlquiler && (
               <div className="flex justify-between text-rose-700 font-bold">
                 <span>Recargo por Mora:</span>
                 <span>+{formatCOP(recargoMora)}</span>
               </div>
             )}
-            <div className="flex justify-between text-xs font-black font-sans pt-1 border-t border-black">
-              <span>TOTAL OPERACIÓN ALQUILER:</span>
-              <span>{formatCOP(totalOperacionAlquiler + recargoMora)}</span>
+            <div className="flex justify-between text-[13px] font-black pt-1 border-t border-black text-black">
+              <span>{labelTotalSeccionA}</span>
+              <span>{formatCOP(totalOperacionPrincipal)}</span>
             </div>
             <div className="flex justify-between font-bold text-emerald-800">
-              <span>(-) ABONADO A LA OPERACIÓN:</span>
-              <span>-{formatCOP(totalAbonadoAlquiler)}</span>
+              <span>(-) ABONADO:</span>
+              <span>-{formatCOP(totalAbonadoOperacion)}</span>
             </div>
-            <div className="flex justify-between text-xs font-black font-sans pt-1 border-t border-dashed border-black">
-              <span>(=) SALDO FALTANTE POR PAGAR:</span>
+            <div className="flex justify-between text-sm font-black pt-1 border-t border-dashed border-black">
+              <span>(=) SALDO PENDIENTE:</span>
               <span className={esPazYSalvo ? "text-emerald-700 font-black" : "text-rose-700 font-black"}>
-                {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteAlquiler)}
+                {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
               </span>
             </div>
           </div>
 
           {/* ========================================================================= */}
-          {/* SECCIÓN B: APARTADO INDEPENDIENTE DE DEPÓSITO / ABONO (NO SUMA A LA OPER.) */}
+          {/* SECCIÓN B: DEPÓSITO EXCLUSIVO DE ALQUILER (PROHIBIDO EN VENTAS Y $0)     */}
           {/* ========================================================================= */}
-          {montoDepositoEfectivo > 0 && (
-            <div className="py-2 border-y-2 border-black space-y-1 text-[9.5px] bg-slate-50 p-2 rounded my-1.5">
-              <div className="font-black text-[9px] text-black border-b border-black pb-0.5 uppercase tracking-tight">
-                SECCIÓN B — APARTADO DE DEPÓSITO EN EFECTIVO (NO SUMA AL ALQUILER)
+          {mostrarSeccionDeposito && (
+            <div className="py-2 border-y-2 border-black space-y-1 text-[11px] bg-amber-50 p-2 rounded my-1.5 border border-amber-300">
+              <div className="font-black text-[10.5px] text-amber-950 border-b border-amber-300 pb-0.5 uppercase tracking-tight">
+                SECCIÓN B — DEPÓSITO EN GARANTÍA (COBRO SEPARADO)
               </div>
-              <div className="flex justify-between font-black text-[10px] pt-0.5">
-                <span>DEPÓSITO DE RESPALDO EN GAVETA:</span>
-                <span className="font-mono text-emerald-800">{formatCOP(montoDepositoEfectivo)}</span>
+              <div className="flex justify-between font-black text-xs pt-0.5">
+                <span>DEPÓSITO EN GAVETA:</span>
+                <span className="font-mono text-emerald-900">{formatCOP(montoDepositoEfectivo)}</span>
               </div>
-              <p className="text-[8.5px] text-slate-700 leading-tight">
+              <p className="text-[10px] text-amber-950 leading-tight">
                 Estado: <strong>{textoEstadoDeposito}</strong>
               </p>
             </div>
           )}
 
           {/* ========================================================================= */}
-          {/* SECCIÓN C: CUADRE DE EFECTIVO RECIBIDO Y VUELTAS / CAMBIO FINAL (DONDE SÍ)  */}
+          {/* SECCIÓN C: CUADRE DE EFECTIVO RECIBIDO Y VUELTAS / CAMBIO FINAL           */}
           {/* ========================================================================= */}
-          <div className="py-2 border-2 border-black bg-slate-100 p-2 rounded my-1.5 text-[10px] space-y-1">
-            <p className="text-[9px] font-black uppercase text-slate-900 border-b border-black pb-0.5">
+          <div className="py-2 border-2 border-black bg-slate-100 p-2 rounded my-1.5 text-xs space-y-1">
+            <p className="text-[10.5px] font-black uppercase text-slate-900 border-b border-black pb-0.5">
               SECCIÓN C — CUADRE DE EFECTIVO Y VUELTAS / CAMBIO FINAL
             </p>
             <div className="flex justify-between">
-              <span>Cobro Alquiler Recibido Hoy:</span>
-              <span>{formatCOP(cobroAlquilerHoy)}</span>
+              <span>{labelCobroHoy}</span>
+              <span>{formatCOP(cobroOperacionHoy)}</span>
             </div>
-            <div className="flex justify-between">
-              <span>(+) Apartado Depósito en Efectivo:</span>
-              <span>{formatCOP(montoDepositoEfectivo)}</span>
-            </div>
-            <div className="flex justify-between font-black pt-0.5 border-t border-black text-[10.5px]">
-              <span>(=) TOTAL A COBRAR EN CAJA HOY:</span>
+            {mostrarSeccionDeposito && (
+              <div className="flex justify-between">
+                <span>(+) Depósito en Custodia:</span>
+                <span>{formatCOP(montoDepositoEfectivo)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-black pt-0.5 border-t border-black text-[13px] text-black">
+              <span>(=) TOTAL COBRADO EN CAJA HOY:</span>
               <span>{formatCOP(totalCobradoEnCajaHoy)}</span>
             </div>
             <div className="flex justify-between font-bold text-slate-900 pt-0.5 border-t border-dashed border-black">
               <span>EFECTIVO RECIBIDO DEL CLIENTE:</span>
               <span>{formatCOP(efectivoRecibidoCliente)}</span>
             </div>
-            <div className="flex justify-between font-black text-emerald-800 text-[11px] pt-0.5 border-t border-black">
+            <div className="flex justify-between font-black text-emerald-800 text-[13px] pt-0.5 border-t border-black">
               <span>VUELTAS / CAMBIO ENTREGADO:</span>
               <span>{formatCOP(vueltasCambioFinal)}</span>
             </div>
@@ -821,15 +869,15 @@ export default function PlantillaImpresion({
 
           {/* Historial Detallado de Abonos */}
           {abonos.length > 0 && (
-            <div className="py-1.5 border-b border-dashed border-black text-[9px] space-y-1">
-              <p className="font-bold uppercase text-[8.5px] text-slate-700">HISTORIAL DE PAGOS REGISTRADOS:</p>
+            <div className="py-1.5 border-b border-dashed border-black text-[11px] space-y-1">
+              <p className="font-bold uppercase text-[10px] text-slate-800">HISTORIAL DE PAGOS REGISTRADOS:</p>
               {abonos.map((a, idx) => (
                 <div key={idx} className="space-y-0.5 pb-0.5 border-b border-dotted border-slate-300 last:border-none">
                   <div className="flex justify-between font-bold">
                     <span>Abono #{idx + 1} ({a.metodoPago || "EFECTIVO"})</span>
                     <span>{formatCOP(a.monto)}</span>
                   </div>
-                  <div className="flex justify-between text-[8px] text-slate-600">
+                  <div className="flex justify-between text-[10px] text-slate-700">
                     <span>{safeDate(a.fecha, true)}</span>
                     {a.cajero?.nombre && <span>Cajero: {a.cajero.nombre}</span>}
                   </div>
@@ -838,23 +886,25 @@ export default function PlantillaImpresion({
             </div>
           )}
 
-          {/* Requisitos y Políticas */}
-          {empresa.politicasFactura && (
-            <div className="py-2 border-b border-black text-[8px] text-slate-700 leading-tight">
-              <p className="font-bold uppercase text-[8.5px] mb-0.5">NORMAS Y POLÍTICAS:</p>
-              <p>{empresa.politicasFactura}</p>
+          {/* Normas y Políticas Segregadas */}
+          {textoPoliticas && (
+            <div className="py-2 border-b border-black text-[10.5px] text-slate-800 leading-tight">
+              <p className="font-bold uppercase text-[11px] mb-0.5 text-black">NORMAS Y POLÍTICAS:</p>
+              <p>{textoPoliticas}</p>
             </div>
           )}
 
           {/* Firmas de Respaldo */}
-          <div className="py-3 space-y-4 text-center text-[8px]">
-            <div className="border-t border-black pt-1 w-3/4 mx-auto">
+          <div className="py-3 space-y-4 text-center text-[10px]">
+            <div className="border-t border-black pt-1 w-4/5 mx-auto">
               <p className="font-bold">Firma y C.C. del Cliente</p>
-              <p className="text-[7.5px] text-slate-600">(Acepto estado de prendas y condiciones)</p>
+              <p className="text-[9px] text-slate-700">
+                {esAlquiler ? "(Acepto estado de prendas y condiciones)" : "(Aceptación y recibido a conformidad)"}
+              </p>
             </div>
-            <div className="border-t border-black pt-1 w-3/4 mx-auto">
+            <div className="border-t border-black pt-1 w-4/5 mx-auto">
               <p className="font-bold">Firma Cajero Responsable</p>
-              <p className="text-[7.5px] text-slate-600">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+              <p className="text-[9px] text-slate-700">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
             </div>
           </div>
 
@@ -1023,10 +1073,16 @@ export default function PlantillaImpresion({
 
       // Alquiler o Venta Comercial
       return (
-        <div className={`w-full bg-white text-black font-sans flex flex-col justify-between box-border h-full ${esDoble ? "p-2 sm:p-2.5 text-[9.5px]" : "p-4 sm:p-5 text-xs"}`}>
+        <div
+          className={`w-full bg-white text-slate-950 font-sans flex flex-col justify-between box-border h-full ${
+            esDoble
+              ? "p-2 sm:p-2.5 text-[11px] sm:text-[11.5px] font-semibold leading-tight"
+              : "p-3 sm:p-4 text-xs sm:text-[12.5px] font-medium leading-tight"
+          }`}
+        >
           <div>
             {/* Cabecera Media Carta */}
-            <div className="flex items-start justify-between border-b-2 border-slate-900 pb-1.5 mb-1.5">
+            <div className="flex items-start justify-between border-b-2 border-slate-900 pb-1.5 mb-1">
               <div className="flex items-center gap-2.5">
                 {empresa.logoUrl && (
                   <img
@@ -1036,16 +1092,21 @@ export default function PlantillaImpresion({
                   />
                 )}
                 <div>
-                  <h1 className={`${esDoble ? "text-sm" : "text-base"} font-black tracking-tight text-slate-900 uppercase`}>
+                  <h1
+                    className={`${
+                      esDoble ? "text-xs sm:text-sm" : "text-sm sm:text-base"
+                    } font-black tracking-tight text-slate-950 uppercase`}
+                  >
                     {empresa.nombreComercial || "Mi Empresa"}
                   </h1>
                   {empresa.eslogan && (
-                    <p className="text-[9px] italic text-slate-600">{empresa.eslogan}</p>
+                    <p className="text-[10px] italic text-slate-700">{empresa.eslogan}</p>
                   )}
-                  <p className="text-[9.5px] text-slate-700 font-bold">
-                    NIT: {empresa.nit || "900.123.456-7"} {empresa.regimenFiscal ? `| ${empresa.regimenFiscal}` : ""}
+                  <p className="text-[10.5px] text-slate-800 font-bold">
+                    NIT: {empresa.nit || "900.123.456-7"}{" "}
+                    {empresa.regimenFiscal ? `| ${empresa.regimenFiscal}` : ""}
                   </p>
-                  <p className="text-[9px] text-slate-500">
+                  <p className="text-[10px] text-slate-600">
                     {empresa.direccion} — {empresa.ciudad || "Villavicencio"} | Tel: {empresa.telefono}
                   </p>
                 </div>
@@ -1054,69 +1115,93 @@ export default function PlantillaImpresion({
               {/* Recuadro de Título y Folio */}
               <div className="text-right">
                 <div className="border-2 border-slate-900 rounded-xl px-2.5 py-0.5 bg-slate-50">
-                  <span className="text-[8.5px] uppercase font-black tracking-wider block text-slate-800">
+                  <span className="text-[10px] uppercase font-black tracking-wider block text-slate-950">
                     {tituloComprobante}
                   </span>
-                  <span className={`${esDoble ? "text-xs" : "text-sm"} font-black font-mono block text-slate-900`}>
+                  <span
+                    className={`${
+                      esDoble ? "text-xs sm:text-sm" : "text-sm sm:text-base"
+                    } font-black font-mono block text-slate-950`}
+                  >
                     N° {factura.numeroFactura}
                   </span>
-                  <span className="text-[8px] font-bold text-slate-600 uppercase block">
+                  <span className="text-[9px] font-bold text-slate-700 uppercase block">
                     {copiaLabel}
                   </span>
                 </div>
-                <p className="text-[8.5px] text-slate-500 mt-0.5">
+                <p className="text-[9.5px] text-slate-600 mt-0.5">
                   Fecha: {safeDate(factura.fechaCreacion, true)}
                 </p>
               </div>
             </div>
 
             {/* Ficha Cliente & Operación */}
-            <div className="grid grid-cols-2 gap-2 mb-1.5 p-1.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+            <div
+              className={`grid grid-cols-2 gap-2 mb-1 p-1.5 bg-slate-50 rounded-xl border border-slate-200 ${
+                esDoble ? "text-[11px]" : "text-xs"
+              }`}
+            >
               <div>
-                <p className="font-bold uppercase text-slate-500 text-[8px]">DATOS DEL CLIENTE:</p>
-                <p className="font-bold text-slate-900 text-[11px]">
+                <p className="font-bold uppercase text-slate-700 text-[9.5px]">DATOS DEL CLIENTE:</p>
+                <p className="font-black text-slate-950 text-xs sm:text-[13px]">
                   {(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}
                 </p>
-                <p className="text-[9.5px]">
-                  {cliente.tipoIdentificacion || "CC"}: <span className="font-mono font-bold">{cliente.documento || "—"}</span>
+                <p className="text-[10.5px]">
+                  {cliente.tipoIdentificacion || "CC"}:{" "}
+                  <span className="font-mono font-bold">{cliente.documento || "—"}</span>
                   {cliente.digitoVerificacion ? `-${cliente.digitoVerificacion}` : ""}
                 </p>
                 {cliente.telefono && (
-                  <p className="text-[9.5px]">Tel. Primario (1°): <span className="font-mono font-bold">{cliente.telefono}</span></p>
+                  <p className="text-[10.5px]">
+                    Tel. Primario (1°): <span className="font-mono font-bold">{cliente.telefono}</span>
+                  </p>
                 )}
                 {cliente.telefonoSecundario && (
-                  <p className="text-[9.5px]">Tel. Secundario (2°): <span className="font-mono font-bold">{cliente.telefonoSecundario}</span></p>
+                  <p className="text-[10.5px]">
+                    Tel. Secundario (2°): <span className="font-mono font-bold">{cliente.telefonoSecundario}</span>
+                  </p>
                 )}
               </div>
 
               <div>
-                <p className="font-bold uppercase text-slate-500 text-[8px]">OPERACIÓN Y FECHAS:</p>
-                <p className="text-[9.5px]">
-                  Operación: <strong className="uppercase">{factura.tipoOperacion || "ALQUILER"}</strong>
-                  {mostrarCajero && <span> | Cajero: <strong>{usuarioCajero?.nombre}</strong></span>}
+                <p className="font-bold uppercase text-slate-700 text-[9.5px]">OPERACIÓN Y DETALLES:</p>
+                <p className="text-[10.5px]">
+                  Operación: <strong className="uppercase">{esVenta ? "VENTA" : (factura.tipoOperacion || "VENTA")}</strong>
+                  {mostrarCajero && (
+                    <span>
+                      {" "}
+                      | Cajero: <strong>{usuarioCajero?.nombre}</strong>
+                    </span>
+                  )}
                 </p>
                 {esAlquiler && (
-                  <div className="mt-0.5 text-[9px] space-y-0.5">
-                    <p>Fecha Salida: <strong>{safeDate(factura.fechaEntregaAlquiler || factura.fechaCreacion)}</strong></p>
+                  <div className="mt-0.5 text-[10px] space-y-0.5">
+                    <p>
+                      Fecha Salida:{" "}
+                      <strong>{safeDate(factura.fechaEntregaAlquiler || factura.fechaCreacion)}</strong>
+                    </p>
                     {factura.fechaDevolucionPactada && (
                       <p className="font-bold text-rose-700">
                         Límite Devolución: {safeDate(factura.fechaDevolucionPactada, true)}
                       </p>
                     )}
-                    <p className="text-[8.5px] text-slate-600">
-                      Plazo: <strong className={estaEnMora ? "text-rose-700" : "text-emerald-700"}>{textoPlazoYDevolucion}</strong>
+                    <p className="text-[9.5px] text-slate-700">
+                      Plazo:{" "}
+                      <strong className={estaEnMora ? "text-rose-700" : "text-emerald-700"}>
+                        {textoPlazoYDevolucion}
+                      </strong>
                     </p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Tabla Compacta de Prendas */}
-            <table className="w-full text-xs mb-1.5">
-              <thead className="bg-slate-900 text-white text-[8px] font-bold uppercase">
+            {/* Tabla Compacta de Ítems */}
+            <table className={`w-full mb-1 ${esDoble ? "text-[11px]" : "text-xs"}`}>
+              <thead className="bg-slate-900 text-white text-[9.5px] font-bold uppercase">
                 <tr>
                   <th className="py-0.5 px-1.5 text-left w-10">Cant</th>
-                  <th className="py-0.5 px-1.5 text-left">Descripción de la Prenda o Servicio</th>
+                  <th className="py-0.5 px-1.5 text-left">Descripción del Artículo o Servicio</th>
                   <th className="py-0.5 px-1.5 text-right w-20">Valor Unit.</th>
                   <th className="py-0.5 px-1.5 text-right w-20">Subtotal</th>
                 </tr>
@@ -1126,13 +1211,13 @@ export default function PlantillaImpresion({
                   <tr key={idx} className="hover:bg-slate-50">
                     <td className="py-0.5 px-1.5 text-center font-bold">{safeNumber(d.cantidad)}</td>
                     <td className="py-0.5 px-1.5">
-                      <span className="font-bold text-slate-900">
+                      <span className="font-bold text-slate-950">
                         {d.esServicioLibre
                           ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
-                          : d.producto?.nombre || "Prenda de Alquiler"}
+                          : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Prenda")}
                       </span>
                       {d.producto?.codigo && (
-                        <span className="text-[8.5px] font-mono text-slate-500 ml-1">
+                        <span className="text-[9.5px] font-mono text-slate-600 ml-1">
                           [{d.producto.codigo}]
                         </span>
                       )}
@@ -1145,80 +1230,110 @@ export default function PlantillaImpresion({
             </table>
           </div>
 
-          {/* Bloques Contables Secciones A, B y C + Firmas */}
-          <div className="grid grid-cols-3 gap-1.5 border-t-2 border-slate-900 pt-1 text-[9px]">
-            {/* SECCIÓN A: OPERACIÓN */}
-            <div className="p-1 bg-slate-50 rounded-lg border border-slate-200 space-y-0.5">
-              <p className="font-black text-[7.5px] uppercase text-slate-700 border-b border-slate-300 pb-0.5">
-                SECCIÓN A — OPERACIÓN
+          {/* Bloques Contables Secciones A, B (solo si aplica depósito > $0 en alquiler) y C */}
+          <div
+            className={`grid ${
+              mostrarSeccionDeposito ? "grid-cols-3 gap-1.5" : "grid-cols-2 gap-2"
+            } border-t-2 border-slate-900 pt-1 ${esDoble ? "text-[10.5px]" : "text-xs"}`}
+          >
+            {/* SECCIÓN A: OPERACIÓN PRINCIPAL */}
+            <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-200 space-y-0.5">
+              <p className="font-black text-[9px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+                {labelSeccionA}
               </p>
               <div className="flex justify-between">
-                <span>Total Alquiler:</span>
-                <span className="font-bold">{formatCOP(totalOperacionAlquiler)}</span>
+                <span>{labelSubtotalSeccionA}</span>
+                <span className="font-bold">{formatCOP(subtotalPrendas)}</span>
               </div>
-              <div className="flex justify-between text-emerald-800">
+              {recargoMora > 0 && esAlquiler && (
+                <div className="flex justify-between text-rose-700 font-bold">
+                  <span>Recargo por Mora:</span>
+                  <span>+{formatCOP(recargoMora)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-black text-black pt-0.5 border-t border-slate-300">
+                <span>{labelTotalSeccionA}</span>
+                <span className="font-bold">{formatCOP(totalOperacionPrincipal)}</span>
+              </div>
+              <div className="flex justify-between text-emerald-800 font-bold">
                 <span>(-) Abonado:</span>
-                <span>-{formatCOP(totalAbonadoAlquiler)}</span>
+                <span>-{formatCOP(totalAbonadoOperacion)}</span>
               </div>
-              <div className="flex justify-between font-black border-t border-slate-300 pt-0.5">
-                <span>(=) Saldo Faltante:</span>
+              <div className="flex justify-between font-black border-t border-slate-300 pt-0.5 text-sm">
+                <span>(=) Saldo Pendiente:</span>
                 <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
-                  {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteAlquiler)}
+                  {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
                 </span>
               </div>
             </div>
 
-            {/* SECCIÓN B: APARTADO DEPÓSITO */}
-            <div className="p-1 bg-amber-50 rounded-lg border border-amber-300 space-y-0.5">
-              <p className="font-black text-[7.5px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
-                SECCIÓN B — DEPÓSITO (SEPARADO)
-              </p>
-              <div className="flex justify-between font-bold text-amber-950">
-                <span>Depósito en Custodia:</span>
-                <span className="font-black text-emerald-800">{formatCOP(montoDepositoEfectivo)}</span>
+            {/* SECCIÓN B: DEPÓSITO EXCLUSIVO DE ALQUILER (> $0) - PROHIBIDO EN VENTAS */}
+            {mostrarSeccionDeposito && (
+              <div className="p-1.5 bg-amber-50 rounded-lg border border-amber-300 space-y-0.5">
+                <p className="font-black text-[9px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
+                  SECCIÓN B — DEPÓSITO EN GARANTÍA
+                </p>
+                <div className="flex justify-between font-bold text-amber-950 text-xs">
+                  <span>Depósito en Custodia:</span>
+                  <span className="font-black text-emerald-900">{formatCOP(montoDepositoEfectivo)}</span>
+                </div>
+                <p className="text-[9px] text-amber-900 leading-tight">
+                  {textoEstadoDeposito}
+                </p>
               </div>
-              <p className="text-[7px] text-amber-900 leading-tight">
-                {textoEstadoDeposito}
-              </p>
-            </div>
+            )}
 
             {/* SECCIÓN C: CUADRE EFECTIVO Y VUELTAS */}
-            <div className="p-1 bg-slate-100 rounded-lg border border-slate-300 space-y-0.5">
-              <p className="font-black text-[7.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+            <div className="p-1.5 bg-slate-100 rounded-lg border border-slate-300 space-y-0.5">
+              <p className="font-black text-[9px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
                 SECCIÓN C — CUADRE EFECTIVO Y VUELTAS
               </p>
               <div className="flex justify-between">
-                <span>Total a Cobrar Hoy:</span>
+                <span>{labelCobroHoy}</span>
+                <span className="font-bold">{formatCOP(cobroOperacionHoy)}</span>
+              </div>
+              {mostrarSeccionDeposito && (
+                <div className="flex justify-between">
+                  <span>(+) Depósito en Custodia:</span>
+                  <span>{formatCOP(montoDepositoEfectivo)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-black text-black pt-0.5 border-t border-slate-300">
+                <span>(=) Total Cobrado Hoy:</span>
                 <span className="font-black">{formatCOP(totalCobradoEnCajaHoy)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between font-bold text-slate-900">
                 <span>Efectivo Recibido:</span>
                 <span>{formatCOP(efectivoRecibidoCliente)}</span>
               </div>
-              <div className="flex justify-between font-black text-emerald-800 border-t border-slate-300 pt-0.5">
+              <div className="flex justify-between font-black text-emerald-800 border-t border-slate-300 pt-0.5 text-sm">
                 <span>Vueltas Finales:</span>
                 <span>{formatCOP(vueltasCambioFinal)}</span>
               </div>
             </div>
           </div>
 
-          {/* Normas y Políticas de Factura en Media Carta */}
-          {empresa.politicasFactura && (
-            <div className="p-1 bg-slate-50 rounded-lg border border-slate-200 text-[7.5px] text-slate-700 leading-tight my-0.5">
-              <span className="font-black uppercase text-[7.5px] mr-1 text-slate-900">NORMAS Y POLÍTICAS:</span>
-              <span>{empresa.politicasFactura}</span>
+          {/* Normas y Políticas Segregadas */}
+          {textoPoliticas && (
+            <div className="p-1 bg-slate-50 rounded-lg border border-slate-200 text-[9px] sm:text-[10px] text-slate-800 leading-tight my-0.5">
+              <span className="font-black uppercase text-[9px] sm:text-[10px] mr-1 text-slate-950">
+                NORMAS Y POLÍTICAS:
+              </span>
+              <span>{textoPoliticas}</span>
             </div>
           )}
 
           {/* Firmas de Respaldo */}
-          <div className="grid grid-cols-2 gap-4 text-center pt-1 border-t border-slate-200 text-[7.5px]">
+          <div className="grid grid-cols-2 gap-4 text-center pt-1 border-t border-slate-200 text-[9px]">
             <div className="border-t border-slate-700 pt-0.5">
               <p className="font-bold">Firma y C.C. del Cliente</p>
-              <p className="text-[6.5px] text-slate-500">(Acepto estado de prendas y condiciones)</p>
+              <p className="text-[8px] text-slate-600">
+                {esAlquiler ? "(Acepto estado de prendas y condiciones)" : "(Aceptación y recibido a conformidad)"}
+              </p>
             </div>
             <div className="border-t border-slate-700 pt-0.5">
               <p className="font-bold">Firma Vendedor / Cajero Responsable</p>
-              <p className="text-[6.5px] text-slate-500">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+              <p className="text-[8px] text-slate-600">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
             </div>
           </div>
         </div>
@@ -1497,9 +1612,9 @@ export default function PlantillaImpresion({
             </div>
 
             <div>
-              <p className="font-bold uppercase text-slate-500 text-[9px] mb-1">DETALLES DE LA ORDEN:</p>
+              <p className="font-bold uppercase text-slate-500 text-[10px] mb-1">DETALLES DE LA ORDEN:</p>
               <p className="text-xs">
-                Modalidad: <strong className="uppercase">{factura.tipoOperacion || "ALQUILER"}</strong>
+                Modalidad: <strong className="uppercase">{esVenta ? "VENTA" : (factura.tipoOperacion || "VENTA")}</strong>
               </p>
               {mostrarCajero && (
                 <p className="text-xs">Cajero Responsable: <strong>{usuarioCajero?.nombre}</strong></p>
@@ -1522,10 +1637,10 @@ export default function PlantillaImpresion({
 
           {/* Tabla Completa de Ítems */}
           <table className="w-full text-xs mb-4">
-            <thead className="bg-slate-900 text-white text-[9.5px] font-bold uppercase">
+            <thead className="bg-slate-900 text-white text-[10px] font-bold uppercase">
               <tr>
                 <th className="py-2 px-3 text-left w-12">Cant</th>
-                <th className="py-2 px-3 text-left">Descripción de la Prenda o Servicio</th>
+                <th className="py-2 px-3 text-left">Descripción del Artículo o Servicio</th>
                 <th className="py-2 px-3 text-right w-28">Precio Unitario</th>
                 <th className="py-2 px-3 text-right w-28">Subtotal</th>
               </tr>
@@ -1538,7 +1653,7 @@ export default function PlantillaImpresion({
                     <span className="font-bold text-slate-900">
                       {d.esServicioLibre
                         ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
-                        : d.producto?.nombre || "Prenda de Alquiler"}
+                        : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Prenda")}
                     </span>
                     {d.producto?.codigo && (
                       <span className="text-[10px] font-mono text-slate-500 ml-2">
@@ -1554,79 +1669,83 @@ export default function PlantillaImpresion({
           </table>
 
           {/* ========================================================================= */}
-          {/* SECCIONES CONTABLES A, B Y C EN FORMATO CARTA                             */}
+          {/* SECCIONES CONTABLES A, B (solo si aplica depósito en alquiler) Y C         */}
           {/* ========================================================================= */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            {/* SECCIÓN A */}
+          <div className={`grid ${mostrarSeccionDeposito ? "grid-cols-3 gap-3" : "grid-cols-2 gap-4"} mb-4`}>
+            {/* SECCIÓN A: OPERACIÓN PRINCIPAL */}
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-              <p className="font-black text-[9px] uppercase text-slate-800 border-b border-slate-300 pb-1">
-                SECCIÓN A — OPERACIÓN ALQUILER
+              <p className="font-black text-[10px] uppercase text-slate-900 border-b border-slate-300 pb-1">
+                {labelSeccionA}
               </p>
               <div className="flex justify-between text-xs">
-                <span>Subtotal Prendas:</span>
+                <span>{labelSubtotalSeccionA}</span>
                 <span className="font-bold">{formatCOP(subtotalPrendas)}</span>
               </div>
-              {recargoMora > 0 && (
+              {recargoMora > 0 && esAlquiler && (
                 <div className="flex justify-between text-xs text-rose-700 font-bold">
                   <span>Recargo por Mora:</span>
                   <span>+{formatCOP(recargoMora)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-xs font-black border-t border-slate-300 pt-1">
-                <span>Total Operación:</span>
-                <span>{formatCOP(totalOperacionAlquiler + recargoMora)}</span>
+              <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-1 text-black">
+                <span>{labelTotalSeccionA}</span>
+                <span>{formatCOP(totalOperacionPrincipal)}</span>
               </div>
               <div className="flex justify-between text-xs text-emerald-800 font-bold">
-                <span>(-) Abonado al Alquiler:</span>
-                <span>-{formatCOP(totalAbonadoAlquiler)}</span>
+                <span>(-) Abonado:</span>
+                <span>-{formatCOP(totalAbonadoOperacion)}</span>
               </div>
-              <div className="flex justify-between text-xs font-black border-t border-slate-300 pt-1">
-                <span>(=) Saldo Faltante:</span>
+              <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-1">
+                <span>(=) Saldo Pendiente:</span>
                 <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
-                  {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteAlquiler)}
+                  {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
                 </span>
               </div>
             </div>
 
-            {/* SECCIÓN B */}
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 space-y-1">
-              <p className="font-black text-[9px] uppercase text-amber-950 border-b border-amber-300 pb-1">
-                SECCIÓN B — DEPÓSITO EN EFECTIVO (SEPARADO)
-              </p>
-              <div className="flex justify-between font-black text-sm text-amber-950">
-                <span>Depósito en Custodia:</span>
-                <span className="font-mono text-emerald-800">{formatCOP(montoDepositoEfectivo)}</span>
+            {/* SECCIÓN B: DEPÓSITO EXCLUSIVO DE ALQUILER CON VALOR > $0 */}
+            {mostrarSeccionDeposito && (
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 space-y-1">
+                <p className="font-black text-[10px] uppercase text-amber-950 border-b border-amber-300 pb-1">
+                  SECCIÓN B — DEPÓSITO EN GARANTÍA (COBRO SEPARADO)
+                </p>
+                <div className="flex justify-between font-black text-sm text-amber-950">
+                  <span>Depósito en Custodia:</span>
+                  <span className="font-mono text-emerald-900">{formatCOP(montoDepositoEfectivo)}</span>
+                </div>
+                <p className="text-[10px] text-amber-950/90 leading-snug">
+                  {textoEstadoDeposito}
+                </p>
+                <p className="text-[9px] text-slate-500 italic pt-1">
+                  * Este depósito no suma al valor del alquiler; se reintegra al devolver las prendas a conformidad.
+                </p>
               </div>
-              <p className="text-[10px] text-amber-950/90 leading-snug">
-                {textoEstadoDeposito}
-              </p>
-              <p className="text-[9px] text-slate-500 italic pt-1">
-                * Este apartado no suma a la operación de alquiler; se reintegra al devolver las prendas a conformidad.
-              </p>
-            </div>
+            )}
 
-            {/* SECCIÓN C */}
+            {/* SECCIÓN C: CUADRE EFECTIVO Y VUELTAS */}
             <div className="p-3 bg-slate-100 rounded-xl border border-slate-300 space-y-1">
-              <p className="font-black text-[9px] uppercase text-slate-900 border-b border-slate-300 pb-1">
+              <p className="font-black text-[10px] uppercase text-slate-900 border-b border-slate-300 pb-1">
                 SECCIÓN C — CUADRE EFECTIVO Y VUELTAS
               </p>
               <div className="flex justify-between text-xs">
-                <span>Cobro Alquiler Hoy:</span>
-                <span>{formatCOP(cobroAlquilerHoy)}</span>
+                <span>{labelCobroHoy}</span>
+                <span className="font-bold">{formatCOP(cobroOperacionHoy)}</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span>(+) Depósito en Efectivo:</span>
-                <span>{formatCOP(montoDepositoEfectivo)}</span>
-              </div>
-              <div className="flex justify-between text-xs font-black border-t border-slate-300 pt-1">
-                <span>(=) Total a Cobrar Hoy:</span>
+              {mostrarSeccionDeposito && (
+                <div className="flex justify-between text-xs">
+                  <span>(+) Depósito en Efectivo:</span>
+                  <span>{formatCOP(montoDepositoEfectivo)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-xs font-black border-t border-slate-300 pt-1 text-black">
+                <span>(=) Total Cobrado Hoy:</span>
                 <span>{formatCOP(totalCobradoEnCajaHoy)}</span>
               </div>
               <div className="flex justify-between text-xs font-bold text-slate-900 pt-1">
                 <span>Efectivo Recibido Cliente:</span>
                 <span>{formatCOP(efectivoRecibidoCliente)}</span>
               </div>
-              <div className="flex justify-between text-sm font-black text-emerald-800 border-t border-slate-300 pt-1">
+              <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-300 pt-1">
                 <span>Vueltas / Cambio Final:</span>
                 <span>{formatCOP(vueltasCambioFinal)}</span>
               </div>
@@ -1636,10 +1755,10 @@ export default function PlantillaImpresion({
 
         {/* Políticas y Firmas */}
         <div>
-          {empresa.politicasFactura && (
-            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-[10px] text-slate-600 mb-3">
-              <p className="font-bold uppercase text-[9px] text-slate-700 mb-0.5">TÉRMINOS Y CONDICIONES:</p>
-              <p className="leading-relaxed">{empresa.politicasFactura}</p>
+          {textoPoliticas && (
+            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 mb-3 leading-relaxed">
+              <p className="font-bold uppercase text-[10px] text-slate-900 mb-0.5">NORMAS Y POLÍTICAS:</p>
+              <p>{textoPoliticas}</p>
             </div>
           )}
 
@@ -1648,15 +1767,15 @@ export default function PlantillaImpresion({
               <div className="w-64 border-t border-slate-700 mx-auto pt-1 font-bold text-xs">
                 Firma y C.C. del Cliente
               </div>
-              <p className="text-[9.5px] text-slate-500 mt-0.5">
-                (Acepto estado de prendas, fechas y condiciones de depósito)
+              <p className="text-[10px] text-slate-600 mt-0.5">
+                {esAlquiler ? "(Acepto estado de prendas y condiciones)" : "(Recibido a conformidad y aceptación de factura)"}
               </p>
             </div>
             <div>
               <div className="w-64 border-t border-slate-700 mx-auto pt-1 font-bold text-xs">
                 Firma Vendedor / Cajero Responsable
               </div>
-              <p className="text-[9.5px] text-slate-500 mt-0.5">
+              <p className="text-[10px] text-slate-600 mt-0.5">
                 {usuarioCajero?.nombre || "Atención en Mostrador"}
               </p>
             </div>

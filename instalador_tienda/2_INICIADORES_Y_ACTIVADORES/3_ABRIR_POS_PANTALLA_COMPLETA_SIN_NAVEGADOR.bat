@@ -88,3 +88,4 @@ exit /b 0
 :lanzar_app
 start "" "!BROWSER_EXE!" --app=%APP_URL% --start-maximized
 exit /b 0
+

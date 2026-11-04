@@ -115,3 +115,4 @@ if not exist "%ZBX_LOG%" (
 echo.
 pause
 goto :MENU_ZABBIX
+

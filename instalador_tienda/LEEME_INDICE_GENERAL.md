@@ -52,3 +52,4 @@ instalador_tienda/
 Para maxima comodidad del usuario final y del cajero, en la raiz del proyecto se disponen los 2 unicos accesos directos principales:
 1. `CONTROL_GENERAL_POS.bat`: Menu central que enlaza todas las operaciones de las 4 carpetas.
 2. `ABRIR_POS_PANTALLA_COMPLETA.bat`: Acceso directo para ventas con arranque silencioso integrado.
+

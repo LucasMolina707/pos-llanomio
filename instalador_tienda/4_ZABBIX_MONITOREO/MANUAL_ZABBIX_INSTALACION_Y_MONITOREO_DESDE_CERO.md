@@ -225,3 +225,4 @@ Para recibir una notificacion inmediata en su telefono movil cuando la caja deje
 3. Ingresar el Token en la configuracion del Media Type.
 4. En **Users -> Users**, editar el usuario administrador e ingresar en la pestana **Media** su ID de chat de Telegram.
 5. Cada vez que el trigger `pos.status=0` se active por mas de 30 segundos, Zabbix enviara un mensaje instantaneo a su movil alertando la situacion para tomar accion remota inmediata.
+

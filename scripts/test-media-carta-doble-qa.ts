@@ -205,9 +205,9 @@ async function main() {
   // ---------------------------------------------------------------------------
   console.log("[PRUEBA 2/4] Generando PDFs MEDIA_CARTA_DOBLE para Venta, Alquiler y Separe...");
 
-  const pdfVenta = crearDocumentoPdfMediaCartaDoble(datosVentaMock);
-  const pdfAlquiler = crearDocumentoPdfMediaCartaDoble(datosAlquilerMock);
-  const pdfSepare = crearDocumentoPdfMediaCartaDoble(datosSepareMock);
+  const pdfVenta = crearDocumentoPdfMediaCartaDoble(datosVentaMock, { comprimir: false });
+  const pdfAlquiler = crearDocumentoPdfMediaCartaDoble(datosAlquilerMock, { comprimir: false });
+  const pdfSepare = crearDocumentoPdfMediaCartaDoble(datosSepareMock, { comprimir: false });
 
   const paginasVenta = pdfVenta.getNumberOfPages();
   const paginasAlquiler = pdfAlquiler.getNumberOfPages();
@@ -224,9 +224,12 @@ async function main() {
 
   // ---------------------------------------------------------------------------
   // 3. PRUEBA DE CONTENIDO: EJEMPLAR 1, EJEMPLAR 2 Y CERO CÓDIGOS QR
+  // Y SEGREGACIÓN TOTAL DE VENTA VS ALQUILER (SIN DEPÓSITO EN VENTA)
   // ---------------------------------------------------------------------------
-  console.log("[PRUEBA 3/4] Inspeccionando contenido textual y vectores en el PDF...");
+  console.log("[PRUEBA 3/5] Inspeccionando contenido textual, segregación de ventas vs alquiler y cero QR...");
   const rawVentaPdf = pdfVenta.output();
+  const rawAlquilerPdf = pdfAlquiler.output();
+  const rawSeparePdf = pdfSepare.output();
 
   // Validar que no contenga referencias a qrcode ni cadenas de QR
   const contieneQr = rawVentaPdf.includes("qrcode") || rawVentaPdf.includes("QR-Code");
@@ -234,13 +237,62 @@ async function main() {
   if (contieneQr) {
     throw new Error("ERROR CRÍTICO: Se detectó código QR en el documento generado.");
   }
+
+  // Comprobar Segregación en Factura de VENTA:
+  const ventaTieneTotalVenta = rawVentaPdf.includes("TOTAL VENTA:");
+  const ventaTieneDeposito = rawVentaPdf.includes("CONSTANCIA DE COBRO SEPARADO");
+  const ventaTieneNormaApartado = rawVentaPdf.includes("PLATA DE TRAJES APARTADOS NO SE DEVUELVE");
+  console.log(`      Venta - Rótulo 'TOTAL VENTA:': ${ventaTieneTotalVenta ? "SÍ (CORRECTO)" : "NO (FALLO)"}`);
+  console.log(`      Venta - Depósito en Garantía: ${ventaTieneDeposito ? "PRESENTE (FALLO)" : "OMITIDO (CORRECTO)"}`);
+  console.log(`      Venta - Norma de Apartados: ${ventaTieneNormaApartado ? "PRESENTE (FALLO)" : "OMITIDA (CORRECTO)"}`);
+
+  if (!ventaTieneTotalVenta || ventaTieneDeposito || ventaTieneNormaApartado) {
+    throw new Error("ERROR: En factura de Venta no se cumplió la segregación contable o se incluyó depósito/normas erróneas.");
+  }
+
+  // Comprobar Alquiler con Depósito $0 (OMISIÓN DE SECCIÓN B):
+  const datosAlquilerSinDepMock: DatosImpresionFactura = {
+    ...datosAlquilerMock,
+    factura: {
+      ...datosAlquilerMock.factura,
+      montoDeposito: 0,
+      estadoDeposito: "SIN_DEPOSITO",
+    },
+  };
+  const pdfAlquilerSinDep = crearDocumentoPdfMediaCartaDoble(datosAlquilerSinDepMock, { comprimir: false });
+  const rawAlquilerSinDep = pdfAlquilerSinDep.output();
+  const alqSinDepTieneDeposito = rawAlquilerSinDep.includes("CONSTANCIA DE COBRO SEPARADO");
+  console.log(`      Alquiler (Depósito $0) - Sección B: ${alqSinDepTieneDeposito ? "PRESENTE (FALLO)" : "OMITIDA (CORRECTO)"}`);
+  if (alqSinDepTieneDeposito) {
+    throw new Error("ERROR: En alquiler con depósito $0 se dibujó erróneamente el recuadro de depósito.");
+  }
+
+  // Comprobar Alquiler con Depósito > $0:
+  const alqTieneTotalAlquiler = rawAlquilerPdf.includes("TOTAL ALQUILER:");
+  const alqTieneDeposito = rawAlquilerPdf.includes("CONSTANCIA DE COBRO SEPARADO");
+  const alqTieneNormaApartado = rawAlquilerPdf.includes("PLATA DE TRAJES APARTADOS NO SE DEVUELVE");
+  console.log(`      Alquiler - Rótulo 'TOTAL ALQUILER:': ${alqTieneTotalAlquiler ? "SÍ (CORRECTO)" : "NO (FALLO)"}`);
+  console.log(`      Alquiler - Sección B Depósito: ${alqTieneDeposito ? "SÍ (CORRECTO)" : "NO (FALLO)"}`);
+  console.log(`      Alquiler - Norma de Apartados: ${alqTieneNormaApartado ? "PRESENTE (FALLO)" : "OMITIDA (CORRECTO)"}`);
+
+  if (!alqTieneTotalAlquiler || !alqTieneDeposito || alqTieneNormaApartado) {
+    throw new Error("ERROR: En factura de Alquiler no se cumplieron los requisitos contables o de políticas.");
+  }
+
+  // Comprobar Apartado:
+  const separeTieneNorma = rawSeparePdf.includes("PLATA DE TRAJES APARTADOS NO SE DEVUELVE");
+  console.log(`      Apartado - Norma 'PLATA DE TRAJES APARTADOS': ${separeTieneNorma ? "SÍ (CORRECTO)" : "NO (FALLO)"}`);
+  if (!separeTieneNorma) {
+    throw new Error("ERROR: En formato de Apartado falta la política obligatoria.");
+  }
+
   console.log("      [OK] Cero códigos QR confirmado.");
-  console.log("      [OK] Rótulos de 'EJEMPLAR 1: ORIGINAL CLIENTE' y 'EJEMPLAR 2: COPIA ARCHIVO' incorporados.\n");
+  console.log("      [OK] Segregación contable y políticas limpias en los 3 tipos de operación confirmada.\n");
 
   // ---------------------------------------------------------------------------
   // 4. PRUEBA DE COEXISTENCIA DE LOS 4 FORMATOS OFICIALES
   // ---------------------------------------------------------------------------
-  console.log("[PRUEBA 4/4] Validando coexistencia de los 4 formatos de exportación...");
+  console.log("[PRUEBA 4/5] Validando coexistencia de los 4 formatos de exportación...");
   const docTirilla = crearDocumentoPdfTirilla(datosVentaMock);
   const docMediaCarta = crearDocumentoPdfMediaCarta(datosVentaMock);
   const docMediaCartaDoble = crearDocumentoPdfMediaCartaDoble(datosVentaMock);
@@ -252,7 +304,7 @@ async function main() {
   console.log(`      4. Carta Completa Vertical:   OK (Páginas: ${docCarta.getNumberOfPages()})`);
 
   console.log("\n===============================================================================");
-  console.log("     TODAS LAS PRUEBAS DE CALIDAD QA PASARON EXITOSAMENTE (4/4)");
+  console.log("     TODAS LAS PRUEBAS DE CALIDAD QA PASARON EXITOSAMENTE (5/5)");
   console.log("===============================================================================\n");
 }
 

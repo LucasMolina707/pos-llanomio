@@ -77,3 +77,4 @@ El script `4_ESTADO_Y_DIAGNOSTICO_SERVIDOR.bat` provee una radiografia instantan
   * *Solucion:* Presionar la opcion `[2]` en el menu del diagnostico para levantar el servidor o ejecutar `1_LEVANTAR_O_REINICIAR_SERVIDOR.bat`.
 * **Problema: 'Dispositivo movil no conecta por Wi-Fi'.**
   * *Solucion:* Verificar en el punto 2 del diagnostico la direccion IP asignada. Asegurarse de que ambos dispositivos esten conectados a la misma red y que la red en Windows este en modo 'Privada'.
+
