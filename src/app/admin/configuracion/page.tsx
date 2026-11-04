@@ -41,6 +41,7 @@ import {
   FileArchive,
   Terminal,
   ArrowUpCircle,
+  Scissors,
 } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
 
@@ -60,8 +61,8 @@ interface Configuracion {
   mostrarVendedorFactura: boolean;
   politicasFactura: string;
   piePaginaFactura: string;
-  formatoPredeterminado: "TIRILLA" | "MEDIA_CARTA" | "CARTA";
-  formatoImpresionDefault: "TIRILLA" | "MEDIA_CARTA" | "CARTA";
+  formatoPredeterminado: "TIRILLA" | "MEDIA_CARTA" | "MEDIA_CARTA_DOBLE" | "CARTA";
+  formatoImpresionDefault: "TIRILLA" | "MEDIA_CARTA" | "MEDIA_CARTA_DOBLE" | "CARTA";
   rutaCarpetaRespaldo: string;
   nombreImpresoraPos: string;
   abrirCajonAutoEfectivo: boolean;
@@ -110,7 +111,7 @@ export default function ConfiguracionAdminPage() {
   } | null>(null);
 
   // Formato simulado en la columna derecha
-  const [formatoSimulador, setFormatoSimulador] = useState<"TIRILLA" | "MEDIA_CARTA" | "CARTA">("MEDIA_CARTA");
+  const [formatoSimulador, setFormatoSimulador] = useState<"TIRILLA" | "MEDIA_CARTA" | "MEDIA_CARTA_DOBLE" | "CARTA">("MEDIA_CARTA");
 
   // Estado del respaldo en caliente y migración
   const [respaldando, setRespaldando] = useState(false);
@@ -1425,9 +1426,10 @@ export default function ConfiguracionAdminPage() {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-semibold"
                   >
-                    <option value="MEDIA_CARTA">Media Carta (Half Letter — Recomendado para mostrador)</option>
-                    <option value="TIRILLA">Tirilla Térmica (80mm / POS)</option>
-                    <option value="CARTA">Carta Completa (Letter — 1 página ejecutiva)</option>
+                    <option value="TIRILLA">Tirilla POS (80mm / Térmica)</option>
+                    <option value="MEDIA_CARTA">Media Carta Individual (1 por hoja apaisada)</option>
+                    <option value="MEDIA_CARTA_DOBLE">Media Carta Doble (2 en 1 Hoja Carta — Recomendado)</option>
+                    <option value="CARTA">Carta Completa Vertical (1 página ejecutiva)</option>
                   </select>
                 </div>
               </div>
@@ -1681,7 +1683,7 @@ export default function ConfiguracionAdminPage() {
             </div>
 
             {/* Pestañas de Formato en el Simulador */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold mb-4">
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold mb-4 gap-1">
               <button
                 type="button"
                 onClick={() => setFormatoSimulador("TIRILLA")}
@@ -1702,7 +1704,18 @@ export default function ConfiguracionAdminPage() {
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Media Carta
+                Media Carta (1x)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormatoSimulador("MEDIA_CARTA_DOBLE")}
+                className={`flex-1 py-1.5 rounded-lg text-center transition ${
+                  formatoSimulador === "MEDIA_CARTA_DOBLE"
+                    ? "bg-white text-blue-600 shadow-xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Media Carta Doble (2 en 1)
               </button>
               <button
                 type="button"
@@ -1876,6 +1889,107 @@ export default function ConfiguracionAdminPage() {
                     <div>Total: <strong>$100.000</strong></div>
                     <div className="text-emerald-700">Abono: -$50.000</div>
                     <div className="text-rose-700 font-bold">Saldo: $50.000</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {formatoSimulador === "MEDIA_CARTA_DOBLE" && (
+              <div className="bg-white border-2 border-slate-300 rounded-xl p-3 text-[9px] text-slate-800 shadow-sm space-y-2">
+                <div className="text-center pb-1 border-b border-slate-200">
+                  <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block">
+                    Hoja Tamaño Carta Vertical (2 Medias Cartas en 1 Sola Hoja)
+                  </span>
+                  <span className="text-[8px] text-slate-400">
+                    Ahorro del 50% de papel — 1 original para el cliente y 1 copia para archivo
+                  </span>
+                </div>
+
+                {/* Mitad Superior: EJEMPLAR 1 */}
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5">
+                  <div className="flex items-start justify-between border-b pb-1">
+                    <div className="flex items-center gap-2">
+                      {config.logoUrl && (
+                        <img src={config.logoUrl} alt="Logo" className="h-7 object-contain" />
+                      )}
+                      <div>
+                        <h4 className="font-bold text-[10px] uppercase text-slate-900">{config.nombreComercial}</h4>
+                        <p className="text-[7.5px] text-slate-500">NIT: {config.nit} | {config.direccion}</p>
+                      </div>
+                    </div>
+                    <div className="border rounded px-1.5 py-0.5 text-right bg-white">
+                      <span className="block text-[7.5px] font-bold text-slate-500">FACTURA 1001</span>
+                      <span className="block text-[7px] font-black text-indigo-700">EJEMPLAR 1: ORIGINAL CLIENTE</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[8px] bg-white p-1 rounded border">
+                    <div>
+                      <span className="font-bold text-slate-600">Cliente:</span> CARLOS PÉREZ (1.121.890.123)
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-600">Operación:</span> Alquiler | Devolución: 28/10/2026
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-1 rounded border text-[8px] flex justify-between">
+                    <span>1x Traje Llanero Gala + Arreglo</span>
+                    <span className="font-mono font-bold">$100.000</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[8px] pt-0.5">
+                    <span className="text-slate-500 text-[7px] truncate max-w-[180px]">{config.politicasFactura}</span>
+                    <div className="text-right font-mono font-bold text-slate-900">
+                      Total: $100.000 | <span className="text-rose-700">Saldo: $50.000</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Línea Central de Corte */}
+                <div className="relative border-t-2 border-dashed border-slate-400 my-1 text-center">
+                  <span className="bg-white px-2 py-0.5 text-[7.5px] font-bold text-slate-500 absolute -top-2 left-1/2 -translate-x-1/2 rounded border border-slate-300 flex items-center gap-1">
+                    <Scissors className="w-2.5 h-2.5 text-slate-400" />
+                    <span>-- CORTAR POR ESTA LÍNEA (2 MEDIAS CARTAS EN 1 HOJA) --</span>
+                  </span>
+                </div>
+
+                {/* Mitad Inferior: EJEMPLAR 2 */}
+                <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5">
+                  <div className="flex items-start justify-between border-b pb-1">
+                    <div className="flex items-center gap-2">
+                      {config.logoUrl && (
+                        <img src={config.logoUrl} alt="Logo" className="h-7 object-contain" />
+                      )}
+                      <div>
+                        <h4 className="font-bold text-[10px] uppercase text-slate-900">{config.nombreComercial}</h4>
+                        <p className="text-[7.5px] text-slate-500">NIT: {config.nit} | {config.direccion}</p>
+                      </div>
+                    </div>
+                    <div className="border rounded px-1.5 py-0.5 text-right bg-white">
+                      <span className="block text-[7.5px] font-bold text-slate-500">FACTURA 1001</span>
+                      <span className="block text-[7px] font-black text-slate-700">EJEMPLAR 2: COPIA ARCHIVO / TIENDA</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[8px] bg-white p-1 rounded border">
+                    <div>
+                      <span className="font-bold text-slate-600">Cliente:</span> CARLOS PÉREZ (1.121.890.123)
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-600">Operación:</span> Alquiler | Devolución: 28/10/2026
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-1 rounded border text-[8px] flex justify-between">
+                    <span>1x Traje Llanero Gala + Arreglo</span>
+                    <span className="font-mono font-bold">$100.000</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[8px] pt-0.5">
+                    <span className="text-slate-500 text-[7px] truncate max-w-[180px]">{config.politicasFactura}</span>
+                    <div className="text-right font-mono font-bold text-slate-900">
+                      Total: $100.000 | <span className="text-rose-700">Saldo: $50.000</span>
+                    </div>
                   </div>
                 </div>
               </div>

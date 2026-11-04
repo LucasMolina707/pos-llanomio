@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   crearDocumentoPdfMediaCarta,
+  crearDocumentoPdfMediaCartaDoble,
   crearDocumentoPdfCarta,
   crearDocumentoPdfTirilla,
 } from "@/lib/pdf-media-carta";
@@ -84,7 +85,10 @@ export async function GET(req: NextRequest, { params }: Params) {
     const { searchParams } = new URL(req.url);
     const formatoParam = searchParams.get("formato") as FormatoImpresionTipo | null;
     const formatoSeleccionado: FormatoImpresionTipo =
-      formatoParam === "TIRILLA" || formatoParam === "CARTA" || formatoParam === "MEDIA_CARTA"
+      formatoParam === "TIRILLA" ||
+      formatoParam === "CARTA" ||
+      formatoParam === "MEDIA_CARTA" ||
+      formatoParam === "MEDIA_CARTA_DOBLE"
         ? formatoParam
         : (empresaConfig?.formatoPredeterminado as FormatoImpresionTipo) || "MEDIA_CARTA";
 
@@ -168,6 +172,8 @@ export async function GET(req: NextRequest, { params }: Params) {
       doc = crearDocumentoPdfTirilla(datosImpresion);
     } else if (formatoSeleccionado === "CARTA") {
       doc = crearDocumentoPdfCarta(datosImpresion);
+    } else if (formatoSeleccionado === "MEDIA_CARTA_DOBLE") {
+      doc = crearDocumentoPdfMediaCartaDoble(datosImpresion);
     } else {
       doc = crearDocumentoPdfMediaCarta(datosImpresion);
     }

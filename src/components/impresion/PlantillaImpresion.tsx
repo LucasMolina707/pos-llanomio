@@ -15,6 +15,7 @@ import {
   Banknote,
   Copy,
   BookOpen,
+  Scissors,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import {
@@ -24,7 +25,7 @@ import {
 } from "@/lib/pdf-media-carta";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 
-export type FormatoImpresionTipo = "TIRILLA" | "MEDIA_CARTA" | "CARTA";
+export type FormatoImpresionTipo = "TIRILLA" | "MEDIA_CARTA" | "MEDIA_CARTA_DOBLE" | "CARTA";
 
 export interface DatosImpresionFactura {
   factura: {
@@ -300,6 +301,13 @@ export default function PlantillaImpresion({
         @page { size: 215.9mm 139.7mm landscape; margin: 4mm; }
         html, body { width: 215.9mm !important; height: 139.7mm !important; margin: 0 !important; padding: 0 !important; background: white !important; color: black !important; }
         .hoja-media-carta-impresion { width: 207mm !important; height: 131mm !important; max-height: 131mm !important; box-sizing: border-box; page-break-after: avoid !important; break-after: avoid !important; }
+      `;
+    } else if (formato === "MEDIA_CARTA_DOBLE") {
+      pageCss = `
+        @page { size: letter portrait; margin: 4mm; }
+        html, body { width: 207.9mm !important; height: 271mm !important; max-height: 271mm !important; margin: 0 auto !important; padding: 0 !important; background: white !important; color: black !important; overflow: hidden !important; }
+        .hoja-media-carta-doble-impresion { width: 100% !important; height: 270mm !important; max-height: 270mm !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; box-sizing: border-box !important; page-break-after: avoid !important; page-break-inside: avoid !important; break-after: avoid !important; break-inside: avoid !important; }
+        .mitad-media-carta { height: 130mm !important; max-height: 130mm !important; overflow: hidden !important; box-sizing: border-box !important; }
       `;
     } else {
       pageCss = `
@@ -858,34 +866,34 @@ export default function PlantillaImpresion({
     }
 
     // -------------------------------------------------------------
-    // FORMATO 2: MEDIA CARTA (Horizontal: 215.9mm x 139.7mm)
+    // FUNCIÓN AUXILIAR: RENDER CONTENIDO DE MEDIA CARTA (REUTILIZABLE)
     // -------------------------------------------------------------
-    if (formato === "MEDIA_CARTA") {
+    const renderContenidoMediaCarta = (copiaLabel: string, esDoble: boolean = false) => {
       if (esSepare) {
         return (
-          <div className="hoja-media-carta-impresion w-full max-w-[215.9mm] min-h-[139.7mm] max-h-[139.7mm] mx-auto p-4 sm:p-5 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border">
+          <div className={`w-full bg-white text-black font-sans flex flex-col justify-between box-border h-full ${esDoble ? "p-2 sm:p-2.5 text-[9.5px]" : "p-4 sm:p-5 text-xs"}`}>
             <div>
               {/* Cabecera Media Carta */}
-              <div className="flex items-start justify-between border-b-2 border-slate-900 pb-2 mb-2">
-                <div className="flex items-center gap-3">
+              <div className="flex items-start justify-between border-b-2 border-slate-900 pb-1.5 mb-1.5">
+                <div className="flex items-center gap-2.5">
                   {empresa.logoUrl && (
                     <img
                       src={empresa.logoUrl}
                       alt={empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
-                      className="max-h-12 object-contain"
+                      className={esDoble ? "max-h-9 object-contain" : "max-h-12 object-contain"}
                     />
                   )}
                   <div>
-                    <h1 className="text-base font-black tracking-tight text-slate-900 uppercase">
+                    <h1 className={`${esDoble ? "text-sm" : "text-base"} font-black tracking-tight text-slate-900 uppercase`}>
                       {empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
                     </h1>
                     {empresa.eslogan && (
-                      <p className="text-[9.5px] italic text-slate-600">{empresa.eslogan}</p>
+                      <p className="text-[9px] italic text-slate-600">{empresa.eslogan}</p>
                     )}
-                    <p className="text-[10px] text-slate-700 font-bold">
+                    <p className="text-[9.5px] text-slate-700 font-bold">
                       NIT: {empresa.nit || "900.123.456-7"} {empresa.regimenFiscal ? `| ${empresa.regimenFiscal}` : ""}
                     </p>
-                    <p className="text-[9.5px] text-slate-500">
+                    <p className="text-[9px] text-slate-500">
                       {empresa.direccion} — {empresa.ciudad || "Villavicencio"} | Tel: {empresa.telefono}
                     </p>
                   </div>
@@ -893,25 +901,25 @@ export default function PlantillaImpresion({
 
                 {/* Recuadro de Título y Folio */}
                 <div className="text-right">
-                  <div className="border-2 border-slate-900 rounded-xl px-3 py-1 bg-slate-50">
-                    <span className="text-[10px] uppercase font-black tracking-wider block text-slate-900">
+                  <div className="border-2 border-slate-900 rounded-xl px-2.5 py-0.5 bg-slate-50">
+                    <span className="text-[9px] uppercase font-black tracking-wider block text-slate-900">
                       FORMATO DE APARTADO
                     </span>
-                    <span className="text-sm font-black font-mono block text-slate-900">
+                    <span className={`${esDoble ? "text-xs" : "text-sm"} font-black font-mono block text-slate-900`}>
                       N° {factura.numeroFactura}
                     </span>
-                    <span className="text-[8.5px] font-bold text-slate-600 uppercase block">
-                      {tipoCopiaTexto}
+                    <span className="text-[8px] font-bold text-slate-600 uppercase block">
+                      {copiaLabel}
                     </span>
                   </div>
-                  <p className="text-[9px] text-slate-500 mt-0.5">
+                  <p className="text-[8.5px] text-slate-500 mt-0.5">
                     Fecha: {safeDate(factura.fechaCreacion, true)}
                   </p>
                 </div>
               </div>
 
               {/* Ficha Estructurada del Cliente y Fechas */}
-              <div className="grid grid-cols-2 gap-3 mb-2 p-2 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+              <div className="grid grid-cols-2 gap-2 mb-1.5 p-1.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
                 <div className="space-y-0.5">
                   <p><strong className="text-slate-700">Nombre:</strong> <span className="font-bold text-slate-900">{(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}</span></p>
                   <p><strong className="text-slate-700">C.C. / NIT:</strong> <span className="font-mono font-bold">{cliente.documento || "—"}</span></p>
@@ -929,31 +937,31 @@ export default function PlantillaImpresion({
               </div>
 
               {/* Tabla de Descripción de Prendas */}
-              <div className="mb-2">
-                <p className="font-bold text-[9px] uppercase text-slate-700 mb-1">Descripción de las Prendas Separadas:</p>
+              <div className="mb-1.5">
+                <p className="font-bold text-[8.5px] uppercase text-slate-700 mb-0.5">Descripción de las Prendas Separadas:</p>
                 <table className="w-full text-xs">
-                  <thead className="bg-slate-900 text-white text-[8.5px] font-bold uppercase">
+                  <thead className="bg-slate-900 text-white text-[8px] font-bold uppercase">
                     <tr>
-                      <th className="py-1 px-2 text-left w-10">Cant</th>
-                      <th className="py-1 px-2 text-left">Detalle / Traje Separado</th>
-                      <th className="py-1 px-2 text-right w-24">Precio Unit.</th>
-                      <th className="py-1 px-2 text-right w-24">Subtotal</th>
+                      <th className="py-0.5 px-1.5 text-left w-10">Cant</th>
+                      <th className="py-0.5 px-1.5 text-left">Detalle / Traje Separado</th>
+                      <th className="py-0.5 px-1.5 text-right w-20">Precio Unit.</th>
+                      <th className="py-0.5 px-1.5 text-right w-20">Subtotal</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {detalles.map((d, idx) => (
                       <tr key={idx} className="hover:bg-slate-50">
-                        <td className="py-0.5 px-2 text-center font-bold">{safeNumber(d.cantidad)}</td>
-                        <td className="py-0.5 px-2">
+                        <td className="py-0.5 px-1.5 text-center font-bold">{safeNumber(d.cantidad)}</td>
+                        <td className="py-0.5 px-1.5">
                           <span className="font-bold text-slate-900">
                             {d.esServicioLibre ? (d.descripcionLibre || "Traje libre") : (d.producto?.nombre || d.descripcionLibre || "Prenda")}
                           </span>
                           {d.producto?.codigo && (
-                            <span className="text-[9px] font-mono text-slate-500 ml-1.5">[{d.producto.codigo}]</span>
+                            <span className="text-[8.5px] font-mono text-slate-500 ml-1">[{d.producto.codigo}]</span>
                           )}
                         </td>
-                        <td className="py-0.5 px-2 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
-                        <td className="py-0.5 px-2 text-right font-mono font-bold">{formatCOP(d.subtotal)}</td>
+                        <td className="py-0.5 px-1.5 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
+                        <td className="py-0.5 px-1.5 text-right font-mono font-bold">{formatCOP(d.subtotal)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -962,80 +970,82 @@ export default function PlantillaImpresion({
             </div>
 
             {/* Bloque Financiero en 4 Columnas */}
-            <div className="grid grid-cols-4 gap-2 border-y-2 border-slate-900 py-1.5 text-center my-1">
-              <div className="p-1 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="text-[8px] uppercase font-bold text-slate-600">Alquiler</p>
-                <p className="text-xs font-black font-mono">{formatCOP(totalOperacionAlquiler)}</p>
+            <div className="grid grid-cols-4 gap-1.5 border-y-2 border-slate-900 py-1 text-center my-0.5">
+              <div className="p-0.5 bg-slate-50 rounded-lg border border-slate-200">
+                <p className="text-[7.5px] uppercase font-bold text-slate-600">Alquiler</p>
+                <p className="text-[11px] font-black font-mono">{formatCOP(totalOperacionAlquiler)}</p>
               </div>
-              <div className="p-1 bg-amber-50 rounded-lg border border-amber-300">
-                <p className="text-[8px] uppercase font-bold text-amber-900">Depósito</p>
-                <p className="text-xs font-black font-mono text-amber-950">{formatCOP(montoDepositoEfectivo)}</p>
-                <span className="text-[7.5px] text-amber-800 block">{montoDepositoEfectivo > 0 ? (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? "Abonado hoy" : "Pagar al retirar") : "$0"}</span>
+              <div className="p-0.5 bg-amber-50 rounded-lg border border-amber-300">
+                <p className="text-[7.5px] uppercase font-bold text-amber-900">Depósito</p>
+                <p className="text-[11px] font-black font-mono text-amber-950">{formatCOP(montoDepositoEfectivo)}</p>
+                <span className="text-[7px] text-amber-800 block">{montoDepositoEfectivo > 0 ? (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? "Abonado hoy" : "Pagar al retirar") : "$0"}</span>
               </div>
-              <div className="p-1 bg-emerald-50 rounded-lg border border-emerald-300">
-                <p className="text-[8px] uppercase font-bold text-emerald-800">Abono</p>
-                <p className="text-xs font-black font-mono text-emerald-900">{formatCOP(totalAbonadoAlquiler)}</p>
+              <div className="p-0.5 bg-emerald-50 rounded-lg border border-emerald-300">
+                <p className="text-[7.5px] uppercase font-bold text-emerald-800">Abono</p>
+                <p className="text-[11px] font-black font-mono text-emerald-900">{formatCOP(totalAbonadoAlquiler)}</p>
               </div>
-              <div className="p-1 bg-rose-50 rounded-lg border border-rose-300">
-                <p className="text-[8px] uppercase font-bold text-rose-800">Saldo Restante</p>
-                <p className="text-xs font-black font-mono text-rose-900">{formatCOP(saldoPendienteAlquiler)}</p>
+              <div className="p-0.5 bg-rose-50 rounded-lg border border-rose-300">
+                <p className="text-[7.5px] uppercase font-bold text-rose-800">Saldo Restante</p>
+                <p className="text-[11px] font-black font-mono text-rose-900">{formatCOP(saldoPendienteAlquiler)}</p>
               </div>
             </div>
 
             {/* OBSERVACIONES */}
-            <div className="text-[9.5px] mb-1">
+            <div className="text-[9px] mb-0.5">
               <span className="font-bold text-slate-800">OBSERVACIONES: </span>
               <span className="italic text-slate-700">{factura.observaciones || factura.notas || "Sin observaciones adicionales."}</span>
             </div>
 
             {/* Aviso Destacado: PLATA DE TRAJES APARTADOS NO SE DEVUELVE */}
-            <div className="p-1.5 bg-slate-100 rounded-lg border border-slate-400 text-center my-1">
-              <p className="text-xs font-black tracking-wide text-slate-900 uppercase">
+            <div className="p-1 bg-slate-100 rounded-lg border border-slate-400 text-center my-0.5">
+              <p className="text-[10px] font-black tracking-wide text-slate-900 uppercase">
                 PLATA DE TRAJES APARTADOS NO SE DEVUELVE
               </p>
               {empresa.politicasFactura && (
-                <p className="text-[8px] text-slate-600 leading-tight mt-0.5">{empresa.politicasFactura}</p>
+                <p className="text-[7.5px] text-slate-600 leading-tight mt-0.5">{empresa.politicasFactura}</p>
               )}
             </div>
 
             {/* Pie de Firma */}
-            <div className="grid grid-cols-2 gap-4 text-center pt-2 border-t border-slate-800">
+            <div className="grid grid-cols-2 gap-4 text-center pt-1 border-t border-slate-800">
               <div>
-                <p className="font-bold text-[10px]">Firma del Cliente: ________________________________________</p>
-                <p className="text-[8px] text-slate-500">C.C. {cliente.documento || "________________________"}</p>
+                <p className="font-bold text-[9px]">Firma del Cliente: ________________________________</p>
+                <p className="text-[7.5px] text-slate-500">C.C. {cliente.documento || "________________________"}</p>
               </div>
               <div>
-                <p className="font-bold text-[10px]">Cajero Responsable: ________________________________________</p>
-                <p className="text-[8px] text-slate-500">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+                <p className="font-bold text-[9px]">Cajero Responsable: ________________________________</p>
+                <p className="text-[7.5px] text-slate-500">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
               </div>
             </div>
           </div>
         );
       }
+
+      // Alquiler o Venta Comercial
       return (
-        <div className="hoja-media-carta-impresion w-full max-w-[215.9mm] min-h-[139.7mm] max-h-[139.7mm] mx-auto p-4 sm:p-5 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border">
+        <div className={`w-full bg-white text-black font-sans flex flex-col justify-between box-border h-full ${esDoble ? "p-2 sm:p-2.5 text-[9.5px]" : "p-4 sm:p-5 text-xs"}`}>
           <div>
             {/* Cabecera Media Carta */}
-            <div className="flex items-start justify-between border-b-2 border-slate-900 pb-2 mb-2">
-              <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between border-b-2 border-slate-900 pb-1.5 mb-1.5">
+              <div className="flex items-center gap-2.5">
                 {empresa.logoUrl && (
                   <img
                     src={empresa.logoUrl}
                     alt={empresa.nombreComercial || "Mi Empresa"}
-                    className="max-h-12 object-contain"
+                    className={esDoble ? "max-h-9 object-contain" : "max-h-12 object-contain"}
                   />
                 )}
                 <div>
-                  <h1 className="text-base font-black tracking-tight text-slate-900 uppercase">
+                  <h1 className={`${esDoble ? "text-sm" : "text-base"} font-black tracking-tight text-slate-900 uppercase`}>
                     {empresa.nombreComercial || "Mi Empresa"}
                   </h1>
                   {empresa.eslogan && (
-                    <p className="text-[9.5px] italic text-slate-600">{empresa.eslogan}</p>
+                    <p className="text-[9px] italic text-slate-600">{empresa.eslogan}</p>
                   )}
-                  <p className="text-[10px] text-slate-700 font-bold">
+                  <p className="text-[9.5px] text-slate-700 font-bold">
                     NIT: {empresa.nit || "900.123.456-7"} {empresa.regimenFiscal ? `| ${empresa.regimenFiscal}` : ""}
                   </p>
-                  <p className="text-[9.5px] text-slate-500">
+                  <p className="text-[9px] text-slate-500">
                     {empresa.direccion} — {empresa.ciudad || "Villavicencio"} | Tel: {empresa.telefono}
                   </p>
                 </div>
@@ -1043,57 +1053,57 @@ export default function PlantillaImpresion({
 
               {/* Recuadro de Título y Folio */}
               <div className="text-right">
-                <div className="border-2 border-slate-900 rounded-xl px-3 py-1 bg-slate-50">
-                  <span className="text-[9px] uppercase font-black tracking-wider block text-slate-800">
+                <div className="border-2 border-slate-900 rounded-xl px-2.5 py-0.5 bg-slate-50">
+                  <span className="text-[8.5px] uppercase font-black tracking-wider block text-slate-800">
                     {tituloComprobante}
                   </span>
-                  <span className="text-sm font-black font-mono block text-slate-900">
+                  <span className={`${esDoble ? "text-xs" : "text-sm"} font-black font-mono block text-slate-900`}>
                     N° {factura.numeroFactura}
                   </span>
-                  <span className="text-[8.5px] font-bold text-slate-600 uppercase block">
-                    {tipoCopiaTexto}
+                  <span className="text-[8px] font-bold text-slate-600 uppercase block">
+                    {copiaLabel}
                   </span>
                 </div>
-                <p className="text-[9px] text-slate-500 mt-0.5">
+                <p className="text-[8.5px] text-slate-500 mt-0.5">
                   Fecha: {safeDate(factura.fechaCreacion, true)}
                 </p>
               </div>
             </div>
 
             {/* Ficha Cliente & Operación */}
-            <div className="grid grid-cols-2 gap-3 mb-2 p-2 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+            <div className="grid grid-cols-2 gap-2 mb-1.5 p-1.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
               <div>
-                <p className="font-bold uppercase text-slate-500 text-[8.5px]">DATOS DEL CLIENTE:</p>
-                <p className="font-bold text-slate-900 text-xs">
+                <p className="font-bold uppercase text-slate-500 text-[8px]">DATOS DEL CLIENTE:</p>
+                <p className="font-bold text-slate-900 text-[11px]">
                   {(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}
                 </p>
-                <p className="text-[10px]">
+                <p className="text-[9.5px]">
                   {cliente.tipoIdentificacion || "CC"}: <span className="font-mono font-bold">{cliente.documento || "—"}</span>
                   {cliente.digitoVerificacion ? `-${cliente.digitoVerificacion}` : ""}
                 </p>
                 {cliente.telefono && (
-                  <p className="text-[10px]">Tel. Primario (1°): <span className="font-mono font-bold">{cliente.telefono}</span></p>
+                  <p className="text-[9.5px]">Tel. Primario (1°): <span className="font-mono font-bold">{cliente.telefono}</span></p>
                 )}
                 {cliente.telefonoSecundario && (
-                  <p className="text-[10px]">Tel. Secundario (2°): <span className="font-mono font-bold">{cliente.telefonoSecundario}</span></p>
+                  <p className="text-[9.5px]">Tel. Secundario (2°): <span className="font-mono font-bold">{cliente.telefonoSecundario}</span></p>
                 )}
               </div>
 
               <div>
-                <p className="font-bold uppercase text-slate-500 text-[8.5px]">OPERACIÓN Y FECHAS:</p>
-                <p className="text-[10px]">
+                <p className="font-bold uppercase text-slate-500 text-[8px]">OPERACIÓN Y FECHAS:</p>
+                <p className="text-[9.5px]">
                   Operación: <strong className="uppercase">{factura.tipoOperacion || "ALQUILER"}</strong>
                   {mostrarCajero && <span> | Cajero: <strong>{usuarioCajero?.nombre}</strong></span>}
                 </p>
                 {esAlquiler && (
-                  <div className="mt-0.5 text-[9.5px] space-y-0.5">
+                  <div className="mt-0.5 text-[9px] space-y-0.5">
                     <p>Fecha Salida: <strong>{safeDate(factura.fechaEntregaAlquiler || factura.fechaCreacion)}</strong></p>
                     {factura.fechaDevolucionPactada && (
                       <p className="font-bold text-rose-700">
                         Límite Devolución: {safeDate(factura.fechaDevolucionPactada, true)}
                       </p>
                     )}
-                    <p className="text-[9px] text-slate-600">
+                    <p className="text-[8.5px] text-slate-600">
                       Plazo: <strong className={estaEnMora ? "text-rose-700" : "text-emerald-700"}>{textoPlazoYDevolucion}</strong>
                     </p>
                   </div>
@@ -1102,33 +1112,33 @@ export default function PlantillaImpresion({
             </div>
 
             {/* Tabla Compacta de Prendas */}
-            <table className="w-full text-xs mb-2">
-              <thead className="bg-slate-900 text-white text-[8.5px] font-bold uppercase">
+            <table className="w-full text-xs mb-1.5">
+              <thead className="bg-slate-900 text-white text-[8px] font-bold uppercase">
                 <tr>
-                  <th className="py-1 px-2 text-left w-10">Cant</th>
-                  <th className="py-1 px-2 text-left">Descripción de la Prenda o Servicio</th>
-                  <th className="py-1 px-2 text-right w-24">Valor Unit.</th>
-                  <th className="py-1 px-2 text-right w-24">Subtotal</th>
+                  <th className="py-0.5 px-1.5 text-left w-10">Cant</th>
+                  <th className="py-0.5 px-1.5 text-left">Descripción de la Prenda o Servicio</th>
+                  <th className="py-0.5 px-1.5 text-right w-20">Valor Unit.</th>
+                  <th className="py-0.5 px-1.5 text-right w-20">Subtotal</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {detalles.slice(0, 4).map((d, idx) => (
                   <tr key={idx} className="hover:bg-slate-50">
-                    <td className="py-0.5 px-2 text-center font-bold">{safeNumber(d.cantidad)}</td>
-                    <td className="py-0.5 px-2">
+                    <td className="py-0.5 px-1.5 text-center font-bold">{safeNumber(d.cantidad)}</td>
+                    <td className="py-0.5 px-1.5">
                       <span className="font-bold text-slate-900">
                         {d.esServicioLibre
                           ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
                           : d.producto?.nombre || "Prenda de Alquiler"}
                       </span>
                       {d.producto?.codigo && (
-                        <span className="text-[9px] font-mono text-slate-500 ml-1.5">
+                        <span className="text-[8.5px] font-mono text-slate-500 ml-1">
                           [{d.producto.codigo}]
                         </span>
                       )}
                     </td>
-                    <td className="py-0.5 px-2 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
-                    <td className="py-0.5 px-2 text-right font-mono font-bold">{formatCOP(d.subtotal)}</td>
+                    <td className="py-0.5 px-1.5 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
+                    <td className="py-0.5 px-1.5 text-right font-mono font-bold">{formatCOP(d.subtotal)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1136,10 +1146,10 @@ export default function PlantillaImpresion({
           </div>
 
           {/* Bloques Contables Secciones A, B y C + Firmas */}
-          <div className="grid grid-cols-3 gap-2 border-t-2 border-slate-900 pt-1.5 text-[9.5px]">
+          <div className="grid grid-cols-3 gap-1.5 border-t-2 border-slate-900 pt-1 text-[9px]">
             {/* SECCIÓN A: OPERACIÓN */}
-            <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-200 space-y-0.5">
-              <p className="font-black text-[8px] uppercase text-slate-700 border-b border-slate-300 pb-0.5">
+            <div className="p-1 bg-slate-50 rounded-lg border border-slate-200 space-y-0.5">
+              <p className="font-black text-[7.5px] uppercase text-slate-700 border-b border-slate-300 pb-0.5">
                 SECCIÓN A — OPERACIÓN
               </p>
               <div className="flex justify-between">
@@ -1159,22 +1169,22 @@ export default function PlantillaImpresion({
             </div>
 
             {/* SECCIÓN B: APARTADO DEPÓSITO */}
-            <div className="p-1.5 bg-amber-50 rounded-lg border border-amber-300 space-y-0.5">
-              <p className="font-black text-[8px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
+            <div className="p-1 bg-amber-50 rounded-lg border border-amber-300 space-y-0.5">
+              <p className="font-black text-[7.5px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
                 SECCIÓN B — DEPÓSITO (SEPARADO)
               </p>
               <div className="flex justify-between font-bold text-amber-950">
                 <span>Depósito en Custodia:</span>
                 <span className="font-black text-emerald-800">{formatCOP(montoDepositoEfectivo)}</span>
               </div>
-              <p className="text-[7.5px] text-amber-900 leading-tight">
+              <p className="text-[7px] text-amber-900 leading-tight">
                 {textoEstadoDeposito}
               </p>
             </div>
 
             {/* SECCIÓN C: CUADRE EFECTIVO Y VUELTAS */}
-            <div className="p-1.5 bg-slate-100 rounded-lg border border-slate-300 space-y-0.5">
-              <p className="font-black text-[8px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+            <div className="p-1 bg-slate-100 rounded-lg border border-slate-300 space-y-0.5">
+              <p className="font-black text-[7.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
                 SECCIÓN C — CUADRE EFECTIVO Y VUELTAS
               </p>
               <div className="flex justify-between">
@@ -1194,22 +1204,60 @@ export default function PlantillaImpresion({
 
           {/* Normas y Políticas de Factura en Media Carta */}
           {empresa.politicasFactura && (
-            <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-200 text-[8px] text-slate-700 leading-tight">
-              <span className="font-black uppercase text-[8px] mr-1 text-slate-900">NORMAS Y POLÍTICAS:</span>
+            <div className="p-1 bg-slate-50 rounded-lg border border-slate-200 text-[7.5px] text-slate-700 leading-tight my-0.5">
+              <span className="font-black uppercase text-[7.5px] mr-1 text-slate-900">NORMAS Y POLÍTICAS:</span>
               <span>{empresa.politicasFactura}</span>
             </div>
           )}
 
           {/* Firmas de Respaldo */}
-          <div className="grid grid-cols-2 gap-6 text-center pt-1.5 border-t border-slate-200 text-[8px]">
+          <div className="grid grid-cols-2 gap-4 text-center pt-1 border-t border-slate-200 text-[7.5px]">
             <div className="border-t border-slate-700 pt-0.5">
               <p className="font-bold">Firma y C.C. del Cliente</p>
-              <p className="text-[7px] text-slate-500">(Acepto estado de prendas y condiciones)</p>
+              <p className="text-[6.5px] text-slate-500">(Acepto estado de prendas y condiciones)</p>
             </div>
             <div className="border-t border-slate-700 pt-0.5">
               <p className="font-bold">Firma Vendedor / Cajero Responsable</p>
-              <p className="text-[7px] text-slate-500">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+              <p className="text-[6.5px] text-slate-500">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
             </div>
+          </div>
+        </div>
+      );
+    };
+
+    // -------------------------------------------------------------
+    // FORMATO 2: MEDIA CARTA INDIVIDUAL (Horizontal: 215.9mm x 139.7mm)
+    // -------------------------------------------------------------
+    if (formato === "MEDIA_CARTA") {
+      return (
+        <div className="hoja-media-carta-impresion w-full max-w-[215.9mm] min-h-[139.7mm] max-h-[139.7mm] mx-auto bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl flex flex-col justify-between box-border overflow-hidden">
+          {renderContenidoMediaCarta(tipoCopiaTexto, false)}
+        </div>
+      );
+    }
+
+    // -------------------------------------------------------------
+    // FORMATO 4: MEDIA CARTA DOBLE (2 en 1 Hoja Carta Vertical)
+    // -------------------------------------------------------------
+    if (formato === "MEDIA_CARTA_DOBLE") {
+      return (
+        <div className="hoja-media-carta-doble-impresion w-full max-w-[215.9mm] h-[270mm] max-h-[270mm] mx-auto p-2 sm:p-2.5 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border overflow-hidden">
+          {/* Mitad Superior: ORIGINAL CLIENTE */}
+          <div className="mitad-media-carta h-[129mm] max-h-[129mm] overflow-hidden flex flex-col justify-between border-b border-slate-100">
+            {renderContenidoMediaCarta("EJEMPLAR 1: ORIGINAL CLIENTE", true)}
+          </div>
+
+          {/* Línea Central de Corte */}
+          <div className="h-[5mm] my-[1mm] flex items-center justify-center relative border-t-2 border-dashed border-slate-400 shrink-0">
+            <span className="bg-white px-2.5 py-0.5 text-[8.5px] uppercase font-bold text-slate-500 absolute -top-2.5 left-1/2 -translate-x-1/2 rounded border border-slate-300 flex items-center gap-1.5">
+              <Scissors className="w-3 h-3 text-slate-400" />
+              <span>-- CORTAR POR ESTA LÍNEA (2 MEDIAS CARTAS EN 1 HOJA) --</span>
+            </span>
+          </div>
+
+          {/* Mitad Inferior: COPIA ARCHIVO / TIENDA */}
+          <div className="mitad-media-carta h-[129mm] max-h-[129mm] overflow-hidden flex flex-col justify-between border-t border-slate-100">
+            {renderContenidoMediaCarta("EJEMPLAR 2: COPIA ARCHIVO / TIENDA", true)}
           </div>
         </div>
       );
@@ -1653,11 +1701,19 @@ export default function PlantillaImpresion({
             />
             <IconButtonTooltip
               icon={FileText}
-              label="Formato Media Carta Horizontal"
+              label="Formato Media Carta Individual"
               active={formato === "MEDIA_CARTA"}
               variant={formato === "MEDIA_CARTA" ? "primary" : "neutral"}
               size="sm"
               onClick={() => setFormato("MEDIA_CARTA")}
+            />
+            <IconButtonTooltip
+              icon={Scissors}
+              label="Formato Media Carta Doble (2 en 1 Hoja Carta)"
+              active={formato === "MEDIA_CARTA_DOBLE"}
+              variant={formato === "MEDIA_CARTA_DOBLE" ? "primary" : "neutral"}
+              size="sm"
+              onClick={() => setFormato("MEDIA_CARTA_DOBLE")}
             />
             <IconButtonTooltip
               icon={BookOpen}
@@ -1669,27 +1725,29 @@ export default function PlantillaImpresion({
             />
           </div>
 
-          {/* Selector de Copias con Botones Uniformes */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 gap-1">
-            <IconButtonTooltip
-              icon={Copy}
-              label="1 Copia: Original Cliente"
-              active={numCopias === 1}
-              variant={numCopias === 1 ? "indigo" : "neutral"}
-              size="sm"
-              onClick={() => setNumCopias(1)}
-            />
-            <IconButtonTooltip
-              icon={Copy}
-              label="2 Copias: Original Cliente + Respaldo Tienda"
-              active={numCopias === 2}
-              variant={numCopias === 2 ? "indigo" : "neutral"}
-              badgeCount={2}
-              badgeVariant="blue"
-              size="sm"
-              onClick={() => setNumCopias(2)}
-            />
-          </div>
+          {/* Selector de Copias con Botones Uniformes (Oculto en formato doble ya que contiene 2 copias intrínsecas) */}
+          {formato !== "MEDIA_CARTA_DOBLE" && (
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 gap-1">
+              <IconButtonTooltip
+                icon={Copy}
+                label="1 Copia: Original Cliente"
+                active={numCopias === 1}
+                variant={numCopias === 1 ? "indigo" : "neutral"}
+                size="sm"
+                onClick={() => setNumCopias(1)}
+              />
+              <IconButtonTooltip
+                icon={Copy}
+                label="2 Copias: Original Cliente + Respaldo Tienda"
+                active={numCopias === 2}
+                variant={numCopias === 2 ? "indigo" : "neutral"}
+                badgeCount={2}
+                badgeVariant="blue"
+                size="sm"
+                onClick={() => setNumCopias(2)}
+              />
+            </div>
+          )}
 
           {/* Botón Descargar PDF */}
           <IconButtonTooltip
@@ -1738,16 +1796,22 @@ export default function PlantillaImpresion({
         ref={areaImprimibleRef}
         className="bg-slate-100/80 p-4 sm:p-6 rounded-2xl print:p-0 print:bg-white print:m-0 flex flex-col items-center border border-slate-200 shadow-2xs"
       >
-        {renderDocumento(numCopias === 2 ? "EJEMPLAR 1: COPIA CLIENTE" : "COPIA CLIENTE")}
-
-        {numCopias === 2 && (
+        {formato === "MEDIA_CARTA_DOBLE" ? (
+          renderDocumento("DOBLE")
+        ) : (
           <>
-            <div className="w-full my-6 border-t-2 border-dashed border-slate-400 text-center relative print:my-4">
-              <span className="bg-white px-3 py-0.5 text-[9px] uppercase font-bold text-slate-500 absolute -top-2.5 left-1/2 -translate-x-1/2 rounded border border-slate-300">
-                - - - - - LÍNEA DE CORTE (DIVISIÓN DE COPIAS) - - - - -
-              </span>
-            </div>
-            {renderDocumento("EJEMPLAR 2: RESPALDO FÍSICO TIENDA / ARCHIVO")}
+            {renderDocumento(numCopias === 2 ? "EJEMPLAR 1: COPIA CLIENTE" : "COPIA CLIENTE")}
+
+            {numCopias === 2 && (
+              <>
+                <div className="w-full my-6 border-t-2 border-dashed border-slate-400 text-center relative print:my-4">
+                  <span className="bg-white px-3 py-0.5 text-[9px] uppercase font-bold text-slate-500 absolute -top-2.5 left-1/2 -translate-x-1/2 rounded border border-slate-300">
+                    - - - - - LÍNEA DE CORTE (DIVISIÓN DE COPIAS) - - - - -
+                  </span>
+                </div>
+                {renderDocumento("EJEMPLAR 2: RESPALDO FÍSICO TIENDA / ARCHIVO")}
+              </>
+            )}
           </>
         )}
       </div>
@@ -1768,8 +1832,22 @@ export default function PlantillaImpresion({
             display: none !important;
           }
           @page {
-            margin: ${formato === "TIRILLA" ? "2mm 1mm" : formato === "MEDIA_CARTA" ? "6mm" : "8mm"};
-            size: ${formato === "TIRILLA" ? "80mm auto" : formato === "MEDIA_CARTA" ? "215.9mm 139.7mm landscape" : "letter portrait"};
+            margin: ${
+              formato === "TIRILLA"
+                ? "2mm 1mm"
+                : formato === "MEDIA_CARTA"
+                ? "6mm"
+                : formato === "MEDIA_CARTA_DOBLE"
+                ? "4mm"
+                : "8mm"
+            };
+            size: ${
+              formato === "TIRILLA"
+                ? "80mm auto"
+                : formato === "MEDIA_CARTA"
+                ? "215.9mm 139.7mm landscape"
+                : "letter portrait"
+            };
           }
         }
       `}</style>

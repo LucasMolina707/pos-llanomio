@@ -138,7 +138,7 @@ async function guardarConfiguracion(req: NextRequest) {
           piePaginaFactura:
             piePaginaFactura !== undefined ? (piePaginaFactura ? String(piePaginaFactura).trim() : null) : config.piePaginaFactura,
           formatoPredeterminado: formatoNormalizado,
-          formatoImpresionDefault: formatoNormalizado as "TIRILLA" | "MEDIA_CARTA" | "CARTA",
+          formatoImpresionDefault: formatoNormalizado as "TIRILLA" | "MEDIA_CARTA" | "MEDIA_CARTA_DOBLE" | "CARTA",
           rutaCarpetaRespaldo:
             rutaCarpetaRespaldo !== undefined
               ? String(rutaCarpetaRespaldo).trim()
@@ -169,7 +169,7 @@ async function guardarConfiguracion(req: NextRequest) {
           politicasFactura: politicasFactura ? String(politicasFactura).trim() : null,
           piePaginaFactura: piePaginaFactura ? String(piePaginaFactura).trim() : null,
           formatoPredeterminado: formatoNormalizado,
-          formatoImpresionDefault: formatoNormalizado as "TIRILLA" | "MEDIA_CARTA" | "CARTA",
+          formatoImpresionDefault: formatoNormalizado as "TIRILLA" | "MEDIA_CARTA" | "MEDIA_CARTA_DOBLE" | "CARTA",
           rutaCarpetaRespaldo: rutaCarpetaRespaldo || "C:\\POS_BACKUPS",
           nombreImpresoraPos: nombreImpresoraPos ? String(nombreImpresoraPos).trim() : "",
           abrirCajonAutoEfectivo: abrirCajonAutoEfectivo !== undefined ? Boolean(abrirCajonAutoEfectivo) : true,

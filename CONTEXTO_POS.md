@@ -3128,3 +3128,46 @@ Ejecuta de forma desatendida las 5 fases de seguridad:
   - Consola técnica expandible para inspección del registro de actualización.
   - Diálogo modal con advertencias y confirmación explícita.
 
+---
+
+## 44. CUARTO FORMATO OFICIAL DE IMPRESIÓN Y EXPORTACIÓN: MEDIA CARTA DOBLE (2 EN 1 HOJA CARTA) (NOVIEMBRE 2026)
+
+### 1. Definición Geométrica y Estructura Documental
+- **Especificaciones del Formato:** En una única hoja de tamaño Carta vertical estándar (`letter portrait`, `215.9 mm x 279.4 mm` / `8.5" x 11"`), se renderizan e imprimen de forma compacta y simétrica **dos bloques de Media Carta (`215.9 mm x 139.7 mm`)** en una sola cara:
+  - **Mitad Superior (`alto: 129-134 mm`):** Primer ejemplar completo rotulado con `"EJEMPLAR 1: ORIGINAL CLIENTE"`.
+  - **Línea Central de Corte en `Y = 139.7 mm`:** Línea divisoria horizontal punteada con recuadro central e icono de tijeras (`Scissors`) con la leyenda:
+    `-- CORTAR POR ESTA LÍNEA (2 MEDIAS CARTAS EN 1 HOJA) --`
+  - **Mitad Inferior (`alto: 129-134 mm`):** Segundo ejemplar idéntico rotulado con `"EJEMPLAR 2: COPIA ARCHIVO / TIENDA"`.
+- **Ahorro de Insumos:** Reduce en un 50% el consumo de papel al entregar el comprobante al cliente y archivar la copia contable en la tienda utilizando una única hoja de papel bond en impresoras láser o de inyección tradicionales.
+- **Cero Códigos QR:** Cumplimiento inquebrantable de la directiva de cero códigos QR en todos los ejemplares y formatos documentales.
+
+### 2. Motor Vectorial PDF (`src/lib/pdf-media-carta.ts`)
+- **Función Vectorial Maestra:** `crearDocumentoPdfMediaCartaDoble(datos, opciones): jsPDF`
+  - Instancia el documento en `format: 'letter'`, `orientation: 'portrait'` (`215.9 x 279.4 mm`).
+  - Dibuja el ejemplar superior con `offsetY = 4` y rotulado para cliente.
+  - Genera la línea punteada (`doc.setLineDashPattern([2.5, 2], 0)`) en el centro exacto `Y = 139.7 mm` con la etiqueta central.
+  - Dibuja el ejemplar inferior con `offsetY = 143.5` y rotulado para archivo.
+  - Garantiza estrictamente **1 sola página física** mediante poda de seguridad (`if (doc.getNumberOfPages() > 1) doc.deletePage(2)`).
+- **Enrutamiento y Descarga:** Integrado en `descargarPdfSegunFormato`, `abrirPdfMediaCarta` y en la API `/api/facturas/[id]/pdf?formato=MEDIA_CARTA_DOBLE`.
+
+### 3. Visor de Impresión y Control Aislado (`PlantillaImpresion.tsx`)
+- **Tipo Oficial Actualizado:**
+  `export type FormatoImpresionTipo = "TIRILLA" | "MEDIA_CARTA" | "MEDIA_CARTA_DOBLE" | "CARTA";`
+- **Reutilización y Modularidad:** El diseño visual de Media Carta (para Venta, Alquiler con secciones A, B y C, y Apartados) fue desacoplado en la función interna `renderContenidoMediaCarta(copiaLabel, esDoble)` evitando duplicación de código.
+- **Barra Superior de Herramientas:** Cuarto botón interactivo con icono vectorial `Scissors` de `lucide-react`. Si `MEDIA_CARTA_DOBLE` está activo, oculta el selector de 1 o 2 copias porque el documento ya incorpora ambas en la misma hoja.
+- **Impresión Aislada en Iframe (`imprimirDocumentoAislado`):** Inyecta reglas CSS estrictas:
+  `@page { size: letter portrait; margin: 4mm; }`, `.hoja-media-carta-doble-impresion` y `.mitad-media-carta` con `page-break-after: avoid !important` para impedir saltos a hojas en blanco.
+
+### 4. Persistencia en Base de Datos y Panel de Configuración
+- **Prisma Schema (`database/schema.prisma` y `prisma/schema.prisma`):**
+  - Añadido `MEDIA_CARTA_DOBLE` al enum `FormatoImpresion`.
+- **Panel Administrativo (`/admin/configuracion`):**
+  - Selector de formato predeterminado con las 4 opciones oficiales:
+    1. `TIRILLA`: Tirilla POS (80mm / Térmica)
+    2. `MEDIA_CARTA`: Media Carta Individual (1 por hoja apaisada)
+    3. `MEDIA_CARTA_DOBLE`: Media Carta Doble (2 en 1 Hoja Carta — Recomendado)
+    4. `CARTA`: Carta Completa Vertical (1 página ejecutiva)
+  - **Simulador en Vivo:** Cuarta pestaña interactiva `"Media Carta Doble (2 en 1)"` con previsualización en miniatura 1:1 de la hoja Carta dividida con su línea de corte.
+- **Hardware POS:** Preservado el botón de apertura manual/automática del cajón monedero RJ11 (`<BotonAbrirCajon />`) e impresora asignada en todos los formatos.
+
+

@@ -19,6 +19,7 @@ enum RolUsuario {
 enum FormatoImpresion {
   TIRILLA
   MEDIA_CARTA
+  MEDIA_CARTA_DOBLE
   CARTA
 }
 

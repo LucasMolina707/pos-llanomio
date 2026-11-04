@@ -114,51 +114,52 @@ export function obtenerInfoEstadosAlquiler(factura: DatosImpresionFactura["factu
 }
 
 /**
- * Dibuja un ejemplar completo de factura en formato Media Carta (Horizontal)
+ * Dibuja un ejemplar completo de factura en formato Media Carta con soporte para offset vertical
  */
 function dibujarPaginaMediaCarta(
   doc: jsPDF,
   datos: DatosImpresionFactura,
-  tipoCopiaTexto: string
+  tipoCopiaTexto: string,
+  offsetY: number = 0
 ): void {
   const { factura, empresa } = datos;
   const margenIzquierdo = 8;
   const margenDerecho = ANCHO_MEDIA_CARTA_MM - 8;
-  let cursorY = 7;
+  let cursorY = 5.5 + offsetY;
 
   const esSepare = factura.tipoOperacion === "SEPARE";
   const esAlquiler = !esSepare && factura.tipoOperacion === "ALQUILER";
   const esPazYSalvo = factura.saldoPendiente <= 0;
 
   // 1. ENCABEZADO: LOGO + DATOS DE EMPRESA + RECUADRO DE FACTURA
-  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 20, 15);
+  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 20, 14);
   const textoEmpresaX = tieneLogo ? margenIzquierdo + 23 : margenIzquierdo;
 
   doc.setTextColor(15, 23, 42); // Slate 900
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(12.5);
-  doc.text(empresa.nombreComercial.toUpperCase(), textoEmpresaX, cursorY + 4);
+  doc.setFontSize(12);
+  doc.text(empresa.nombreComercial.toUpperCase(), textoEmpresaX, cursorY + 3.8);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.2);
+  doc.setFontSize(7);
   doc.setTextColor(71, 85, 105);
-  let yDetalle = cursorY + 7.2;
+  let yDetalle = cursorY + 6.8;
   if (empresa.eslogan) {
     doc.text(empresa.eslogan, textoEmpresaX, yDetalle);
-    yDetalle += 3;
+    yDetalle += 2.8;
   }
   const regimenTexto = empresa.regimenFiscal ? ` | ${empresa.regimenFiscal}` : "";
   doc.text(`NIT: ${empresa.nit}${regimenTexto}`, textoEmpresaX, yDetalle);
-  yDetalle += 3;
+  yDetalle += 2.8;
   doc.text(`${empresa.direccion} — ${empresa.ciudad || "Villavicencio, Meta"}`, textoEmpresaX, yDetalle);
-  yDetalle += 3;
+  yDetalle += 2.8;
   doc.text(`Tel: ${empresa.telefono}${empresa.email ? ` | ${empresa.email}` : ""}`, textoEmpresaX, yDetalle);
 
   // Recuadro derecho de Factura / Contrato
   const anchoCajaFactura = 70;
-  const altoCajaFactura = 17;
+  const altoCajaFactura = 16;
   const xCajaFactura = margenDerecho - anchoCajaFactura;
-  const yCajaFactura = 6;
+  const yCajaFactura = 5 + offsetY;
 
   if (esPazYSalvo) {
     doc.setFillColor(236, 253, 245);
@@ -436,10 +437,62 @@ function dibujarPaginaMediaCarta(
 
   // Pie de cortesía sin QR
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(5.8);
+  doc.setFontSize(5.6);
   doc.setTextColor(148, 163, 184);
   const pie = empresa.piePaginaFactura || "Sistema POS Local — Impreso sin códigos QR externos";
-  doc.text(pie, ANCHO_MEDIA_CARTA_MM / 2, ALTO_MEDIA_CARTA_MM - 3, { align: "center" });
+  const yPie = offsetY > 0 ? offsetY + 130 : ALTO_MEDIA_CARTA_MM - 3.5;
+  doc.text(pie, ANCHO_MEDIA_CARTA_MM / 2, yPie, { align: "center" });
+}
+
+/**
+ * Genera un documento PDF en una única hoja Carta Vertical (Letter Portrait)
+ * con dos ejemplares completos de Media Carta apilados y línea central de corte.
+ */
+export function crearDocumentoPdfMediaCartaDoble(
+  datos: DatosImpresionFactura,
+  opciones: OpcionesPdfMediaCarta = {}
+): jsPDF {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "letter", // 215.9 mm ancho x 279.4 mm alto
+    compress: true,
+  });
+
+  // 1. Mitad Superior (Y = 4mm a ~134mm): EJEMPLAR 1: ORIGINAL CLIENTE
+  dibujarPaginaMediaCarta(doc, datos, "EJEMPLAR 1: ORIGINAL CLIENTE", 4);
+
+  // 2. Línea Central de Corte en Y = 139.7 mm (centro exacto de 279.4mm)
+  const yCorte = 139.7;
+  doc.setLineDashPattern([2.5, 2], 0);
+  doc.setDrawColor(148, 163, 184); // Slate 400
+  doc.setLineWidth(0.35);
+  doc.line(8, yCorte, ANCHO_MEDIA_CARTA_MM - 8, yCorte);
+
+  // Etiqueta central de corte sin emojis
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(203, 213, 225); // Slate 300
+  doc.roundedRect(56, yCorte - 2.5, 104, 5, 1, 1, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(5.8);
+  doc.setTextColor(71, 85, 105);
+  doc.text(
+    "-- CORTAR POR ESTA LÍNEA (2 MEDIAS CARTAS EN 1 HOJA) --",
+    ANCHO_MEDIA_CARTA_MM / 2,
+    yCorte + 0.9,
+    { align: "center" }
+  );
+  doc.setLineDashPattern([], 0); // Restaurar línea sólida
+
+  // 3. Mitad Inferior (Y = 143.5mm a ~274mm): EJEMPLAR 2: COPIA ARCHIVO / TIENDA
+  dibujarPaginaMediaCarta(doc, datos, "EJEMPLAR 2: COPIA ARCHIVO / TIENDA", 143.5);
+
+  // Garantizar 1 sola página estricta sin desborde
+  if (doc.getNumberOfPages() > 1) {
+    doc.deletePage(2);
+  }
+
+  return doc;
 }
 
 /**
@@ -1110,7 +1163,7 @@ export function crearDocumentoPdfTirilla(
 }
 
 /**
- * Descarga el archivo PDF de la factura según el formato documental elegido (TIRILLA, MEDIA_CARTA o CARTA)
+ * Descarga el archivo PDF de la factura según el formato documental elegido (TIRILLA, MEDIA_CARTA, MEDIA_CARTA_DOBLE o CARTA)
  */
 export function descargarPdfSegunFormato(
   datos: DatosImpresionFactura,
@@ -1123,6 +1176,8 @@ export function descargarPdfSegunFormato(
     doc = crearDocumentoPdfTirilla(datos, opciones);
   } else if (formato === "CARTA") {
     doc = crearDocumentoPdfCarta(datos, opciones);
+  } else if (formato === "MEDIA_CARTA_DOBLE") {
+    doc = crearDocumentoPdfMediaCartaDoble(datos, opciones);
   } else {
     doc = crearDocumentoPdfMediaCarta(datos, opciones);
   }
@@ -1163,6 +1218,8 @@ export function abrirPdfMediaCarta(
     doc = crearDocumentoPdfTirilla(datos, opciones);
   } else if (formato === "CARTA") {
     doc = crearDocumentoPdfCarta(datos, opciones);
+  } else if (formato === "MEDIA_CARTA_DOBLE") {
+    doc = crearDocumentoPdfMediaCartaDoble(datos, opciones);
   } else {
     doc = crearDocumentoPdfMediaCarta(datos, opciones);
   }
