@@ -3371,3 +3371,58 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
   - Media Carta Individual: `34mm x 19mm`
   - Media Carta Doble: `30mm x 16mm`
   - Carta Completa: `42mm x 24mm`
+
+---
+
+## 49. REFACTORIZACIÓN CONTABLE OFICIAL: ELIMINACIÓN DE SECCIÓN A, ETIQUETA AMARILLA DE GARANTÍA Y ENTREGA EN ALQUILERES, TOTALES DIRECTOS DE VENTA Y SISTEMA DE 4 CONCEPTOS EN APARTADOS
+
+### 1. Facturas y Comprobantes de Alquiler (`tipoOperacion === 'ALQUILER'`)
+- **Eliminación Total de la Sección A:** Se erradicó por completo cualquier encabezado, recuadro o título de "Sección A" en todos los formatos (`TIRILLA` 80mm, `MEDIA_CARTA` individual, `MEDIA_CARTA_DOBLE` 2 en 1 hoja, `CARTA` completa).
+- **Reestructuración de la Etiqueta Amarilla (Garantía, Entrega y Cobros Adicionales):**
+  - Contenedor con borde y fondo ámbar (`bg-amber-50 border border-amber-300 text-amber-950`).
+  - **Abono / Depósito en Garantía:** Valor recibido en mostrador con su leyenda formal de custodia: *"RECIBIDO EN CUSTODIA (Se devuelve el 100% al entregar las prendas completas y sin daños)"*.
+  - **Fecha y Hora Límite de Entrega Obligatoria:** Destacada claramente en negrita y color diferenciado (`safeDate(factura.fechaDevolucionPactada, true)`).
+  - **Cláusula de Cobros Adicionales Estipulados:**
+    - *Cobro Adicional de Saldo Pendiente:* Desglose del saldo faltante o rotulación explícita de `PAZ Y SALVO`.
+    - *Cobro Adicional por Días de Mora:* Si está en mora, monto acumulado y días de retraso; si está al día, tarifa estipulada diaria (`$15.000 / día de retraso tras vencer la hora límite`).
+- **Celda de Totales de Pago de Alquiler (Transformación de Sección C):**
+  - **Regla Semántica Obligatoria:** Prohibido terminantemente usar las palabras "Abonado" o "Abonos" para referirse al pago del canon de alquiler (evitando confusiones con el depósito en garantía).
+  - Renglones contables:
+    1. `Total Valor Alquiler: $XX.XXX`
+    2. `Valor Pagado Hoy ([Método: Efectivo/Digital]): $XX.XXX`
+    3. `Efectivo Recibido del Cliente: $XX.XXX` (si aplica)
+    4. `Vueltos / Cambio Entregado: $XX.XXX` (si aplica)
+    5. `Saldo Pendiente Alquiler: $XX.XXX` (o `$0 PAZ Y SALVO`).
+
+### 2. Facturas de Venta (`tipoOperacion === 'VENTA' | 'ARREGLO' | 'VENTA_ARREGLO'`)
+- **Eliminación Total de Sección A y Sección B:** No existe Sección A ni recuadro amarillo de depósito alguno.
+- **Celda Única Directa de Totales de Venta:**
+  1. `Total Cobro de Venta: $XX.XXX`
+  2. `Cobro de Venta Recibido ([Método de Pago]): $XX.XXX` (con desglose de Efectivo y/o Transacción Digital: Nequi, Daviplata, Bancolombia, etc.).
+  3. `Efectivo Recibido del Cliente: $XX.XXX` (si aplica)
+  4. `Vueltos / Cambio Final Entregado: $XX.XXX` (si aplica)
+  5. `Estado de Pago: CANCELADO (PAZ Y SALVO)` (o Saldo Pendiente si fue a crédito).
+
+### 3. Comprobantes y Sistema de Apartados (`tipoOperacion === 'SEPARE' | 'APARTADO'`)
+- **Sincronización en Interfaz de Mostrador (`src/app/caja/apartados/page.tsx`), Motor Impreso (`PlantillaImpresion.tsx`) y PDF (`src/lib/pdf-media-carta.ts`):**
+  - Desglose estricto de los 4 conceptos contables en orden oficial:
+    1. **`1. Saldo / Valor de Alquiler: $XX.XXX`**
+    2. **`2. Saldo del Depósito (En Custodia al Retirar): $XX.XXX`** (calculado como `$0` si el cliente ya lo abonó hoy en mostrador, o el valor estipulado si lo paga al retirar).
+    3. **`3. Abono Inicial (Pagado hoy en consigna): -$XX.XXX`**
+    4. **`4. SALDO PENDIENTE TOTAL (A pagar al retirar el producto): $XX.XXX`**
+  - **Fórmula Matemática Unificada:**
+    $$\text{Saldo Pendiente Total al Retirar} = (\text{Valor del Alquiler} + \text{Saldo Depósito al Retirar}) - \text{Abono en consigna}$$
+    - Ejemplo numérico verificado: Alquiler `$100.000` + Depósito `$40.000` - Abono Inicial `$50.000` = **Saldo Pendiente Total al Retirar `$90.000`**.
+  - **Leyenda Legal Obligatoria:**
+    *"* Al retirar el producto se debe pagar el Saldo Pendiente total (que incluye el saldo de alquiler + el depósito en custodia)."*
+
+### 4. Simulador en Vivo de Facturación (`src/app/admin/configuracion/page.tsx`)
+- Adaptación en tiempo real en los 4 formatos de vista previa:
+  - Alquiler: Muestra depósito en garantía con entrega obligatoria y "Valor Pagado" sin palabra "Abono".
+  - Venta: Muestra totales directos de venta y estado de paz y salvo, sin etiquetas de sección A ni B.
+
+### 5. Certificación QA y Despliegue
+- **Suite de Pruebas Automatizadas (`scripts/test-refactor-contable-qa.cjs`):** 21/21 aserciones aprobadas con código 0.
+- **Tipado Estricto:** `npx tsc --noEmit` completado sin errores.
+- **Compilación de Producción:** `npx next build --no-lint` completado en 23.6s con las 22 rutas estáticas y dinámicas verificadas.
+- **Servicios PM2:** Procesos `pos-llanomio` (id 0) y `pos-llanomio-mdns` (id 1) reiniciados y activos en estado `online`.

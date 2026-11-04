@@ -134,7 +134,29 @@ function dibujarPaginaMediaCarta(
   const esVenta = !esAlquiler && !esApartado;
   const esPazYSalvo = saldoPendiente <= 0;
   const montoDepositoEfectivo = safeNum(factura.montoDeposito);
-  const mostrarSeccionDeposito = esAlquiler && montoDepositoEfectivo > 0;
+  const mostrarSeccionDeposito = esAlquiler; // En alquiler se destaca depósito, entrega y cobros adicionales
+
+  const totalOperacionPrincipal = safeNum(factura.totalFactura);
+  const totalAbonado = safeNum(factura.totalAbonado);
+  const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
+  const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
+  const saldoPendienteTotalApartado = Math.max(0, (totalOperacionPrincipal + saldoDepositoAlRetirar) - totalAbonado);
+
+  const metodosAbonos = Array.from(
+    new Set((factura.abonos || []).map((a) => (a.metodoPago || "EFECTIVO").toUpperCase()))
+  );
+  const textoMedioPagoPrincipal =
+    metodosAbonos.length > 0
+      ? metodosAbonos.join(" / ")
+      : (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase();
+
+  const tarifaMoraDiariaEstimada =
+    (factura.detalles || []).reduce(
+      (acc, d) => acc + (safeNum(d.producto?.tarifaMoraDiaria) || 0),
+      0
+    ) || 15000;
+  const recargoMora = esAlquiler ? safeNum(factura.recargoMoraAcumulado) : 0;
+  const vueltasEntregadas = safeNum(factura.cambioEntregado);
 
   // 1. ENCABEZADO: LOGO + DATOS DE EMPRESA + RECUADRO DE FACTURA
   const anchoLogo = offsetY > 0 ? 30 : 34;
@@ -357,48 +379,50 @@ function dibujarPaginaMediaCarta(
     cursorY += altoFila;
   }
 
-  // 4. RECUADRO DE DEPÓSITO EN GARANTÍA (SECCIÓN B) - SOLO SI ES ALQUILER Y TIENE DEPÓSITO > 0
-  if (mostrarSeccionDeposito) {
+  // 4. RECUADRO DE DEPÓSITO EN GARANTÍA Y COMPROMISO DE ENTREGA (SOLO ALQUILER)
+  if (esAlquiler) {
     cursorY += 1.2;
-    const altoDep = 8.5;
+    const altoDep = 11;
     doc.setFillColor(254, 243, 199); // Amber 100
     doc.setDrawColor(217, 119, 6); // Amber 600
     doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDep, 1, 1, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
+    doc.setFontSize(6.8);
     doc.setTextColor(146, 64, 14); // Amber 800
-    doc.text("CONSTANCIA DE COBRO SEPARADO (EFECTIVO):", margenIzquierdo + 3, cursorY + 3.2);
-    doc.text(formatCOP(montoDepositoEfectivo), margenDerecho - 3, cursorY + 3.2, { align: "right" });
+    doc.text("DEPÓSITO EN GARANTÍA Y COMPROMISO DE ENTREGA:", margenIzquierdo + 3, cursorY + 3);
+    doc.text(`Depósito: ${formatCOP(montoDepositoEfectivo)}`, margenDerecho - 3, cursorY + 3, { align: "right" });
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.2);
-    doc.setTextColor(15, 23, 42);
-    const constanciaTxt = `Se recibió en EFECTIVO la suma de ${formatCOP(montoDepositoEfectivo)} por concepto de Abono / Depósito en Garantía establecido en este documento.`;
-    doc.text(constanciaTxt, margenIzquierdo + 3, cursorY + 5.8);
+    doc.setTextColor(185, 28, 28); // Rose 700
+    const devTexto = factura.fechaDevolucionPactada
+      ? `ENTREGA OBLIGATORIA: ${new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}`
+      : "ENTREGA OBLIGATORIA: SEGÚN CONTRATO COMERCIAL";
+    doc.text(devTexto, margenIzquierdo + 3, cursorY + 5.8);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(5.8);
+    doc.setFontSize(5.6);
     doc.setTextColor(71, 85, 105);
-    const estadoDepTxt = factura.estadoDeposito === "DEVUELTO_COMPLETO"
-      ? `Estado: DEPÓSITO DEVUELTO 100% AL CLIENTE (${formatCOP(factura.montoDevueltoDeposito || montoDepositoEfectivo)})`
-      : factura.estadoDeposito === "RETENIDO_PARCIAL"
-      ? `Estado: RETENCIÓN POR DAÑO: ${formatCOP(factura.montoRetenidoDeposito)} | DEVUELTO: ${formatCOP(factura.montoDevueltoDeposito)}`
-      : factura.estadoDeposito === "RETENIDO_TOTAL"
-      ? "Estado: RETENCIÓN TOTAL POR DAÑO / PÉRDIDA"
-      : "Estado: RECIBIDO EN CUSTODIA (Reembolsable al devolver las prendas completas y sin daños)";
-    doc.text(estadoDepTxt.substring(0, 95), margenIzquierdo + 3, cursorY + 8.4);
+    const estadoDepTxt = montoDepositoEfectivo > 0
+      ? "Custodia reembolsable al entregar prendas completas y sin daño"
+      : "Sin depósito monetario exigido — Responsabilidad plena por prendas";
+    const moraTexto = recargoMora > 0
+      ? `Cobro mora: +${formatCOP(recargoMora)}`
+      : `Cobro mora: ${formatCOP(tarifaMoraDiariaEstimada)} / día retraso`;
+    const saldoTxt = esPazYSalvo ? "Saldo: $0 (PAZ Y SALVO)" : `Saldo pendiente: ${formatCOP(saldoPendiente)}`;
+    doc.text(`• ${estadoDepTxt}  |  • ${saldoTxt}  |  • ${moraTexto}`, margenIzquierdo + 3, cursorY + 8.8);
 
     cursorY += altoDep;
   }
 
   // 5. RESUMEN FINANCIERO Y FIRMAS (LADO A LADO)
   cursorY += 2;
-  const anchoTotales = 70;
+  const anchoTotales = 72;
   const xTotales = margenDerecho - anchoTotales;
 
   // Políticas y Firmas a la izquierda
-  const anchoPoliticas = xTotales - margenIzquierdo - 5;
+  const anchoPoliticas = xTotales - margenIzquierdo - 4;
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(226, 232, 240);
   doc.roundedRect(margenIzquierdo, cursorY, anchoPoliticas, 24, 1, 1, "FD");
@@ -414,13 +438,13 @@ function dibujarPaginaMediaCarta(
   doc.text(tituloPoliticas, margenIzquierdo + 2.5, cursorY + 3.4);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(6);
+  doc.setFontSize(5.8);
   doc.setTextColor(100, 116, 139);
   const textoPol = esVenta
     ? "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento."
     : esAlquiler
     ? (empresa.politicasFactura || "Las prendas en alquiler deben devolverse en la fecha pactada en óptimas condiciones. Todo retraso genera recargo de mora. Cuide su comprobante.")
-    : "PLATA DE TRAJES APARTADOS NO SE DEVUELVE. Por favor retire sus prendas en las fechas acordadas.";
+    : "PLATA DE TRAJES APARTADOS NO SE DEVUELVE. Al retirar debe pagar el Saldo Pendiente total (alquiler + depósito en custodia).";
   const lineasPoliticas = doc.splitTextToSize(textoPol, anchoPoliticas - 5);
   doc.text(lineasPoliticas.slice(0, 3), margenIzquierdo + 2.5, cursorY + 6.6);
 
@@ -430,48 +454,133 @@ function dibujarPaginaMediaCarta(
   doc.line(margenIzquierdo + 4, cursorY + 18.5, margenIzquierdo + 46, cursorY + 18.5);
   doc.text("Firma Vendedor / Cajero Responsable", margenIzquierdo + 6, cursorY + 21.5);
 
-  doc.line(margenIzquierdo + 52, cursorY + 18.5, margenIzquierdo + 110, cursorY + 18.5);
-  doc.text("Firma y C.C. Cliente (Aceptación de Términos)", margenIzquierdo + 54, cursorY + 21.5);
+  doc.line(margenIzquierdo + 50, cursorY + 18.5, margenIzquierdo + 104, cursorY + 18.5);
+  doc.text("Firma y C.C. Cliente (Aceptación de Términos)", margenIzquierdo + 52, cursorY + 21.5);
 
-  // Cuadro de Totales a la derecha
+  // Cuadro de Totales Segregado a la derecha
   let yTot = cursorY;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
-  const labelTotalA = esVenta
-    ? "TOTAL VENTA:"
-    : esAlquiler
-    ? "TOTAL ALQUILER:"
-    : "TOTAL APARTADO:";
-  doc.text(labelTotalA, xTotales, yTot + 3.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text(formatCOP(factura.totalFactura), margenDerecho, yTot + 3.5, { align: "right" });
-
-  yTot += 4.5;
-  doc.setTextColor(71, 85, 105);
-  doc.text("Total Abonado:", xTotales, yTot + 3.5);
-  doc.setTextColor(5, 150, 105);
-  doc.text(`-${formatCOP(factura.totalAbonado)}`, margenDerecho, yTot + 3.5, { align: "right" });
-
-  yTot += 4.5;
-  if (esPazYSalvo) {
-    doc.setFillColor(236, 253, 245);
-    doc.setDrawColor(16, 185, 129);
-    doc.roundedRect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6.5, 1, 1, "FD");
+  if (esApartado) {
+    // 4 Conceptos de Apartados en orden estricto
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
+    doc.setFontSize(7);
+    doc.setTextColor(71, 85, 105);
+    doc.text("1. Valor Alquiler:", xTotales, yTot + 3);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTot + 3, { align: "right" });
+
+    yTot += 3.8;
+    doc.setTextColor(71, 85, 105);
+    doc.text("2. Saldo Depósito (Custodia):", xTotales, yTot + 3);
+    doc.setTextColor(146, 64, 14);
+    doc.text(formatCOP(saldoDepositoAlRetirar), margenDerecho, yTot + 3, { align: "right" });
+
+    yTot += 3.8;
+    doc.setTextColor(71, 85, 105);
+    doc.text("3. Abono (Consigna hoy):", xTotales, yTot + 3);
     doc.setTextColor(5, 150, 105);
-    doc.text("SALDO:", xTotales, yTot + 4.3);
-    doc.text("$0 (PAZ Y SALVO)", margenDerecho - 1, yTot + 4.3, { align: "right" });
-  } else {
+    doc.text(`-${formatCOP(totalAbonado)}`, margenDerecho, yTot + 3, { align: "right" });
+
+    yTot += 4.2;
     doc.setFillColor(255, 241, 242);
     doc.setDrawColor(225, 29, 72);
     doc.roundedRect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6.5, 1, 1, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
+    doc.setFontSize(7.2);
     doc.setTextColor(225, 29, 72);
-    doc.text("SALDO PENDIENTE:", xTotales, yTot + 4.3);
-    doc.text(formatCOP(factura.saldoPendiente), margenDerecho - 1, yTot + 4.3, { align: "right" });
+    doc.text("4. SALDO TOTAL AL RETIRAR:", xTotales, yTot + 4.3);
+    doc.text(formatCOP(saldoPendienteTotalApartado), margenDerecho - 1, yTot + 4.3, { align: "right" });
+  } else if (esAlquiler) {
+    // Alquiler: Totales de Pago (PROHIBIDO "ABONADO")
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text("TOTAL VALOR ALQUILER:", xTotales, yTot + 3.2);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTot + 3.2, { align: "right" });
+
+    yTot += 4.5;
+    doc.setTextColor(5, 150, 105);
+    const labelPag = `Valor Pagado (${textoMedioPagoPrincipal}):`;
+    doc.text(labelPag.substring(0, 24), xTotales, yTot + 3.2);
+    doc.text(formatCOP(totalAbonado), margenDerecho, yTot + 3.2, { align: "right" });
+
+    if (vueltasEntregadas > 0) {
+      yTot += 3.8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Vueltos / Cambio:", xTotales, yTot + 3);
+      doc.text(formatCOP(vueltasEntregadas), margenDerecho, yTot + 3, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+    }
+
+    yTot += 4.5;
+    if (esPazYSalvo) {
+      doc.setFillColor(236, 253, 245);
+      doc.setDrawColor(16, 185, 129);
+      doc.roundedRect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6, 1, 1, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(5, 150, 105);
+      doc.text("SALDO ALQUILER:", xTotales, yTot + 4.1);
+      doc.text("$0 (PAZ Y SALVO)", margenDerecho - 1, yTot + 4.1, { align: "right" });
+    } else {
+      doc.setFillColor(255, 241, 242);
+      doc.setDrawColor(225, 29, 72);
+      doc.roundedRect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6, 1, 1, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(225, 29, 72);
+      doc.text("SALDO PENDIENTE:", xTotales, yTot + 4.1);
+      doc.text(formatCOP(saldoPendiente), margenDerecho - 1, yTot + 4.1, { align: "right" });
+    }
+  } else {
+    // Venta Comercial: Cero Sección A y B, Totales directos
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.8);
+    doc.setTextColor(71, 85, 105);
+    doc.text("TOTAL VENTA:", xTotales, yTot + 3.2);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTot + 3.2, { align: "right" });
+
+    yTot += 4.5;
+    doc.setTextColor(5, 150, 105);
+    const labelCob = `Cobro Recibido (${textoMedioPagoPrincipal}):`;
+    doc.text(labelCob.substring(0, 24), xTotales, yTot + 3.2);
+    doc.text(formatCOP(totalAbonado), margenDerecho, yTot + 3.2, { align: "right" });
+
+    if (vueltasEntregadas > 0) {
+      yTot += 3.8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Vueltos / Cambio:", xTotales, yTot + 3);
+      doc.text(formatCOP(vueltasEntregadas), margenDerecho, yTot + 3, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.8);
+    }
+
+    yTot += 4.5;
+    if (esPazYSalvo) {
+      doc.setFillColor(236, 253, 245);
+      doc.setDrawColor(16, 185, 129);
+      doc.roundedRect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6, 1, 1, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(5, 150, 105);
+      doc.text("ESTADO:", xTotales, yTot + 4.1);
+      doc.text("PAZ Y SALVO", margenDerecho - 1, yTot + 4.1, { align: "right" });
+    } else {
+      doc.setFillColor(255, 241, 242);
+      doc.setDrawColor(225, 29, 72);
+      doc.roundedRect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6, 1, 1, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(225, 29, 72);
+      doc.text("SALDO PENDIENTE:", xTotales, yTot + 4.1);
+      doc.text(formatCOP(saldoPendiente), margenDerecho - 1, yTot + 4.1, { align: "right" });
+    }
   }
 
   // Pie de cortesía sin QR
@@ -583,7 +692,29 @@ function dibujarPaginaCarta(
   const esVenta = !esAlquiler && !esApartado;
   const esPazYSalvo = saldoPendiente <= 0;
   const montoDepositoEfectivo = safeNum(factura.montoDeposito);
-  const mostrarSeccionDeposito = esAlquiler && montoDepositoEfectivo > 0;
+  const mostrarSeccionDeposito = esAlquiler; // En alquiler se destaca depósito, entrega y cobros adicionales
+
+  const totalOperacionPrincipal = safeNum(factura.totalFactura);
+  const totalAbonado = safeNum(factura.totalAbonado);
+  const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
+  const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
+  const saldoPendienteTotalApartado = Math.max(0, (totalOperacionPrincipal + saldoDepositoAlRetirar) - totalAbonado);
+
+  const metodosAbonos = Array.from(
+    new Set((factura.abonos || []).map((a) => (a.metodoPago || "EFECTIVO").toUpperCase()))
+  );
+  const textoMedioPagoPrincipal =
+    metodosAbonos.length > 0
+      ? metodosAbonos.join(" / ")
+      : (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase();
+
+  const tarifaMoraDiariaEstimada =
+    (factura.detalles || []).reduce(
+      (acc, d) => acc + (safeNum(d.producto?.tarifaMoraDiaria) || 0),
+      0
+    ) || 15000;
+  const recargoMora = esAlquiler ? safeNum(factura.recargoMoraAcumulado) : 0;
+  const vueltasEntregadas = safeNum(factura.cambioEntregado);
 
   // 1. ENCABEZADO: LOGO + DATOS FISCALES + RECUADRO DE FACTURA
   const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 42, 24);
@@ -831,44 +962,46 @@ function dibujarPaginaCarta(
     cursorY += altoFila;
   }
 
-  // 5. RECUADRO DE DEPÓSITO EN GARANTÍA (SECCIÓN B) - SOLO SI ES ALQUILER Y DEPÓSITO > 0
-  if (mostrarSeccionDeposito) {
+  // 5. RECUADRO DE DEPÓSITO EN GARANTÍA Y COMPROMISO DE ENTREGA (SOLO ALQUILER)
+  if (esAlquiler) {
     cursorY += 2.5;
-    const altoDepCarta = 14;
+    const altoDepCarta = 15;
     doc.setFillColor(254, 243, 199);
     doc.setDrawColor(217, 119, 6);
     doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDepCarta, 1.5, 1.5, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
+    doc.setFontSize(8.5);
     doc.setTextColor(146, 64, 14);
-    doc.text("CONSTANCIA DE COBRO SEPARADO (EFECTIVO):", margenIzquierdo + 4, cursorY + 4);
-    doc.text(formatCOP(montoDepositoEfectivo), margenDerecho - 4, cursorY + 4, { align: "right" });
+    doc.text("DEPÓSITO EN GARANTÍA Y COMPROMISO DE ENTREGA:", margenIzquierdo + 4, cursorY + 4);
+    doc.text(`Depósito: ${formatCOP(montoDepositoEfectivo)}`, margenDerecho - 4, cursorY + 4, { align: "right" });
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
-    doc.setTextColor(15, 23, 42);
-    const constanciaTxt = `Se recibió en EFECTIVO la suma de ${formatCOP(montoDepositoEfectivo)} por concepto de Abono / Depósito en Garantía establecido en este documento.`;
-    doc.text(constanciaTxt, margenIzquierdo + 4, cursorY + 7.5);
+    doc.setFontSize(7.5);
+    doc.setTextColor(185, 28, 28);
+    const devTexto = factura.fechaDevolucionPactada
+      ? `FECHA Y HORA DE ENTREGA OBLIGATORIA: ${new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}`
+      : "FECHA Y HORA DE ENTREGA OBLIGATORIA: SEGÚN CONTRATO COMERCIAL";
+    doc.text(devTexto, margenIzquierdo + 4, cursorY + 7.8);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.8);
     doc.setTextColor(71, 85, 105);
-    const estadoDepTxt = factura.estadoDeposito === "DEVUELTO_COMPLETO"
-      ? `Estado: DEPÓSITO DEVUELTO 100% AL CLIENTE (${formatCOP(factura.montoDevueltoDeposito || montoDepositoEfectivo)}) — Prendas recibidas a conformidad`
-      : factura.estadoDeposito === "RETENIDO_PARCIAL"
-      ? `Estado: DEPÓSITO RETENIDO (${formatCOP(factura.montoRetenidoDeposito)} Retenido / ${formatCOP(factura.montoDevueltoDeposito)} Devuelto)`
-      : factura.estadoDeposito === "RETENIDO_TOTAL"
-      ? "Estado: DEPÓSITO RETENIDO 100% POR DAÑO O PÉRDIDA"
-      : "Estado: RECIBIDO EN CUSTODIA (Reembolsable al devolver las prendas completas y en perfecto estado)";
-    doc.text(estadoDepTxt.substring(0, 115), margenIzquierdo + 4, cursorY + 11.2);
+    const estadoDepTxt = montoDepositoEfectivo > 0
+      ? "Custodia reembolsable al entregar prendas completas y sin daño"
+      : "Sin depósito monetario exigido — Responsabilidad plena por prendas";
+    const moraTexto = recargoMora > 0
+      ? `Cobro mora: +${formatCOP(recargoMora)}`
+      : `Cobro adicional mora: ${formatCOP(tarifaMoraDiariaEstimada)} / día de retraso tras la hora pactada`;
+    const saldoTxt = esPazYSalvo ? "Saldo: $0 (PAZ Y SALVO)" : `Saldo pendiente: ${formatCOP(saldoPendiente)}`;
+    doc.text(`• ${estadoDepTxt}   |   • ${saldoTxt}   |   • ${moraTexto}`, margenIzquierdo + 4, cursorY + 11.5);
 
     cursorY += altoDepCarta;
   }
 
   // 6. TOTALES Y POLÍTICAS
   cursorY += 3;
-  const anchoTotales = 78;
+  const anchoTotales = 80;
   const xTotales = margenDerecho - anchoTotales;
 
   // Políticas a la izquierda
@@ -894,7 +1027,7 @@ function dibujarPaginaCarta(
     ? "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento."
     : esAlquiler
     ? (empresa.politicasFactura || "Las prendas en alquiler deben devolverse en la fecha pactada en óptimas condiciones. Todo retraso generará cobro de mora. Cuide su comprobante.")
-    : "PLATA DE TRAJES APARTADOS NO SE DEVUELVE. Por favor retire sus prendas en las fechas acordadas.";
+    : "PLATA DE TRAJES APARTADOS NO SE DEVUELVE. Al retirar el producto se debe pagar el Saldo Pendiente total (alquiler + depósito en custodia).";
   const lineasPol = doc.splitTextToSize(polTextoCarta, anchoPol - 6);
   doc.text(lineasPol.slice(0, 3), margenIzquierdo + 3, cursorY + 8.5);
 
@@ -906,42 +1039,130 @@ function dibujarPaginaCarta(
   doc.line(margenIzquierdo + 60, cursorY + 22, margenIzquierdo + 120, cursorY + 22);
   doc.text("Firma y C.C. del Cliente (Aceptación de Términos)", margenIzquierdo + 62, cursorY + 25.5);
 
-  // Cuadro de Totales
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(71, 85, 105);
-  const labelTotalCarta = esVenta
-    ? "TOTAL VENTA:"
-    : esAlquiler
-    ? "TOTAL ALQUILER:"
-    : "TOTAL APARTADO:";
-  doc.text(labelTotalCarta, xTotales, cursorY + 4.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text(formatCOP(factura.totalFactura), margenDerecho, cursorY + 4.5, { align: "right" });
-
-  doc.setTextColor(71, 85, 105);
-  doc.text("Total Abonado:", xTotales, cursorY + 10);
-  doc.setTextColor(5, 150, 105);
-  doc.text(`-${formatCOP(factura.totalAbonado)}`, margenDerecho, cursorY + 10, { align: "right" });
-
-  if (esPazYSalvo) {
-    doc.setFillColor(236, 253, 245);
-    doc.setDrawColor(16, 185, 129);
-    doc.roundedRect(xTotales - 2, cursorY + 14, anchoTotales + 2, 7.5, 1, 1, "FD");
+  // Cuadro de Totales Segregado
+  let yTotCarta = cursorY;
+  if (esApartado) {
+    // 4 Conceptos de Apartados
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(7.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text("1. Valor Alquiler:", xTotales, yTotCarta + 4);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTotCarta + 4, { align: "right" });
+
+    yTotCarta += 5;
+    doc.setTextColor(71, 85, 105);
+    doc.text("2. Saldo Depósito (Custodia):", xTotales, yTotCarta + 4);
+    doc.setTextColor(146, 64, 14);
+    doc.text(formatCOP(saldoDepositoAlRetirar), margenDerecho, yTotCarta + 4, { align: "right" });
+
+    yTotCarta += 5;
+    doc.setTextColor(71, 85, 105);
+    doc.text("3. Abono (Consigna hoy):", xTotales, yTotCarta + 4);
     doc.setTextColor(5, 150, 105);
-    doc.text("SALDO:", xTotales, cursorY + 19);
-    doc.text("$0 (PAZ Y SALVO)", margenDerecho - 1, cursorY + 19, { align: "right" });
-  } else {
+    doc.text(`-${formatCOP(totalAbonado)}`, margenDerecho, yTotCarta + 4, { align: "right" });
+
+    yTotCarta += 5.5;
     doc.setFillColor(255, 241, 242);
     doc.setDrawColor(225, 29, 72);
-    doc.roundedRect(xTotales - 2, cursorY + 14, anchoTotales + 2, 7.5, 1, 1, "FD");
+    doc.roundedRect(xTotales - 2, yTotCarta, anchoTotales + 2, 8, 1, 1, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(225, 29, 72);
+    doc.text("4. SALDO TOTAL AL RETIRAR:", xTotales, yTotCarta + 5.2);
+    doc.text(formatCOP(saldoPendienteTotalApartado), margenDerecho - 1, yTotCarta + 5.2, { align: "right" });
+  } else if (esAlquiler) {
+    // Alquiler: Totales de Pago (PROHIBIDO "ABONADO")
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text("TOTAL VALOR ALQUILER:", xTotales, yTotCarta + 4);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTotCarta + 4, { align: "right" });
+
+    yTotCarta += 5.5;
+    doc.setTextColor(5, 150, 105);
+    const labelPagCarta = `Valor Pagado (${textoMedioPagoPrincipal}):`;
+    doc.text(labelPagCarta.substring(0, 26), xTotales, yTotCarta + 4);
+    doc.text(formatCOP(totalAbonado), margenDerecho, yTotCarta + 4, { align: "right" });
+
+    if (vueltasEntregadas > 0) {
+      yTotCarta += 4.5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Vueltos / Cambio Final:", xTotales, yTotCarta + 3.8);
+      doc.text(formatCOP(vueltasEntregadas), margenDerecho, yTotCarta + 3.8, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+    }
+
+    yTotCarta += 5.5;
+    if (esPazYSalvo) {
+      doc.setFillColor(236, 253, 245);
+      doc.setDrawColor(16, 185, 129);
+      doc.roundedRect(xTotales - 2, yTotCarta, anchoTotales + 2, 7.5, 1, 1, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(5, 150, 105);
+      doc.text("SALDO ALQUILER:", xTotales, yTotCarta + 5.2);
+      doc.text("$0 (PAZ Y SALVO)", margenDerecho - 1, yTotCarta + 5.2, { align: "right" });
+    } else {
+      doc.setFillColor(255, 241, 242);
+      doc.setDrawColor(225, 29, 72);
+      doc.roundedRect(xTotales - 2, yTotCarta, anchoTotales + 2, 7.5, 1, 1, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(225, 29, 72);
+      doc.text("SALDO PENDIENTE:", xTotales, yTotCarta + 5.2);
+      doc.text(formatCOP(saldoPendiente), margenDerecho - 1, yTotCarta + 5.2, { align: "right" });
+    }
+  } else {
+    // Venta Comercial
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.setTextColor(225, 29, 72);
-    doc.text("SALDO PENDIENTE:", xTotales, cursorY + 19);
-    doc.text(formatCOP(factura.saldoPendiente), margenDerecho - 1, cursorY + 19, { align: "right" });
+    doc.setTextColor(71, 85, 105);
+    doc.text("TOTAL VENTA:", xTotales, yTotCarta + 4);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTotCarta + 4, { align: "right" });
+
+    yTotCarta += 5.5;
+    doc.setTextColor(5, 150, 105);
+    const labelCobCarta = `Cobro Recibido (${textoMedioPagoPrincipal}):`;
+    doc.text(labelCobCarta.substring(0, 26), xTotales, yTotCarta + 4);
+    doc.text(formatCOP(totalAbonado), margenDerecho, yTotCarta + 4, { align: "right" });
+
+    if (vueltasEntregadas > 0) {
+      yTotCarta += 4.5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Vueltos / Cambio Final:", xTotales, yTotCarta + 3.8);
+      doc.text(formatCOP(vueltasEntregadas), margenDerecho, yTotCarta + 3.8, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+    }
+
+    yTotCarta += 5.5;
+    if (esPazYSalvo) {
+      doc.setFillColor(236, 253, 245);
+      doc.setDrawColor(16, 185, 129);
+      doc.roundedRect(xTotales - 2, yTotCarta, anchoTotales + 2, 7.5, 1, 1, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(5, 150, 105);
+      doc.text("ESTADO:", xTotales, yTotCarta + 5.2);
+      doc.text("PAZ Y SALVO", margenDerecho - 1, yTotCarta + 5.2, { align: "right" });
+    } else {
+      doc.setFillColor(255, 241, 242);
+      doc.setDrawColor(225, 29, 72);
+      doc.roundedRect(xTotales - 2, yTotCarta, anchoTotales + 2, 7.5, 1, 1, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(225, 29, 72);
+      doc.text("SALDO PENDIENTE:", xTotales, yTotCarta + 5.2);
+      doc.text(formatCOP(saldoPendiente), margenDerecho - 1, yTotCarta + 5.2, { align: "right" });
+    }
   }
 
   // 7. HISTORIAL DE ABONOS (SI HAY ESPACIO)
@@ -1021,7 +1242,29 @@ function dibujarContenidoTirilla(
   const esVenta = !esAlquiler && !esApartado;
   const esPazYSalvo = saldoPendiente <= 0;
   const montoDepositoEfectivo = safeNum(factura.montoDeposito);
-  const mostrarSeccionDeposito = esAlquiler && montoDepositoEfectivo > 0;
+  const mostrarSeccionDeposito = esAlquiler; // En alquiler se destaca depósito, entrega y cobros adicionales
+
+  const totalOperacionPrincipal = safeNum(factura.totalFactura);
+  const totalAbonado = safeNum(factura.totalAbonado);
+  const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
+  const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
+  const saldoPendienteTotalApartado = Math.max(0, (totalOperacionPrincipal + saldoDepositoAlRetirar) - totalAbonado);
+
+  const metodosAbonos = Array.from(
+    new Set((factura.abonos || []).map((a) => (a.metodoPago || "EFECTIVO").toUpperCase()))
+  );
+  const textoMedioPagoPrincipal =
+    metodosAbonos.length > 0
+      ? metodosAbonos.join(" / ")
+      : (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase();
+
+  const tarifaMoraDiariaEstimada =
+    (factura.detalles || []).reduce(
+      (acc, d) => acc + (safeNum(d.producto?.tarifaMoraDiaria) || 0),
+      0
+    ) || 15000;
+  const recargoMora = esAlquiler ? safeNum(factura.recargoMoraAcumulado) : 0;
+  const vueltasEntregadas = safeNum(factura.cambioEntregado);
   let cursorY = startY;
 
   // Logo centrado si existe
@@ -1167,53 +1410,124 @@ function dibujarContenidoTirilla(
   cursorY += 1.8;
   doc.line(margen, cursorY, margenDer, cursorY);
 
-  // Totales
-  cursorY += 3.5;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  const labelTotTirilla = esVenta
-    ? "TOTAL VENTA:"
-    : esAlquiler
-    ? "TOTAL ALQUILER:"
-    : "TOTAL APARTADO:";
-  doc.text(labelTotTirilla, margen, cursorY);
-  doc.text(formatCOP(factura.totalFactura), margenDer, cursorY, { align: "right" });
-
-  cursorY += 3.2;
-  doc.text("TOTAL ABONADO:", margen, cursorY);
-  doc.text(`-${formatCOP(factura.totalAbonado)}`, margenDer, cursorY, { align: "right" });
-
-  cursorY += 3.5;
-  doc.setFontSize(8.5);
-  doc.text("SALDO PENDIENTE:", margen, cursorY);
-  if (esPazYSalvo) {
-    doc.text("$0 (PAZ Y SALVO)", margenDer, cursorY, { align: "right" });
-  } else {
-    doc.text(formatCOP(factura.saldoPendiente), margenDer, cursorY, { align: "right" });
-  }
-
-  // Constancia de Cobro Separado de Depósito (Efectivo) - SOLO SI ES ALQUILER Y DEPÓSITO > 0
-  if (mostrarSeccionDeposito) {
+  // Bloques Contables Segregados: Alquiler (Garantía + Totales) vs Apartado (4 conceptos) vs Venta
+  if (esApartado) {
+    // 4 Conceptos de Apartados en orden estricto
     cursorY += 3.5;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
-    doc.text("CONSTANCIA COBRO SEPARADO (EFECTIVO):", margen, cursorY);
+    doc.setFontSize(7.5);
+    doc.text("1. Valor Alquiler:", margen, cursorY);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDer, cursorY, { align: "right" });
+
+    cursorY += 3.2;
+    doc.text("2. Saldo Depósito (Custodia):", margen, cursorY);
+    doc.text(formatCOP(saldoDepositoAlRetirar), margenDer, cursorY, { align: "right" });
+
+    cursorY += 3.2;
+    doc.text("3. Abono (Consigna hoy):", margen, cursorY);
+    doc.text(`-${formatCOP(totalAbonado)}`, margenDer, cursorY, { align: "right" });
+
+    cursorY += 3.6;
+    doc.setFontSize(8);
+    doc.text("4. SALDO TOTAL AL RETIRAR:", margen, cursorY);
+    doc.text(formatCOP(saldoPendienteTotalApartado), margenDer, cursorY, { align: "right" });
+  } else if (esAlquiler) {
+    // RECUADRO AMARILLO DE DEPÓSITO, GARANTÍA, ENTREGA Y COBROS ADICIONALES
     cursorY += 3;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
-    doc.text(`Depósito en Efectivo: ${formatCOP(montoDepositoEfectivo)}`, margen, cursorY);
+    doc.setFontSize(7.2);
+    doc.text("DEPÓSITO EN GARANTÍA Y ENTREGA:", margen, cursorY);
+
+    cursorY += 3;
+    doc.text(`• Abono / Depósito en Garantía: ${formatCOP(montoDepositoEfectivo)}`, margen, cursorY);
+
+    cursorY += 3;
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(185, 28, 28);
+    const devTextoTir = factura.fechaDevolucionPactada
+      ? `• ENTREGA OBLIGATORIA: ${new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}`
+      : "• ENTREGA OBLIGATORIA: SEGÚN CONTRATO";
+    doc.text(devTextoTir, margen, cursorY);
+    doc.setTextColor(0, 0, 0);
 
     cursorY += 2.8;
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6);
-    const estadoDepTir = factura.estadoDeposito === "DEVUELTO_COMPLETO"
-      ? "(Devuelto 100% al cliente)"
-      : factura.estadoDeposito === "RETENIDO_PARCIAL"
-      ? "(Retención parcial por daño)"
-      : factura.estadoDeposito === "RETENIDO_TOTAL"
-      ? "(Retenido por reposición)"
-      : "(En custodia — Reembolsable al devolver)";
-    doc.text(estadoDepTir, margen, cursorY);
+    doc.setFontSize(6.2);
+    const estadoDepTir = montoDepositoEfectivo > 0
+      ? "Custodia reembolsable al entregar prendas completas"
+      : "Sin depósito monetario exigido — Custodia de prendas";
+    doc.text(`• ${estadoDepTir}`, margen, cursorY);
+
+    cursorY += 2.8;
+    const moraTextoTir = recargoMora > 0
+      ? `Cobro mora: +${formatCOP(recargoMora)}`
+      : `Cobro mora estipulado: ${formatCOP(tarifaMoraDiariaEstimada)}/día`;
+    doc.text(`• Cobro adicional: ${esPazYSalvo ? "Paz y salvo" : `Saldo ${formatCOP(saldoPendiente)}`} | ${moraTextoTir}`, margen, cursorY);
+
+    cursorY += 2;
+    doc.line(margen, cursorY, margenDer, cursorY);
+
+    // TOTALES DE PAGO DE ALQUILER (PROHIBIDO "ABONADO")
+    cursorY += 3.5;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.8);
+    doc.text("TOTAL VALOR ALQUILER:", margen, cursorY);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDer, cursorY, { align: "right" });
+
+    cursorY += 3.2;
+    const labelPagTir = `VALOR PAGADO (${textoMedioPagoPrincipal}):`;
+    doc.text(labelPagTir.substring(0, 26), margen, cursorY);
+    doc.text(formatCOP(totalAbonado), margenDer, cursorY, { align: "right" });
+
+    if (vueltasEntregadas > 0) {
+      cursorY += 3;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.8);
+      doc.text("Vueltos / Cambio:", margen, cursorY);
+      doc.text(formatCOP(vueltasEntregadas), margenDer, cursorY, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.8);
+    }
+
+    cursorY += 3.5;
+    doc.setFontSize(8.2);
+    doc.text("SALDO PENDIENTE:", margen, cursorY);
+    if (esPazYSalvo) {
+      doc.text("$0 (PAZ Y SALVO)", margenDer, cursorY, { align: "right" });
+    } else {
+      doc.text(formatCOP(saldoPendiente), margenDer, cursorY, { align: "right" });
+    }
+  } else {
+    // Venta Comercial: Cero Sección A y B, Totales directos
+    cursorY += 3.5;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("TOTAL VENTA:", margen, cursorY);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDer, cursorY, { align: "right" });
+
+    cursorY += 3.2;
+    const labelCobTir = `COBRO RECIBIDO (${textoMedioPagoPrincipal}):`;
+    doc.text(labelCobTir.substring(0, 26), margen, cursorY);
+    doc.text(formatCOP(totalAbonado), margenDer, cursorY, { align: "right" });
+
+    if (vueltasEntregadas > 0) {
+      cursorY += 3;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.8);
+      doc.text("Vueltos / Cambio Final:", margen, cursorY);
+      doc.text(formatCOP(vueltasEntregadas), margenDer, cursorY, { align: "right" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+    }
+
+    cursorY += 3.5;
+    doc.setFontSize(8.2);
+    doc.text("ESTADO DE PAGO:", margen, cursorY);
+    if (esPazYSalvo) {
+      doc.text("PAZ Y SALVO", margenDer, cursorY, { align: "right" });
+    } else {
+      doc.text(`SALDO: ${formatCOP(saldoPendiente)}`, margenDer, cursorY, { align: "right" });
+    }
   }
 
   // Políticas segregadas en Tirilla
@@ -1225,7 +1539,7 @@ function dibujarContenidoTirilla(
     ? "Gracias por su compra. Conserve esta factura para reclamos según políticas de garantía."
     : esAlquiler
     ? (empresa.politicasFactura || "Prendas deben devolverse en óptimas condiciones en la fecha pactada. Retrasos generan mora.")
-    : "PLATA DE TRAJES APARTADOS NO SE DEVUELVE. Retire sus prendas en la fecha acordada.";
+    : "PLATA DE TRAJES APARTADOS NO SE DEVUELVE. Al retirar el producto se debe pagar el Saldo Pendiente total (alquiler + depósito en custodia).";
   const lineasPolTir = doc.splitTextToSize(textoPolTir, anchoMm - 8);
   doc.text(lineasPolTir.slice(0, 2), anchoMm / 2, cursorY, { align: "center" });
   doc.setTextColor(0, 0, 0);

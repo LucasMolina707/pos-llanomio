@@ -1832,35 +1832,61 @@ export default function ConfiguracionAdminPage() {
 
                 <div className="border-t border-dashed border-slate-400 my-2"></div>
 
-                {/* Totales */}
-                <div className="space-y-1 font-bold text-xs">
-                  <div className="flex justify-between text-sm font-black">
-                    <span>{tipoOperacionSimulador === "VENTA" ? "TOTAL VENTA:" : "TOTAL ALQUILER:"}</span>
-                    <span>$100.000</span>
-                  </div>
-                  <div className="flex justify-between text-emerald-800">
-                    <span>ABONO RECIBIDO:</span>
-                    <span>-$50.000</span>
-                  </div>
-                  <div className="flex justify-between text-rose-700 font-black">
-                    <span>SALDO PENDIENTE:</span>
-                    <span>$50.000</span>
-                  </div>
-                </div>
-
-                {/* Sección B (Depósito) - SOLO EN ALQUILER */}
+                {/* Recuadro de Depósito en Garantía y Entrega Obligatoria - SOLO EN ALQUILER */}
                 {tipoOperacionSimulador === "ALQUILER" && (
                   <>
                     <div className="border-t border-dashed border-amber-400 my-2"></div>
-                    <div className="bg-amber-100 border border-amber-300 rounded p-1.5 text-[10.5px] space-y-0.5">
-                      <div className="flex justify-between font-bold text-amber-900">
-                        <span>CONSTANCIA COBRO SEPARADO:</span>
+                    <div className="bg-amber-100 border border-amber-300 rounded p-1.5 text-[10.5px] space-y-0.5 text-amber-950">
+                      <div className="flex justify-between font-bold text-amber-950">
+                        <span>DEPÓSITO EN GARANTÍA Y ENTREGA:</span>
                         <span>$50.000</span>
                       </div>
-                      <p className="text-[9.5px] text-amber-800">Depósito en Efectivo: $50.000 (Custodia reembolsable)</p>
+                      <p className="text-[9.5px] text-amber-900">Custodia: $50.000 reembolsable al entregar prendas completas.</p>
+                      <div className="flex justify-between font-bold text-[9.5px] text-rose-900">
+                        <span>ENTREGA OBLIGATORIA:</span>
+                        <span>Miércoles 8:00 p.m. (20:00)</span>
+                      </div>
+                      <div className="text-[8.5px] text-slate-700 pt-0.5 border-t border-amber-200">
+                        Cobros Adicionales: Saldo $50.000 | Mora diaria: $15.000/día
+                      </div>
                     </div>
                   </>
                 )}
+
+                {/* Totales Segregados de Tirilla */}
+                <div className="space-y-1 font-bold text-xs pt-1">
+                  {tipoOperacionSimulador === "ALQUILER" ? (
+                    <>
+                      <div className="flex justify-between text-sm font-black">
+                        <span>TOTAL ALQUILER:</span>
+                        <span>$100.000</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-800">
+                        <span>VALOR PAGADO (EFECTIVO):</span>
+                        <span>$50.000</span>
+                      </div>
+                      <div className="flex justify-between text-rose-700 font-black">
+                        <span>SALDO PENDIENTE:</span>
+                        <span>$50.000</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between text-sm font-black">
+                        <span>TOTAL VENTA:</span>
+                        <span>$100.000</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-800">
+                        <span>COBRO RECIBIDO (EFECTIVO):</span>
+                        <span>$100.000</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-700 font-black">
+                        <span>ESTADO:</span>
+                        <span>PAZ Y SALVO</span>
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 <div className="border-t border-dashed border-slate-400 my-2"></div>
 
@@ -1933,16 +1959,20 @@ export default function ConfiguracionAdminPage() {
                   </div>
                 </div>
 
-                {/* Sección B (Depósito) - SOLO EN ALQUILER */}
+                {/* Recuadro de Depósito y Entrega Obligatoria - SOLO EN ALQUILER */}
                 {tipoOperacionSimulador === "ALQUILER" && (
-                  <div className="bg-amber-50 border border-amber-300 rounded-lg p-2 text-[10px] space-y-0.5">
-                    <div className="flex justify-between font-bold text-amber-900">
-                      <span>CONSTANCIA DE COBRO SEPARADO (EFECTIVO):</span>
+                  <div className="bg-amber-50 border border-amber-300 rounded-lg p-2 text-[10px] space-y-1 text-amber-950">
+                    <div className="flex justify-between font-bold text-amber-950 border-b border-amber-300 pb-0.5">
+                      <span>DEPÓSITO EN GARANTÍA Y ENTREGA:</span>
                       <span>$50.000</span>
                     </div>
-                    <p className="text-[9px] text-amber-800">
-                      Se recibió en EFECTIVO la suma de $50.000 por concepto de Depósito en Garantía (Reembolsable).
+                    <p className="text-[9px] text-amber-900 leading-tight">
+                      Custodia: $50.000 en custodia (Se devuelve 100% al entregar prendas completas).
                     </p>
+                    <div className="flex justify-between font-bold text-[9px] text-rose-900">
+                      <span>ENTREGA OBLIGATORIA:</span>
+                      <span>Miércoles 8:00 p.m. (20:00)</span>
+                    </div>
                   </div>
                 )}
 
@@ -1956,12 +1986,24 @@ export default function ConfiguracionAdminPage() {
                       ? "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento."
                       : config.politicasFactura || "Las prendas en alquiler deben devolverse en la fecha pactada en óptimas condiciones."}
                   </div>
-                  <div className="w-32 text-right font-mono text-xs">
-                    <div className="font-black text-slate-900">
-                      {tipoOperacionSimulador === "VENTA" ? "TOTAL VENTA:" : "TOTAL ALQUILER:"} <strong>$100.000</strong>
-                    </div>
-                    <div className="text-emerald-700">Abono: -$50.000</div>
-                    <div className="text-rose-700 font-black">Saldo: $50.000</div>
+                  <div className="w-36 text-right font-mono text-xs space-y-0.5">
+                    {tipoOperacionSimulador === "ALQUILER" ? (
+                      <>
+                        <div className="font-black text-slate-900">
+                          TOTAL ALQUILER: <strong>$100.000</strong>
+                        </div>
+                        <div className="text-emerald-700 font-semibold">Valor Pagado (Efectivo): $50.000</div>
+                        <div className="text-rose-700 font-black">Saldo Pendiente: $50.000</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="font-black text-slate-900">
+                          TOTAL VENTA: <strong>$100.000</strong>
+                        </div>
+                        <div className="text-emerald-700 font-semibold">Cobro Recibido: $100.000</div>
+                        <div className="text-emerald-700 font-black">PAZ Y SALVO</div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2151,20 +2193,27 @@ export default function ConfiguracionAdminPage() {
                   </div>
                 </div>
 
-                {/* Sección B (Depósito) - SOLO EN ALQUILER */}
+                {/* Recuadro de Depósito en Garantía y Entrega - SOLO EN ALQUILER */}
                 {tipoOperacionSimulador === "ALQUILER" && (
-                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-2.5 text-xs space-y-0.5">
-                    <div className="flex justify-between font-bold text-amber-900">
-                      <span>CONSTANCIA DE COBRO SEPARADO (EFECTIVO):</span>
-                      <span>$50.000</span>
+                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-2.5 text-xs space-y-1 text-amber-950">
+                    <div className="flex justify-between font-bold text-amber-950 border-b border-amber-300 pb-0.5">
+                      <span>DEPÓSITO EN GARANTÍA Y ENTREGA:</span>
+                      <span className="font-mono">$50.000</span>
                     </div>
-                    <p className="text-[10px] text-amber-800">
-                      Se recibió en EFECTIVO la suma de $50.000 por concepto de Depósito en Garantía (Custodia reembolsable al devolver las prendas completas).
+                    <p className="text-[10px] text-amber-900 leading-tight">
+                      Custodia: Recibido en custodia en mostrador (Se devuelve el 100% al entregar las prendas a conformidad).
                     </p>
+                    <div className="p-1 bg-amber-100/90 rounded border border-amber-300 flex justify-between font-bold text-[10px]">
+                      <span>ENTREGA OBLIGATORIA:</span>
+                      <span className="text-rose-900">Miércoles 8:00 p.m. (20:00)</span>
+                    </div>
+                    <div className="text-[9px] text-slate-700 pt-0.5 border-t border-amber-200 flex justify-between">
+                      <span>Cobros Adicionales: Saldo pendiente: $50.000 | Mora diaria: $15.000/día</span>
+                    </div>
                   </div>
                 )}
 
-                {/* Totales y Políticas */}
+                {/* Totales y Políticas Segregados */}
                 <div className="flex justify-between items-start gap-3 pt-1 border-t text-[10px]">
                   <div className="flex-1 p-2 bg-white rounded border text-slate-500 line-clamp-3">
                     <span className="font-bold block text-slate-700 mb-0.5">
@@ -2174,14 +2223,28 @@ export default function ConfiguracionAdminPage() {
                       ? "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento."
                       : config.politicasFactura}
                   </div>
-                  <div className="w-36 text-right font-mono space-y-0.5 text-xs">
-                    <div className="font-black text-sm text-slate-950">
-                      {tipoOperacionSimulador === "VENTA" ? "TOTAL VENTA:" : "TOTAL ALQUILER:"} <strong>$100.000</strong>
-                    </div>
-                    <div className="text-emerald-700">Abonado: -$50.000</div>
-                    <div className="text-rose-700 font-bold p-1 bg-rose-50 rounded border border-rose-200">
-                      Saldo: $50.000
-                    </div>
+                  <div className="w-44 text-right font-mono space-y-0.5 text-xs">
+                    {tipoOperacionSimulador === "ALQUILER" ? (
+                      <>
+                        <div className="font-black text-sm text-slate-950">
+                          TOTAL ALQUILER: <strong>$100.000</strong>
+                        </div>
+                        <div className="text-emerald-700 font-semibold">Valor Pagado (Efectivo): $50.000</div>
+                        <div className="text-rose-700 font-bold p-1 bg-rose-50 rounded border border-rose-200">
+                          Saldo Pendiente: $50.000
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="font-black text-sm text-slate-950">
+                          TOTAL VENTA: <strong>$100.000</strong>
+                        </div>
+                        <div className="text-emerald-700 font-semibold">Cobro Recibido (Efectivo): $100.000</div>
+                        <div className="text-emerald-700 font-bold p-1 bg-emerald-50 rounded border border-emerald-200">
+                          PAZ Y SALVO
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 

@@ -145,3 +145,4 @@ console.log("  [OK] Encabezado 'TIPO DE TRAJE / DETALLE' y Logo ampliado verific
 console.log("\n===============================================================================");
 console.log("  ¡TODAS LAS PRUEBAS DE QA FUERON SUPERADAS CON ÉXITO AL 100%!");
 console.log("===============================================================================\n");
+

@@ -322,10 +322,15 @@ export default function ApartadosPage() {
     return itemsApartado.reduce((acc, item) => acc + item.subtotal, 0);
   }, [itemsApartado]);
 
-  // Cálculo de Saldo en Vivo
+  // Cálculo de Saldo en Vivo según Regla Contable Oficial:
+  // Saldo Pendiente Total al Retirar = (Valor Alquiler + Saldo Depósito al Retirar) - Abono consigna
   const abonoNumerico = Math.max(0, Number(abonoInicialInput) || 0);
   const depositoNumerico = Math.max(0, Number(montoDepositoInput) || 0);
-  const saldoPendienteCalculado = Math.max(0, totalAlquiler - abonoNumerico);
+  const saldoDepositoAlRetirar = depositoEntregadoHoy ? 0 : depositoNumerico;
+  const saldoPendienteCalculado = Math.max(
+    0,
+    (totalAlquiler + saldoDepositoAlRetirar) - abonoNumerico
+  );
 
   // Cuadre de efectivo y vueltas
   const totalACobrarHoy = (depositoEntregadoHoy ? depositoNumerico : 0) + abonoNumerico;
@@ -1148,11 +1153,29 @@ export default function ApartadosPage() {
                         />
                       </div>
 
-                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-600">Saldo Pendiente al Retirar:</span>
-                        <span className="font-mono text-base font-black text-rose-600">
-                          ${saldoPendienteCalculado.toLocaleString("es-CO")}
-                        </span>
+                      {/* Desglose Contable de los 4 Conceptos Oficiales de Apartado */}
+                      <div className="pt-2.5 pb-2 border-t border-slate-200 space-y-1.5 bg-slate-50 p-2.5 rounded-xl border">
+                        <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                          <span>1. Valor de Alquiler:</span>
+                          <span className="font-mono font-bold">${totalAlquiler.toLocaleString("es-CO")}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs font-semibold text-amber-900">
+                          <span>2. Saldo Depósito (Custodia al Retirar):</span>
+                          <span className="font-mono font-bold">${saldoDepositoAlRetirar.toLocaleString("es-CO")}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs font-bold text-emerald-700">
+                          <span>3. Abono Inicial (Consigna Hoy):</span>
+                          <span className="font-mono">-${abonoNumerico.toLocaleString("es-CO")}</span>
+                        </div>
+                        <div className="pt-1.5 border-t border-slate-300 flex items-center justify-between">
+                          <span className="text-xs font-black text-slate-900">4. SALDO TOTAL AL RETIRAR:</span>
+                          <span className="font-mono text-base font-black text-rose-600">
+                            ${saldoPendienteCalculado.toLocaleString("es-CO")}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 italic pt-1 border-t border-dashed border-slate-200 leading-tight">
+                          * Al retirar el producto se debe pagar el Saldo Pendiente total (que incluye el saldo de alquiler + el depósito en custodia).
+                        </p>
                       </div>
 
                       <div>

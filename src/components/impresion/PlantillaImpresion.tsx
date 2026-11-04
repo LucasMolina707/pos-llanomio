@@ -49,6 +49,8 @@ export interface DatosImpresionFactura {
     montoDevueltoDeposito?: number;
     motivoRetencionDeposito?: string | null;
     metodoPagoDeposito?: string | null;
+    metodoPagoPrincipal?: string | null;
+    formaPago?: string | null;
     efectivoRecibido?: number;
     cambioEntregado?: number;
     notas?: string | null;
@@ -88,6 +90,7 @@ export interface DatosImpresionFactura {
         tipo?: string | null;
         talla?: string | null;
         color?: string | null;
+        tarifaMoraDiaria?: number | null;
       } | null;
     }>;
     abonos?: Array<{
@@ -365,7 +368,7 @@ export default function PlantillaImpresion({
     const esVenta = !esAlquiler && !esApartado; // VENTA, ARREGLO, VENTA_ARREGLO
     const mostrarCajero = empresa.mostrarVendedorFactura !== false && Boolean(usuarioCajero?.nombre);
 
-    // 1. REGLA CONTABLE — SECCIÓN A: OPERACIÓN PRINCIPAL
+    // 1. REGLA CONTABLE — LIQUIDACIÓN DE LA OPERACIÓN PRINCIPAL
     const subtotalPrendas =
       safeNumber(factura.subtotalProductos) + safeNumber(factura.subtotalArreglosLibres);
     const recargoMora = esAlquiler ? safeNumber(factura.recargoMoraAcumulado) : 0;
@@ -381,14 +384,25 @@ export default function PlantillaImpresion({
     const totalAbonadoAlquiler = totalAbonadoOperacion;
     const saldoPendienteAlquiler = saldoPendienteOperacion;
 
-    // 2. REGLA CONTABLE — SECCIÓN B: DEPÓSITO EXCLUSIVO DE ALQUILER CON VALOR > $0
-    // CERO Sección B en Ventas o en Alquileres con depósito $0
+    // 2. REGLA CONTABLE PARA APARTADOS:
+    // Saldo Pendiente Total al Retirar = (Valor Alquiler + Saldo Depósito al Retirar) - Abono consigna
     const montoDepositoEfectivo = safeNumber(factura.montoDeposito);
-    const mostrarSeccionDeposito = esAlquiler && montoDepositoEfectivo > 0;
+    const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
+    const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
+    const saldoPendienteTotalApartado = Math.max(
+      0,
+      (totalOperacionAlquiler + saldoDepositoAlRetirar) - totalAbonadoAlquiler
+    );
+
+    // 3. REGLA CONTABLE PARA ALQUILER — ETIQUETA AMARILLA Y COBROS ADICIONALES
+    // En alquiler se visualiza la garantía, entrega pactada y cobros adicionales estipulados
+    const mostrarSeccionDeposito = esAlquiler;
 
     let textoEstadoDeposito =
       "RECIBIDO EN CUSTODIA (Se devuelve el 100% al entregar las prendas completas y sin daños)";
-    if (factura.estadoDeposito === "DEVUELTO_COMPLETO") {
+    if (montoDepositoEfectivo <= 0) {
+      textoEstadoDeposito = "SIN DEPÓSITO MONETARIO EXIGIDO (Responsabilidad plena por prendas)";
+    } else if (factura.estadoDeposito === "DEVUELTO_COMPLETO") {
       const devuelto = safeNumber(factura.montoDevueltoDeposito) || montoDepositoEfectivo;
       textoEstadoDeposito = `DEPÓSITO DEVUELTO 100% AL CLIENTE (${formatCOP(devuelto)}) — Prendas recibidas a conformidad`;
     } else if (
@@ -401,9 +415,23 @@ export default function PlantillaImpresion({
       textoEstadoDeposito = `DEPÓSITO RETENIDO (${formatCOP(ret)} Retenido / ${formatCOP(dev)} Devuelto al cliente) — Motivo: ${motivo}`;
     }
 
-    // 3. REGLA CONTABLE — SECCIÓN C: CUADRE DE EFECTIVO RECIBIDO Y VUELTAS
+    // Tarifa diaria de mora estipulada a partir de los ítems o tarifa base
+    const tarifaMoraDiariaEstimada =
+      detalles.reduce((acc, d) => acc + (safeNumber(d.producto?.tarifaMoraDiaria) || 0), 0) || 15000;
+
+    // Desglose de medios de pago para venta y alquiler (PROHIBIDO "ABONADO" EN ALQUILER)
+    const metodosAbonos = Array.from(
+      new Set(abonos.map((a) => (a.metodoPago || "EFECTIVO").toUpperCase()))
+    );
+    const textoMedioPagoPrincipal =
+      metodosAbonos.length > 0
+        ? metodosAbonos.join(" / ")
+        : (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase();
+
+    // 4. REGLA CONTABLE — CUADRE DE CAJA, EFECTIVO RECIBIDO Y VUELTAS
     const cobroOperacionHoy = totalAbonadoOperacion;
-    const depositoParaCobroHoy = mostrarSeccionDeposito ? montoDepositoEfectivo : 0;
+    const depositoParaCobroHoy =
+      mostrarSeccionDeposito && montoDepositoEfectivo > 0 ? montoDepositoEfectivo : 0;
     const totalCobradoEnCajaHoy = cobroOperacionHoy + depositoParaCobroHoy;
     const efectivoRecibidoCliente =
       safeNumber(factura.efectivoRecibido) > 0
@@ -414,44 +442,28 @@ export default function PlantillaImpresion({
         ? safeNumber(factura.cambioEntregado)
         : Math.max(0, efectivoRecibidoCliente - totalCobradoEnCajaHoy);
 
-    // 4. ESTADOS Y TÍTULOS SEGREGADOS POR OPERACIÓN (PROHIBIDO "ALQUILER" EN VENTAS)
+    // 5. ESTADOS Y TÍTULOS SEGREGADOS POR OPERACIÓN (PROHIBIDO "ALQUILER" EN VENTAS)
     const estaCerrada =
       factura.estado === "FINALIZADA" ||
       factura.estado === "CERRADA" ||
       Boolean(factura.fechaDevolucionReal);
 
     let tituloComprobante = "FACTURA DE VENTA";
-    let labelSeccionA = "SECCIÓN A — LIQUIDACIÓN DE OPERACIÓN DE VENTA";
-    let labelTotalSeccionA = "TOTAL VENTA:";
-    let labelSubtotalSeccionA = "Subtotal Venta / Servicios:";
-    let labelCobroHoy = "Cobro Venta Recibido Hoy:";
 
     if (esVenta) {
       tituloComprobante = esPazYSalvo
         ? "FACTURA DE VENTA"
         : "COMPROBANTE DE VENTA — SALDO PENDIENTE";
-      labelSeccionA = "SECCIÓN A — LIQUIDACIÓN DE OPERACIÓN DE VENTA";
-      labelTotalSeccionA = "TOTAL VENTA:";
-      labelSubtotalSeccionA = "Subtotal Venta / Servicios:";
-      labelCobroHoy = "Cobro Venta Recibido Hoy:";
     } else if (esAlquiler) {
       if (estaCerrada) {
         tituloComprobante = "COMPROBANTE DE PAZ Y SALVO FINAL DE ALQUILER";
       } else if (esPazYSalvo) {
         tituloComprobante = "FACTURA / COMPROBANTE DE ALQUILER — PAGO COMPLETO";
       } else {
-        tituloComprobante = "COMPROBANTE DE ALQUILER — CON ABONO Y SALDO PENDIENTE";
+        tituloComprobante = "COMPROBANTE DE ALQUILER — PAGO PARCIAL Y SALDO PENDIENTE";
       }
-      labelSeccionA = "SECCIÓN A — LIQUIDACIÓN DE OPERACIÓN DE ALQUILER";
-      labelTotalSeccionA = "TOTAL ALQUILER:";
-      labelSubtotalSeccionA = "Total Prendas Alquiler:";
-      labelCobroHoy = "Cobro Alquiler Recibido Hoy:";
     } else if (esApartado) {
       tituloComprobante = "FORMATO DE APARTADO";
-      labelSeccionA = "SECCIÓN A — LIQUIDACIÓN DE APARTADO / SEPARE";
-      labelTotalSeccionA = "TOTAL APARTADO:";
-      labelSubtotalSeccionA = "Total Prendas Separadas:";
-      labelCobroHoy = "Abono Apartado Recibido Hoy:";
     }
 
     // 5. NORMAS Y POLÍTICAS SEGREGADAS (CERO CRUCE DE POLÍTICAS DE APARTADO EN VENTAS/ALQUILERES)
@@ -600,26 +612,29 @@ export default function PlantillaImpresion({
               </div>
             </div>
 
-            {/* Bloque Financiero: Alquiler, Depósito, Abono, Saldo */}
+            {/* Bloque Financiero Estructurado: Alquiler, Depósito Custodia, Abono, Saldo Pendiente Total */}
             <div className="py-2 border-b-2 border-black space-y-1.5 text-[10.5px]">
               <div className="flex justify-between font-bold text-xs">
-                <span>Alquiler:</span>
+                <span>1. Saldo / Valor de Alquiler:</span>
                 <span className="font-mono">{formatCOP(totalOperacionAlquiler)}</span>
               </div>
-              <div className="flex justify-between text-slate-800">
-                <span>Depósito:</span>
-                <span className="font-mono font-semibold">{formatCOP(montoDepositoEfectivo)} {montoDepositoEfectivo > 0 ? (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? "(Abonado hoy)" : "(A pagar al retirar)") : "$0"}</span>
+              <div className="flex justify-between text-slate-900 font-semibold">
+                <span>2. Saldo Depósito (Custodia al Retirar):</span>
+                <span className="font-mono">{formatCOP(saldoDepositoAlRetirar)}</span>
               </div>
               <div className="flex justify-between text-emerald-800 font-bold">
-                <span>Abono:</span>
+                <span>3. Abono (Pagado hoy en consigna):</span>
                 <span className="font-mono">-{formatCOP(totalAbonadoAlquiler)}</span>
               </div>
               <div className="flex justify-between font-black text-sm pt-1 border-t-2 border-black">
-                <span>Saldo:</span>
-                <span className={`font-mono ${saldoPendienteAlquiler <= 0 ? "text-emerald-700" : "text-rose-700"}`}>
-                  {saldoPendienteAlquiler <= 0 ? "$0 (PAGADO)" : formatCOP(saldoPendienteAlquiler)}
+                <span className="text-[11px] leading-tight max-w-[48mm]">4. SALDO PENDIENTE TOTAL (Al Retirar):</span>
+                <span className={`font-mono ${saldoPendienteTotalApartado <= 0 ? "text-emerald-700" : "text-rose-700 font-black"}`}>
+                  {saldoPendienteTotalApartado <= 0 ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteTotalApartado)}
                 </span>
               </div>
+              <p className="text-[8.5px] text-slate-700 leading-tight italic pt-1 border-t border-dashed border-slate-300">
+                * Al retirar el producto se debe pagar el Saldo Pendiente total (que incluye el saldo de alquiler + el depósito en custodia).
+              </p>
             </div>
 
             {/* OBSERVACIONES */}
@@ -797,86 +812,113 @@ export default function PlantillaImpresion({
           </div>
 
           {/* ========================================================================= */}
-          {/* SECCIÓN A: LIQUIDACIÓN DE LA OPERACIÓN (VENTA O ALQUILER)                 */}
+          {/* LIQUIDACIÓN SEGREGADA: ALQUILER (CON GARANTÍA Y COBROS) vs VENTA (DIRECTA) */}
           {/* ========================================================================= */}
-          <div className="py-2 border-b border-black space-y-1 text-xs">
-            <p className="text-[11px] font-black uppercase tracking-wider text-slate-900 border-b border-black pb-0.5">
-              {labelSeccionA}
-            </p>
-            <div className="flex justify-between">
-              <span>{labelSubtotalSeccionA}</span>
-              <span>{formatCOP(subtotalPrendas)}</span>
-            </div>
-            {recargoMora > 0 && esAlquiler && (
-              <div className="flex justify-between text-rose-700 font-bold">
-                <span>Recargo por Mora:</span>
-                <span>+{formatCOP(recargoMora)}</span>
-              </div>
-            )}
-            <div className="flex justify-between text-[13px] font-black pt-1 border-t border-black text-black">
-              <span>{labelTotalSeccionA}</span>
-              <span>{formatCOP(totalOperacionPrincipal)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-emerald-800">
-              <span>(-) ABONADO:</span>
-              <span>-{formatCOP(totalAbonadoOperacion)}</span>
-            </div>
-            <div className="flex justify-between text-sm font-black pt-1 border-t border-dashed border-black">
-              <span>(=) SALDO PENDIENTE:</span>
-              <span className={esPazYSalvo ? "text-emerald-700 font-black" : "text-rose-700 font-black"}>
-                {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
-              </span>
-            </div>
-          </div>
+          {esAlquiler ? (
+            <>
+              {/* ETIQUETA AMARILLA: DEPÓSITO EN GARANTÍA, ENTREGA Y COBROS ADICIONALES */}
+              <div className="py-2 border-y-2 border-black space-y-1.5 text-[11px] bg-amber-50 p-2 rounded my-1.5 border border-amber-300 text-amber-950">
+                <div className="font-black text-[10.5px] border-b border-amber-300 pb-0.5 uppercase tracking-tight text-amber-950">
+                  DEPÓSITO EN GARANTÍA Y COMPROMISO DE ENTREGA
+                </div>
+                <div className="flex justify-between font-black text-xs pt-0.5">
+                  <span>ABONO / DEPÓSITO EN GARANTÍA:</span>
+                  <span className="font-mono text-emerald-950 font-bold">{formatCOP(montoDepositoEfectivo)}</span>
+                </div>
+                <p className="text-[9.5px] text-amber-950 leading-tight">
+                  Leyenda de Custodia: <strong>{textoEstadoDeposito}</strong>
+                </p>
 
-          {/* ========================================================================= */}
-          {/* SECCIÓN B: DEPÓSITO EXCLUSIVO DE ALQUILER (PROHIBIDO EN VENTAS Y $0)     */}
-          {/* ========================================================================= */}
-          {mostrarSeccionDeposito && (
-            <div className="py-2 border-y-2 border-black space-y-1 text-[11px] bg-amber-50 p-2 rounded my-1.5 border border-amber-300">
-              <div className="font-black text-[10.5px] text-amber-950 border-b border-amber-300 pb-0.5 uppercase tracking-tight">
-                SECCIÓN B — DEPÓSITO EN GARANTÍA (COBRO SEPARADO)
+                {/* Fecha y Hora de Entrega Obligatoria Destacada */}
+                <div className="p-1.5 bg-amber-100/90 rounded border border-amber-300 text-slate-950 space-y-0.5">
+                  <div className="flex justify-between font-black text-[10.5px]">
+                    <span className="text-amber-950 uppercase">ENTREGA OBLIGATORIA:</span>
+                    <span className="font-mono text-rose-900 font-bold">{safeDate(factura.fechaDevolucionPactada, true)}</span>
+                  </div>
+                  <p className="text-[9px] text-amber-900">
+                    Hora límite máxima pactada: Devolución estricta según contrato comercial.
+                  </p>
+                </div>
+
+                {/* Cláusula y Renglones de Cobros Adicionales */}
+                <div className="space-y-0.5 pt-1 border-t border-amber-300 text-[10px]">
+                  <p className="font-bold uppercase text-[9px] text-amber-950">Cobros Adicionales Estipulados:</p>
+                  <div className="flex justify-between">
+                    <span>• Cobro Adicional de Saldo Pendiente:</span>
+                    <strong className={esPazYSalvo ? "text-emerald-900" : "text-rose-900"}>
+                      {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>• Cobro Adicional por Días de Mora:</span>
+                    <strong className={recargoMora > 0 ? "text-rose-900" : "text-amber-950"}>
+                      {recargoMora > 0
+                        ? `+${formatCOP(recargoMora)} (${diasRetraso}d de retraso)`
+                        : `${formatCOP(tarifaMoraDiariaEstimada)} / día de retraso`}
+                    </strong>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between font-black text-xs pt-0.5">
-                <span>DEPÓSITO EN GAVETA:</span>
-                <span className="font-mono text-emerald-900">{formatCOP(montoDepositoEfectivo)}</span>
+
+              {/* CELDA DE TOTALES DE PAGO DE ALQUILER (SIN PALABRA ABONADO) */}
+              <div className="py-2 border-2 border-black bg-slate-100 p-2 rounded my-1.5 text-xs space-y-1">
+                <p className="text-[10.5px] font-black uppercase text-slate-900 border-b border-black pb-0.5">
+                  TOTALES DE PAGO DE ALQUILER
+                </p>
+                <div className="flex justify-between">
+                  <span>Total Valor Alquiler:</span>
+                  <span className="font-bold font-mono">{formatCOP(totalOperacionPrincipal)}</span>
+                </div>
+                <div className="flex justify-between text-emerald-900 font-bold">
+                  <span>Valor Pagado Hoy ({textoMedioPagoPrincipal}):</span>
+                  <span className="font-mono">{formatCOP(totalAbonadoOperacion)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-slate-900 pt-0.5 border-t border-dashed border-black">
+                  <span>Efectivo Recibido del Cliente:</span>
+                  <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
+                </div>
+                <div className="flex justify-between font-black text-emerald-800 text-[13px] pt-0.5 border-t border-black">
+                  <span>Vueltos / Cambio Entregado:</span>
+                  <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
+                </div>
+                <div className="flex justify-between text-xs font-black pt-1 border-t border-black">
+                  <span>Saldo Pendiente de Alquiler:</span>
+                  <span className={esPazYSalvo ? "text-emerald-700 font-black" : "text-rose-700 font-black"}>
+                    {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
+                  </span>
+                </div>
               </div>
-              <p className="text-[10px] text-amber-950 leading-tight">
-                Estado: <strong>{textoEstadoDeposito}</strong>
+            </>
+          ) : (
+            /* CELDA ÚNICA DE TOTALES DE VENTA (CERO SECCIÓN A, CERO SECCIÓN B) */
+            <div className="py-2 border-2 border-black bg-slate-100 p-2 rounded my-1.5 text-xs space-y-1">
+              <p className="text-[10.5px] font-black uppercase text-slate-900 border-b border-black pb-0.5">
+                TOTALES DE VENTA
               </p>
+              <div className="flex justify-between text-[13px] font-black text-black">
+                <span>Total Cobro de Venta:</span>
+                <span className="font-mono">{formatCOP(totalOperacionPrincipal)}</span>
+              </div>
+              <div className="flex justify-between text-emerald-900 font-bold">
+                <span>Cobro de Venta Recibido ({textoMedioPagoPrincipal}):</span>
+                <span className="font-mono">{formatCOP(totalAbonadoOperacion)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-slate-900 pt-0.5 border-t border-dashed border-black">
+                <span>Efectivo Recibido del Cliente:</span>
+                <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
+              </div>
+              <div className="flex justify-between font-black text-emerald-800 text-[13px] pt-0.5 border-t border-black">
+                <span>Vueltos / Cambio Final Entregado:</span>
+                <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
+              </div>
+              <div className="flex justify-between text-xs font-black pt-1 border-t border-black">
+                <span>Estado de Pago:</span>
+                <span className={esPazYSalvo ? "text-emerald-700 font-black" : "text-rose-700 font-black"}>
+                  {esPazYSalvo ? "CANCELADO (PAZ Y SALVO)" : `SALDO PENDIENTE: ${formatCOP(saldoPendienteOperacion)}`}
+                </span>
+              </div>
             </div>
           )}
-
-          {/* ========================================================================= */}
-          {/* SECCIÓN C: CUADRE DE EFECTIVO RECIBIDO Y VUELTAS / CAMBIO FINAL           */}
-          {/* ========================================================================= */}
-          <div className="py-2 border-2 border-black bg-slate-100 p-2 rounded my-1.5 text-xs space-y-1">
-            <p className="text-[10.5px] font-black uppercase text-slate-900 border-b border-black pb-0.5">
-              SECCIÓN C — CUADRE DE EFECTIVO Y VUELTAS / CAMBIO FINAL
-            </p>
-            <div className="flex justify-between">
-              <span>{labelCobroHoy}</span>
-              <span>{formatCOP(cobroOperacionHoy)}</span>
-            </div>
-            {mostrarSeccionDeposito && (
-              <div className="flex justify-between">
-                <span>(+) Depósito en Custodia:</span>
-                <span>{formatCOP(montoDepositoEfectivo)}</span>
-              </div>
-            )}
-            <div className="flex justify-between font-black pt-0.5 border-t border-black text-[13px] text-black">
-              <span>(=) TOTAL COBRADO EN CAJA HOY:</span>
-              <span>{formatCOP(totalCobradoEnCajaHoy)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-slate-900 pt-0.5 border-t border-dashed border-black">
-              <span>EFECTIVO RECIBIDO DEL CLIENTE:</span>
-              <span>{formatCOP(efectivoRecibidoCliente)}</span>
-            </div>
-            <div className="flex justify-between font-black text-emerald-800 text-[13px] pt-0.5 border-t border-black">
-              <span>VUELTAS / CAMBIO ENTREGADO:</span>
-              <span>{formatCOP(vueltasCambioFinal)}</span>
-            </div>
-          </div>
 
           {/* Historial Detallado de Abonos */}
           {abonos.length > 0 && (
@@ -1035,25 +1077,30 @@ export default function PlantillaImpresion({
               </div>
             </div>
 
-            {/* Bloque Financiero en 4 Columnas */}
-            <div className="grid grid-cols-4 gap-1.5 border-y-2 border-slate-900 py-1 text-center my-0.5">
-              <div className="p-0.5 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="text-[7.5px] uppercase font-bold text-slate-600">Alquiler</p>
-                <p className="text-[11px] font-black font-mono">{formatCOP(totalOperacionAlquiler)}</p>
+            {/* Bloque Financiero en 4 Columnas: Alquiler, Depósito Custodia, Abono hoy, Saldo Pendiente Total */}
+            <div className="space-y-1 my-0.5">
+              <div className="grid grid-cols-4 gap-1.5 border-y-2 border-slate-900 py-1 text-center">
+                <div className="p-0.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-[7.5px] uppercase font-bold text-slate-600">1. Valor Alquiler</p>
+                  <p className="text-[11px] font-black font-mono">{formatCOP(totalOperacionAlquiler)}</p>
+                </div>
+                <div className="p-0.5 bg-amber-50 rounded-lg border border-amber-300">
+                  <p className="text-[7.5px] uppercase font-bold text-amber-900">2. Saldo Depósito (Custodia)</p>
+                  <p className="text-[11px] font-black font-mono text-amber-950">{formatCOP(saldoDepositoAlRetirar)}</p>
+                  <span className="text-[7px] text-amber-800 block">{depositoPagadoHoyApartado ? "Abonado hoy" : "Pagar al retirar"}</span>
+                </div>
+                <div className="p-0.5 bg-emerald-50 rounded-lg border border-emerald-300">
+                  <p className="text-[7.5px] uppercase font-bold text-emerald-800">3. Abono (Consigna hoy)</p>
+                  <p className="text-[11px] font-black font-mono text-emerald-900">-{formatCOP(totalAbonadoAlquiler)}</p>
+                </div>
+                <div className="p-0.5 bg-rose-50 rounded-lg border border-rose-300">
+                  <p className="text-[7.5px] uppercase font-bold text-rose-800">4. SALDO TOTAL AL RETIRAR</p>
+                  <p className="text-[11px] font-black font-mono text-rose-900">{formatCOP(saldoPendienteTotalApartado)}</p>
+                </div>
               </div>
-              <div className="p-0.5 bg-amber-50 rounded-lg border border-amber-300">
-                <p className="text-[7.5px] uppercase font-bold text-amber-900">Depósito</p>
-                <p className="text-[11px] font-black font-mono text-amber-950">{formatCOP(montoDepositoEfectivo)}</p>
-                <span className="text-[7px] text-amber-800 block">{montoDepositoEfectivo > 0 ? (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? "Abonado hoy" : "Pagar al retirar") : "$0"}</span>
-              </div>
-              <div className="p-0.5 bg-emerald-50 rounded-lg border border-emerald-300">
-                <p className="text-[7.5px] uppercase font-bold text-emerald-800">Abono</p>
-                <p className="text-[11px] font-black font-mono text-emerald-900">{formatCOP(totalAbonadoAlquiler)}</p>
-              </div>
-              <div className="p-0.5 bg-rose-50 rounded-lg border border-rose-300">
-                <p className="text-[7.5px] uppercase font-bold text-rose-800">Saldo Restante</p>
-                <p className="text-[11px] font-black font-mono text-rose-900">{formatCOP(saldoPendienteAlquiler)}</p>
-              </div>
+              <p className="text-[7.5px] text-slate-600 italic text-center leading-tight">
+                * Al retirar el producto se debe pagar el Saldo Pendiente total (que incluye el saldo de alquiler + el depósito en custodia).
+              </p>
             </div>
 
             {/* OBSERVACIONES */}
@@ -1253,87 +1300,108 @@ export default function PlantillaImpresion({
             </table>
           </div>
 
-          {/* Bloques Contables Secciones A, B (solo si aplica depósito > $0 en alquiler) y C */}
-          <div
-            className={`grid ${
-              mostrarSeccionDeposito ? "grid-cols-3 gap-1.5" : "grid-cols-2 gap-2"
-            } border-t-2 border-slate-900 pt-1 ${esDoble ? "text-[10px]" : "text-xs"}`}
-          >
-            {/* SECCIÓN A: OPERACIÓN PRINCIPAL */}
-            <div className="p-1 sm:p-1.5 bg-slate-50 rounded-lg border border-slate-200 space-y-0.5">
-              <p className="font-black text-[8.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
-                {labelSeccionA}
-              </p>
-              <div className="flex justify-between">
-                <span>{labelSubtotalSeccionA}</span>
-                <span className="font-bold">{formatCOP(subtotalPrendas)}</span>
-              </div>
-              {recargoMora > 0 && esAlquiler && (
-                <div className="flex justify-between text-rose-700 font-bold">
-                  <span>Recargo por Mora:</span>
-                  <span>+{formatCOP(recargoMora)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-black text-black pt-0.5 border-t border-slate-300">
-                <span>{labelTotalSeccionA}</span>
-                <span className="font-bold">{formatCOP(totalOperacionPrincipal)}</span>
-              </div>
-              <div className="flex justify-between text-emerald-800 font-bold">
-                <span>(-) Abonado:</span>
-                <span>-{formatCOP(totalAbonadoOperacion)}</span>
-              </div>
-              <div className="flex justify-between font-black border-t border-slate-300 pt-0.5 text-xs sm:text-sm">
-                <span>(=) Saldo Pendiente:</span>
-                <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
-                  {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
-                </span>
-              </div>
-            </div>
+          {/* Bloques Contables Segregados: Alquiler (Garantía + Totales) vs Venta (Totales Directos) */}
+          <div className="border-t-2 border-slate-900 pt-1">
+            {esAlquiler ? (
+              <div className={`grid grid-cols-2 gap-2 ${esDoble ? "text-[10px]" : "text-xs"}`}>
+                {/* COLUMNA 1: ETIQUETA AMARILLA (DEPÓSITOS, GARANTÍA, ENTREGA Y COBROS ADICIONALES) */}
+                <div className="p-1.5 bg-amber-50 rounded-lg border border-amber-300 text-amber-950 space-y-1">
+                  <p className="font-black text-[9px] uppercase border-b border-amber-300 pb-0.5 text-amber-950">
+                    DEPÓSITO EN GARANTÍA Y COMPROMISO DE ENTREGA
+                  </p>
+                  <div className="flex justify-between font-black text-[11px]">
+                    <span>Abono / Depósito en Garantía:</span>
+                    <span className="font-mono text-emerald-950">{formatCOP(montoDepositoEfectivo)}</span>
+                  </div>
+                  <p className="text-[8.5px] text-amber-900 leading-tight">
+                    Custodia: {textoEstadoDeposito}
+                  </p>
 
-            {/* SECCIÓN B: DEPÓSITO EXCLUSIVO DE ALQUILER (> $0) - PROHIBIDO EN VENTAS */}
-            {mostrarSeccionDeposito && (
-              <div className="p-1 sm:p-1.5 bg-amber-50 rounded-lg border border-amber-300 space-y-0.5">
-                <p className="font-black text-[8.5px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
-                  SECCIÓN B — DEPÓSITO EN GARANTÍA
-                </p>
-                <div className="flex justify-between font-bold text-amber-950 text-xs">
-                  <span>Depósito en Custodia:</span>
-                  <span className="font-black text-emerald-900">{formatCOP(montoDepositoEfectivo)}</span>
+                  <div className="p-1 bg-amber-100 rounded border border-amber-300 text-[9.5px]">
+                    <div className="flex justify-between font-black">
+                      <span className="uppercase text-amber-950">Entrega Obligatoria:</span>
+                      <span className="font-mono text-rose-900 font-bold">{safeDate(factura.fechaDevolucionPactada, true)}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-0.5 border-t border-amber-300 space-y-0.5 text-[8.5px]">
+                    <p className="font-bold uppercase text-amber-950">Cláusula de Cobros Adicionales:</p>
+                    <div className="flex justify-between">
+                      <span>• Saldo Pendiente Alquiler:</span>
+                      <strong className={esPazYSalvo ? "text-emerald-900" : "text-rose-900"}>
+                        {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>• Cobro por Días de Mora:</span>
+                      <strong className={recargoMora > 0 ? "text-rose-900" : "text-amber-950"}>
+                        {recargoMora > 0
+                          ? `+${formatCOP(recargoMora)} (${diasRetraso}d mora)`
+                          : `${formatCOP(tarifaMoraDiariaEstimada)} / día retraso`}
+                      </strong>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[8.5px] text-amber-900 leading-tight">
-                  {textoEstadoDeposito}
+
+                {/* COLUMNA 2: CELDA DE TOTALES DE PAGO DE ALQUILER (SIN PALABRA ABONADO) */}
+                <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-300 space-y-1">
+                  <p className="font-black text-[9px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+                    TOTALES DE PAGO DE ALQUILER
+                  </p>
+                  <div className="flex justify-between font-bold">
+                    <span>Total Valor Alquiler:</span>
+                    <span className="font-mono">{formatCOP(totalOperacionPrincipal)}</span>
+                  </div>
+                  <div className="flex justify-between text-emerald-800 font-bold">
+                    <span>Valor Pagado Hoy ({textoMedioPagoPrincipal}):</span>
+                    <span className="font-mono">{formatCOP(totalAbonadoOperacion)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-700 text-[10.5px] pt-0.5 border-t border-dashed border-slate-300">
+                    <span>Efectivo Recibido Cliente:</span>
+                    <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
+                  </div>
+                  <div className="flex justify-between font-black text-emerald-800 text-[11px] pt-0.5 border-t border-slate-300">
+                    <span>Vueltos / Cambio Final:</span>
+                    <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
+                  </div>
+                  <div className="flex justify-between font-black border-t border-slate-300 pt-1 text-xs">
+                    <span>Saldo Pendiente:</span>
+                    <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
+                      {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* VENTA COMERCIAL: CELDA DIRECTA DE TOTALES (CERO SECCIÓN A, CERO SECCIÓN B) */
+              <div className={`p-2 bg-slate-50 rounded-lg border border-slate-300 max-w-md ml-auto space-y-1 ${esDoble ? "text-[10px]" : "text-xs"}`}>
+                <p className="font-black text-[9.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+                  TOTALES DE VENTA
                 </p>
+                <div className="flex justify-between font-black text-sm text-slate-950">
+                  <span>Total Cobro de Venta:</span>
+                  <span className="font-mono">{formatCOP(totalOperacionPrincipal)}</span>
+                </div>
+                <div className="flex justify-between text-emerald-800 font-bold">
+                  <span>Cobro de Venta Recibido ({textoMedioPagoPrincipal}):</span>
+                  <span className="font-mono">{formatCOP(totalAbonadoOperacion)}</span>
+                </div>
+                <div className="flex justify-between text-slate-700 pt-0.5 border-t border-dashed border-slate-300">
+                  <span>Efectivo Recibido Cliente:</span>
+                  <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
+                </div>
+                <div className="flex justify-between font-black text-emerald-800 border-t border-slate-300 pt-0.5">
+                  <span>Vueltos / Cambio Final Entregado:</span>
+                  <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
+                </div>
+                <div className="flex justify-between font-black border-t border-slate-300 pt-0.5">
+                  <span>Estado de Cuenta:</span>
+                  <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
+                    {esPazYSalvo ? "CANCELADO (PAZ Y SALVO)" : `SALDO PENDIENTE: ${formatCOP(saldoPendienteOperacion)}`}
+                  </span>
+                </div>
               </div>
             )}
-
-            {/* SECCIÓN C: CUADRE EFECTIVO Y VUELTAS */}
-            <div className="p-1 sm:p-1.5 bg-slate-100 rounded-lg border border-slate-300 space-y-0.5">
-              <p className="font-black text-[8.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
-                SECCIÓN C — CUADRE EFECTIVO Y VUELTAS
-              </p>
-              <div className="flex justify-between">
-                <span>{labelCobroHoy}</span>
-                <span className="font-bold">{formatCOP(cobroOperacionHoy)}</span>
-              </div>
-              {mostrarSeccionDeposito && (
-                <div className="flex justify-between">
-                  <span>(+) Depósito en Custodia:</span>
-                  <span>{formatCOP(montoDepositoEfectivo)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-black text-black pt-0.5 border-t border-slate-300">
-                <span>(=) Total Cobrado Hoy:</span>
-                <span className="font-black">{formatCOP(totalCobradoEnCajaHoy)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-slate-900">
-                <span>Efectivo Recibido:</span>
-                <span>{formatCOP(efectivoRecibidoCliente)}</span>
-              </div>
-              <div className="flex justify-between font-black text-emerald-800 border-t border-slate-300 pt-0.5 text-sm">
-                <span>Vueltas Finales:</span>
-                <span>{formatCOP(vueltasCambioFinal)}</span>
-              </div>
-            </div>
           </div>
 
           {/* Normas y Políticas Segregadas */}
@@ -1504,25 +1572,30 @@ export default function PlantillaImpresion({
               </tbody>
             </table>
 
-            {/* Cuadrícula Financiera en 4 Bloques */}
-            <div className="grid grid-cols-4 gap-3 mb-4 text-center">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <p className="text-[9px] font-bold uppercase text-slate-600">Alquiler</p>
-                <p className="text-sm font-black font-mono text-slate-900 mt-1">{formatCOP(totalOperacionAlquiler)}</p>
+            {/* Cuadrícula Financiera en 4 Bloques: Alquiler, Depósito Custodia, Abono hoy y Saldo Total al Retirar */}
+            <div className="space-y-1.5 mb-4">
+              <div className="grid grid-cols-4 gap-3 text-center">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <p className="text-[9px] font-bold uppercase text-slate-600">1. Valor Alquiler</p>
+                  <p className="text-sm font-black font-mono text-slate-900 mt-1">{formatCOP(totalOperacionAlquiler)}</p>
+                </div>
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-300">
+                  <p className="text-[9px] font-bold uppercase text-amber-900">2. Saldo Depósito (Custodia)</p>
+                  <p className="text-sm font-black font-mono text-amber-950 mt-1">{formatCOP(saldoDepositoAlRetirar)}</p>
+                  <span className="text-[8.5px] text-amber-800 block mt-0.5">{depositoPagadoHoyApartado ? "Abonado hoy en custodia" : "A pagar al retirar"}</span>
+                </div>
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-300">
+                  <p className="text-[9px] font-bold uppercase text-emerald-800">3. Abono (Consigna hoy)</p>
+                  <p className="text-sm font-black font-mono text-emerald-900 mt-1">-{formatCOP(totalAbonadoAlquiler)}</p>
+                </div>
+                <div className="p-3 bg-rose-50 rounded-xl border border-rose-300">
+                  <p className="text-[9px] font-bold uppercase text-rose-800">4. SALDO TOTAL AL RETIRAR</p>
+                  <p className="text-sm font-black font-mono text-rose-900 mt-1">{formatCOP(saldoPendienteTotalApartado)}</p>
+                </div>
               </div>
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-300">
-                <p className="text-[9px] font-bold uppercase text-amber-900">Depósito en Garantía</p>
-                <p className="text-sm font-black font-mono text-amber-950 mt-1">{formatCOP(montoDepositoEfectivo)}</p>
-                <span className="text-[8.5px] text-amber-800 block mt-0.5">{montoDepositoEfectivo > 0 ? (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? "Abonado hoy en custodia" : "A pagar el día de entrega") : "$0"}</span>
-              </div>
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-300">
-                <p className="text-[9px] font-bold uppercase text-emerald-800">Abono Inicial</p>
-                <p className="text-sm font-black font-mono text-emerald-900 mt-1">{formatCOP(totalAbonadoAlquiler)}</p>
-              </div>
-              <div className="p-3 bg-rose-50 rounded-xl border border-rose-300">
-                <p className="text-[9px] font-bold uppercase text-rose-800">Saldo Restante</p>
-                <p className="text-sm font-black font-mono text-rose-900 mt-1">{formatCOP(saldoPendienteAlquiler)}</p>
-              </div>
+              <p className="text-[9px] text-slate-600 italic text-center leading-tight">
+                * Al retirar el producto se debe pagar el Saldo Pendiente total (que incluye el saldo de alquiler + el depósito en custodia).
+              </p>
             </div>
 
             {/* OBSERVACIONES */}
@@ -1699,87 +1772,112 @@ export default function PlantillaImpresion({
           </table>
 
           {/* ========================================================================= */}
-          {/* SECCIONES CONTABLES A, B (solo si aplica depósito en alquiler) Y C         */}
+          {/* LIQUIDACIÓN SEGREGADA: ALQUILER (CON GARANTÍA Y COBROS) vs VENTA (DIRECTA) */}
           {/* ========================================================================= */}
-          <div className={`grid ${mostrarSeccionDeposito ? "grid-cols-3 gap-2.5" : "grid-cols-2 gap-3"} mb-3`}>
-            {/* SECCIÓN A: OPERACIÓN PRINCIPAL */}
-            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-0.5">
-              <p className="font-black text-[9.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
-                {labelSeccionA}
-              </p>
-              <div className="flex justify-between text-xs">
-                <span>{labelSubtotalSeccionA}</span>
-                <span className="font-bold">{formatCOP(subtotalPrendas)}</span>
-              </div>
-              {recargoMora > 0 && esAlquiler && (
-                <div className="flex justify-between text-xs text-rose-700 font-bold">
-                  <span>Recargo por Mora:</span>
-                  <span>+{formatCOP(recargoMora)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-0.5 text-black">
-                <span>{labelTotalSeccionA}</span>
-                <span>{formatCOP(totalOperacionPrincipal)}</span>
-              </div>
-              <div className="flex justify-between text-xs text-emerald-800 font-bold">
-                <span>(-) Abonado:</span>
-                <span>-{formatCOP(totalAbonadoOperacion)}</span>
-              </div>
-              <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-0.5">
-                <span>(=) Saldo Pendiente:</span>
-                <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
-                  {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
-                </span>
-              </div>
-            </div>
+          <div className="mb-3">
+            {esAlquiler ? (
+              <div className="grid grid-cols-2 gap-3">
+                {/* COLUMNA 1: ETIQUETA AMARILLA (DEPÓSITO, GARANTÍA, ENTREGA Y COBROS) */}
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 text-amber-950 space-y-1.5">
+                  <p className="font-black text-[10px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
+                    DEPÓSITO EN GARANTÍA Y COMPROMISO DE ENTREGA
+                  </p>
+                  <div className="flex justify-between font-black text-sm text-amber-950">
+                    <span>Abono / Depósito en Garantía:</span>
+                    <span className="font-mono text-emerald-950">{formatCOP(montoDepositoEfectivo)}</span>
+                  </div>
+                  <p className="text-[9.5px] text-amber-950 leading-snug">
+                    Leyenda de Custodia: <strong>{textoEstadoDeposito}</strong>
+                  </p>
 
-            {/* SECCIÓN B: DEPÓSITO EXCLUSIVO DE ALQUILER CON VALOR > $0 */}
-            {mostrarSeccionDeposito && (
-              <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-300 space-y-0.5">
-                <p className="font-black text-[9.5px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
-                  SECCIÓN B — DEPÓSITO EN GARANTÍA (COBRO SEPARADO)
-                </p>
-                <div className="flex justify-between font-black text-sm text-amber-950">
-                  <span>Depósito en Custodia:</span>
-                  <span className="font-mono text-emerald-900">{formatCOP(montoDepositoEfectivo)}</span>
+                  <div className="p-2 bg-amber-100 rounded-lg border border-amber-300 text-xs">
+                    <div className="flex justify-between font-black">
+                      <span className="uppercase text-amber-950">Fecha y Hora Entrega Obligatoria:</span>
+                      <span className="font-mono text-rose-900 font-bold">{safeDate(factura.fechaDevolucionPactada, true)}</span>
+                    </div>
+                    <p className="text-[9.5px] text-amber-900 mt-0.5">
+                      Hora límite de devolución estricta estipulada en el contrato comercial.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1 pt-1 border-t border-amber-300 text-[10px]">
+                    <p className="font-bold uppercase text-[9px] text-amber-950">Cláusula de Cobros Adicionales:</p>
+                    <div className="flex justify-between">
+                      <span>• Saldo Pendiente de Alquiler:</span>
+                      <strong className={esPazYSalvo ? "text-emerald-900" : "text-rose-900"}>
+                        {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>• Cobro por Días de Mora:</span>
+                      <strong className={recargoMora > 0 ? "text-rose-900" : "text-amber-950"}>
+                        {recargoMora > 0
+                          ? `+${formatCOP(recargoMora)} (${diasRetraso}d de mora acumulados)`
+                          : `${formatCOP(tarifaMoraDiariaEstimada)} / día tras vencer la hora pactada`}
+                      </strong>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[9.5px] text-amber-950/90 leading-snug">
-                  {textoEstadoDeposito}
+
+                {/* COLUMNA 2: CELDA DE TOTALES DE PAGO DE ALQUILER (PROHIBIDO "ABONADO") */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-300 space-y-1.5">
+                  <p className="font-black text-[10px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+                    TOTALES DE PAGO DE ALQUILER
+                  </p>
+                  <div className="flex justify-between text-xs font-bold">
+                    <span>Total Valor Alquiler:</span>
+                    <span className="font-mono text-sm">{formatCOP(totalOperacionPrincipal)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-emerald-800 font-bold">
+                    <span>Valor Pagado Hoy ({textoMedioPagoPrincipal}):</span>
+                    <span className="font-mono text-sm">{formatCOP(totalAbonadoOperacion)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-700 pt-1 border-t border-dashed border-slate-300">
+                    <span>Efectivo Recibido Cliente:</span>
+                    <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
+                  </div>
+                  <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-300 pt-1">
+                    <span>Vueltas / Cambio Final:</span>
+                    <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-1">
+                    <span>Saldo Pendiente Alquiler:</span>
+                    <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
+                      {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* VENTA COMERCIAL: CELDA DIRECTA DE TOTALES (CERO SECCIÓN A, CERO SECCIÓN B) */
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-300 max-w-lg ml-auto space-y-1.5">
+                <p className="font-black text-[10px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+                  TOTALES DE VENTA
                 </p>
-                <p className="text-[8.5px] text-slate-500 italic pt-0.5">
-                  * Este depósito no suma al valor del alquiler; se reintegra al devolver las prendas a conformidad.
-                </p>
+                <div className="flex justify-between text-sm font-black text-slate-950">
+                  <span>Total Cobro de Venta:</span>
+                  <span className="font-mono text-base">{formatCOP(totalOperacionPrincipal)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-emerald-800 font-bold">
+                  <span>Cobro de Venta Recibido ({textoMedioPagoPrincipal}):</span>
+                  <span className="font-mono text-sm">{formatCOP(totalAbonadoOperacion)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-700 pt-1 border-t border-dashed border-slate-300">
+                  <span>Efectivo Recibido Cliente:</span>
+                  <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
+                </div>
+                <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-300 pt-1">
+                  <span>Vueltas / Cambio Final Entregado:</span>
+                  <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-1">
+                  <span>Estado de Cuenta:</span>
+                  <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
+                    {esPazYSalvo ? "CANCELADO (PAZ Y SALVO)" : `SALDO PENDIENTE: ${formatCOP(saldoPendienteOperacion)}`}
+                  </span>
+                </div>
               </div>
             )}
-
-            {/* SECCIÓN C: CUADRE EFECTIVO Y VUELTAS */}
-            <div className="p-2.5 bg-slate-100 rounded-xl border border-slate-300 space-y-0.5">
-              <p className="font-black text-[9.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
-                SECCIÓN C — CUADRE EFECTIVO Y VUELTAS
-              </p>
-              <div className="flex justify-between text-xs">
-                <span>{labelCobroHoy}</span>
-                <span className="font-bold">{formatCOP(cobroOperacionHoy)}</span>
-              </div>
-              {mostrarSeccionDeposito && (
-                <div className="flex justify-between text-xs">
-                  <span>(+) Depósito en Efectivo:</span>
-                  <span>{formatCOP(montoDepositoEfectivo)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-xs font-black border-t border-slate-300 pt-1 text-black">
-                <span>(=) Total Cobrado Hoy:</span>
-                <span>{formatCOP(totalCobradoEnCajaHoy)}</span>
-              </div>
-              <div className="flex justify-between text-xs font-bold text-slate-900 pt-1">
-                <span>Efectivo Recibido Cliente:</span>
-                <span>{formatCOP(efectivoRecibidoCliente)}</span>
-              </div>
-              <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-300 pt-1">
-                <span>Vueltas / Cambio Final:</span>
-                <span>{formatCOP(vueltasCambioFinal)}</span>
-              </div>
-            </div>
           </div>
         </div>
 
