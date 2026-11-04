@@ -132,15 +132,15 @@ model AuditoriaSesion {
 
 model ConfiguracionEmpresa {
   id                      String           @id @default(cuid())
-  nombreTienda            String           @default("LLANOMIO")
-  nombreComercial         String           @default("LLANOMIO")
-  eslogan                 String?          @default("Trajes Típicos, Disfraces y Sastrería")
-  nit                     String           @unique @default("900.123.456-7")
+  nombreTienda            String           @default("Mi Empresa")
+  nombreComercial         String           @default("Mi Empresa")
+  eslogan                 String?          @default("Punto de Venta y Servicios")
+  nit                     String           @unique @default("000.000.000-0")
   regimenFiscal           String?          @default("No Responsable de IVA")
-  direccion               String           @default("Calle 15 # 22-30, Barrio Siete de Agosto")
-  ciudad                  String?          @default("Villavicencio, Meta")
-  telefono                String           @default("310 123 4567")
-  email                   String?          @default("contacto@llanomio.com")
+  direccion               String           @default("Dirección de la empresa")
+  ciudad                  String?          @default("Ciudad, Departamento")
+  telefono                String           @default("000 000 0000")
+  email                   String?          @default("contacto@miempresa.com")
   logoUrl                 String?          // Base64 Data URL o ruta local
   encabezadoFactura       String?          // Subtítulo o lema de encabezado
   mostrarVendedorFactura  Boolean          @default(true)
@@ -148,7 +148,8 @@ model ConfiguracionEmpresa {
   piePaginaFactura        String?          // Agradecimiento o pie institucional
   formatoPredeterminado   String           @default("MEDIA_CARTA") // TIRILLA | MEDIA_CARTA | CARTA
   formatoImpresionDefault FormatoImpresion @default(MEDIA_CARTA)
-  rutaCarpetaRespaldo     String           @default("C:\\POS_LLANOMIO_BACKUPS")
+  rutaCarpetaRespaldo     String           @default("C:\\POS_BACKUPS")
+  tarifaMoraDiariaDefault Float            @default(3000)
 
   // Hardware POS - Impresora Térmica y Cajón Monedero RJ11/RJ12
   nombreImpresoraPos      String?          @default("")
@@ -206,9 +207,9 @@ model Producto {
   precioVenta            Float        @default(0)
   precioAlquilerBase     Float        @default(0)
   tiempoAlquilerBaseHoras Int         @default(24)
-  tarifaMora             Float        @default(0)
+  tarifaMora             Float        @default(3000)
   unidadMora             UnidadMora   @default(DIA)
-  tarifaMoraPorDia       Float        @default(0)
+  tarifaMoraPorDia       Float        @default(3000)
   tarifaMoraPorHora      Float        @default(0)
   activo                 Boolean      @default(true)
   fechaCreacion          DateTime     @default(now())
@@ -242,6 +243,7 @@ model Factura {
   subtotalProductos      Float          @default(0)
   subtotalArreglosLibres Float          @default(0)
   recargoMoraAcumulado   Float          @default(0)
+  tarifaMoraDiaria       Float          @default(3000)
   totalFactura           Float          @default(0)
   totalAbonado           Float          @default(0)
   saldoPendiente         Float          @default(0)

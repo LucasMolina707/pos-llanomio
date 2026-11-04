@@ -238,6 +238,7 @@ export default function TerminalAlquileresPage() {
   // Bloque 1: Cobro Obligatorio de Abono / Depósito de Respaldo (EXCLUSIVO EN EFECTIVO)
   const [montoDeposito, setMontoDeposito] = useState<number>(40000);
   const [montoDepositoPersonalizado, setMontoDepositoPersonalizado] = useState<string>("40000");
+  const [tarifaMoraDiaria, setTarifaMoraDiaria] = useState<number>(3000);
   const [abonoEfectivoConfirmado, setAbonoEfectivoConfirmado] = useState<boolean>(true);
 
   // Bloque 2: Valor del Canon de Alquiler y Saldo
@@ -838,6 +839,7 @@ export default function TerminalAlquileresPage() {
           vueltasEntregadas: vueltasCambioFinal,
           referenciaComprobante: referenciaPago.trim() || undefined,
           montoDeposito: montoDeposito,
+          tarifaMoraDiaria: Number(tarifaMoraDiaria) || 3000,
           fechaEntregaAlquiler: fechaSalida,
           fechaDevolucionPactada: new Date(fechaDevolucion).toISOString(),
           notas: notasAlquiler.trim() || undefined,
@@ -2310,7 +2312,7 @@ export default function TerminalAlquileresPage() {
                                   ))}
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                   <div>
                                     <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
                                       Monto Acordado ($)
@@ -2335,6 +2337,23 @@ export default function TerminalAlquileresPage() {
                                       <Lock className="w-3 h-3 text-amber-700" />
                                       <span>EFECTIVO</span>
                                     </div>
+                                  </div>
+
+                                  <div>
+                                    <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
+                                      Mora Diaria ($)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="500"
+                                      value={tarifaMoraDiaria}
+                                      onChange={(e) => {
+                                        const val = parseFloat(e.target.value) || 0;
+                                        setTarifaMoraDiaria(Math.max(0, val));
+                                      }}
+                                      className="w-full px-2.5 py-1.5 text-xs font-black bg-white border border-amber-400 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                                    />
                                   </div>
                                 </div>
                               </div>

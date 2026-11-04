@@ -100,6 +100,8 @@ export async function GET(req: NextRequest) {
     const totalDigital = arqueoActual?.totalDigital || 0;
     const efectivoVentasYAbonos = arqueoActual?.efectivoVentasYAbonos || 0;
     const efectivoDepositosCustodia = arqueoActual?.efectivoDepositosCustodia || 0;
+    const dineroTienda = arqueoActual?.dineroTienda ?? (efectivoVentasYAbonos + totalDigital);
+    const dineroCustodia = arqueoActual?.dineroCustodia ?? efectivoDepositosCustodia;
 
     return NextResponse.json({
       success: true,
@@ -109,6 +111,8 @@ export async function GET(req: NextRequest) {
       efectivoEsperado,
       efectivoVentasYAbonos,
       efectivoDepositosCustodia,
+      dineroTienda,
+      dineroCustodia,
       totalDigital,
       turnoAbierto: turnoActivo,
       turnosAbiertos: turnosAbiertosConArqueo,

@@ -260,6 +260,9 @@ export interface ArqueoTurnoResultado {
   baseInicialEfectivo: number;
   efectivoAbonos: number;
   efectivoVentasYAbonos: number;
+  dineroTienda: number;
+  dineroTiendaEfectivo: number;
+  dineroCustodia: number;
   depositosEfectivoRecibidos: number;
   depositosEfectivoDevueltos: number;
   depositosEfectivoNetos: number;
@@ -447,6 +450,9 @@ export async function calcularArqueoExactoTurno(
     depositosEfectivoDevueltos: Math.round(depositosEfectivoDevueltos * 100) / 100,
     depositosEfectivoNetos,
     efectivoDepositosCustodia,
+    dineroCustodia: efectivoDepositosCustodia,
+    dineroTienda: Math.round((efectivoAbonos + totalDigitalAbonos) * 100) / 100,
+    dineroTiendaEfectivo: Math.round(efectivoAbonos * 100) / 100,
     efectivoEsperado: efectivoEsperadoEnGaveta,
     esperadoEnGavetaEfectivo: efectivoEsperadoEnGaveta,
     saldoActualEnCajon: efectivoEsperadoEnGaveta,

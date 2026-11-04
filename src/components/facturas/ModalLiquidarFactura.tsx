@@ -51,6 +51,10 @@ export default function ModalLiquidarFactura({
   // Estados de liquidación
   const [moraACobrar, setMoraACobrar] = useState<number>(recargoMoraSugerido);
   const [confirmarDevolucion, setConfirmarDevolucion] = useState<boolean>(true);
+  const [tipoDevolucionDeposito, setTipoDevolucionDeposito] = useState<"DEVUELTO_COMPLETO" | "RETENIDO_PARCIAL" | "RETENIDO_TOTAL">("DEVUELTO_COMPLETO");
+  const [montoRetenido, setMontoRetenido] = useState<number>(0);
+  const [motivoRetencion, setMotivoRetencion] = useState<string>("");
+  const [estadoPrendasDevueltas, setEstadoPrendasDevueltas] = useState<"DISPONIBLE" | "EN_ARREGLO">("DISPONIBLE");
   const [metodoPago, setMetodoPago] = useState<MetodoPagoPos>("EFECTIVO");
   const [efectivoRecibido, setEfectivoRecibido] = useState<string>("");
   const [referencia, setReferencia] = useState("");
@@ -86,6 +90,10 @@ export default function ModalLiquidarFactura({
           const saldoBase = Math.max(0, (data.factura.totalFactura || 0) - (data.factura.totalAbonado || 0));
           const totalExigible = saldoBase + moraFinal;
           setEfectivoRecibido(String(totalExigible));
+          setTipoDevolucionDeposito("DEVUELTO_COMPLETO");
+          setMontoRetenido(0);
+          setMotivoRetencion("");
+          setEstadoPrendasDevueltas("DISPONIBLE");
         } else if (!cancelado) {
           setMensajeError(data.error || "No se pudo cargar la factura.");
         }
@@ -142,6 +150,15 @@ export default function ModalLiquidarFactura({
     try {
       setProcesando(true);
 
+      const tieneDeposito = Boolean(factura.tipoOperacion === "ALQUILER" && (factura.montoDeposito || 0) > 0);
+      const estDep = tieneDeposito ? tipoDevolucionDeposito : ((factura.montoDeposito || 0) > 0 ? "DEVUELTO_COMPLETO" : "SIN_DEPOSITO");
+      const retDep = tipoDevolucionDeposito === "RETENIDO_PARCIAL"
+        ? Math.min(factura.montoDeposito || 0, montoRetenido)
+        : (tipoDevolucionDeposito === "RETENIDO_TOTAL" ? (factura.montoDeposito || 0) : 0);
+      const devDep = tipoDevolucionDeposito === "DEVUELTO_COMPLETO"
+        ? (factura.montoDeposito || 0)
+        : (tipoDevolucionDeposito === "RETENIDO_PARCIAL" ? Math.max(0, (factura.montoDeposito || 0) - retDep) : 0);
+
       const res = await fetch(`/api/facturas/${factura.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -149,6 +166,11 @@ export default function ModalLiquidarFactura({
           monto: totalACobrar,
           recargoMora: moraACobrar,
           confirmarDevolucionPrendas: confirmarDevolucion,
+          estadoDeposito: estDep,
+          montoRetenidoDeposito: retDep,
+          montoDevueltoDeposito: devDep,
+          motivoRetencionDeposito: motivoRetencion.trim() || undefined,
+          estadoPrendasDevueltas: estadoPrendasDevueltas,
           metodoPago,
           montoRecibido: metodoPago === "EFECTIVO" ? efectivoRecibidoNum : undefined,
           vueltasEntregadas: metodoPago === "EFECTIVO" ? vueltasCalculadas : undefined,
@@ -305,22 +327,173 @@ export default function ModalLiquidarFactura({
               </div>
 
               {/* Casilla de Confirmación de Devolución de Prendas */}
-              <label className="flex items-start gap-3 p-3 rounded-xl bg-blue-50 border border-blue-200 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={confirmarDevolucion}
-                  onChange={(e) => setConfirmarDevolucion(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 text-blue-600 rounded focus:ring-blue-500 border-slate-300"
-                />
-                <div className="text-xs">
-                  <strong className="text-blue-900 block font-bold">
-                    Confirmar que el cliente devolvió las prendas en buen estado
-                  </strong>
-                  <span className="text-blue-700 text-[11px] block">
-                    Al marcar esta casilla, las prendas de alquiler pasarán inmediatamente a estado DISPONIBLE en el inventario.
-                  </span>
+              <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={confirmarDevolucion}
+                    onChange={(e) => setConfirmarDevolucion(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 text-blue-600 rounded focus:ring-blue-500 border-slate-300"
+                  />
+                  <div className="text-xs">
+                    <strong className="text-blue-900 block font-bold">
+                      Confirmar recepción física de las prendas en almacén
+                    </strong>
+                    <span className="text-blue-700 text-[11px] block">
+                      Registra el reingreso al inventario de la tienda y cierra el préstamo al cliente.
+                    </span>
+                  </div>
+                </label>
+
+                {confirmarDevolucion && (
+                  <div className="pt-2 border-t border-blue-200/80 flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-blue-950">
+                      Estado de las prendas al recibir:
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEstadoPrendasDevueltas("DISPONIBLE")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
+                          estadoPrendasDevueltas === "DISPONIBLE"
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        En Buen Estado (Disponible)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEstadoPrendasDevueltas("EN_ARREGLO")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
+                          estadoPrendasDevueltas === "EN_ARREGLO"
+                            ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        A Lavandería / Taller
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Gestión de Depósito en Custodia (Solo Alquileres con Depósito) */}
+              {factura.tipoOperacion === "ALQUILER" && (factura.montoDeposito || 0) > 0 && (
+                <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-300 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0" />
+                      <span className="text-xs font-black uppercase tracking-wider text-amber-950">
+                        Liquidación de Depósito en Custodia
+                      </span>
+                    </div>
+                    <span className="font-mono text-sm font-black text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded">
+                      ${(factura.montoDeposito || 0).toLocaleString("es-CO")}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-tight">
+                    El depósito en garantía está físicamente en gaveta. Determina si se reintegra al cliente o si se retiene dinero por daños, suciedad o mora:
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTipoDevolucionDeposito("DEVUELTO_COMPLETO");
+                        setMontoRetenido(0);
+                      }}
+                      className={`p-2 rounded-xl text-center text-xs font-bold transition border ${
+                        tipoDevolucionDeposito === "DEVUELTO_COMPLETO"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                          : "bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50"
+                      }`}
+                    >
+                      Devolver 100%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTipoDevolucionDeposito("RETENIDO_PARCIAL");
+                        if (montoRetenido === 0) setMontoRetenido(Math.round((factura.montoDeposito || 0) / 2));
+                      }}
+                      className={`p-2 rounded-xl text-center text-xs font-bold transition border ${
+                        tipoDevolucionDeposito === "RETENIDO_PARCIAL"
+                          ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                          : "bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50"
+                      }`}
+                    >
+                      Descuento Parcial
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTipoDevolucionDeposito("RETENIDO_TOTAL");
+                        setMontoRetenido(factura.montoDeposito || 0);
+                      }}
+                      className={`p-2 rounded-xl text-center text-xs font-bold transition border ${
+                        tipoDevolucionDeposito === "RETENIDO_TOTAL"
+                          ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                          : "bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50"
+                      }`}
+                    >
+                      Retención Total
+                    </button>
+                  </div>
+
+                  {tipoDevolucionDeposito === "DEVUELTO_COMPLETO" && (
+                    <div className="p-2 rounded-lg bg-emerald-100/70 text-emerald-900 text-xs font-bold flex items-center justify-between">
+                      <span>Devolver al cliente de la gaveta:</span>
+                      <span className="font-mono text-sm">${(factura.montoDeposito || 0).toLocaleString("es-CO")}</span>
+                    </div>
+                  )}
+
+                  {tipoDevolucionDeposito === "RETENIDO_PARCIAL" && (
+                    <div className="space-y-2 pt-1 border-t border-amber-200">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-xs font-bold text-amber-950">
+                          Monto a Retener ($):
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={factura.montoDeposito || 0}
+                          value={montoRetenido}
+                          onChange={(e) => setMontoRetenido(Math.min(factura.montoDeposito || 0, Math.max(0, parseFloat(e.target.value) || 0)))}
+                          className="w-28 px-2 py-1 text-right rounded border border-amber-400 font-mono font-bold text-rose-700 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-xs font-bold text-emerald-800">
+                        <span>Devolver al cliente de la gaveta:</span>
+                        <span className="font-mono text-sm">${Math.max(0, (factura.montoDeposito || 0) - montoRetenido).toLocaleString("es-CO")}</span>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Motivo del descuento (ej: Costo de lavandería, rotura de botón)..."
+                        value={motivoRetencion}
+                        onChange={(e) => setMotivoRetencion(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-amber-300 text-xs bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                  )}
+
+                  {tipoDevolucionDeposito === "RETENIDO_TOTAL" && (
+                    <div className="space-y-2 pt-1 border-t border-amber-200">
+                      <div className="p-2 rounded-lg bg-rose-100/70 text-rose-900 text-xs font-bold flex items-center justify-between">
+                        <span>Se retiene el 100% del depósito:</span>
+                        <span className="font-mono text-sm">${(factura.montoDeposito || 0).toLocaleString("es-CO")}</span>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Motivo de la retención total (ej: Daño irreparable de tela, prenda extraviada)..."
+                        value={motivoRetencion}
+                        onChange={(e) => setMotivoRetencion(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-amber-300 text-xs bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                  )}
                 </div>
-              </label>
+              )}
 
               {/* Selector de Método de Pago */}
               {totalACobrar > 0 && (

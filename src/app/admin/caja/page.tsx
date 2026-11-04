@@ -25,6 +25,8 @@ import {
   FileText,
   CalendarDays,
   ArrowRight,
+  ShieldCheck,
+  DollarSign,
 } from "lucide-react";
 import HistorialArqueosView from "@/components/caja/HistorialArqueosView";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
@@ -50,6 +52,9 @@ interface ArqueoTurnoGabinete {
   baseInicialEfectivo: number;
   efectivoAbonos?: number;
   efectivoVentasYAbonos?: number;
+  dineroTienda?: number;
+  dineroTiendaEfectivo?: number;
+  dineroCustodia?: number;
   depositosEfectivoRecibidos?: number;
   depositosEfectivoDevueltos?: number;
   depositosEfectivoNetos?: number;
@@ -841,6 +846,65 @@ export default function ControlCajaAdminPage() {
                   <span className="text-lg md:text-xl font-mono font-black text-emerald-800">
                     ${Number(gabineteSeleccionado.baseInicialEfectivo).toLocaleString("es-CO")}
                   </span>
+                </div>
+              </div>
+
+              {/* Separación Contable Estricta: Dinero de la Tienda vs Dinero en Custodia */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Rubro A: Dinero de la Tienda (Ventas y Alquileres) */}
+                <div className="bg-emerald-50/70 p-5 rounded-2xl border-2 border-emerald-300 shadow-xs relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-black uppercase tracking-wider text-emerald-900 block">
+                        Dinero de la Tienda (Ventas y Alquileres)
+                      </span>
+                      <span className="text-[11px] text-emerald-700 font-medium">
+                        Ingresos reales facturados y cobrados por servicios de la tienda
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
+                      <DollarSign className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-black text-emerald-950 mt-3 font-mono">
+                    $
+                    {Number(
+                      gabineteSeleccionado.arqueo.dineroTienda ??
+                      ((gabineteSeleccionado.arqueo.efectivoVentasYAbonos || 0) + (gabineteSeleccionado.arqueo.totalDigital || 0))
+                    ).toLocaleString("es-CO")}
+                  </p>
+                  <p className="text-xs text-emerald-800 font-medium mt-1">
+                    Efectivo Tienda: ${Number(gabineteSeleccionado.arqueo.efectivoVentasYAbonos ?? gabineteSeleccionado.arqueo.totalEfectivo ?? 0).toLocaleString("es-CO")} &bull; Digital: ${Number(gabineteSeleccionado.arqueo.totalDigital || 0).toLocaleString("es-CO")}
+                  </p>
+                </div>
+
+                {/* Rubro B: Dinero en Custodia (Depósitos Pendientes por Devolver) */}
+                <div className="bg-amber-50/70 p-5 rounded-2xl border-2 border-amber-300 shadow-xs relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-black uppercase tracking-wider text-amber-950 block">
+                        Dinero en Custodia (Depósitos en Garantía)
+                      </span>
+                      <span className="text-[11px] text-amber-800 font-medium">
+                        Depósitos en garantía pertenecientes a los clientes (permanece en gaveta física hasta la devolución del traje)
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-amber-600 text-white shadow-xs shrink-0">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-black text-amber-950 mt-3 font-mono">
+                    $
+                    {Number(
+                      gabineteSeleccionado.arqueo.dineroCustodia ??
+                      gabineteSeleccionado.arqueo.efectivoDepositosCustodia ??
+                      gabineteSeleccionado.arqueo.depositosEfectivoNetos ??
+                      0
+                    ).toLocaleString("es-CO")}
+                  </p>
+                  <p className="text-xs text-amber-900 font-medium mt-1">
+                    Recibidos: ${Number(gabineteSeleccionado.arqueo.depositosEfectivoRecibidos || 0).toLocaleString("es-CO")} &bull; Reintegrados: ${Number(gabineteSeleccionado.arqueo.depositosEfectivoDevueltos || 0).toLocaleString("es-CO")}
+                  </p>
                 </div>
               </div>
 

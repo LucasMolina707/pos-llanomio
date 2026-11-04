@@ -20,7 +20,8 @@ const NO_CACHE_HEADERS = {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const pestana = searchParams.get("pestana") || searchParams.get("estado") || "TODAS";
+    const pestana = (searchParams.get("pestana") || searchParams.get("estado") || "CAJA_ALQUILER").toUpperCase();
+    const soloMoraFiltro = searchParams.get("soloMora") === "true";
     const q = searchParams.get("q")?.trim() || "";
     const clienteId = searchParams.get("clienteId")?.trim() || "";
     const sincronizar = searchParams.get("sync") === "true";
@@ -115,7 +116,25 @@ export async function GET(req: NextRequest) {
         fac.estado === EstadoFactura.CERRADA ||
         (saldoBase === 0 && recargoMora === 0 && !prendaSinEntregar);
 
-      // Clasificación en 4 categorías de negocio
+      // Clasificación en las 4 Vistas Oficiales del Sistema
+      const esCajaAlquiler =
+        fac.tipoOperacion === "ALQUILER" &&
+        !fac.fechaDevolucionReal &&
+        fac.estado !== EstadoFactura.CERRADA;
+
+      const esApartado =
+        (fac.tipoOperacion === "SEPARE" || (fac.tipoOperacion as string) === "APARTADO") &&
+        fac.estado !== EstadoFactura.CERRADA;
+
+      const esAlquilerFinalizado =
+        fac.tipoOperacion === "ALQUILER" &&
+        (fac.estado === EstadoFactura.CERRADA || Boolean(fac.fechaDevolucionReal));
+
+      const esPazYSalvoVenta =
+        fac.tipoOperacion !== "ALQUILER" &&
+        fac.tipoOperacion !== "SEPARE";
+
+      // Clasificación retrocompatible anterior
       const esSoloMora =
         !estaCerrada && saldoBase === 0 && (recargoMora > 0 || prendaSinEntregar);
       const esMoraYSaldo =
@@ -137,10 +156,15 @@ export async function GET(req: NextRequest) {
         totalExigible,
         diasRetraso: calculo.diasRetraso,
         horasRetraso: calculo.horasRetraso,
-        enMora: calculo.enMora && recargoMora > 0,
+        enMora: calculo.enMora && (recargoMora > 0 || calculo.diasRetraso > 0),
         prendasEnMora: calculo.prendasEnMora,
         prendaPrincipal,
-        // Flags de clasificación
+        // Flags de las 4 Vistas Oficiales
+        esCajaAlquiler,
+        esApartado,
+        esAlquilerFinalizado,
+        esPazYSalvoVenta,
+        // Flags retrocompatibles
         esPendienteAlDia,
         esMoraYSaldo,
         esSoloMora,
@@ -148,11 +172,19 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Conteos exactos para badges
+    // Conteos exactos para las 4 Vistas Oficiales
+    const conteoCajaAlquiler = facturasProcesadas.filter((f) => f.esCajaAlquiler).length;
+    const conteoCajaAlquilerMora = facturasProcesadas.filter(
+      (f) => f.esCajaAlquiler && (f.enMora || f.diasRetraso > 0)
+    ).length;
+    const conteoApartados = facturasProcesadas.filter((f) => f.esApartado).length;
+    const conteoPazYSalvos = facturasProcesadas.filter((f) => f.esPazYSalvoVenta || f.esPazYSalvo).length;
+    const conteoAlquileresFinalizados = facturasProcesadas.filter((f) => f.esAlquilerFinalizado).length;
+
+    // Conteos legados
     const conteoPendientesAlDia = facturasProcesadas.filter((f) => f.esPendienteAlDia).length;
     const conteoMoraYSaldo = facturasProcesadas.filter((f) => f.esMoraYSaldo).length;
     const conteoSoloMora = facturasProcesadas.filter((f) => f.esSoloMora).length;
-    const conteoPazYSalvos = facturasProcesadas.filter((f) => f.esPazYSalvo).length;
 
     const totalCarteraMora = Math.round(
       facturasProcesadas
@@ -166,35 +198,46 @@ export async function GET(req: NextRequest) {
         .reduce((acc, curr) => acc + curr.totalExigible, 0) * 100
     ) / 100;
 
-    // Filtrar según la pestaña activa seleccionada
+    // Filtrar según la pestaña activa seleccionada (4 Vistas Oficiales)
     let facturasFiltradas = facturasProcesadas;
     if (
-      pestana === "PENDIENTES_AL_DIA" ||
-      pestana === "PENDIENTES" ||
+      pestana === "CAJA_ALQUILER" ||
+      pestana === "ALQUILER" ||
+      pestana === "EN_ALQUILER" ||
       pestana === "ACTIVAS" ||
       pestana === "ACTIVA"
     ) {
-      facturasFiltradas = facturasProcesadas.filter((f) => f.esPendienteAlDia);
+      facturasFiltradas = facturasProcesadas.filter((f) => {
+        if (!f.esCajaAlquiler) return false;
+        if (soloMoraFiltro) return f.enMora || f.diasRetraso > 0;
+        return true;
+      });
     } else if (
-      pestana === "MORA_Y_SALDO" ||
-      pestana === "EN_MORA" ||
-      pestana === "CON_MORA"
+      pestana === "APARTADOS" ||
+      pestana === "APARTADO" ||
+      pestana === "SEPARE"
     ) {
-      facturasFiltradas = facturasProcesadas.filter((f) => f.esMoraYSaldo);
-    } else if (
-      pestana === "SOLO_MORA" ||
-      pestana === "PRENDAS_PENDIENTES" ||
-      pestana === "FUERA_INVENTARIO"
-    ) {
-      facturasFiltradas = facturasProcesadas.filter((f) => f.esSoloMora);
+      facturasFiltradas = facturasProcesadas.filter((f) => f.esApartado);
     } else if (
       pestana === "PAZ_Y_SALVOS" ||
       pestana === "PAZ_Y_SALVO" ||
-      pestana === "CERRADAS" ||
-      pestana === "CERRADA" ||
-      pestana === "HISTORIAL"
+      pestana === "VENTAS" ||
+      pestana === "VENDIDOS"
     ) {
-      facturasFiltradas = facturasProcesadas.filter((f) => f.esPazYSalvo);
+      facturasFiltradas = facturasProcesadas.filter((f) => f.esPazYSalvoVenta || f.esPazYSalvo);
+    } else if (
+      pestana === "ALQUILERES_FINALIZADOS" ||
+      pestana === "FINALIZADOS" ||
+      pestana === "CERRADAS" ||
+      pestana === "CERRADA"
+    ) {
+      facturasFiltradas = facturasProcesadas.filter((f) => f.esAlquilerFinalizado);
+    } else if (pestana === "PENDIENTES_AL_DIA" || pestana === "PENDIENTES") {
+      facturasFiltradas = facturasProcesadas.filter((f) => f.esPendienteAlDia);
+    } else if (pestana === "MORA_Y_SALDO" || pestana === "EN_MORA") {
+      facturasFiltradas = facturasProcesadas.filter((f) => f.esMoraYSaldo);
+    } else if (pestana === "SOLO_MORA") {
+      facturasFiltradas = facturasProcesadas.filter((f) => f.esSoloMora);
     }
 
     return NextResponse.json(
@@ -202,15 +245,18 @@ export async function GET(req: NextRequest) {
         success: true,
         estadisticas: {
           totalFacturas: facturasProcesadas.length,
+          conteoCajaAlquiler,
+          conteoCajaAlquilerMora,
+          conteoApartados,
+          conteoPazYSalvos,
+          conteoAlquileresFinalizados,
           conteoPendientesAlDia,
           conteoMoraYSaldo,
           conteoSoloMora,
-          conteoPazYSalvos,
           totalCarteraMora,
           totalSaldoPendiente,
-          // Total de facturas que requieren atención de cobro o entrega
-          totalAlertas: conteoPendientesAlDia + conteoMoraYSaldo + conteoSoloMora,
-          totalEnMora: conteoMoraYSaldo + conteoSoloMora,
+          totalAlertas: conteoCajaAlquilerMora,
+          totalEnMora: conteoCajaAlquilerMora,
         },
         facturas: facturasFiltradas,
       },

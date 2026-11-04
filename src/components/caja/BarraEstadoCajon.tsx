@@ -227,32 +227,56 @@ export default function BarraEstadoCajon({
 
             {/* Contenido / Desglose Financiero */}
             <div className="p-5 space-y-3.5 text-xs">
-              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2 text-emerald-950">
+              {/* Tarjeta A: Dinero de la Tienda */}
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-bold text-emerald-800">
-                  <span>Efectivo Total Estimado en Cajón:</span>
-                  <span className="text-base font-black font-mono text-emerald-950">
+                  <span>Dinero de la Tienda (Ventas y Alquileres):</span>
+                  <span className="text-sm font-black font-mono text-emerald-950">
+                    ${((arqueo?.totalEfectivo || 0) + totalDigital).toLocaleString("es-CO")}
+                  </span>
+                </div>
+                <div className="flex justify-between text-[11px] font-medium text-emerald-900">
+                  <span>Efectivo cobrado: ${(arqueo?.totalEfectivo || 0).toLocaleString("es-CO")}</span>
+                  <span>Digital: ${totalDigital.toLocaleString("es-CO")}</span>
+                </div>
+              </div>
+
+              {/* Tarjeta B: Dinero en Custodia */}
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-amber-900">
+                  <span>Dinero en Custodia (Depósitos en Garantía):</span>
+                  <span className="text-sm font-black font-mono text-amber-950">
+                    ${Math.max(0, (arqueo?.depositosEfectivoRecibidos || 0) - (arqueo?.depositosEfectivoDevueltos || 0)).toLocaleString("es-CO")}
+                  </span>
+                </div>
+                <p className="text-[10px] text-amber-800 leading-tight">
+                  Depósitos en garantía pertenecientes a los clientes (permanece en gaveta física hasta la devolución del traje).
+                </p>
+              </div>
+
+              {/* Total Estimado en Gaveta Física */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-slate-900">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <span>Total Físico Estimado en Cajón:</span>
+                  <span className="text-base font-black font-mono text-slate-950">
                     ${saldoActualEnCajon.toLocaleString("es-CO")}
                   </span>
                 </div>
-                <div className="border-t border-emerald-200/80 pt-2 space-y-1 text-[11px] font-medium text-emerald-900">
+                <div className="border-t border-slate-200 pt-1.5 space-y-1 text-[11px] font-medium text-slate-600">
                   <div className="flex justify-between">
                     <span>Base Inicial de Efectivo:</span>
-                    <span className="font-mono font-bold">${cajonConectado.baseInicialEfectivo.toLocaleString("es-CO")}</span>
+                    <span className="font-mono font-bold text-slate-800">${cajonConectado.baseInicialEfectivo.toLocaleString("es-CO")}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Ventas y Cobros en Efectivo:</span>
-                    <span className="font-mono font-bold">+${(arqueo?.totalEfectivo || 0).toLocaleString("es-CO")}</span>
+                    <span>Efectivo Tienda (Ventas y Abonos):</span>
+                    <span className="font-mono font-bold text-slate-800">+${(arqueo?.totalEfectivo || 0).toLocaleString("es-CO")}</span>
                   </div>
-                  {arqueo && arqueo.depositosEfectivoRecibidos > 0 && (
-                    <div className="flex justify-between text-emerald-800">
-                      <span>Depósitos de Alquiler en Custodia:</span>
-                      <span className="font-mono font-bold">+${arqueo.depositosEfectivoRecibidos.toLocaleString("es-CO")}</span>
-                    </div>
-                  )}
-                  {arqueo && arqueo.depositosEfectivoDevueltos > 0 && (
-                    <div className="flex justify-between text-rose-700 font-bold">
-                      <span>Depósitos de Alquiler Reintegrados:</span>
-                      <span className="font-mono">- ${(arqueo.depositosEfectivoDevueltos || 0).toLocaleString("es-CO")}</span>
+                  {arqueo && (arqueo.depositosEfectivoRecibidos > 0 || arqueo.depositosEfectivoDevueltos > 0) && (
+                    <div className="flex justify-between text-amber-800">
+                      <span>Custodia Neta en Gaveta:</span>
+                      <span className="font-mono font-bold">
+                        +${Math.max(0, (arqueo.depositosEfectivoRecibidos || 0) - (arqueo.depositosEfectivoDevueltos || 0)).toLocaleString("es-CO")}
+                      </span>
                     </div>
                   )}
                 </div>

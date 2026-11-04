@@ -321,6 +321,7 @@ export async function POST(req: NextRequest, { params }: Params) {
             estado: EstadoFactura.ACTIVA_ALQUILADA,
             totalAbonado: nuevoTotalAbonado,
             saldoPendiente: nuevoSaldo,
+            tarifaMoraDiaria: body.tarifaMoraDiaria !== undefined ? Number(body.tarifaMoraDiaria) : (facturaPrevia.tarifaMoraDiaria || 3000),
             fechaEntregaAlquiler: fechaEntrega,
             fechaDevolucionPactada: fechaDevolucion,
             montoDeposito: montoDep,

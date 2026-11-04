@@ -1173,22 +1173,35 @@ export default function ApartadosPage() {
                             ${saldoPendienteCalculado.toLocaleString("es-CO")}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-500 italic pt-1 border-t border-dashed border-slate-200 leading-tight">
-                          * Al retirar el producto se debe pagar el Saldo Pendiente total (que incluye el saldo de alquiler + el depósito en custodia).
-                        </p>
                       </div>
 
-                      <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
-                          Observaciones del Apartado:
+                      {/* Edición de Detalles por Traje en Liquidación */}
+                      <div className="space-y-2 pt-2 border-t border-slate-200">
+                        <label className="text-xs font-bold text-slate-700 block">
+                          Detalles por Prenda / Traje Separado:
                         </label>
-                        <textarea
-                          rows={2}
-                          value={observaciones}
-                          onChange={(e) => setObservaciones(e.target.value)}
-                          placeholder="Detalles de ajustes, acuerdos de entrega o preferencias del cliente..."
-                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white outline-none focus:border-indigo-500"
-                        />
+                        {itemsApartado.map((item) => (
+                          <div key={item.idTemporal} className="p-2 bg-white rounded-lg border border-slate-200 space-y-1">
+                            <div className="flex justify-between text-xs font-bold text-slate-900">
+                              <span>{item.nombre}</span>
+                              <span className="font-mono">${item.precioUnitario.toLocaleString("es-CO")}</span>
+                            </div>
+                            <input
+                              type="text"
+                              value={item.descripcionDetallada || ""}
+                              onChange={(e) => actualizarDescripcionDetallada(item.idTemporal, e.target.value)}
+                              placeholder="Detalles (ej. Camisa blanca cuello normal, corbata roja, pantalón azul...)"
+                              className="w-full text-xs px-2 py-1 rounded border border-slate-300 bg-slate-50 focus:bg-white outline-none focus:border-indigo-500 font-sans"
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Observación Oficial Fija de Apartados */}
+                      <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-center">
+                        <p className="text-[11px] font-black text-amber-950 uppercase leading-snug">
+                          OBSERVACIÓN: La plata de trajes apartados no se devuelve. Lo único que se devuelve es el abono, que el abono es una garantía que se tiene de los clientes por los trajes alquilados o los trajes que se van a alquilar de los apartados.
+                        </p>
                       </div>
                     </div>
 
@@ -1376,7 +1389,7 @@ export default function ApartadosPage() {
                           type="text"
                           value={item.descripcionDetallada || ""}
                           onChange={(e) => actualizarDescripcionDetallada(item.idTemporal, e.target.value)}
-                          placeholder="Opcional: Detalle piezas o modificaciones (ej. Saco azul, pantalón negro...)"
+                          placeholder="Detalles: (ej. Camisa blanca cuello normal, corbata roja, pantalón azul...)"
                           className="w-full text-[11px] px-2 py-1 rounded-lg border border-slate-200 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                         />
                       </div>

@@ -3426,3 +3426,70 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
 - **Tipado Estricto:** `npx tsc --noEmit` completado sin errores.
 - **Compilación de Producción:** `npx next build --no-lint` completado en 23.6s con las 22 rutas estáticas y dinámicas verificadas.
 - **Servicios PM2:** Procesos `pos-llanomio` (id 0) y `pos-llanomio-mdns` (id 1) reiniciados y activos en estado `online`.
+
+---
+
+## 50. ACTUALIZACIÓN INTEGRAL DE REGLAS DE NEGOCIO: FACTURACIÓN CONCISA, APARTADOS CON OBSERVACIÓN ÚNICA, CAJA DE ALQUILER Y AISLAMIENTO DE CUSTODIA
+
+### 1. Bloque 1: Léxico Formal, Breve y Cero Redundancias en Facturas Impresas y PDF
+- **Eliminación de Rótulos y Sellos Redundantes:**
+  - Cuando una factura está pagada al 100% o al día (`saldoPendiente <= 0`), se eliminan por completo los renglones de `"Saldo Pendiente: $0"`, sellos de `"Paz y Salvo"` o `"Al Día"`. El comprobante solo refleja el valor cobrado y pagado.
+  - Únicamente si existe un valor por pagar (`saldoPendiente > 0`), se imprime de forma formal, breve y visible: **`"Falta por pagar: $XX.XXX"`**.
+- **Sincronización en los 4 Formatos Oficiales:**
+  - `TIRILLA` (80mm térmica), `MEDIA_CARTA` (individual horizontal), `MEDIA_CARTA_DOBLE` (2 ejemplares en 1 hoja Carta vertical) y `CARTA` completa, tanto en `PlantillaImpresion.tsx` como en el motor vectorial jsPDF `src/lib/pdf-media-carta.ts`.
+
+### 2. Bloque 2: Apartados con Detalles Editables y Observación Oficial Única
+- **Detalles por Prenda (`descripcionDetallada`):**
+  - En `/caja/apartados/page.tsx` (Paso 2 y en la liquidación del carrito), cada traje cuenta con un campo editable de texto para registrar las características de la prenda (`placeholder="Detalles (ej. Camisa blanca cuello normal, corbata roja, pantalón azul...)"`).
+  - En la factura y comprobante PDF: Se imprime el Tipo de Traje e inmediatamente al lado `Detalles: [texto]`.
+- **Eliminación de Textos Residuales y Recuadros Inconsistentes:**
+  - Eliminado el texto redundante *"Al retirar el producto se debe pagar el saldo pendiente..."*.
+  - Eliminado el recuadro de observaciones individuales en apartados.
+- **Única Observación Oficial Fija de Apartados:**
+  - Destacada de lado a lado (`w-full`), centrada y en negrita:
+  > **`"OBSERVACIÓN: La plata de trajes apartados no se devuelve. Lo único que se devuelve es el abono, que el abono es una garantía que se tiene de los clientes por los trajes alquilados o los trajes que se van a alquilar de los apartados."`**
+
+### 3. Bloque 3: Alquileres — Limpieza de Etiqueta Amarilla y Tarifa de Mora Predeterminada ($3.000)
+- **Depuración Estricta de la Etiqueta Amarilla:**
+  - Se eliminaron las cláusulas de cobros adicionales, saldos pendientes y moras que saturaban el recuadro.
+  - La etiqueta amarilla muestra estrictamente dos datos fundamentales:
+    1. **Depósito en Garantía (en custodia):** `$XX.XXX` a devolver al retornar las prendas completas.
+    2. **Fecha y Hora Límite de Entrega Obligatoria:** `[Fecha] hasta las 8:00 p.m. (20:00)`.
+- **Tarifa de Mora Diaria Predeterminada en $3.000:**
+  - Campo `tarifaMoraDiaria` en `Factura` con `@default(3000)`.
+  - Campos `tarifaMora` y `tarifaMoraPorDia` en `Producto` con `@default(3000)`.
+  - Campo `tarifaMoraDiariaDefault` en `ConfiguracionEmpresa` con `@default(3000)`.
+  - Input numérico editable en mostrador (`/caja/alquileres/page.tsx`) con valor inicial `$3.000`.
+- **Banner Oficial de Cobro de Mora Diaria en Comprobantes:**
+  - Banner horizontal de lado a lado con fondo ámbar suave en comprobantes y PDF:
+  > **`"OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará $[VALOR_MORA_DIARIA] pesos por día de mora del depósito."`**
+
+### 4. Bloque 4: Reestructuración de Historial y Monitoreo ("Caja de Alquiler" y 4 Vistas Oficiales)
+- **Erradicación de Pestañas Confusas:**
+  - Eliminadas *"Pendientes al día"*, *"Con mora y saldo"* y *"Pendientes en mora"*.
+- **4 Pestañas Oficiales Únicas (`/admin/monitoreo` y `/api/facturas/monitoreo`):**
+  1. **`1. Caja de Alquiler (En Alquiler / En Custodia del Cliente)`:** Todos los alquileres en curso cuyas prendas están en poder del cliente y no han sido devueltas (`!fechaDevolucionReal && estado !== 'CERRADA'`). Badge destacado: `"EN ALQUILER (En poder del cliente)"`. Subfiltro interactivo: `[Todos en Alquiler]` | `[Solo en Mora / Vencidos]`. Botón de acción principal: `"Recibir en Almacén / Liquidar Depósito"`.
+  2. **`2. Apartados`:** Facturas activas tipo `SEPARE` en reserva.
+  3. **`3. Paz y Salvos / Vendidos`:** Facturas de venta y arreglos pagadas/concretadas (`tipoOperacion IN ['VENTA', 'ARREGLO']`).
+  4. **`4. Alquileres Finalizados`:** Historial de alquileres cerrados con prendas reingresadas (`estado === 'CERRADA'`).
+- **Modal de Liquidación y Retorno de Alquileres (`ModalLiquidarFactura.tsx`):**
+  - Bloque visual de Liquidación de Depósito en Custodia con 3 alternativas:
+    1. *Devolución 100%:* Reintegra la totalidad del depósito en custodia al cliente.
+    2. *Descuento Parcial:* Permite ingresar el monto a retener por daño/suciedad/mora y calcula el dinero devuelto.
+    3. *Retención Total:* Retiene el 100% por daño irreparable o pérdida definitiva.
+    - Input para justificar el motivo de la retención.
+    - Selector del destino de las prendas: `En Buen Estado (Disponible)` o `A Lavandería / Taller (En Arreglo)`.
+
+### 5. Bloque 5: Aislamiento Contable Estricto del Dinero en Custodia
+- **Principio Contable:**
+  - El Depósito en Garantía (`montoDeposito`) pertenece a los clientes. NO es ingreso ni utilidad de la tienda. Permanece en custodia física dentro de la gaveta hasta la devolución de las prendas.
+- **Separación de Rubros en Control de Caja (`src/lib/caja-control.ts`, `/api/caja`, `/admin/caja` y `BarraEstadoCajon.tsx`):**
+  - Dos tarjetas diferenciadas y explícitas:
+    a) **`Dinero de la Tienda (Ventas y Alquileres): $XX.XXX`** (Ingresos reales facturados y cobrados por servicios de la tienda).
+    b) **`Dinero en Custodia (Depósitos en Garantía): $XX.XXX`** con la leyenda reglamentaria: *"Depósitos en garantía pertenecientes a los clientes (permanece en gaveta física hasta la devolución del traje)"*.
+  - Al liquidar un alquiler: lo devuelto se descuenta estrictamente de la custodia; lo retenido por mora o averías se convierte en ingreso real de la tienda.
+
+### 6. Certificación QA Automatizada
+- **Suite de Pruebas (`scripts/test-auditoria-5-bloques-qa.cjs`):** 20/20 aserciones aprobadas (100% de éxito).
+- **Tipado TypeScript:** `npx tsc --noEmit` completado con 0 errores.
+

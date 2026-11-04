@@ -549,6 +549,9 @@ export async function POST(req: NextRequest) {
           totalFactura,
           totalAbonado,
           saldoPendiente,
+          tarifaMoraDiaria: Number.isFinite(Number(body.tarifaMoraDiaria)) && Number(body.tarifaMoraDiaria) > 0
+            ? Number(body.tarifaMoraDiaria)
+            : 3000,
           montoDeposito,
           estadoDeposito: montoDeposito > 0 ? (body.depositoRecibidoHoy ? "RECIBIDO_EN_GARANTIA" : "ESTIPULADO_PARA_ENTREGA") : "SIN_DEPOSITO",
           montoRetenidoDeposito: 0,
