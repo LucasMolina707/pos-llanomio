@@ -147,11 +147,8 @@ const elementosListaBlanca = [
   "package-lock.json",
   "ecosystem.config.js",
   "start-pos.js",
-  "INICIAR_SERVIDOR_POS.bat",
-  "ABRIR_TERMINAL_POS_DIRECTO.bat",
-  "REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat",
-  "DETENER_TODOS_LOS_SERVICIOS_POS.bat",
-  "ACTUALIZAR_SISTEMA_SEGURO.bat",
+  "CONTROL_GENERAL_POS.bat",
+  "ABRIR_POS_PANTALLA_COMPLETA.bat",
   "USUARIOS_Y_CREDENCIALES_MAESTRAS.md",
   "README.md",
   "tailwind.config.ts",
@@ -215,7 +212,7 @@ const manifiesto = {
   },
   instruccionesAplicacion: [
     "1. Copiar este archivo a la carpeta 'actualizaciones/' o a la raiz de la instalacion.",
-    "2. Ejecutar ACTUALIZAR_SISTEMA_SEGURO.bat o usar la opcion [5] de INICIAR_SERVIDOR_POS.bat.",
+    "2. Ejecutar la opcion [6] de CONTROL_GENERAL_POS.bat o 'instalador_tienda/3_ACTUALIZACIONES/2_APLICAR_ACTUALIZACION_CLIENTE_SEGURO.bat'.",
     "3. El actualizador creara una salvaguarda de su BD antes de aplicar el nuevo codigo.",
   ],
 };

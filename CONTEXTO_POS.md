@@ -3170,4 +3170,48 @@ Ejecuta de forma desatendida las 5 fases de seguridad:
   - **Simulador en Vivo:** Cuarta pestaña interactiva `"Media Carta Doble (2 en 1)"` con previsualización en miniatura 1:1 de la hoja Carta dividida con su línea de corte.
 - **Hardware POS:** Preservado el botón de apertura manual/automática del cajón monedero RJ11 (`<BotonAbrirCajon />`) e impresora asignada en todos los formatos.
 
+---
+
+## 45. LIMPIEZA RADICAL DE ARCHIVOS OBSOLETOS Y REORGANIZACIÓN ESTRUCTURAL EN 4 CARPETAS OFICIALES (NOVIEMBRE 2026)
+
+### 1. Filosofía de Despliegue y Purga Total de Métodos Antiguos
+Con la consolidación de la arquitectura portable y el instalador desatendido `.exe`, se ejecutó una purga exhaustiva de scripts dispersos, carpetas residuales y manuales desactualizados, preservando intacto `CONTEXTO_POS.md`:
+- **Archivos Purgados en la Raíz:** Eliminados `INICIAR_SERVIDOR_POS.bat`, `ABRIR_TERMINAL_POS_DIRECTO.bat`, `ABRIR_TERMINAL_POS_DIRECTO.bat.lnk`, `DETENER_TODOS_LOS_SERVICIOS_POS.bat`, `REINICIAR_O_LEVANTAR_SERVICIO_RAPIDO.bat` y `ACTUALIZAR_SISTEMA_SEGURO.bat`.
+- **Lanzadores Maestros Exclusivos en la Raíz:**
+  1. `CONTROL_GENERAL_POS.bat`: Menú maestro universal que orquesta todas las operaciones de las 4 carpetas oficiales y soporta ejecución silenciosa para el arranque de Windows.
+  2. `ABRIR_POS_PANTALLA_COMPLETA.bat`: Acceso directo con auto-levantado silencioso en segundo plano y despliegue en modo quiosco/aplicación nativa (`--app` con Edge o Chrome).
+- **Purga en `instalador_tienda/`:** Eliminadas carpetas y scripts obsoletos (`paquete_portable/`, `MENU_DE_INSTALACION.bat`, `POST_INSTALADOR_MAESTRO.bat`, manuales fragmentados antiguos).
+
+### 2. Estructura Oficial de las 4 Carpetas en `instalador_tienda/`
+
+#### Carpeta 1: `1_INSTALACIONES/` (Despliegue Inicial y Empaquetado)
+- `1_INSTALADOR_MAESTRO_DESDE_CERO.bat`: Asistente desatendido post-instalación (auto-elevación UAC, detección de runtime Node, creación de `C:\POS_BACKUPS`, escaneo de puertos, reglas en Firewall TCP/UDP 5353, registro en Startup y PM2, y creación de accesos directos oficiales).
+- `2_CONFIGURAR_PUERTOS_Y_DOMINIO.bat`: Reconfiguración interactiva de puertos y dominio mDNS con actualización de Firewall y reinicio en caliente de PM2 (`--update-env`).
+- `3_PREPARAR_LIMPIEZA_FABRICA_PARA_EXE.bat`: Script de desarrollador que ejecuta la purga de temporales, reseteo a estado neutro de fábrica (0 clientes, 0 productos, 0 facturas, admin inicial) y compilación previa a Smart Install Maker.
+- `MANUAL_INSTALACION_DESDE_CERO.md`: Guía técnica detallada con parámetros para Smart Install Maker, instalación manual, red LAN y periféricos (cajón monedero RJ11 e impresoras térmicas).
+
+#### Carpeta 2: `2_INICIADORES_Y_ACTIVADORES/` (Operación Diaria y Soporte)
+- `1_LEVANTAR_O_REINICIAR_SERVIDOR.bat`: Rescate rápido y verificación con sondeo HTTP iterativo de hasta 15 segundos.
+- `2_FINALIZAR_Y_DETENER_SERVIDOR.bat`: Detención limpia en PM2 y cierre forzado de sockets TCP para liberar completamente los puertos.
+- `3_ABRIR_POS_PANTALLA_COMPLETA_SIN_NAVEGADOR.bat`: Lanzador de terminal de venta a pantalla completa con auto-arranque silencioso si el servidor no estaba levantado.
+- `4_ESTADO_Y_DIAGNOSTICO_SERVIDOR.bat`: Radiografía en vivo que audita sockets TCP, IP LAN, respuesta HTTP en milisegundos, salud de SQLite y modo WAL.
+- `MANUAL_ACTIVADORES_Y_CONTROL_SERVIDOR.md`: Documento operativo sobre ciclo de vida de procesos y resolución de bloqueos.
+
+#### Carpeta 3: `3_ACTUALIZACIONES/` (Actualizador Blindado y Respaldos)
+- `1_GENERAR_PARCHE_ACTUALIZACION_DEV.bat`: Herramienta de desarrollador que ejecuta `scripts/generar-parche-actualizacion.js` produciendo parches `.ZIP` protegidos (excluye `database/*.db`, respaldos y `.env`).
+- `2_APLICAR_ACTUALIZACION_CLIENTE_SEGURO.bat`: Motor de actualización con 5 fases automáticas y salvaguarda preventiva en `C:\POS_BACKUPS\salvaguarda_pre_actualizacion`.
+- `3_RESPALDAR_Y_RESTAURAR_BASE_DATOS.bat`: Gestor de copias en caliente atómicas (`VACUUM INTO` / backup directo) y asistente gráfico de restauración con salvaguarda preventiva.
+- `MANUAL_ACTUALIZACIONES_Y_RESPALDOS.md`: Guía exhaustiva de ciclo de vida de datos y prevención de sobreescritura.
+
+#### Carpeta 4: `4_ZABBIX_MONITOREO/` (Monitoreo 24/7 y SLA de Tienda)
+- `1_INSTALAR_Y_CONFIGURAR_ZABBIX_DESDE_CERO.bat`: Instalador desatendido de Zabbix Agent 2 para Windows (UAC, descarga automática de MSI oficial LTS, inyección de los 3 UserParameters del POS, apertura de firewall 10050/10051 y arranque automático del servicio).
+- `2_CONTROLAR_SERVICIO_ZABBIX.bat`: Panel de control del servicio Windows (iniciar, detener, reiniciar, ver logs y test en vivo de `pos.status`, `pos.db.size`, `pos.node.processes`).
+- `MANUAL_ZABBIX_INSTALACION_Y_MONITOREO_DESDE_CERO.md`: Guía de despliegue desde cero de Zabbix Server (Docker Compose), creación de Hosts, Triggers de alerta y plantilla YAML oficial importable en 1 clic.
+- Subcarpeta `bin/`: Directorio reservado para el paquete instalador `zabbix_agent2.msi`.
+
+#### Índice General y Recursos:
+- `instalador_tienda/LEEME_INDICE_GENERAL.md`: Documento de 1 página con el mapa general y enlaces funcionales.
+- `instalador_tienda/recursos/llanomio.ico`: Icono de identidad corporativa para los accesos directos de Windows.
+
+
 
