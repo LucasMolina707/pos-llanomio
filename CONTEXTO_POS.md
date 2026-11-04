@@ -3082,3 +3082,49 @@ Se creó la infraestructura de instalación autónoma (.exe) para Smart Install 
 - **Verificación de Tipos TypeScript (`npx tsc --noEmit`):** 0 errores.
 - **Preparación del Paquete (`npm run preparar:instalador`):** 6/6 fases verificadas exitosamente.
 - **Compilación de Producción (`npm run build`):** Ejecución limpia y optimizada de las 22 rutas con código 0.
+
+---
+
+## 43. SISTEMA DUAL DE ACTUALIZACIONES SEGURAS EN PRODUCCIÓN (GENERADOR DE PARCHES OFFLINE + MOTOR DE PROTECCIÓN DE DATOS) (NOVIEMBRE 2026)
+
+### 1. Filosofía de Blindaje y Preservación Absoluta de Datos
+Para permitir la evolución continua del sistema en clientes reales sin riesgo de pérdida de información, se implementó una arquitectura de actualización dual basada en el principio de **inviolabilidad de datos**:
+- **Lista Blanca Estricta:** El paquete de actualización contiene exclusivamente el código de producción compilado (`.next/`), código fuente (`src/`), esquemas de base de datos (`database/schema.prisma`), activos estáticos (`public/`), dependencias de ejecución, scripts y lanzadores `.bat`.
+- **Lista Negra Inviolable:** Queda terminantemente prohibido incluir o sobrescribir archivos de base de datos (`database/*.db`, `*.db-wal`, `*.db-shm`), copias de seguridad (`database/backups_locales/*`, `C:\POS_BACKUPS\*`), variables de configuración del equipo (`.env`), o carpetas de dependencias pesadas (`node_modules/`).
+- **Salvaguarda Automática Previa:** Toda actualización genera de forma obligatoria una copia de seguridad íntegra de la base de datos y de la configuración del cliente en `C:\POS_BACKUPS\salvaguarda_pre_actualizacion\` antes de aplicar cualquier modificación al sistema de archivos.
+
+### 2. Generador de Parches del Desarrollador (`scripts/generar-parche-actualizacion.js` y `npm run generar:parche`)
+- Automatiza la creación de paquetes de actualización listos para distribución comercial u offline:
+  1. Ejecuta `npm run build` para garantizar compilación limpia sin errores de Next.js/TypeScript.
+  2. Crea un área de preparación temporal en memoria/disco (`dist_actualizaciones/_staging_temp`).
+  3. Copia selectivamente los archivos de la lista blanca.
+  4. Genera `manifest_actualizacion.json` con fecha, versión, identificador y lista de archivos.
+  5. Comprime el paquete mediante PowerShell nativo (`Compress-Archive`) generando:
+     `dist_actualizaciones/ACTUALIZACION_POS_LLANOMIO_vYYYYMMDD_HHmm.zip`
+  6. **Auditoría de Seguridad Automatizada:** Lee el archivo `.zip` resultante y comprueba que contenga 0 archivos `.db` y 0 archivos `.env`. Si detecta cualquier anomalía, cancela el proceso y destruye el paquete.
+
+### 3. Motor de Actualización Segura en el Cliente (`scripts/aplicar-actualizacion-segura.js`)
+Ejecuta de forma desatendida las 5 fases de seguridad:
+1. **[FASE 1/5] Salvaguarda Blindada Pre-Actualización:** Copia la base de datos SQLite activa y el `.env` a `C:\POS_BACKUPS\salvaguarda_pre_actualizacion\salvaguarda_[INSTANCIA]_[TIMESTAMP].db` y genera `.env.bak` local.
+2. **[FASE 2/5] Pausa Limpia de Servicios:** Detiene de forma segura el proceso PM2 (`pm2 stop [INSTANCE_ID]`) para liberar los bloqueos de archivos en Windows.
+3. **[FASE 3/5] Inyección del Nuevo Código:** Descomprime el parche `.zip` en la raíz del proyecto (o realiza `git pull` en modo GitHub), restaura de inmediato el `.env` original del cliente y verifica físicamente que el archivo de base de datos SQLite no haya sufrido reducción de tamaño ni alteración de registros.
+4. **[FASE 4/5] Migración No Destructiva de Esquema:** Aplica `npx prisma db push --schema=database/schema.prisma --skip-generate` y `prisma generate` para añadir nuevas columnas, índices o tablas conservando el 100% de los datos históricos.
+5. **[FASE 5/5] Reactivación y Verificación de Servicios:** Levanta nuevamente el daemon de PM2 con `--update-env`, guarda la configuración y verifica la disponibilidad del puerto web.
+
+### 4. Lanzadores y Accesos para el Cliente
+- **Acceso Directo en el Escritorio:** `POS Llanomio - Actualizar Sistema.lnk` apuntando a `ACTUALIZAR_SISTEMA_SEGURO.bat`.
+- **Selector Gráfico de Windows:** `ACTUALIZAR_SISTEMA_SEGURO.bat` invoca un cuadro de diálogo nativo de Windows (`OpenFileDialog`) si el usuario no arrastró el archivo `.zip` sobre el icono, permitiendo seleccionar el parche visualmente sin escribir comandos de consola.
+- **Integración en Menú Maestro:** Opción `[5]` en `INICIAR_SERVIDOR_POS.bat`.
+
+### 5. API Web y Panel de Control Administrativo
+- **Endpoint API (`/api/sistema/actualizar`):**
+  - `GET`: Retorna versión actual del sistema, lista de parches `.zip` presentes en `/actualizaciones` y relación de salvaguardas previas.
+  - `POST`: Procesa la subida de archivos `.zip` vía `multipart/form-data` o invocación remota, ejecutando el motor seguro y devolviendo la traza técnica de ejecución.
+- **Módulo Visual en `/admin/configuracion`:**
+  - Tarjeta corporativa con diseño profesional (Lucide React, sin emojis).
+  - Subida directa de parches `.zip`.
+  - Selector de parches ya cargados en la carpeta local de la tienda.
+  - Sincronización en 1 clic con repositorio GitHub.
+  - Consola técnica expandible para inspección del registro de actualización.
+  - Diálogo modal con advertencias y confirmación explícita.
+

@@ -124,3 +124,75 @@ El sistema cuenta con un triple mecanismo de salvaguarda de datos:
 - **Respaldos y Migración Avanzada:** Consulte [`instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md`](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/MANUAL_RESPALDOS_Y_MIGRACION.md).
 - **Empaquetado Smart Install Maker:** Consulte [`instalador_tienda/GUIA_SMART_INSTALL_MAKER.md`](file:///d:/Proyectos%20IA/pos-llanomio/instalador_tienda/GUIA_SMART_INSTALL_MAKER.md).
 
+---
+
+### 9. Guía Paso a Paso para Generar y Aplicar Actualizaciones en Computadores de Clientes (Preservación Total de Datos)
+
+El sistema incorpora un **Mecanismo Dual de Actualizaciones Seguras** diseñado para actualizar cualquier máquina en producción sin pérdida de datos, clientes, abonos ni configuraciones locales.
+
+#### Principio Fundamental de Blindaje de Datos
+1. **Inviolabilidad de la Base de Datos:** Ningún archivo `.db`, `.db-wal` ni `.db-shm` del cliente es modificado o sobrescrito por el paquete de actualización.
+2. **Inviolabilidad del Entorno:** El archivo `.env` del cliente (que define sus puertos TCP, identificador PM2 y rutas locales) se preserva intacto.
+3. **Salvaguarda Automática Previa:** Antes de aplicar cualquier cambio, el sistema ejecuta un volcado atómico a `C:\POS_BACKUPS\salvaguarda_pre_actualizacion\`.
+
+---
+
+#### Flujo 1: En el Computador del Desarrollador (Generar el Parche .ZIP)
+
+Cada vez que se introduzcan mejoras, nuevas pantallas o correcciones en el código fuente:
+
+1. Abra una terminal en la raíz del proyecto.
+2. Ejecute el comando oficial:
+   ```bash
+   npm run generar:parche
+   ```
+   *(O si ya compiló manualmente y desea omitir el build: `node scripts/generar-parche-actualizacion.js --sin-build`)*.
+3. El generador ejecutará automáticamente:
+   - Compilación completa de producción (`npm run build`).
+   - Copia de archivos permitidos (`.next/`, `src/`, `public/`, `database/schema.prisma`, scripts maestros, lanzadores `.bat`).
+   - Bloqueo y purga estricta de listas negras: **0 bases de datos (`*.db`), 0 archivos `.env` y 0 respaldos**.
+   - Generación de `manifest_actualizacion.json` con metadatos de versión y fecha.
+   - Compresión atómica en la carpeta `dist_actualizaciones/` con el nombre:
+     `ACTUALIZACION_POS_LLANOMIO_vYYYYMMDD_HHmm.zip`
+   - Auditoría de seguridad interna automática verificando que el paquete comprimido no contenga datos privados ni archivos `.db`.
+4. Envíe o copie dicho archivo `.zip` al cliente (mediante memoria USB, WhatsApp, correo o red local).
+
+---
+
+#### Flujo 2: En el Computador del Cliente (Aplicar la Actualización)
+
+El cliente o técnico dispone de cuatro métodos convenientes para aplicar el parche:
+
+##### Método A: Acceso Directo de Escritorio (Recomendado para Clientes)
+1. Haga doble clic en el acceso directo de su Escritorio: **"POS Llanomio - Actualizar Sistema"** ([`ACTUALIZAR_SISTEMA_SEGURO.bat`](file:///d:/Proyectos%20IA/pos-llanomio/ACTUALIZAR_SISTEMA_SEGURO.bat)).
+2. El asistente abrirá una ventana de selección de archivos de Windows (`OpenFileDialog`).
+3. Seleccione el archivo `.zip` que le envió el desarrollador.
+4. El script ejecutará automáticamente las 5 fases de actualización y reactivará el servidor POS.
+
+##### Método B: Menú Lanzador Maestro
+1. Ejecute [`INICIAR_SERVIDOR_POS.bat`](file:///d:/Proyectos%20IA/pos-llanomio/INICIAR_SERVIDOR_POS.bat).
+2. Seleccione la **Opción [5]: Actualizar Sistema (Parche .ZIP o desde GitHub sin perder datos)**.
+3. Indique si usará un parche `.zip` local o sincronización con GitHub.
+
+##### Método C: Desde el Panel de Administración Web
+1. Inicie sesión como Administrador y diríjase a **Configuración** (`/admin/configuracion`).
+2. En la sección **Actualización del Sistema POS**, haga clic en **"Seleccionar y Aplicar .ZIP"** (o elija uno de los parches detectados en `/actualizaciones`).
+3. Confirme la operación en el diálogo modal. El sistema pausará los servicios, inyectará el código, migrará el esquema SQLite y recargará el panel con éxito.
+
+##### Método D: Sincronización Directa desde GitHub (Equipos con Internet)
+1. Ejecute en consola:
+   ```bash
+   npm run actualizar:sistema -- --github
+   ```
+   *(O elija la opción [2] dentro de `ACTUALIZAR_SISTEMA_SEGURO.bat` o el botón en `/admin/configuracion`)*.
+
+---
+
+#### Las 5 Fases del Protocolo de Seguridad
+1. **[FASE 1/5] Salvaguarda Blindada Pre-Actualización:** Crea una copia atómica de la base de datos y del archivo `.env` en `C:\POS_BACKUPS\salvaguarda_pre_actualizacion\salvaguarda_[INSTANCIA]_[TIMESTAMP].db`.
+2. **[FASE 2/5] Pausa Limpia de Servicios en PM2:** Pausa de forma controlada el proceso de fondo para liberar candados de archivos en Windows.
+3. **[FASE 3/5] Inyección del Nuevo Código:** Descompresión segura (`Expand-Archive -Force`) o `git pull`, asegurando la restitución inmediata del archivo `.env` original y validando que el archivo `.db` continúe intacto.
+4. **[FASE 4/5] Migración No Destructiva de Esquema:** Ejecuta `npx prisma db push --schema=database/schema.prisma --skip-generate` y `prisma generate`, añadiendo nuevas tablas o columnas sin borrar registros preexistentes.
+5. **[FASE 5/5] Reactivación y Verificación de Servicios:** Reinicia el servicio en PM2 (`pm2 start ecosystem.config.js --update-env`), guarda el estado y verifica la respuesta del puerto web.
+
+

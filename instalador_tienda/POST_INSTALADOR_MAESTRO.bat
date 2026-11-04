@@ -91,12 +91,14 @@ echo.
 :: ===============================================================================
 if not exist "%PROJECT_ROOT%\database" mkdir "%PROJECT_ROOT%\database" >nul 2>&1
 if not exist "%PROJECT_ROOT%\database\backups_locales" mkdir "%PROJECT_ROOT%\database\backups_locales" >nul 2>&1
+if not exist "%PROJECT_ROOT%\actualizaciones" mkdir "%PROJECT_ROOT%\actualizaciones" >nul 2>&1
 if not exist "C:\POS_BACKUPS" mkdir "C:\POS_BACKUPS" >nul 2>&1
 if not exist "C:\POS_BACKUPS\historial" mkdir "C:\POS_BACKUPS\historial" >nul 2>&1
 if not exist "C:\POS_BACKUPS\inventario" mkdir "C:\POS_BACKUPS\inventario" >nul 2>&1
 if not exist "C:\POS_BACKUPS\clientes" mkdir "C:\POS_BACKUPS\clientes" >nul 2>&1
 if not exist "C:\POS_BACKUPS\historial_facturas" mkdir "C:\POS_BACKUPS\historial_facturas" >nul 2>&1
 if not exist "C:\POS_BACKUPS\movimientos_caja" mkdir "C:\POS_BACKUPS\movimientos_caja" >nul 2>&1
+if not exist "C:\POS_BACKUPS\salvaguarda_pre_actualizacion" mkdir "C:\POS_BACKUPS\salvaguarda_pre_actualizacion" >nul 2>&1
 
 :: ===============================================================================
 :: 6. Asistente Interactivo de Red, Puertos y Multi-Instancia
@@ -236,13 +238,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$s5.WorkingDirectory = '%PROJECT_ROOT%'; " ^
   "$s5.IconLocation = '%ICON_FILE%'; " ^
   "$s5.Description = 'Detener Todos los Procesos y Servicios del POS'; " ^
-  "$s5.Save();" >nul 2>&1
+  "$s5.Save(); " ^
+  "$s6 = $ws.CreateShortcut([System.IO.Path]::Combine($desktop, 'POS Llanomio - Actualizar Sistema.lnk')); " ^
+  "$s6.TargetPath = '%PROJECT_ROOT%\ACTUALIZAR_SISTEMA_SEGURO.bat'; " ^
+  "$s6.WorkingDirectory = '%PROJECT_ROOT%'; " ^
+  "$s6.IconLocation = '%ICON_FILE%'; " ^
+  "$s6.Description = 'Actualizacion Segura del Sistema sin Perdida de Datos'; " ^
+  "$s6.Save();" >nul 2>&1
 
 echo [OK] Accesos directos creados en el Escritorio:
 echo      - Iniciar POS Llanomio.lnk
 echo      - POS Llanomio - Modo App Directo.lnk
 echo      - POS Llanomio - Recuperar Servidor.lnk
 echo      - POS Llanomio - Detener Servicios.lnk
+echo      - POS Llanomio - Actualizar Sistema.lnk
 echo      - POS Llanomio - Menu Administrador.lnk
 echo.
 

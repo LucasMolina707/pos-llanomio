@@ -36,6 +36,11 @@ import {
   FolderSync,
   FolderOpen,
   X,
+  PackageCheck,
+  GitBranch,
+  FileArchive,
+  Terminal,
+  ArrowUpCircle,
 } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
 
@@ -120,9 +125,44 @@ export default function ConfiguracionAdminPage() {
     timestamp?: string;
   } | null>(null);
 
+  // Estados del Sistema de Actualización Segura (Preservación de Datos)
+  const [infoActualizacion, setInfoActualizacion] = useState<{
+    sistema: {
+      nombre: string;
+      version: string;
+      carpetaRaiz: string;
+    };
+    parchesDisponibles: {
+      nombre: string;
+      ruta: string;
+      tamanioBytes: number;
+      tamanioFormateado: string;
+      fechaModificacion: string;
+    }[];
+    salvaguardasPrevias: {
+      nombre: string;
+      tamanioBytes: number;
+      fechaModificacion: string;
+    }[];
+  } | null>(null);
+  const [cargandoActualizacion, setCargandoActualizacion] = useState(false);
+  const [actualizandoSistema, setActualizandoSistema] = useState(false);
+  const [archivoParche, setArchivoParche] = useState<File | null>(null);
+  const [parcheLocalSeleccionado, setParcheLocalSeleccionado] = useState<string>("");
+  const [modoConfirmacionActualizar, setModoConfirmacionActualizar] = useState<"archivo" | "servidor" | "github">("archivo");
+  const [modalActualizarConfirm, setModalActualizarConfirm] = useState(false);
+  const [resultadoActualizacion, setResultadoActualizacion] = useState<{
+    tipo: "exito" | "error";
+    mensaje: string;
+    detalles?: string;
+  } | null>(null);
+  const [mostrarDetallesActualizacion, setMostrarDetallesActualizacion] = useState(false);
+  const inputParcheRef = React.useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     cargarConfiguracion();
     cargarInfoRespaldo();
+    cargarInfoActualizacion();
     cargarImpresorasWindows();
   }, []);
 
@@ -527,6 +567,126 @@ export default function ConfiguracionAdminPage() {
     }
   };
 
+  /**
+   * Carga la información de versión y parches disponibles para actualización segura
+   */
+  const cargarInfoActualizacion = async () => {
+    try {
+      setCargandoActualizacion(true);
+      const res = await fetch("/api/sistema/actualizar", { cache: "no-store" });
+      const data = await res.json();
+      if (data.ok) {
+        setInfoActualizacion(data);
+        if (data.parchesDisponibles?.length > 0 && !parcheLocalSeleccionado) {
+          setParcheLocalSeleccionado(data.parchesDisponibles[0].nombre);
+        }
+      }
+    } catch {
+      // Manejo silencioso
+    } finally {
+      setCargandoActualizacion(false);
+    }
+  };
+
+  /**
+   * Selección de archivo .ZIP desde el explorador del usuario
+   */
+  const handleSeleccionarArchivoParche = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      setMensajeError("El archivo de actualización debe ser un paquete comprimido en formato .ZIP.");
+      if (inputParcheRef.current) inputParcheRef.current.value = "";
+      return;
+    }
+
+    setArchivoParche(file);
+    setModoConfirmacionActualizar("archivo");
+    setModalActualizarConfirm(true);
+  };
+
+  const handlePrepararActualizacionParcheLocal = () => {
+    if (!parcheLocalSeleccionado) {
+      setMensajeError("Debe seleccionar un parche local disponible.");
+      return;
+    }
+    setModoConfirmacionActualizar("servidor");
+    setModalActualizarConfirm(true);
+  };
+
+  const handlePrepararActualizacionGithub = () => {
+    setModoConfirmacionActualizar("github");
+    setModalActualizarConfirm(true);
+  };
+
+  /**
+   * Ejecuta el proceso de actualización llamando a la API protegida
+   */
+  const handleConfirmarActualizacion = async () => {
+    setActualizandoSistema(true);
+    setMensajeError(null);
+    setMensajeExito(null);
+    setResultadoActualizacion(null);
+
+    try {
+      let res: Response;
+
+      if (modoConfirmacionActualizar === "archivo") {
+        if (!archivoParche) throw new Error("No hay ningún archivo seleccionado.");
+        const formData = new FormData();
+        formData.append("parche", archivoParche);
+        res = await fetch("/api/sistema/actualizar", {
+          method: "POST",
+          body: formData,
+        });
+      } else if (modoConfirmacionActualizar === "servidor") {
+        res = await fetch("/api/sistema/actualizar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archivoLocal: parcheLocalSeleccionado }),
+        });
+      } else {
+        // GitHub
+        res = await fetch("/api/sistema/actualizar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ modo: "github" }),
+        });
+      }
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Fallo en el proceso de actualización del sistema.");
+      }
+
+      setResultadoActualizacion({
+        tipo: "exito",
+        mensaje: data.mensaje || "Sistema actualizado con éxito sin alterar su base de datos ni configuración.",
+        detalles: data.detalles,
+      });
+
+      setMensajeExito("¡Actualización aplicada con éxito! La base de datos y configuración se mantuvieron intactas.");
+      setModalActualizarConfirm(false);
+      setArchivoParche(null);
+      if (inputParcheRef.current) inputParcheRef.current.value = "";
+
+      // Recargar la información de versiones y salvaguardas
+      await cargarInfoActualizacion();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error inesperado durante la actualización.";
+      setResultadoActualizacion({
+        tipo: "error",
+        mensaje: msg,
+      });
+      setMensajeError(msg);
+      setModalActualizarConfirm(false);
+    } finally {
+      setActualizandoSistema(false);
+    }
+  };
+
   if (cargando) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -817,6 +977,251 @@ export default function ConfiguracionAdminPage() {
             </p>
           </div>
         </div>
+      </section>
+
+      {/* SECCIÓN: ACTUALIZACIÓN DEL SISTEMA (PRESERVACIÓN DE BASE DE DATOS Y CONFIGURACIÓN) */}
+      <section className="bg-[#FCFDFE] rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200/80 text-indigo-600">
+              <PackageCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-black text-slate-900 tracking-tight">
+                  Actualización del Sistema POS
+                </h2>
+                <span className="text-[11px] font-mono font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
+                  v{infoActualizacion?.sistema?.version || "1.0.0"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Inyección de mejoras y parches con blindaje inquebrantable de base de datos y configuración (.env).
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={cargarInfoActualizacion}
+              disabled={cargandoActualizacion || actualizandoSistema}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold transition disabled:opacity-50 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${cargandoActualizacion ? "animate-spin" : ""}`} />
+              <span>Verificar</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Notificación de Blindaje de Datos */}
+        <div className="p-4 rounded-xl bg-emerald-50/90 border border-emerald-200/80 flex items-start gap-3">
+          <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 shrink-0 mt-0.5">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div className="text-xs text-emerald-950 space-y-1">
+            <p className="font-bold text-emerald-900">
+              Protocolo de Preservación Inmutable de Datos
+            </p>
+            <p className="text-emerald-800/90 leading-relaxed">
+              Durante cualquier actualización, el sistema ejecuta una copia de salvaguarda inmediata en{" "}
+              <code className="font-mono font-bold bg-white/70 px-1.5 py-0.5 rounded text-emerald-900">
+                C:\POS_BACKUPS\salvaguarda_pre_actualizacion\
+              </code>
+              . Sus clientes, productos, facturas, abonos y las variables de puerto de su archivo{" "}
+              <code className="font-mono font-bold bg-white/70 px-1.5 py-0.5 rounded text-emerald-900">.env</code>{" "}
+              se mantendrán 100% protegidos y jamás serán borrados.
+            </p>
+          </div>
+        </div>
+
+        {/* Input Oculto para Selección de Archivo .ZIP */}
+        <input
+          type="file"
+          ref={inputParcheRef}
+          accept=".zip"
+          onChange={handleSeleccionarArchivoParche}
+          className="hidden"
+        />
+
+        {/* Botones de Acción de Actualización */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Opción 1: Subir Archivo ZIP */}
+          <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3 flex flex-col justify-between">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-indigo-700 font-bold text-xs">
+                <UploadCloud className="w-4 h-4" />
+                <span>Parche Local (.ZIP)</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Suba el archivo de actualización provisto por el desarrollador para instalar la última versión.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => inputParcheRef.current?.click()}
+              disabled={actualizandoSistema}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
+            >
+              {actualizandoSistema && modoConfirmacionActualizar === "archivo" ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <UploadCloud className="w-4 h-4" />
+              )}
+              <span>Seleccionar y Aplicar .ZIP</span>
+            </button>
+          </div>
+
+          {/* Opción 2: Parches Detectados en Servidor */}
+          <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3 flex flex-col justify-between">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                <FileArchive className="w-4 h-4 text-amber-600" />
+                <span>Parches en Servidor</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Archivos detectados en la carpeta local <code className="font-mono text-[10px]">actualizaciones/</code>.
+              </p>
+            </div>
+
+            {infoActualizacion && infoActualizacion.parchesDisponibles.length > 0 ? (
+              <div className="space-y-2">
+                <select
+                  value={parcheLocalSeleccionado}
+                  onChange={(e) => setParcheLocalSeleccionado(e.target.value)}
+                  disabled={actualizandoSistema}
+                  className="w-full text-xs font-mono p-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  {infoActualizacion.parchesDisponibles.map((p) => (
+                    <option key={p.nombre} value={p.nombre}>
+                      {p.nombre} ({p.tamanioFormateado})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handlePrepararActualizacionParcheLocal}
+                  disabled={actualizandoSistema || !parcheLocalSeleccionado}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
+                >
+                  <PackageCheck className="w-4 h-4 text-amber-400" />
+                  <span>Aplicar Seleccionado</span>
+                </button>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-dashed border-slate-200 text-center">
+                <span className="text-[11px] text-slate-400">
+                  Sin parches en espera en /actualizaciones
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Opción 3: Actualizar desde Repositorio Oficial (GitHub) */}
+          <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3 flex flex-col justify-between">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                <GitBranch className="w-4 h-4 text-emerald-600" />
+                <span>Repositorio Oficial (Git)</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Sincroniza la rama principal directamente desde GitHub si el computador cuenta con acceso a internet.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handlePrepararActualizacionGithub}
+              disabled={actualizandoSistema}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
+            >
+              {actualizandoSistema && modoConfirmacionActualizar === "github" ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <GitBranch className="w-4 h-4" />
+              )}
+              <span>Sincronizar desde GitHub</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Panel de Resultado o Consola de Ejecución */}
+        {resultadoActualizacion && (
+          <div
+            className={`p-4 rounded-xl border space-y-3 ${
+              resultadoActualizacion.tipo === "exito"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-950"
+                : "bg-rose-50 border-rose-200 text-rose-950"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 font-bold text-xs">
+                {resultadoActualizacion.tipo === "exito" ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                )}
+                <span>{resultadoActualizacion.mensaje}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {resultadoActualizacion.detalles && (
+                  <button
+                    type="button"
+                    onClick={() => setMostrarDetallesActualizacion(!mostrarDetallesActualizacion)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/80 border border-slate-200 text-[11px] font-semibold text-slate-700 hover:bg-white transition cursor-pointer"
+                  >
+                    <Terminal className="w-3.5 h-3.5" />
+                    <span>{mostrarDetallesActualizacion ? "Ocultar Log" : "Ver Log"}</span>
+                  </button>
+                )}
+                {resultadoActualizacion.tipo === "exito" && (
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Recargar Página</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {mostrarDetallesActualizacion && resultadoActualizacion.detalles && (
+              <pre className="p-3 rounded-lg bg-slate-900 text-slate-200 text-[11px] font-mono overflow-x-auto max-h-56 leading-tight whitespace-pre-wrap">
+                {resultadoActualizacion.detalles}
+              </pre>
+            )}
+          </div>
+        )}
+
+        {/* Historial de Salvaguardas Automáticas Previas */}
+        {infoActualizacion && infoActualizacion.salvaguardasPrevias.length > 0 && (
+          <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-indigo-600" />
+                Copias de Salvaguarda Pre-Actualización Almacenadas en Disco
+              </span>
+              <span className="text-[10px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                C:\POS_BACKUPS\salvaguarda_pre_actualizacion\
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+              {infoActualizacion.salvaguardasPrevias.slice(0, 6).map((salv) => (
+                <div
+                  key={salv.nombre}
+                  className="p-2 rounded-lg bg-white border border-slate-200 text-[11px] space-y-0.5"
+                >
+                  <p className="font-mono font-bold text-slate-800 truncate">{salv.nombre}</p>
+                  <div className="flex items-center justify-between text-slate-500 text-[10px]">
+                    <span>{(salv.tamanioBytes / 1024).toFixed(1)} KB</span>
+                    <span>{new Date(salv.fechaModificacion).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Distribución Principal en 2 Columnas */}
@@ -1650,6 +2055,134 @@ export default function ConfiguracionAdminPage() {
                   <>
                     <Database className="w-4 h-4" />
                     <span>Sí, Sobrescribir y Restaurar</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación de Actualización Segura */}
+      {modalActualizarConfirm && (
+        <div
+          onClick={() => {
+            if (!actualizandoSistema) {
+              setModalActualizarConfirm(false);
+              setArchivoParche(null);
+              if (inputParcheRef.current) inputParcheRef.current.value = "";
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150 relative space-y-4"
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 shrink-0">
+                <PackageCheck className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-black text-slate-900">
+                  Confirmar Actualización Segura del Sistema
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Inyección de mejoras con protección incondicional de base de datos.
+                </p>
+              </div>
+              {!actualizandoSistema && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalActualizarConfirm(false);
+                    setArchivoParche(null);
+                    if (inputParcheRef.current) inputParcheRef.current.value = "";
+                  }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-950 text-xs leading-relaxed space-y-1.5">
+              <p className="font-bold flex items-center gap-1.5 text-emerald-900">
+                <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                Garantía de Preservación de Datos:
+              </p>
+              <p>
+                Sus clientes, productos, facturas, abonos y el archivo de configuración <code className="font-bold font-mono">.env</code> están 100% protegidos y no serán modificados ni eliminados.
+              </p>
+              <p className="text-[11px] text-emerald-800 pt-1 border-t border-emerald-200/60">
+                Se guardará una copia de salvaguarda inmediata en <code className="font-mono font-bold">C:\POS_BACKUPS\salvaguarda_pre_actualizacion\</code> antes de comenzar.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                Origen de la Actualización:
+              </span>
+              {modoConfirmacionActualizar === "archivo" && archivoParche && (
+                <>
+                  <p className="font-mono text-xs font-bold text-slate-900 truncate">
+                    {archivoParche.name}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Tamaño del paquete: {(archivoParche.size / (1024 * 1024)).toFixed(2)} MB
+                  </p>
+                </>
+              )}
+              {modoConfirmacionActualizar === "servidor" && (
+                <>
+                  <p className="font-mono text-xs font-bold text-slate-900 truncate">
+                    {parcheLocalSeleccionado}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Archivo ubicado en carpeta local /actualizaciones
+                  </p>
+                </>
+              )}
+              {modoConfirmacionActualizar === "github" && (
+                <>
+                  <p className="font-mono text-xs font-bold text-slate-900">
+                    Repositorio Oficial de GitHub (Rama Main)
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Sincronización directa vía git pull y migración de esquemas
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={actualizandoSistema}
+                onClick={() => {
+                  setModalActualizarConfirm(false);
+                  setArchivoParche(null);
+                  if (inputParcheRef.current) inputParcheRef.current.value = "";
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={actualizandoSistema}
+                onClick={handleConfirmarActualizacion}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
+              >
+                {actualizandoSistema ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Aplicando Actualización Segura...</span>
+                  </>
+                ) : (
+                  <>
+                    <PackageCheck className="w-4 h-4" />
+                    <span>Sí, Iniciar Actualización</span>
                   </>
                 )}
               </button>

@@ -69,21 +69,23 @@ echo [1] Iniciar servidor y abrir en navegador predeterminado
 echo [2] Iniciar servidor en Ventana Nativa POS (Modo App sin navegador)
 echo [3] Cambiar / Personalizar Puertos y Dominio Local (Escaner interactivo)
 echo [4] Reiniciar servicios de PM2 forzadamente
-echo [5] Detener todos los procesos y servicios del POS
-echo [6] Salir
+echo [5] Actualizar Sistema (Parche .ZIP o desde GitHub sin perder datos)
+echo [6] Detener todos los procesos y servicios del POS
+echo [7] Salir
 echo ===============================================================================
 echo.
-set /p OPCION_INICIO=">> Seleccione una opcion [1-6]: "
+set /p OPCION_INICIO=">> Seleccione una opcion [1-7]: "
 
 if "%OPCION_INICIO%"=="1" goto :opcion_navegador_normal
 if "%OPCION_INICIO%"=="2" goto :opcion_modo_app
 if "%OPCION_INICIO%"=="3" goto :opcion_personalizar_puertos
 if "%OPCION_INICIO%"=="4" goto :opcion_reiniciar_pm2
-if "%OPCION_INICIO%"=="5" goto :opcion_detener_procesos
-if "%OPCION_INICIO%"=="6" exit /b 0
+if "%OPCION_INICIO%"=="5" goto :opcion_actualizar_sistema
+if "%OPCION_INICIO%"=="6" goto :opcion_detener_procesos
+if "%OPCION_INICIO%"=="7" exit /b 0
 
 echo.
-echo [ERROR] Opcion no valida. Por favor ingrese un numero del 1 al 6.
+echo [ERROR] Opcion no valida. Por favor ingrese un numero del 1 al 7.
 timeout /t 2 >nul
 goto :MENU_PRINCIPAL
 
@@ -169,10 +171,6 @@ pause >nul
 goto :MENU_PRINCIPAL
 
 :: -------------------------------------------------------------------------------
-:: OPCION 5: Detener todos los procesos y servicios del POS
-:: -------------------------------------------------------------------------------
-:opcion_detener_procesos
-:: -------------------------------------------------------------------------------
 :: OPCION 4: Reiniciar servicios PM2 forzadamente
 :: -------------------------------------------------------------------------------
 :opcion_reiniciar_pm2
@@ -197,7 +195,19 @@ pause >nul
 goto :MENU_PRINCIPAL
 
 :: -------------------------------------------------------------------------------
-:: OPCION 5: Detener todos los procesos y servicios del POS
+:: OPCION 5: Actualizar Sistema conservando Base de Datos y Configuracion
+:: -------------------------------------------------------------------------------
+:opcion_actualizar_sistema
+cls
+if exist "%PROJECT_ROOT%\ACTUALIZAR_SISTEMA_SEGURO.bat" (
+    call "%PROJECT_ROOT%\ACTUALIZAR_SISTEMA_SEGURO.bat"
+) else (
+    call "!NODE_EXE!" "%PROJECT_ROOT%\scripts\aplicar-actualizacion-segura.js"
+)
+goto :MENU_PRINCIPAL
+
+:: -------------------------------------------------------------------------------
+:: OPCION 6: Detener todos los procesos y servicios del POS
 :: -------------------------------------------------------------------------------
 :opcion_detener_procesos
 cls

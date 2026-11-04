@@ -59,3 +59,11 @@ desktop.ini
 # Runtime portable binaries (generados por npm run preparar:instalador)
 /runtime/node/*
 !/runtime/node/.gitkeep
+
+# Paquetes y salvaguardas de actualización
+/dist_actualizaciones/*
+!/dist_actualizaciones/.gitkeep
+/actualizaciones/*
+!/actualizaciones/.gitkeep
+manifest_actualizacion.json
+*.bak
