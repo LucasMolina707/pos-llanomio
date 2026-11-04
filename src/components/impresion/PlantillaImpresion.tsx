@@ -639,10 +639,10 @@ export default function PlantillaImpresion({
               )}
             </div>
 
-            {/* ÚNICA OBSERVACIÓN GENERAL FIJA DE APARTADOS */}
+            {/* LEYENDA OFICIAL DE APARTADOS */}
             <div className="my-2 p-2 border-2 border-black bg-slate-100 text-center w-full">
-              <p className="font-black text-[9px] uppercase leading-tight text-black">
-                OBSERVACIÓN: La plata de trajes apartados no se devuelve. Lo único que se devuelve es el abono, que el abono es una garantía que se tiene de los clientes por los trajes alquilados o los trajes que se van a alquilar de los apartados.
+              <p className="font-black text-[10px] uppercase leading-tight text-black">
+                PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
               </p>
             </div>
 
@@ -831,9 +831,17 @@ export default function PlantillaImpresion({
                 </div>
               </div>
 
-              {/* BANNER OFICIAL DE MORA */}
-              <div className="my-1.5 p-1.5 bg-amber-100/90 rounded border border-amber-400 text-amber-950 text-center font-bold text-[9.5px] leading-snug w-full">
-                OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito.
+              {/* BANNER OFICIAL DE OBSERVACIONES Y MORA */}
+              <div className="my-1.5 p-2 bg-amber-50/90 rounded border border-amber-300 text-amber-950 text-center text-[10px] leading-snug w-full space-y-1">
+                <p className="font-black uppercase tracking-wider text-[9px] text-amber-900 border-b border-amber-200 pb-0.5">OBSERVACIONES</p>
+                <p className="font-semibold">
+                  A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.
+                </p>
+                {factura.observaciones && (
+                  <p className="italic text-[9.5px] text-slate-800 pt-0.5 border-t border-amber-200">
+                    Nota: {factura.observaciones}
+                  </p>
+                )}
               </div>
 
               {/* CELDA DE TOTALES DE PAGO DE ALQUILER */}
@@ -845,18 +853,30 @@ export default function PlantillaImpresion({
                   <span>Total Valor Alquiler:</span>
                   <span className="font-bold font-mono">{formatCOP(totalOperacionPrincipal)}</span>
                 </div>
-                <div className="flex justify-between text-emerald-900 font-bold">
-                  <span>Valor Pagado Hoy ({textoMedioPagoPrincipal}):</span>
+                <div className="flex justify-between">
+                  <span>Depósito en Garantía:</span>
+                  <span className="font-bold font-mono">{formatCOP(montoDepositoEfectivo)}</span>
+                </div>
+                <div className="flex justify-between font-black text-slate-950 pt-0.5 border-t border-black bg-slate-200/60 px-1 rounded">
+                  <span>Total (Alquiler + Depósito):</span>
+                  <span className="font-mono text-[13px]">{formatCOP(totalOperacionPrincipal + montoDepositoEfectivo)}</span>
+                </div>
+                <div className="flex justify-between text-emerald-900 font-bold pt-0.5">
+                  <span>Valor Pagado ({textoMedioPagoPrincipal}):</span>
                   <span className="font-mono">{formatCOP(totalAbonadoOperacion)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-slate-900 pt-0.5 border-t border-dashed border-black">
-                  <span>Efectivo Recibido del Cliente:</span>
-                  <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
-                </div>
-                <div className="flex justify-between font-black text-emerald-800 text-[13px] pt-0.5 border-t border-black">
-                  <span>Vueltos / Cambio Entregado:</span>
-                  <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
-                </div>
+                {efectivoRecibidoCliente > 0 && (
+                  <div className="flex justify-between font-bold text-slate-900 pt-0.5 border-t border-dashed border-black">
+                    <span>Recibido:</span>
+                    <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
+                  </div>
+                )}
+                {vueltasCambioFinal > 0 && (
+                  <div className="flex justify-between font-black text-emerald-800 text-[13px] pt-0.5 border-t border-black">
+                    <span>Vueltas:</span>
+                    <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
+                  </div>
+                )}
                 {saldoPendienteOperacion > 0 && (
                   <div className="flex justify-between text-xs font-black pt-1 border-t border-black">
                     <span>Falta por pagar:</span>
@@ -919,8 +939,8 @@ export default function PlantillaImpresion({
             </div>
           )}
 
-          {/* Normas y Políticas Segregadas */}
-          {textoPoliticas && (
+          {/* Normas y Políticas Segregadas (Omitidas estrictamente en Alquiler) */}
+          {!esAlquiler && textoPoliticas && (
             <div className="py-2 border-b border-black text-[10.5px] text-slate-800 leading-tight">
               <p className="font-bold uppercase text-[11px] mb-0.5 text-black">NORMAS Y POLÍTICAS:</p>
               <p>{textoPoliticas}</p>
@@ -1082,10 +1102,10 @@ export default function PlantillaImpresion({
               </div>
             </div>
 
-            {/* ÚNICA OBSERVACIÓN GENERAL FIJA DE APARTADOS */}
-            <div className="p-1 bg-slate-100 rounded-lg border border-slate-900 text-center my-0.5 w-full">
-              <p className="text-[8.5px] font-black tracking-tight text-slate-900 uppercase leading-snug">
-                OBSERVACIÓN: La plata de trajes apartados no se devuelve. Lo único que se devuelve es el abono, que el abono es una garantía que se tiene de los clientes por los trajes alquilados o los trajes que se van a alquilar de los apartados.
+            {/* LEYENDA OFICIAL DE APARTADOS */}
+            <div className="p-1.5 bg-slate-100 rounded-lg border border-slate-900 text-center my-1 w-full">
+              <p className="text-[10px] font-black tracking-tight text-slate-900 uppercase leading-snug">
+                PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
               </p>
             </div>
 
@@ -1301,28 +1321,40 @@ export default function PlantillaImpresion({
                   </div>
 
                   {/* COLUMNA 2: CELDA DE TOTALES DE PAGO DE ALQUILER */}
-                  <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-300 space-y-1">
+                  <div className="p-1.5 bg-slate-50 rounded-lg border-2 border-slate-400 space-y-1">
                     <p className="font-black text-[9px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
                       TOTALES DE PAGO DE ALQUILER
                     </p>
-                    <div className="flex justify-between font-bold">
+                    <div className="flex justify-between font-bold text-[9.5px]">
                       <span>Total Valor Alquiler:</span>
                       <span className="font-mono">{formatCOP(totalOperacionPrincipal)}</span>
                     </div>
-                    <div className="flex justify-between text-emerald-800 font-bold">
-                      <span>Valor Pagado Hoy ({textoMedioPagoPrincipal}):</span>
+                    <div className="flex justify-between font-bold text-[9.5px]">
+                      <span>Depósito en Garantía:</span>
+                      <span className="font-mono">{formatCOP(montoDepositoEfectivo)}</span>
+                    </div>
+                    <div className="flex justify-between font-black text-slate-950 text-[10px] bg-slate-200/70 px-1 py-0.5 rounded border border-slate-300">
+                      <span>Total (Alquiler + Depósito):</span>
+                      <span className="font-mono">{formatCOP(totalOperacionPrincipal + montoDepositoEfectivo)}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-800 font-bold text-[9.5px] pt-0.5">
+                      <span>Valor Pagado ({textoMedioPagoPrincipal}):</span>
                       <span className="font-mono">{formatCOP(totalAbonadoOperacion)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-700 text-[10.5px] pt-0.5 border-t border-dashed border-slate-300">
-                      <span>Efectivo Recibido Cliente:</span>
-                      <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
-                    </div>
-                    <div className="flex justify-between font-black text-emerald-800 text-[11px] pt-0.5 border-t border-slate-300">
-                      <span>Vueltos / Cambio Final:</span>
-                      <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
-                    </div>
+                    {efectivoRecibidoCliente > 0 && (
+                      <div className="flex justify-between text-slate-700 text-[9px] pt-0.5 border-t border-dashed border-slate-300">
+                        <span>Recibido:</span>
+                        <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
+                      </div>
+                    )}
+                    {vueltasCambioFinal > 0 && (
+                      <div className="flex justify-between font-black text-emerald-800 text-[10px] pt-0.5 border-t border-slate-300">
+                        <span>Vueltas:</span>
+                        <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
+                      </div>
+                    )}
                     {saldoPendienteOperacion > 0 && (
-                      <div className="flex justify-between font-black border-t border-slate-300 pt-1 text-xs">
+                      <div className="flex justify-between font-black border-t border-slate-300 pt-0.5 text-[9.5px]">
                         <span>Falta por pagar:</span>
                         <span className="text-rose-700">
                           {formatCOP(saldoPendienteOperacion)}
@@ -1332,9 +1364,16 @@ export default function PlantillaImpresion({
                   </div>
                 </div>
 
-                {/* BANNER OFICIAL DE MORA */}
-                <div className="p-1 bg-amber-100/90 rounded border border-amber-300 text-center text-[8.5px] sm:text-[9px] font-bold text-amber-950 my-1 w-full leading-snug">
-                  OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito.
+                {/* BANNER OFICIAL DE OBSERVACIONES Y MORA */}
+                <div className="p-1.5 bg-amber-50/90 rounded-lg border border-amber-300 text-center text-[8.5px] sm:text-[9.5px] text-amber-950 my-1 w-full leading-snug space-y-0.5">
+                  <div className="font-bold">
+                    OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.
+                  </div>
+                  {factura.observaciones && (
+                    <div className="italic text-[8px] sm:text-[9px] text-slate-800 pt-0.5 border-t border-amber-200">
+                      Nota: {factura.observaciones}
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
@@ -1371,8 +1410,8 @@ export default function PlantillaImpresion({
             )}
           </div>
 
-          {/* Normas y Políticas Segregadas */}
-          {textoPoliticas && (
+          {/* Normas y Políticas Segregadas (Omitidas estrictamente en Alquiler) */}
+          {!esAlquiler && textoPoliticas && (
             <div className="p-1 bg-slate-50 rounded-lg border border-slate-200 text-[9px] sm:text-[10px] text-slate-800 leading-tight my-0.5">
               <span className="font-black uppercase text-[9px] sm:text-[10px] mr-1 text-slate-950">
                 NORMAS Y POLÍTICAS:
@@ -1564,10 +1603,10 @@ export default function PlantillaImpresion({
               </div>
             </div>
 
-            {/* ÚNICA OBSERVACIÓN GENERAL FIJA DE APARTADOS */}
+            {/* LEYENDA OFICIAL DE APARTADOS */}
             <div className="p-3 bg-slate-100 rounded-xl border-2 border-slate-900 text-center mb-3 w-full">
-              <p className="text-xs font-black tracking-wide text-slate-900 uppercase leading-snug">
-                OBSERVACIÓN: La plata de trajes apartados no se devuelve. Lo único que se devuelve es el abono, que el abono es una garantía que se tiene de los clientes por los trajes alquilados o los trajes que se van a alquilar de los apartados.
+              <p className="text-sm font-black tracking-wide text-slate-900 uppercase leading-snug">
+                PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
               </p>
             </div>
           </div>
@@ -1760,8 +1799,8 @@ export default function PlantillaImpresion({
                   </div>
                 </div>
 
-                {/* COLUMNA 2: CELDA DE TOTALES DE PAGO DE ALQUILER (PROHIBIDO "ABONADO") */}
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-300 space-y-1.5">
+                {/* COLUMNA 2: CELDA DE TOTALES DE PAGO DE ALQUILER */}
+                <div className="p-3 bg-slate-50 rounded-xl border-2 border-slate-400 space-y-1.5">
                   <p className="font-black text-[10px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
                     TOTALES DE PAGO DE ALQUILER
                   </p>
@@ -1769,18 +1808,30 @@ export default function PlantillaImpresion({
                     <span>Total Valor Alquiler:</span>
                     <span className="font-mono text-sm">{formatCOP(totalOperacionPrincipal)}</span>
                   </div>
-                  <div className="flex justify-between text-xs text-emerald-800 font-bold">
-                    <span>Valor Pagado Hoy ({textoMedioPagoPrincipal}):</span>
+                  <div className="flex justify-between text-xs font-bold">
+                    <span>Depósito en Garantía:</span>
+                    <span className="font-mono text-sm">{formatCOP(montoDepositoEfectivo)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-black text-slate-950 bg-slate-200/80 px-2 py-1 rounded-lg border border-slate-300">
+                    <span>Total (Alquiler + Depósito):</span>
+                    <span className="font-mono text-base">{formatCOP(totalOperacionPrincipal + montoDepositoEfectivo)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-emerald-800 font-bold pt-1">
+                    <span>Valor Pagado ({textoMedioPagoPrincipal}):</span>
                     <span className="font-mono text-sm">{formatCOP(totalAbonadoOperacion)}</span>
                   </div>
-                  <div className="flex justify-between text-xs text-slate-700 pt-1 border-t border-dashed border-slate-300">
-                    <span>Efectivo Recibido Cliente:</span>
-                    <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
-                  </div>
-                  <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-300 pt-1">
-                    <span>Vueltas / Cambio Final:</span>
-                    <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
-                  </div>
+                  {efectivoRecibidoCliente > 0 && (
+                    <div className="flex justify-between text-xs text-slate-700 pt-1 border-t border-dashed border-slate-300">
+                      <span>Recibido:</span>
+                      <span className="font-mono">{formatCOP(efectivoRecibidoCliente)}</span>
+                    </div>
+                  )}
+                  {vueltasCambioFinal > 0 && (
+                    <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-300 pt-1">
+                      <span>Vueltas:</span>
+                      <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
+                    </div>
+                  )}
                   {saldoPendienteOperacion > 0 && (
                     <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-1">
                       <span>Falta por pagar:</span>
@@ -1792,9 +1843,17 @@ export default function PlantillaImpresion({
                 </div>
               </div>
 
-              {/* BANNER OFICIAL DE MORA */}
-              <div className="p-2 bg-amber-100/90 rounded-xl border border-amber-300 text-center text-xs font-bold text-amber-950 mt-2.5 w-full leading-snug">
-                OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito.
+              {/* BANNER OFICIAL DE OBSERVACIONES Y MORA */}
+              <div className="p-3 bg-amber-50/90 rounded-xl border border-amber-300 text-center text-xs text-amber-950 mt-2.5 w-full leading-relaxed space-y-1">
+                <p className="font-black uppercase tracking-wider text-[11px] text-amber-900 border-b border-amber-200 pb-0.5">OBSERVACIONES</p>
+                <p className="font-bold">
+                  A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.
+                </p>
+                {factura.observaciones && (
+                  <p className="italic text-slate-800 pt-1 border-t border-amber-200">
+                    Nota: {factura.observaciones}
+                  </p>
+                )}
               </div>
               </>
             ) : (
@@ -1834,7 +1893,7 @@ export default function PlantillaImpresion({
 
         {/* Políticas y Firmas */}
         <div>
-          {textoPoliticas && (
+          {!esAlquiler && textoPoliticas && (
             <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 mb-3 leading-relaxed">
               <p className="font-bold uppercase text-[10px] text-slate-900 mb-0.5">NORMAS Y POLÍTICAS:</p>
               <p>{textoPoliticas}</p>

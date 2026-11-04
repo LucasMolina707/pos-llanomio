@@ -1856,20 +1856,28 @@ export default function ConfiguracionAdminPage() {
                 {/* Totales Segregados de Tirilla */}
                 <div className="space-y-1 font-bold text-xs pt-1">
                   {tipoOperacionSimulador === "ALQUILER" ? (
-                    <>
-                      <div className="flex justify-between text-sm font-black">
-                        <span>TOTAL ALQUILER:</span>
-                        <span>$100.000</span>
+                    <div className="py-1.5 border-2 border-black bg-slate-100 p-2 rounded my-1 text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span>Total Valor Alquiler:</span>
+                        <span className="font-mono">$100.000</span>
                       </div>
-                      <div className="flex justify-between text-emerald-800">
-                        <span>VALOR PAGADO (EFECTIVO):</span>
-                        <span>$50.000</span>
+                      <div className="flex justify-between">
+                        <span>Depósito en Garantía:</span>
+                        <span className="font-mono">$50.000</span>
                       </div>
-                      <div className="flex justify-between text-rose-700 font-black">
-                        <span>SALDO PENDIENTE:</span>
-                        <span>$50.000</span>
+                      <div className="flex justify-between font-black text-slate-950 pt-0.5 border-t border-black bg-slate-200/70 px-1 rounded">
+                        <span>Total (Alquiler + Depósito):</span>
+                        <span className="font-mono text-sm">$150.000</span>
                       </div>
-                    </>
+                      <div className="flex justify-between text-emerald-800 font-bold pt-0.5">
+                        <span>Valor Pagado (Efectivo):</span>
+                        <span className="font-mono">$100.000</span>
+                      </div>
+                      <div className="flex justify-between text-rose-700 font-black border-t border-black pt-1">
+                        <span>Falta por pagar:</span>
+                        <span className="font-mono">$50.000</span>
+                      </div>
+                    </div>
                   ) : (
                     <>
                       <div className="flex justify-between text-sm font-black">
@@ -1880,22 +1888,18 @@ export default function ConfiguracionAdminPage() {
                         <span>COBRO RECIBIDO (EFECTIVO):</span>
                         <span>$100.000</span>
                       </div>
-                      <div className="flex justify-between text-emerald-700 font-black">
-                        <span>ESTADO:</span>
-                        <span>PAZ Y SALVO</span>
-                      </div>
                     </>
                   )}
                 </div>
 
                 <div className="border-t border-dashed border-slate-400 my-2"></div>
 
-                {/* Políticas */}
-                <div className="text-[10px] text-justify leading-tight text-slate-600 my-2">
-                  {tipoOperacionSimulador === "VENTA"
-                    ? "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento."
-                    : config.politicasFactura || "Las prendas en alquiler deben devolverse en la fecha pactada en óptimas condiciones. Todo retraso genera recargo de mora."}
-                </div>
+                {/* Políticas (Solo en Ventas; omitidas en Alquiler) */}
+                {tipoOperacionSimulador === "VENTA" && (
+                  <div className="text-[10px] text-justify leading-tight text-slate-600 my-2">
+                    Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento.
+                  </div>
+                )}
 
                 <div className="mt-2 text-center border-t border-dotted border-slate-300 pt-1.5 text-[9.5px] text-slate-500 uppercase font-sans">
                   {config.piePaginaFactura || "¡GRACIAS POR SU PREFERENCIA! — CERO QR"}
@@ -1978,30 +1982,34 @@ export default function ConfiguracionAdminPage() {
 
                 {/* Pie Media Carta */}
                 <div className="flex justify-between items-start gap-3 pt-1 border-t text-[10px]">
-                  <div className="flex-1 text-slate-500 line-clamp-2">
-                    <span className="font-bold text-slate-700 block mb-0.5">
-                      {tipoOperacionSimulador === "VENTA" ? "POLÍTICAS COMERCIALES:" : "TÉRMINOS DE ALQUILER:"}
-                    </span>
-                    {tipoOperacionSimulador === "VENTA"
-                      ? "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento."
-                      : config.politicasFactura || "Las prendas en alquiler deben devolverse en la fecha pactada en óptimas condiciones."}
+                  <div className="flex-1 text-slate-700 line-clamp-3">
+                    {tipoOperacionSimulador === "ALQUILER" ? (
+                      <div className="p-1.5 bg-amber-50 rounded border border-amber-200 text-amber-950">
+                        <span className="font-bold uppercase text-[9px] block mb-0.5">OBSERVACIONES:</span>
+                        <span>A partir del día siguiente de la fecha de entrega se descontará $15.000 por día de mora del depósito en garantía.</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="font-bold text-slate-700 block mb-0.5">POLÍTICAS COMERCIALES:</span>
+                        <span>Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento.</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="w-36 text-right font-mono text-xs space-y-0.5">
+                  <div className="w-48 text-right font-mono text-[10px] space-y-0.5 border-2 border-slate-300 p-1.5 rounded-lg bg-white">
                     {tipoOperacionSimulador === "ALQUILER" ? (
                       <>
-                        <div className="font-black text-slate-900">
-                          TOTAL ALQUILER: <strong>$100.000</strong>
-                        </div>
-                        <div className="text-emerald-700 font-semibold">Valor Pagado (Efectivo): $50.000</div>
-                        <div className="text-rose-700 font-black">Saldo Pendiente: $50.000</div>
+                        <div className="text-slate-800">Total Valor Alquiler: <strong>$100.000</strong></div>
+                        <div className="text-amber-800 font-bold">Depósito en Garantía: <strong>$50.000</strong></div>
+                        <div className="font-black text-slate-950 bg-slate-100 p-0.5 rounded">Total (Alquiler + Depósito): $150.000</div>
+                        <div className="text-emerald-700 font-semibold">Valor Pagado (Efectivo): $100.000</div>
+                        <div className="text-rose-700 font-black">Falta por pagar: $50.000</div>
                       </>
                     ) : (
                       <>
-                        <div className="font-black text-slate-900">
+                        <div className="font-black text-slate-900 text-xs">
                           TOTAL VENTA: <strong>$100.000</strong>
                         </div>
                         <div className="text-emerald-700 font-semibold">Cobro Recibido: $100.000</div>
-                        <div className="text-emerald-700 font-black">PAZ Y SALVO</div>
                       </>
                     )}
                   </div>
@@ -2215,24 +2223,27 @@ export default function ConfiguracionAdminPage() {
 
                 {/* Totales y Políticas Segregados */}
                 <div className="flex justify-between items-start gap-3 pt-1 border-t text-[10px]">
-                  <div className="flex-1 p-2 bg-white rounded border text-slate-500 line-clamp-3">
-                    <span className="font-bold block text-slate-700 mb-0.5">
-                      {tipoOperacionSimulador === "VENTA" ? "POLÍTICAS COMERCIALES:" : "TÉRMINOS Y CONDICIONES:"}
-                    </span>
-                    {tipoOperacionSimulador === "VENTA"
-                      ? "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento."
-                      : config.politicasFactura}
+                  <div className="flex-1 p-2 bg-white rounded border text-slate-700 line-clamp-3">
+                    {tipoOperacionSimulador === "ALQUILER" ? (
+                      <div className="p-1.5 bg-amber-50 rounded border border-amber-200 text-amber-950">
+                        <span className="font-bold uppercase text-[9px] block mb-0.5">OBSERVACIONES:</span>
+                        <span>A partir del día siguiente de la fecha de entrega se descontará $15.000 por día de mora del depósito en garantía.</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="font-bold block text-slate-700 mb-0.5">POLÍTICAS COMERCIALES:</span>
+                        <span>Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento.</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="w-44 text-right font-mono space-y-0.5 text-xs">
+                  <div className="w-52 text-right font-mono space-y-1 text-xs border-2 border-slate-300 p-2 rounded-xl bg-white">
                     {tipoOperacionSimulador === "ALQUILER" ? (
                       <>
-                        <div className="font-black text-sm text-slate-950">
-                          TOTAL ALQUILER: <strong>$100.000</strong>
-                        </div>
-                        <div className="text-emerald-700 font-semibold">Valor Pagado (Efectivo): $50.000</div>
-                        <div className="text-rose-700 font-bold p-1 bg-rose-50 rounded border border-rose-200">
-                          Saldo Pendiente: $50.000
-                        </div>
+                        <div className="text-slate-800">Total Valor Alquiler: <strong>$100.000</strong></div>
+                        <div className="text-amber-800 font-bold">Depósito en Garantía: <strong>$50.000</strong></div>
+                        <div className="font-black text-slate-950 bg-slate-100 p-1 rounded">Total (Alquiler + Depósito): $150.000</div>
+                        <div className="text-emerald-700 font-semibold">Valor Pagado (Efectivo): $100.000</div>
+                        <div className="text-rose-700 font-bold">Falta por pagar: $50.000</div>
                       </>
                     ) : (
                       <>
@@ -2240,9 +2251,6 @@ export default function ConfiguracionAdminPage() {
                           TOTAL VENTA: <strong>$100.000</strong>
                         </div>
                         <div className="text-emerald-700 font-semibold">Cobro Recibido (Efectivo): $100.000</div>
-                        <div className="text-emerald-700 font-bold p-1 bg-emerald-50 rounded border border-emerald-200">
-                          PAZ Y SALVO
-                        </div>
                       </>
                     )}
                   </div>

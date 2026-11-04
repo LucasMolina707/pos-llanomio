@@ -1199,8 +1199,8 @@ export default function ApartadosPage() {
 
                       {/* Observación Oficial Fija de Apartados */}
                       <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-center">
-                        <p className="text-[11px] font-black text-amber-950 uppercase leading-snug">
-                          OBSERVACIÓN: La plata de trajes apartados no se devuelve. Lo único que se devuelve es el abono, que el abono es una garantía que se tiene de los clientes por los trajes alquilados o los trajes que se van a alquilar de los apartados.
+                        <p className="text-xs font-black text-amber-950 uppercase tracking-wide">
+                          PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
                         </p>
                       </div>
                     </div>

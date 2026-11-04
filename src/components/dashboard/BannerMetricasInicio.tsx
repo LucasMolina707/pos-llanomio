@@ -28,23 +28,45 @@ interface MetricasData {
   rendimientoSastreria: number;
   rendimientoVentas: number;
   rendimientoAlquileres: number;
+  rendimientoApartados?: number;
   totalFacturas: number;
   totalAbonos: number;
   depositosCustodia: number;
+  depositosEnCustodia?: number;
+  dineroEnLaCalle?: number;
+  clientesDeudoresCount?: number;
 }
 
 interface DondeEstaElDineroData {
   efectivoFisicoPeriodo: number;
   efectivoEnGavetaTurno: number;
+  baseInicialGaveta?: number;
+  efectivoRecaudadoTurno?: number;
   totalCuentasDigitales: number;
+  cuentasDigitalesOConsignaciones?: number;
   desgloseDigital: {
     nequi: number;
     bancolombia: number;
     llave: number;
     daviplata: number;
     transferencia: number;
+    consignacion?: number;
   };
   depositosCustodia: number;
+  depositosEnCustodia?: number;
+  desgloseCustodia?: {
+    alquileresActivos: number;
+    apartadosActivos: number;
+    leyenda: string;
+  };
+  dineroEnLaCalle?: number;
+  desgloseDineroCalle?: {
+    saldosPorCobrar: number;
+    morasActivas: number;
+    clientesDeudoresCount: number;
+    facturasConSaldoCount: number;
+    alquileresVencidosCount: number;
+  };
   cuentasPorCobrar: number;
   morasRecaudadas: number;
 }
@@ -320,7 +342,7 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
           </div>
         </div>
 
-        {/* KPI 3: Depósitos de Alquiler en Custodia */}
+        {/* KPI 3: Depósitos en Custodia (Alquileres + Apartados) */}
         <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -335,20 +357,20 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
               {cargando ? (
                 <div className="h-7 w-28 bg-slate-200 rounded-md animate-pulse"></div>
               ) : (
-                formatearDinero(metricas?.depositosCustodia || 0)
+                formatearDinero(metricas?.depositosEnCustodia ?? metricas?.depositosCustodia ?? dondeEstaElDinero?.depositosCustodia ?? 0)
               )}
             </div>
             <p className="text-[11px] font-semibold text-slate-500 mt-1">
-              {metricas?.prendasAlquiladasActivas || 0} prendas en alquiler activo
+              Garantías de alquileres activos y apartados (custodia)
             </p>
           </div>
         </div>
 
-        {/* KPI 4: Cuentas por Cobrar y Moras */}
+        {/* KPI 4: Dinero en la Calle (Saldos por Cobrar + Moras Activas) */}
         <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Cartera y Moras
+              Dinero en la Calle
             </span>
             <div className="h-8 w-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
               <AlertTriangle className="h-4 w-4" />
@@ -359,11 +381,11 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
               {cargando ? (
                 <div className="h-7 w-28 bg-slate-200 rounded-md animate-pulse"></div>
               ) : (
-                formatearDinero(metricas?.cuentasPorCobrar || 0)
+                formatearDinero(metricas?.dineroEnLaCalle ?? metricas?.cuentasPorCobrar ?? dondeEstaElDinero?.cuentasPorCobrar ?? 0)
               )}
             </div>
             <p className="text-[11px] font-semibold text-slate-500 mt-1">
-              Moras cobradas: {formatearDinero(metricas?.morasRecaudadas || 0)}
+              Saldos activos + moras de clientes vencidos
             </p>
           </div>
         </div>

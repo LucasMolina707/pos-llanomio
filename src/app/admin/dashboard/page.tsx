@@ -45,9 +45,13 @@ interface MetricasData {
   rendimientoSastreria: number;
   rendimientoVentas: number;
   rendimientoAlquileres: number;
+  rendimientoApartados?: number;
   totalFacturas: number;
   totalAbonos: number;
   depositosCustodia?: number;
+  depositosEnCustodia?: number;
+  dineroEnLaCalle?: number;
+  clientesDeudoresCount?: number;
 }
 
 interface DesgloseMetodosPago {
@@ -57,27 +61,47 @@ interface DesgloseMetodosPago {
   totalBancolombia: number;
   totalLlave: number;
   totalTransferencia: number;
+  totalConsignacion?: number;
   totalDigital: number;
 }
 
 interface DesgloseLineasNegocio {
   alquileres: number;
   ventas: number;
+  apartados?: number;
   sastreria: number;
 }
 
 interface DondeEstaElDineroData {
   efectivoFisicoPeriodo: number;
   efectivoEnGavetaTurno: number;
+  baseInicialGaveta?: number;
+  efectivoRecaudadoTurno?: number;
   totalCuentasDigitales: number;
+  cuentasDigitalesOConsignaciones?: number;
   desgloseDigital: {
     nequi: number;
     bancolombia: number;
     llave: number;
     daviplata: number;
     transferencia: number;
+    consignacion?: number;
   };
   depositosCustodia: number;
+  depositosEnCustodia?: number;
+  desgloseCustodia?: {
+    alquileresActivos: number;
+    apartadosActivos: number;
+    leyenda: string;
+  };
+  dineroEnLaCalle?: number;
+  desgloseDineroCalle?: {
+    saldosPorCobrar: number;
+    morasActivas: number;
+    clientesDeudoresCount: number;
+    facturasConSaldoCount: number;
+    alquileresVencidosCount: number;
+  };
   cuentasPorCobrar: number;
   morasRecaudadas: number;
 }
@@ -549,27 +573,35 @@ export default function DashboardGerencialPage() {
             <div className="text-2xl font-black text-emerald-900 font-mono tracking-tight">
               {formatearDinero(dondeEstaElDinero?.efectivoFisicoPeriodo ?? metodosPago.totalEfectivo)}
             </div>
-            <div className="pt-2 border-t border-emerald-100 flex items-center justify-between text-xs text-emerald-800">
-              <span className="font-medium">En Gaveta (Turno):</span>
-              <span className="font-bold font-mono">
-                {formatearDinero(dondeEstaElDinero?.efectivoEnGavetaTurno ?? turnoActual?.efectivoEnGaveta ?? 0)}
-              </span>
+            <div className="pt-2 border-t border-emerald-100 space-y-1 text-xs text-emerald-800">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">En Gaveta (Turno):</span>
+                <span className="font-bold font-mono">
+                  {formatearDinero(dondeEstaElDinero?.efectivoEnGavetaTurno ?? turnoActual?.efectivoEnGaveta ?? 0)}
+                </span>
+              </div>
+              {turnoActual && (
+                <div className="flex items-center justify-between text-[11px] text-emerald-700">
+                  <span>Base: {formatearDinero(dondeEstaElDinero?.baseInicialGaveta ?? turnoActual.baseInicial)}</span>
+                  <span>+ Recaudado: {formatearDinero(dondeEstaElDinero?.efectivoRecaudadoTurno ?? (dondeEstaElDinero?.efectivoEnGavetaTurno ? dondeEstaElDinero.efectivoEnGavetaTurno - turnoActual.baseInicial : 0))}</span>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* 2. Cuentas Digitales / Bancos */}
+          {/* 2. Cuentas Digitales o Consignaciones */}
           <div className="bg-gradient-to-br from-blue-50/60 to-white rounded-xl p-4 border border-blue-200/80 shadow-xs space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
                 <Smartphone className="w-4 h-4 text-blue-600" />
-                Cuentas Digitales
+                Cuentas Digitales / Consignaciones
               </span>
               <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
                 Bancos & Apps
               </span>
             </div>
             <div className="text-2xl font-black text-blue-900 font-mono tracking-tight">
-              {formatearDinero(dondeEstaElDinero?.totalCuentasDigitales ?? (metodosPago.totalNequi + metodosPago.totalDaviplata + (metodosPago.totalBancolombia || 0) + (metodosPago.totalLlave || 0) + metodosPago.totalTransferencia))}
+              {formatearDinero(dondeEstaElDinero?.cuentasDigitalesOConsignaciones ?? dondeEstaElDinero?.totalCuentasDigitales ?? (metodosPago.totalNequi + metodosPago.totalDaviplata + (metodosPago.totalBancolombia || 0) + (metodosPago.totalLlave || 0) + metodosPago.totalTransferencia + (metodosPago.totalConsignacion || 0)))}
             </div>
             <div className="pt-2 border-t border-blue-100 flex flex-wrap gap-1 text-[11px]">
               <span className="bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded">
@@ -581,34 +613,50 @@ export default function DashboardGerencialPage() {
               <span className="bg-rose-100 text-rose-800 font-bold px-1.5 py-0.5 rounded">
                 Dav: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.daviplata ?? metodosPago.totalDaviplata)}
               </span>
-              {(dondeEstaElDinero?.desgloseDigital?.transferencia ?? metodosPago.totalTransferencia) > 0 && (
+              {((dondeEstaElDinero?.desgloseDigital?.llave ?? metodosPago.totalLlave ?? 0) > 0) && (
+                <span className="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">
+                  Llave: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.llave ?? metodosPago.totalLlave ?? 0)}
+                </span>
+              )}
+              {((dondeEstaElDinero?.desgloseDigital?.transferencia ?? metodosPago.totalTransferencia ?? 0) > 0) && (
                 <span className="bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded">
-                  Transf: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.transferencia ?? metodosPago.totalTransferencia)}
+                  Transf: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.transferencia ?? metodosPago.totalTransferencia ?? 0)}
+                </span>
+              )}
+              {((dondeEstaElDinero?.desgloseDigital?.consignacion ?? metodosPago.totalConsignacion ?? 0) > 0) && (
+                <span className="bg-indigo-100 text-indigo-800 font-bold px-1.5 py-0.5 rounded">
+                  Consig: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.consignacion ?? metodosPago.totalConsignacion ?? 0)}
                 </span>
               )}
             </div>
           </div>
 
-          {/* 3. Depósitos de Alquiler en Custodia */}
+          {/* 3. Depósitos en Custodia (Alquileres + Apartados) */}
           <div className="bg-gradient-to-br from-amber-50/60 to-white rounded-xl p-4 border border-amber-200/80 shadow-xs space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-amber-600" />
-                Depósitos Custodia
+                Depósitos en Custodia
               </span>
               <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
                 Garantías
               </span>
             </div>
             <div className="text-2xl font-black text-amber-900 font-mono tracking-tight">
-              {formatearDinero(dondeEstaElDinero?.depositosCustodia ?? metricas.depositosCustodia ?? 0)}
+              {formatearDinero(dondeEstaElDinero?.depositosEnCustodia ?? dondeEstaElDinero?.depositosCustodia ?? metricas.depositosCustodia ?? 0)}
             </div>
-            <p className="pt-2 border-t border-amber-100 text-xs text-amber-800 font-medium">
-              Efectivo retenido temporalmente por alquileres activos (no es ingreso propio)
-            </p>
+            <div className="pt-2 border-t border-amber-100 text-xs text-amber-900 space-y-1">
+              <div className="flex justify-between font-bold text-[11px]">
+                <span>Alquileres: {formatearDinero(dondeEstaElDinero?.desgloseCustodia?.alquileresActivos ?? dondeEstaElDinero?.depositosCustodia ?? 0)}</span>
+                <span>Apartados: {formatearDinero(dondeEstaElDinero?.desgloseCustodia?.apartadosActivos ?? 0)}</span>
+              </div>
+              <p className="text-[10px] text-amber-800 leading-tight">
+                Dinero en garantía de alquileres activos y apartados (En custodia, no es ingreso de la tienda)
+              </p>
+            </div>
           </div>
 
-          {/* 4. Dinero en la Calle (Cuentas por Cobrar + Moras) */}
+          {/* 4. Dinero en la Calle (Saldos por Cobrar + Moras Activas) */}
           <div className="bg-gradient-to-br from-rose-50/60 to-white rounded-xl p-4 border border-rose-200/80 shadow-xs space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
@@ -616,17 +664,20 @@ export default function DashboardGerencialPage() {
                 Dinero en la Calle
               </span>
               <span className="text-xs font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">
-                Cartera
+                Cartera & Moras
               </span>
             </div>
             <div className="text-2xl font-black text-rose-900 font-mono tracking-tight">
-              {formatearDinero(dondeEstaElDinero?.cuentasPorCobrar ?? metricas.cuentasPorCobrar)}
+              {formatearDinero(dondeEstaElDinero?.dineroEnLaCalle ?? (dondeEstaElDinero?.cuentasPorCobrar ?? metricas.cuentasPorCobrar))}
             </div>
-            <div className="pt-2 border-t border-rose-100 flex items-center justify-between text-xs text-rose-800">
-              <span className="font-medium">Moras Liquidadas:</span>
-              <span className="font-bold font-mono">
-                {formatearDinero(dondeEstaElDinero?.morasRecaudadas ?? metricas.morasRecaudadas)}
-              </span>
+            <div className="pt-2 border-t border-rose-100 text-xs text-rose-800 space-y-1">
+              <div className="flex items-center justify-between font-bold text-[11px]">
+                <span>Saldos: {formatearDinero(dondeEstaElDinero?.desgloseDineroCalle?.saldosPorCobrar ?? dondeEstaElDinero?.cuentasPorCobrar ?? metricas.cuentasPorCobrar)}</span>
+                <span>Moras Activas: {formatearDinero(dondeEstaElDinero?.desgloseDineroCalle?.morasActivas ?? 0)}</span>
+              </div>
+              <p className="text-[10.5px] font-semibold text-rose-700">
+                {dondeEstaElDinero?.desgloseDineroCalle?.clientesDeudoresCount ?? metricas.clientesDeudoresCount ?? 0} clientes deudores / en mora
+              </p>
             </div>
           </div>
         </div>

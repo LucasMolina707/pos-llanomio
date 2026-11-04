@@ -3493,3 +3493,56 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
 - **Suite de Pruebas (`scripts/test-auditoria-5-bloques-qa.cjs`):** 20/20 aserciones aprobadas (100% de éxito).
 - **Tipado TypeScript:** `npx tsc --noEmit` completado con 0 errores.
 
+
+---
+
+## SECCIÓN 51: REFECTORIZACIÓN DE APARTADOS, FACTURAS DE ALQUILER, TOTALES Y TELEMETRÍA FINANCIERA (4 REGLAS DE NEGOCIO)
+
+### 1. Regla 1: Formato de Apartados — Leyenda Oficial Única Destacada
+- En los 4 formatos de impresión (`TIRILLA` 80mm, `MEDIA_CARTA`, `MEDIA_CARTA_DOBLE` y `CARTA`) en `PlantillaImpresion.tsx` y `pdf-media-carta.ts`:
+  - Se eliminó el texto anterior extenso y se reemplazó de forma inequívoca por:
+    > **`PLATA DE TRAJES APARTADOS NO SE DEVUELVEN`** (mayúsculas, centrado, en negrita destacada).
+  - Replicado en el mostrador de caja `/caja/apartados/page.tsx`.
+
+### 2. Regla 2: Factura de Alquiler — Supresión de Políticas y Ampliación de Observaciones
+- **Eliminación Total de "Normas y Políticas" en Alquiler:**
+  - En `PlantillaImpresion.tsx`, `pdf-media-carta.ts` y en el simulador de `/admin/configuracion`: cuando `tipoOperacion === 'ALQUILER'`, no se renderiza el bloque `politicasFactura`.
+- **Ampliación de la Etiqueta de Observaciones:**
+  - Diseñada a ancho completo (`w-full`), fondo ámbar de alto contraste y tipografía clara.
+  - Informa formalmente la regla de descuento del depósito:
+    > *"A partir del día siguiente de la fecha de entrega se descontará $XX.XXX pesos por día de mora del depósito en garantía."*
+  - Incluye notas específicas del contrato u observaciones de la prenda si existen.
+
+### 3. Regla 3: Ventana y Formato de Alquiler — Celda de Totales Enmarcada y Sin "Hoy"
+- Se conserva intacta la tarjeta amarilla de Depósito en Garantía con su custodia y fecha límite de entrega obligatoria (`hasta las 8:00 p.m. / 20:00`).
+- En la Ventana de Alquiler (`/caja/alquileres` — Paso 3 y Carrito) y en las Facturas de Alquiler (`PlantillaImpresion.tsx` y `pdf-media-carta.ts`):
+  - Celda de Totales claramente enmarcada mostrando en orden contable:
+    1. `Total Valor Alquiler: $XX.XXX`
+    2. `Depósito en Garantía: $XX.XXX`
+    3. `Total (Alquiler + Depósito): $XX.XXX` (Suma exacta destacada en recuadro).
+    4. `Valor Pagado (Efectivo / Consignación): $XX.XXX` (Omitiendo estrictamente la palabra *"hoy"*; indicando el medio de pago).
+    5. `Recibido: $XX.XXX` (si aplica).
+    6. `Vueltas: $XX.XXX` (si aplica).
+    - Si resta saldo por cubrir: `Falta por pagar: $XX.XXX` (si saldo <= 0, no se muestra nada de saldo).
+
+### 4. Regla 4: Analítica Financiera Completa en Dashboard, Banner y API
+- En `src/app/api/dashboard/metrics/route.ts` (y `/api/admin/dashboard/route.ts`), `src/app/admin/dashboard/page.tsx` y `src/components/dashboard/BannerMetricasInicio.tsx`:
+  1. **Efectivo Físico (`efectivoFisico`):**
+     - Dinero real recaudado en efectivo por ventas, alquileres, apartados y arreglos en el período.
+     - Desglose de lo esperado en la gaveta del turno abierto: `Base Inicial + Efectivo Recaudado`.
+  2. **Cuentas Digitales o Consignaciones (`cuentasDigitalesOConsignaciones`):**
+     - Suma total e individualizada de `CONSIGNACION`, `TRANSFERENCIA`, `NEQUI`, `BANCOLOMBIA`, `LLAVE`, `DAVIPLATA`.
+  3. **Depósitos en Custodia (`depositosEnCustodia`):**
+     - Dinero recibido en garantía tanto de **Alquileres activos** (`tipoOperacion === 'ALQUILER'`, prendas no devueltas `!fechaDevolucionReal && estado !== 'CERRADA'`) como de **Apartados activos** (`tipoOperacion === 'SEPARE'`, `estado !== 'CERRADA'`).
+     - Subtítulo: *"Dinero en garantía de alquileres activos y apartados (En custodia, no es ingreso de la tienda)"*.
+  4. **Dinero en la Calle (`dineroEnLaCalle`):**
+     $$\text{Dinero en la Calle} = \text{Saldos Pendientes de Facturas Activas} + \text{Recargos Acumulados por Días de Mora de Clientes Vencidos}$$
+     - Desglose interactivo: `Saldos por Cobrar` vs `Moras Activas` + conteo de clientes deudores/en mora.
+  5. **Métricas complementarias:**
+     - Ingresos Netos, desglose por línea de negocio (`Ventas`, `Alquileres`, `Apartados`, `Sastrería`), moras recaudadas y prendas alquiladas activas.
+
+### 5. Auditoría QA y Estado de Producción
+- **Script de Validación Automatizada (`scripts/test-auditoria-reglas-financieras-impresion.cjs`):** 100% aprobado.
+- **Tipado TypeScript:** `npx tsc --noEmit` completado con 0 errores.
+- **Build de Producción:** `npx next build --no-lint` exitoso en 21.9s (22/22 rutas generadas).
+- **Servicio PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` online y operativos en `http://localhost:3000`.

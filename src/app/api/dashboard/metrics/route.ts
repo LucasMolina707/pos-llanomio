@@ -171,33 +171,30 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 5. Cálculos de líneas de negocio y cartera
-    let cuentasPorCobrar = 0;
-    let morasRecaudadas = 0;
-    let totalPrendasAlquiladas = 0;
+    // 5. Cálculos de líneas de negocio y rendimiento del periodo
     let rendimientoSastreria = 0;
     let rendimientoVentas = 0;
     let rendimientoAlquileres = 0;
+    let rendimientoApartados = 0;
+    let totalPrendasAlquiladas = 0;
+    let morasRecaudadas = 0;
 
     for (const f of facturas) {
-      if (f.estado !== EstadoFactura.CERRADA) {
-        cuentasPorCobrar += f.saldoPendiente || 0;
-      }
-
       morasRecaudadas += f.recargoMoraAcumulado || 0;
       rendimientoSastreria += f.subtotalArreglosLibres || 0;
 
+      if (f.tipoOperacion === "ALQUILER") {
+        rendimientoAlquileres += f.subtotalProductos || 0;
+      } else if (f.tipoOperacion === "SEPARE") {
+        rendimientoApartados += f.totalFactura || 0;
+      } else {
+        rendimientoVentas += f.subtotalProductos || 0;
+      }
+
       for (const d of f.detalles) {
         const cantidad = d.cantidad || 1;
-        const subtotal = d.subtotal || 0;
-
         if (d.producto && d.producto.tipo === TipoProducto.ALQUILER) {
           totalPrendasAlquiladas += cantidad;
-          rendimientoAlquileres += subtotal;
-        } else if (d.producto && d.producto.tipo === TipoProducto.VENTA) {
-          rendimientoVentas += subtotal;
-        } else if (d.esServicioLibre) {
-          // Arreglo o servicio libre ya sumado
         }
       }
     }
@@ -210,22 +207,120 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // 6. Depósitos de alquiler en garantía activa (custodia física en efectivo)
-    const depositosEnGarantia = await prisma.factura.aggregate({
-      _sum: { montoDeposito: true },
+    // 6. DEPÓSITOS EN CUSTODIA (Regla 4: Alquileres Activos + Apartados Activos)
+    // Facturas de Alquiler activas con depósito en garantía recibido y prendas aún no retornadas
+    const alquileresActivosConDeposito = await prisma.factura.findMany({
       where: {
         tipoOperacion: "ALQUILER",
-        estadoDeposito: "RECIBIDO_EN_GARANTIA",
+        estado: { not: EstadoFactura.CERRADA },
+        fechaDevolucionReal: null,
+        montoDeposito: { gt: 0 },
+      },
+      select: {
+        id: true,
+        montoDeposito: true,
+        estadoDeposito: true,
       },
     });
-    const totalDepositosCustodia = depositosEnGarantia._sum.montoDeposito || 0;
 
-    // 7. Efectivo disponible en gaveta si el turno está abierto
+    const custodiaAlquileres = alquileresActivosConDeposito.reduce(
+      (acc, f) => acc + (f.montoDeposito || 0),
+      0
+    );
+
+    // Facturas de Apartados activos (dinero recibido en garantía/abono no cerrado)
+    const apartadosActivos = await prisma.factura.findMany({
+      where: {
+        tipoOperacion: "SEPARE",
+        estado: { not: EstadoFactura.CERRADA },
+      },
+      select: {
+        id: true,
+        totalAbonado: true,
+        montoDeposito: true,
+      },
+    });
+
+    const custodiaApartados = apartadosActivos.reduce(
+      (acc, f) => acc + (f.totalAbonado || f.montoDeposito || 0),
+      0
+    );
+
+    const totalDepositosCustodia = custodiaAlquileres + custodiaApartados;
+
+    // 7. DINERO EN LA CALLE (Regla 4: Saldos Pendientes Activos + Moras Activas de Vencidos)
+    const facturasActivas = await prisma.factura.findMany({
+      where: {
+        estado: { not: EstadoFactura.CERRADA },
+      },
+      select: {
+        id: true,
+        clienteId: true,
+        tipoOperacion: true,
+        saldoPendiente: true,
+        fechaDevolucionPactada: true,
+        fechaDevolucionReal: true,
+        tarifaMoraDiaria: true,
+        recargoMoraAcumulado: true,
+      },
+    });
+
+    const ahora = new Date();
+    let totalSaldosPendientesCalle = 0;
+    let totalMorasActivasCalle = 0;
+    const clientesDeudoresSet = new Set<string>();
+    let facturasConSaldoCount = 0;
+    let alquileresVencidosCount = 0;
+
+    for (const f of facturasActivas) {
+      let tieneDeuda = false;
+
+      // Saldo pendiente
+      if (f.saldoPendiente > 0) {
+        totalSaldosPendientesCalle += f.saldoPendiente;
+        facturasConSaldoCount++;
+        tieneDeuda = true;
+      }
+
+      // Moras activas acumuladas de clientes vencidos (Alquiler no devuelto superó fecha límite)
+      if (
+        f.tipoOperacion === "ALQUILER" &&
+        !f.fechaDevolucionReal &&
+        f.fechaDevolucionPactada &&
+        new Date(f.fechaDevolucionPactada) < ahora
+      ) {
+        const msDiferencia = ahora.getTime() - new Date(f.fechaDevolucionPactada).getTime();
+        const diasRetraso = Math.max(0, Math.floor(msDiferencia / (1000 * 60 * 60 * 24)));
+        const tarifa = f.tarifaMoraDiaria > 0 ? f.tarifaMoraDiaria : 3000;
+        const moraCalculada = diasRetraso * tarifa;
+        const moraEfectiva = Math.max(f.recargoMoraAcumulado || 0, moraCalculada);
+
+        if (moraEfectiva > 0) {
+          totalMorasActivasCalle += moraEfectiva;
+          alquileresVencidosCount++;
+          tieneDeuda = true;
+        }
+      }
+
+      if (tieneDeuda && f.clienteId) {
+        clientesDeudoresSet.add(f.clienteId);
+      }
+    }
+
+    const totalDineroEnLaCalle = totalSaldosPendientesCalle + totalMorasActivasCalle;
+
+    // 8. Efectivo disponible en gaveta si el turno está abierto
     const efectivoEnGavetaTurno = turnoActivo
       ? Math.max(0, (turnoActivo.baseInicialEfectivo || 0) + (turnoActivo.totalEfectivo || 0))
       : 0;
 
-    const totalDigital = totalNequi + totalDaviplata + totalBancolombia + totalLlave + totalTransferencia + totalConsignacion;
+    const totalDigital =
+      totalNequi +
+      totalDaviplata +
+      totalBancolombia +
+      totalLlave +
+      totalTransferencia +
+      totalConsignacion;
 
     const desgloseMetodos = {
       totalEfectivo: Math.round(totalEfectivo * 100) / 100,
@@ -233,29 +328,49 @@ export async function GET(req: NextRequest) {
       totalDaviplata: Math.round(totalDaviplata * 100) / 100,
       totalBancolombia: Math.round(totalBancolombia * 100) / 100,
       totalLlave: Math.round(totalLlave * 100) / 100,
-      totalTransferencia: Math.round((totalTransferencia + totalConsignacion) * 100) / 100,
+      totalTransferencia: Math.round(totalTransferencia * 100) / 100,
+      totalConsignacion: Math.round(totalConsignacion * 100) / 100,
       totalDigital: Math.round(totalDigital * 100) / 100,
     };
 
     const desgloseLineas = {
       alquileres: Math.round(rendimientoAlquileres * 100) / 100,
       ventas: Math.round(rendimientoVentas * 100) / 100,
+      apartados: Math.round(rendimientoApartados * 100) / 100,
       sastreria: Math.round(rendimientoSastreria * 100) / 100,
     };
 
     const dondeEstaElDinero = {
       efectivoFisicoPeriodo: Math.round(totalEfectivo * 100) / 100,
       efectivoEnGavetaTurno: Math.round(efectivoEnGavetaTurno * 100) / 100,
+      baseInicialGaveta: turnoActivo?.baseInicialEfectivo || 0,
+      efectivoRecaudadoTurno: turnoActivo?.totalEfectivo || 0,
       totalCuentasDigitales: Math.round(totalDigital * 100) / 100,
+      cuentasDigitalesOConsignaciones: Math.round(totalDigital * 100) / 100,
       desgloseDigital: {
         nequi: Math.round(totalNequi * 100) / 100,
         bancolombia: Math.round(totalBancolombia * 100) / 100,
         llave: Math.round(totalLlave * 100) / 100,
         daviplata: Math.round(totalDaviplata * 100) / 100,
-        transferencia: Math.round((totalTransferencia + totalConsignacion) * 100) / 100,
+        transferencia: Math.round(totalTransferencia * 100) / 100,
+        consignacion: Math.round(totalConsignacion * 100) / 100,
       },
       depositosCustodia: Math.round(totalDepositosCustodia * 100) / 100,
-      cuentasPorCobrar: Math.round(cuentasPorCobrar * 100) / 100,
+      depositosEnCustodia: Math.round(totalDepositosCustodia * 100) / 100,
+      desgloseCustodia: {
+        alquileresActivos: Math.round(custodiaAlquileres * 100) / 100,
+        apartadosActivos: Math.round(custodiaApartados * 100) / 100,
+        leyenda: "Dinero en garantía de alquileres activos y apartados (En custodia, no es ingreso de la tienda)",
+      },
+      dineroEnLaCalle: Math.round(totalDineroEnLaCalle * 100) / 100,
+      desgloseDineroCalle: {
+        saldosPorCobrar: Math.round(totalSaldosPendientesCalle * 100) / 100,
+        morasActivas: Math.round(totalMorasActivasCalle * 100) / 100,
+        clientesDeudoresCount: clientesDeudoresSet.size,
+        facturasConSaldoCount,
+        alquileresVencidosCount,
+      },
+      cuentasPorCobrar: Math.round(totalSaldosPendientesCalle * 100) / 100,
       morasRecaudadas: Math.round(morasRecaudadas * 100) / 100,
     };
 
@@ -271,16 +386,20 @@ export async function GET(req: NextRequest) {
         },
         metricas: {
           ingresosNetos: Math.round(ingresosNetos * 100) / 100,
-          cuentasPorCobrar: Math.round(cuentasPorCobrar * 100) / 100,
+          cuentasPorCobrar: Math.round(totalSaldosPendientesCalle * 100) / 100,
           morasRecaudadas: Math.round(morasRecaudadas * 100) / 100,
           totalPrendasAlquiladas,
           prendasAlquiladasActivas,
           rendimientoSastreria: Math.round(rendimientoSastreria * 100) / 100,
           rendimientoVentas: Math.round(rendimientoVentas * 100) / 100,
           rendimientoAlquileres: Math.round(rendimientoAlquileres * 100) / 100,
+          rendimientoApartados: Math.round(rendimientoApartados * 100) / 100,
           totalFacturas: facturas.length,
           totalAbonos: abonos.length,
           depositosCustodia: Math.round(totalDepositosCustodia * 100) / 100,
+          depositosEnCustodia: Math.round(totalDepositosCustodia * 100) / 100,
+          dineroEnLaCalle: Math.round(totalDineroEnLaCalle * 100) / 100,
+          clientesDeudoresCount: clientesDeudoresSet.size,
         },
         dondeEstaElDinero,
         desgloseMetodos,

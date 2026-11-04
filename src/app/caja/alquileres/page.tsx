@@ -2465,8 +2465,11 @@ export default function TerminalAlquileresPage() {
                               </div>
                             </div>
 
-                            {/* Desglose resumido */}
-                            <div className="p-2.5 rounded-lg bg-white border border-emerald-200 text-xs space-y-1">
+                            {/* Desglose resumido de Totales */}
+                            <div className="p-3 rounded-xl bg-white border-2 border-emerald-300 text-xs space-y-1.5 shadow-2xs">
+                              <p className="text-[10px] font-black uppercase text-slate-800 border-b border-slate-200 pb-1">
+                                TOTALES DE ALQUILER
+                              </p>
                               {apartadoOrigen && (
                                 <div className="flex justify-between text-indigo-700">
                                   <span>(-) Abono Previo Apartado:</span>
@@ -2475,24 +2478,38 @@ export default function TerminalAlquileresPage() {
                                   </span>
                                 </div>
                               )}
-                              <div className="flex justify-between text-slate-600">
-                                <span>Abono/Pago Alquiler Hoy:</span>
-                                <span className="font-mono font-bold text-blue-700">
-                                  ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}
+                              <div className="flex justify-between text-slate-700">
+                                <span>Total Valor Alquiler:</span>
+                                <span className="font-mono font-bold text-slate-900">
+                                  ${subtotalPrendas.toLocaleString("es-CO")}
                                 </span>
                               </div>
-                              <div className="flex justify-between text-slate-600">
-                                <span>(+) Depósito de Respaldo:</span>
+                              <div className="flex justify-between text-slate-700">
+                                <span>Depósito en Garantía:</span>
                                 <span className="font-mono font-bold text-amber-800">
                                   ${montoDeposito.toLocaleString("es-CO")}
                                 </span>
                               </div>
-                              <div className="flex justify-between font-black pt-1 border-t border-slate-200 text-slate-900">
-                                <span>(=) TOTAL A COBRAR HOY:</span>
-                                <span className="font-mono text-emerald-700">
+                              <div className="flex justify-between font-black text-slate-950 p-1.5 rounded-lg bg-slate-100 border border-slate-300">
+                                <span>Total (Alquiler + Depósito):</span>
+                                <span className="font-mono text-emerald-800 text-sm">
+                                  ${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}
+                                </span>
+                              </div>
+                              <div className="flex justify-between font-bold text-emerald-800 pt-0.5">
+                                <span>Valor Pagado ({metodoPagoPrincipal === "EFECTIVO" ? "Efectivo" : "Consignación"}):</span>
+                                <span className="font-mono">
                                   ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
                                 </span>
                               </div>
+                              {saldoFaltanteAlquiler > 0 && (
+                                <div className="flex justify-between text-rose-700 font-black pt-1 border-t border-slate-200">
+                                  <span>Falta por pagar:</span>
+                                  <span className="font-mono">
+                                    ${saldoFaltanteAlquiler.toLocaleString("es-CO")}
+                                  </span>
+                                </div>
+                              )}
                             </div>
 
                             {/* Campo Efectivo Recibido y Billetes */}
@@ -2715,19 +2732,29 @@ export default function TerminalAlquileresPage() {
 
                   {/* Pie Fijo de Totales y Botones de Avance (shrink-0) */}
                   <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between text-slate-600">
-                        <span>Subtotal Alquiler:</span>
-                        <span className="font-mono font-medium">${subtotalPrendas.toLocaleString("es-CO")}</span>
+                    <div className="p-2.5 rounded-xl border-2 border-slate-300 bg-white space-y-1 text-xs">
+                      <div className="flex justify-between text-slate-700">
+                        <span>Total Valor Alquiler:</span>
+                        <span className="font-mono font-bold text-slate-900">${subtotalPrendas.toLocaleString("es-CO")}</span>
                       </div>
-                      <div className="flex justify-between text-slate-600">
-                        <span>Depósito Respaldo (Gaveta):</span>
+                      <div className="flex justify-between text-slate-700">
+                        <span>Depósito en Garantía:</span>
                         <span className="font-mono font-bold text-amber-800">${montoDeposito.toLocaleString("es-CO")}</span>
                       </div>
-                      <div className="flex justify-between text-slate-900 font-black text-sm pt-1 border-t border-slate-200">
-                        <span>TOTAL HOY EN CAJA:</span>
-                        <span className="font-mono text-emerald-700 text-base">${totalExigidoHoyEnCaja.toLocaleString("es-CO")}</span>
+                      <div className="flex justify-between text-slate-950 font-black p-1 rounded bg-slate-100 border border-slate-200">
+                        <span>Total (Alquiler + Depósito):</span>
+                        <span className="font-mono text-emerald-700 text-sm">${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}</span>
                       </div>
+                      <div className="flex justify-between text-emerald-800 font-bold pt-0.5">
+                        <span>Valor Pagado ({metodoPagoPrincipal === "EFECTIVO" ? "Efectivo" : "Consignación"}):</span>
+                        <span className="font-mono">${totalExigidoHoyEnCaja.toLocaleString("es-CO")}</span>
+                      </div>
+                      {saldoFaltanteAlquiler > 0 && (
+                        <div className="flex justify-between text-rose-700 font-black pt-0.5 border-t border-slate-200">
+                          <span>Falta por pagar:</span>
+                          <span className="font-mono">${saldoFaltanteAlquiler.toLocaleString("es-CO")}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Botones de Navegación del Flujo */}
