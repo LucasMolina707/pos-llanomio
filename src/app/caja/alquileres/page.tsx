@@ -62,6 +62,7 @@ import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
+import { calcularFechaDevolucionAlquiler, obtenerDescripcionReglaDevolucion } from "@/lib/fechas-alquiler";
 
 export interface ClienteAlquiler {
   id: string;
@@ -100,6 +101,7 @@ export interface ItemCarritoAlquiler {
   nombre: string;
   talla?: string | null;
   color?: string | null;
+  descripcionDetallada?: string | null;
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
@@ -149,6 +151,7 @@ export interface FacturaAlquilerMonitoreo {
     subtotal: number;
     esServicioLibre: boolean;
     descripcionLibre?: string | null;
+    descripcionDetallada?: string | null;
     producto?: {
       id: string;
       codigo: string;
@@ -213,15 +216,24 @@ export default function TerminalAlquileresPage() {
   const [itemsCarrito, setItemsCarrito] = useState<ItemCarritoAlquiler[]>([]);
   const [fechaSalida, setFechaSalida] = useState(() => {
     const hoy = new Date();
-    return hoy.toISOString().split("T")[0];
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${hoy.getFullYear()}-${pad(hoy.getMonth() + 1)}-${pad(hoy.getDate())}`;
   });
   const [fechaDevolucion, setFechaDevolucion] = useState(() => {
-    const fecha = new Date();
-    fecha.setDate(fecha.getDate() + 3);
-    fecha.setHours(18, 0, 0, 0);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}T18:00`;
+    return calcularFechaDevolucionAlquiler();
   });
+
+  const reglaFechaTexto = useMemo(() => {
+    return obtenerDescripcionReglaDevolucion(fechaSalida);
+  }, [fechaSalida]);
+
+  const handleCambioFechaSalida = (nuevaFechaSalida: string) => {
+    setFechaSalida(nuevaFechaSalida);
+    if (nuevaFechaSalida) {
+      const calculada = calcularFechaDevolucionAlquiler(nuevaFechaSalida);
+      setFechaDevolucion(calculada);
+    }
+  };
 
   // Bloque 1: Cobro Obligatorio de Abono / Depósito de Respaldo (EXCLUSIVO EN EFECTIVO)
   const [montoDeposito, setMontoDeposito] = useState<number>(40000);
@@ -441,6 +453,7 @@ export default function TerminalAlquileresPage() {
       nombre: d.producto?.nombre || d.descripcionLibre || "Prenda apartada",
       talla: d.producto?.talla || null,
       color: d.producto?.color || null,
+      descripcionDetallada: d.descripcionDetallada || "",
       cantidad: d.cantidad || 1,
       precioUnitario: d.precioUnitario || 0,
       subtotal: d.subtotal || 0,
@@ -751,6 +764,20 @@ export default function TerminalAlquileresPage() {
     setItemsCarrito((prev) => prev.filter((it) => it.idTemporal !== idTemporal));
   };
 
+  const modificarDescripcionDetalladaItem = (idTemporal: string, descripcionDetallada: string) => {
+    setItemsCarrito((prev) =>
+      prev.map((it) => {
+        if (it.idTemporal === idTemporal) {
+          return {
+            ...it,
+            descripcionDetallada,
+          };
+        }
+        return it;
+      })
+    );
+  };
+
   // Crear o Registrar Factura de Alquiler (Paso 3 -> Paso 4)
   const registrarNuevoAlquiler = async () => {
     // 1. Verificación de seguridad de caja: Solo bloquear si existe turno anterior sin cerrar o si no hay turno iniciado hoy
@@ -818,6 +845,7 @@ export default function TerminalAlquileresPage() {
             productoId: it.productoId || undefined,
             esServicioLibre: !it.productoId,
             descripcionLibre: it.nombre,
+            descripcionDetallada: it.descripcionDetallada?.trim() || undefined,
             cantidad: it.cantidad,
             precioUnitario: it.precioUnitario,
             subtotal: it.subtotal,
@@ -856,6 +884,7 @@ export default function TerminalAlquileresPage() {
             precioUnitario: it.precioUnitario,
             fechaEntrega: fechaSalida,
             fechaDevolucion: new Date(fechaDevolucion).toISOString(),
+            descripcionDetallada: it.descripcionDetallada?.trim() || undefined,
           })),
           abonoInicial:
             valorAbonoAlquilerHoy > 0
@@ -1400,7 +1429,7 @@ export default function TerminalAlquileresPage() {
               }`}
             >
               <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">2. Prendas ({itemsCarrito.length})</span>
+              <span className="truncate">2. Trajes ({itemsCarrito.length})</span>
               {itemsCarrito.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
             </button>
 
@@ -2052,7 +2081,7 @@ export default function TerminalAlquileresPage() {
                     </>
                   )}
 
-                  {/* --- SUB-VISTA PASO 2: CATÁLOGO DE PRENDAS PARA ALQUILER --- */}
+                  {/* --- SUB-VISTA PASO 2: CATÁLOGO DE TRAJES PARA ALQUILER --- */}
                   {pasoActual === 2 && (
                     <>
                       {/* Cabecera Fija Paso 2 (shrink-0) */}
@@ -2061,10 +2090,10 @@ export default function TerminalAlquileresPage() {
                           <div>
                             <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                               <ShoppingBag className="w-4 h-4 text-emerald-600" />
-                              Paso 2: Catálogo de Prendas para Alquiler
+                              Paso 2: Catálogo de Trajes para Alquiler
                             </h2>
                             <p className="text-xs text-slate-500">
-                              Agrega prendas al contrato y verifica las fechas de retiro y devolución en el panel derecho
+                              Agrega trajes al contrato y verifica las fechas de retiro y devolución en el panel derecho
                             </p>
                           </div>
 
@@ -2081,7 +2110,7 @@ export default function TerminalAlquileresPage() {
                             />
                             <IconButtonTooltip
                               icon={PackagePlus}
-                              label="Crear Nueva Prenda en Catálogo"
+                              label="Crear Nuevo Traje en Catálogo"
                               variant="emerald"
                               size="md"
                               onClick={() => setModalCrearPrendaAbierto(true)}
@@ -2539,27 +2568,32 @@ export default function TerminalAlquileresPage() {
                   </div>
 
                   {/* Fechas del Contrato (shrink-0) */}
-                  <div className="shrink-0 px-3 py-2 border-b border-slate-200 bg-slate-50/50">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                      Fechas del Contrato
-                    </span>
+                  <div className="shrink-0 px-3 py-2 border-b border-slate-200 bg-slate-50/70">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        Fechas del Contrato
+                      </span>
+                      <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-semibold">
+                        {reglaFechaTexto.mensajeInformativo}
+                      </span>
+                    </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
-                        <label className="text-[10px] font-bold text-slate-600 block">Salida *</label>
+                        <label className="text-[10px] font-bold text-slate-600 block">Salida / Entrega *</label>
                         <input
                           type="date"
                           value={fechaSalida}
-                          onChange={(e) => setFechaSalida(e.target.value)}
+                          onChange={(e) => handleCambioFechaSalida(e.target.value)}
                           className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg font-mono"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-slate-600 block">Devolución *</label>
+                        <label className="text-[10px] font-bold text-slate-600 block">Devolución Pactada (8:00 p.m.) *</label>
                         <input
                           type="datetime-local"
                           value={fechaDevolucion}
                           onChange={(e) => setFechaDevolucion(e.target.value)}
-                          className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg font-mono font-semibold"
+                          className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg font-mono font-semibold text-blue-900"
                         />
                       </div>
                     </div>
@@ -2570,13 +2604,13 @@ export default function TerminalAlquileresPage() {
                     <div className="flex items-center gap-1.5">
                       <ShoppingBag className="w-4 h-4 text-slate-700" />
                       <h3 className="text-xs sm:text-sm font-black text-slate-900">
-                        Prendas en Alquiler ({itemsCarrito.length})
+                        Trajes en Alquiler ({itemsCarrito.length})
                       </h3>
                     </div>
                     {itemsCarrito.length > 0 && (
                       <IconButtonTooltip
                         icon={RotateCcw}
-                        label="Vaciar todas las prendas del contrato"
+                        label="Vaciar todos los trajes del contrato"
                         size="sm"
                         variant="danger"
                         onClick={() => setItemsCarrito([])}
@@ -2589,57 +2623,70 @@ export default function TerminalAlquileresPage() {
                     {itemsCarrito.length === 0 ? (
                       <div className="p-6 text-center text-slate-400">
                         <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                        <p className="text-xs font-semibold text-slate-600">Sin prendas en el contrato</p>
+                        <p className="text-xs font-semibold text-slate-600">Sin trajes en el contrato</p>
                         <p className="text-[11px] text-slate-500">Haz clic en el catálogo en el Paso 2</p>
                       </div>
                     ) : (
                       itemsCarrito.map((item) => (
                         <div
                           key={item.idTemporal}
-                          className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between gap-2"
+                          className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex flex-col gap-2"
                         >
-                          <div className="min-w-0 flex-1">
-                            <strong className="text-slate-900 truncate block text-xs font-bold">
-                              {item.nombre}
-                            </strong>
-                            <span className="text-[10.5px] text-slate-500 block truncate">
-                              {item.codigo} {item.talla ? `• T: ${item.talla}` : ""}
-                            </span>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <span className="text-[10px] text-slate-400">Precio:</span>
-                              <input
-                                type="number"
-                                value={item.precioUnitario}
-                                onChange={(e) => modificarPrecioItem(item.idTemporal, parseFloat(e.target.value) || 0)}
-                                className="w-20 px-1.5 py-0.5 text-xs font-bold font-mono border border-slate-200 rounded text-right bg-white"
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <strong className="text-slate-900 truncate block text-xs font-bold">
+                                {item.nombre}
+                              </strong>
+                              <span className="text-[10.5px] text-slate-500 block truncate">
+                                {item.codigo} {item.talla ? `• T: ${item.talla}` : ""}
+                              </span>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[10px] text-slate-400">Precio:</span>
+                                <input
+                                  type="number"
+                                  value={item.precioUnitario}
+                                  onChange={(e) => modificarPrecioItem(item.idTemporal, parseFloat(e.target.value) || 0)}
+                                  className="w-20 px-1.5 py-0.5 text-xs font-bold font-mono border border-slate-200 rounded text-right bg-white"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <IconButtonTooltip
+                                icon={Minus}
+                                label="Disminuir cantidad"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => modificarCantidadItem(item.idTemporal, -1)}
+                              />
+                              <span className="font-mono text-xs font-black w-6 text-center text-slate-800">
+                                {item.cantidad}
+                              </span>
+                              <IconButtonTooltip
+                                icon={Plus}
+                                label="Aumentar cantidad"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => modificarCantidadItem(item.idTemporal, 1)}
+                              />
+                              <IconButtonTooltip
+                                icon={Trash2}
+                                label="Quitar traje del contrato"
+                                size="sm"
+                                variant="danger"
+                                onClick={() => removerItemCarrito(item.idTemporal)}
                               />
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1 shrink-0">
-                            <IconButtonTooltip
-                              icon={Minus}
-                              label="Disminuir cantidad"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => modificarCantidadItem(item.idTemporal, -1)}
-                            />
-                            <span className="font-mono text-xs font-black w-6 text-center text-slate-800">
-                              {item.cantidad}
-                            </span>
-                            <IconButtonTooltip
-                              icon={Plus}
-                              label="Aumentar cantidad"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => modificarCantidadItem(item.idTemporal, 1)}
-                            />
-                            <IconButtonTooltip
-                              icon={Trash2}
-                              label="Quitar prenda del contrato"
-                              size="sm"
-                              variant="danger"
-                              onClick={() => removerItemCarrito(item.idTemporal)}
+                          {/* Campo Opcional: Detalle de piezas / modificaciones */}
+                          <div className="pt-1.5 border-t border-slate-200">
+                            <input
+                              type="text"
+                              value={item.descripcionDetallada || ""}
+                              onChange={(e) => modificarDescripcionDetalladaItem(item.idTemporal, e.target.value)}
+                              placeholder="Opcional: Detalle piezas o modificaciones del traje (ej. Saco azul, pantalón negro, camisa, corbatín...)"
+                              className="w-full text-[11px] px-2 py-1 rounded-lg border border-slate-200 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-sans"
                             />
                           </div>
                         </div>

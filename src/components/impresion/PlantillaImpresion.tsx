@@ -81,6 +81,7 @@ export interface DatosImpresionFactura {
       subtotal: number;
       esServicioLibre: boolean;
       descripcionLibre?: string | null;
+      descripcionDetallada?: string | null;
       producto?: {
         codigo: string;
         nombre: string;
@@ -506,7 +507,7 @@ export default function PlantillaImpresion({
                 <img
                   src={empresa.logoUrl}
                   alt={empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
-                  className="max-h-14 mx-auto object-contain mb-1"
+                  className="max-h-20 w-auto max-w-[62mm] object-contain mx-auto mb-1.5"
                 />
               )}
               <h1 className="text-sm font-black font-sans tracking-tight uppercase">
@@ -576,6 +577,11 @@ export default function PlantillaImpresion({
                     <span className="font-semibold max-w-[52mm] break-words">
                       {safeNumber(d.cantidad)}x {d.esServicioLibre ? (d.descripcionLibre || "Traje libre") : (d.producto?.nombre || d.descripcionLibre || "Prenda")}
                       {d.producto?.codigo ? ` [${d.producto.codigo}]` : ""}
+                      {d.descripcionDetallada?.trim() && (
+                        <span className="block text-[9px] text-slate-700 italic font-normal">
+                          Detalle: {d.descripcionDetallada.trim()}
+                        </span>
+                      )}
                     </span>
                     <span className="font-mono font-bold">{formatCOP(d.subtotal)}</span>
                   </div>
@@ -661,7 +667,7 @@ export default function PlantillaImpresion({
               <img
                 src={empresa.logoUrl}
                 alt={empresa.nombreComercial || "Mi Empresa"}
-                className="max-h-14 mx-auto object-contain mb-1"
+                className="max-h-20 w-auto max-w-[62mm] object-contain mx-auto mb-1.5"
               />
             )}
             <h1 className="text-sm font-black font-sans tracking-tight uppercase text-black">
@@ -760,7 +766,7 @@ export default function PlantillaImpresion({
           {/* Tabla de Artículos / Ítems */}
           <div className="py-2 border-b border-black text-xs">
             <div className="flex justify-between font-bold pb-1 border-b border-black text-[11px] uppercase">
-              <span>CANT  DESCRIPCIÓN</span>
+              <span>{esAlquiler ? "CANT  TIPO DE TRAJE / DETALLE" : "CANT  DESCRIPCIÓN"}</span>
               <span>SUBTOTAL</span>
             </div>
             <div className="divide-y divide-slate-200 space-y-1 pt-1">
@@ -771,13 +777,18 @@ export default function PlantillaImpresion({
                       {safeNumber(d.cantidad)}x{" "}
                       {d.esServicioLibre
                         ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
-                        : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Prenda")}
+                        : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje")}
                     </span>
                     <span className="font-mono font-bold">{formatCOP(d.subtotal)}</span>
                   </div>
                   {d.producto?.codigo && (
                     <p className="text-[10px] text-slate-700">
                       Cód: {d.producto.codigo} {d.producto.talla ? `| T: ${d.producto.talla}` : ""}
+                    </p>
+                  )}
+                  {d.descripcionDetallada?.trim() && (
+                    <p className="text-[9.5px] text-slate-800 italic font-medium leading-tight">
+                      Detalle: {d.descripcionDetallada.trim()}
                     </p>
                   )}
                 </div>
@@ -930,7 +941,7 @@ export default function PlantillaImpresion({
                     <img
                       src={empresa.logoUrl}
                       alt={empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
-                      className={esDoble ? "max-h-9 object-contain" : "max-h-12 object-contain"}
+                      className={esDoble ? "h-16 max-h-[18mm] w-auto max-w-[44mm] object-contain" : "h-20 max-h-[22mm] w-auto max-w-[48mm] object-contain"}
                     />
                   )}
                   <div>
@@ -1008,6 +1019,11 @@ export default function PlantillaImpresion({
                           </span>
                           {d.producto?.codigo && (
                             <span className="text-[8.5px] font-mono text-slate-500 ml-1">[{d.producto.codigo}]</span>
+                          )}
+                          {d.descripcionDetallada?.trim() && (
+                            <div className="text-[8.5px] text-slate-700 italic font-medium leading-tight">
+                              Detalle: {d.descripcionDetallada.trim()}
+                            </div>
                           )}
                         </td>
                         <td className="py-0.5 px-1.5 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
@@ -1088,7 +1104,7 @@ export default function PlantillaImpresion({
                   <img
                     src={empresa.logoUrl}
                     alt={empresa.nombreComercial || "Mi Empresa"}
-                    className={esDoble ? "max-h-9 object-contain" : "max-h-12 object-contain"}
+                    className={esDoble ? "h-16 max-h-[18mm] w-auto max-w-[44mm] object-contain" : "h-20 max-h-[22mm] w-auto max-w-[48mm] object-contain"}
                   />
                 )}
                 <div>
@@ -1197,29 +1213,36 @@ export default function PlantillaImpresion({
             </div>
 
             {/* Tabla Compacta de Ítems */}
-            <table className={`w-full mb-1 ${esDoble ? "text-[11px]" : "text-xs"}`}>
-              <thead className="bg-slate-900 text-white text-[9.5px] font-bold uppercase">
+            <table className={`w-full mb-1 ${esDoble ? "text-[10px]" : "text-xs"}`}>
+              <thead className="bg-slate-900 text-white text-[9px] font-bold uppercase">
                 <tr>
                   <th className="py-0.5 px-1.5 text-left w-10">Cant</th>
-                  <th className="py-0.5 px-1.5 text-left">Descripción del Artículo o Servicio</th>
+                  <th className="py-0.5 px-1.5 text-left">
+                    {esAlquiler ? "Tipo de Traje / Detalle" : (esApartado ? "Tipo de Traje / Separado" : "Descripción del Artículo o Servicio")}
+                  </th>
                   <th className="py-0.5 px-1.5 text-right w-20">Valor Unit.</th>
                   <th className="py-0.5 px-1.5 text-right w-20">Subtotal</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {detalles.slice(0, 4).map((d, idx) => (
+                {detalles.map((d, idx) => (
                   <tr key={idx} className="hover:bg-slate-50">
                     <td className="py-0.5 px-1.5 text-center font-bold">{safeNumber(d.cantidad)}</td>
                     <td className="py-0.5 px-1.5">
                       <span className="font-bold text-slate-950">
                         {d.esServicioLibre
                           ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
-                          : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Prenda")}
+                          : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje")}
                       </span>
                       {d.producto?.codigo && (
-                        <span className="text-[9.5px] font-mono text-slate-600 ml-1">
+                        <span className="text-[9px] font-mono text-slate-600 ml-1">
                           [{d.producto.codigo}]
                         </span>
+                      )}
+                      {d.descripcionDetallada?.trim() && (
+                        <div className="text-[8.5px] text-slate-700 italic font-medium leading-tight">
+                          Detalle: {d.descripcionDetallada.trim()}
+                        </div>
                       )}
                     </td>
                     <td className="py-0.5 px-1.5 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
@@ -1234,11 +1257,11 @@ export default function PlantillaImpresion({
           <div
             className={`grid ${
               mostrarSeccionDeposito ? "grid-cols-3 gap-1.5" : "grid-cols-2 gap-2"
-            } border-t-2 border-slate-900 pt-1 ${esDoble ? "text-[10.5px]" : "text-xs"}`}
+            } border-t-2 border-slate-900 pt-1 ${esDoble ? "text-[10px]" : "text-xs"}`}
           >
             {/* SECCIÓN A: OPERACIÓN PRINCIPAL */}
-            <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-200 space-y-0.5">
-              <p className="font-black text-[9px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+            <div className="p-1 sm:p-1.5 bg-slate-50 rounded-lg border border-slate-200 space-y-0.5">
+              <p className="font-black text-[8.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
                 {labelSeccionA}
               </p>
               <div className="flex justify-between">
@@ -1259,7 +1282,7 @@ export default function PlantillaImpresion({
                 <span>(-) Abonado:</span>
                 <span>-{formatCOP(totalAbonadoOperacion)}</span>
               </div>
-              <div className="flex justify-between font-black border-t border-slate-300 pt-0.5 text-sm">
+              <div className="flex justify-between font-black border-t border-slate-300 pt-0.5 text-xs sm:text-sm">
                 <span>(=) Saldo Pendiente:</span>
                 <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
                   {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
@@ -1269,23 +1292,23 @@ export default function PlantillaImpresion({
 
             {/* SECCIÓN B: DEPÓSITO EXCLUSIVO DE ALQUILER (> $0) - PROHIBIDO EN VENTAS */}
             {mostrarSeccionDeposito && (
-              <div className="p-1.5 bg-amber-50 rounded-lg border border-amber-300 space-y-0.5">
-                <p className="font-black text-[9px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
+              <div className="p-1 sm:p-1.5 bg-amber-50 rounded-lg border border-amber-300 space-y-0.5">
+                <p className="font-black text-[8.5px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
                   SECCIÓN B — DEPÓSITO EN GARANTÍA
                 </p>
                 <div className="flex justify-between font-bold text-amber-950 text-xs">
                   <span>Depósito en Custodia:</span>
                   <span className="font-black text-emerald-900">{formatCOP(montoDepositoEfectivo)}</span>
                 </div>
-                <p className="text-[9px] text-amber-900 leading-tight">
+                <p className="text-[8.5px] text-amber-900 leading-tight">
                   {textoEstadoDeposito}
                 </p>
               </div>
             )}
 
             {/* SECCIÓN C: CUADRE EFECTIVO Y VUELTAS */}
-            <div className="p-1.5 bg-slate-100 rounded-lg border border-slate-300 space-y-0.5">
-              <p className="font-black text-[9px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+            <div className="p-1 sm:p-1.5 bg-slate-100 rounded-lg border border-slate-300 space-y-0.5">
+              <p className="font-black text-[8.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
                 SECCIÓN C — CUADRE EFECTIVO Y VUELTAS
               </p>
               <div className="flex justify-between">
@@ -1392,7 +1415,7 @@ export default function PlantillaImpresion({
                   <img
                     src={empresa.logoUrl}
                     alt={empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
-                    className="max-h-16 object-contain"
+                    className="h-24 max-h-[28mm] w-auto max-w-[58mm] object-contain"
                   />
                 )}
                 <div>
@@ -1550,7 +1573,7 @@ export default function PlantillaImpresion({
                 <img
                   src={empresa.logoUrl}
                   alt={empresa.nombreComercial || "Mi Empresa"}
-                  className="max-h-16 object-contain"
+                  className="h-24 max-h-[28mm] w-auto max-w-[58mm] object-contain"
                 />
               )}
               <div>
@@ -1636,13 +1659,15 @@ export default function PlantillaImpresion({
           </div>
 
           {/* Tabla Completa de Ítems */}
-          <table className="w-full text-xs mb-4">
+          <table className="w-full text-xs mb-3">
             <thead className="bg-slate-900 text-white text-[10px] font-bold uppercase">
               <tr>
-                <th className="py-2 px-3 text-left w-12">Cant</th>
-                <th className="py-2 px-3 text-left">Descripción del Artículo o Servicio</th>
-                <th className="py-2 px-3 text-right w-28">Precio Unitario</th>
-                <th className="py-2 px-3 text-right w-28">Subtotal</th>
+                <th className="py-1.5 px-3 text-left w-12">Cant</th>
+                <th className="py-1.5 px-3 text-left">
+                  {esAlquiler ? "Tipo de Traje / Detalle" : (esApartado ? "Tipo de Traje / Separado" : "Descripción del Artículo o Servicio")}
+                </th>
+                <th className="py-1.5 px-3 text-right w-28">Precio Unitario</th>
+                <th className="py-1.5 px-3 text-right w-28">Subtotal</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -1653,12 +1678,17 @@ export default function PlantillaImpresion({
                     <span className="font-bold text-slate-900">
                       {d.esServicioLibre
                         ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
-                        : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Prenda")}
+                        : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje")}
                     </span>
                     {d.producto?.codigo && (
                       <span className="text-[10px] font-mono text-slate-500 ml-2">
                         [{d.producto.codigo}] {d.producto.talla ? `| Talla: ${d.producto.talla}` : ""}
                       </span>
+                    )}
+                    {d.descripcionDetallada?.trim() && (
+                      <div className="text-[9.5px] text-slate-700 italic font-medium leading-tight mt-0.5">
+                        Detalle: {d.descripcionDetallada.trim()}
+                      </div>
                     )}
                   </td>
                   <td className="py-1 px-3 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
@@ -1671,10 +1701,10 @@ export default function PlantillaImpresion({
           {/* ========================================================================= */}
           {/* SECCIONES CONTABLES A, B (solo si aplica depósito en alquiler) Y C         */}
           {/* ========================================================================= */}
-          <div className={`grid ${mostrarSeccionDeposito ? "grid-cols-3 gap-3" : "grid-cols-2 gap-4"} mb-4`}>
+          <div className={`grid ${mostrarSeccionDeposito ? "grid-cols-3 gap-2.5" : "grid-cols-2 gap-3"} mb-3`}>
             {/* SECCIÓN A: OPERACIÓN PRINCIPAL */}
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-              <p className="font-black text-[10px] uppercase text-slate-900 border-b border-slate-300 pb-1">
+            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-0.5">
+              <p className="font-black text-[9.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
                 {labelSeccionA}
               </p>
               <div className="flex justify-between text-xs">
@@ -1687,7 +1717,7 @@ export default function PlantillaImpresion({
                   <span>+{formatCOP(recargoMora)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-1 text-black">
+              <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-0.5 text-black">
                 <span>{labelTotalSeccionA}</span>
                 <span>{formatCOP(totalOperacionPrincipal)}</span>
               </div>
@@ -1695,7 +1725,7 @@ export default function PlantillaImpresion({
                 <span>(-) Abonado:</span>
                 <span>-{formatCOP(totalAbonadoOperacion)}</span>
               </div>
-              <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-1">
+              <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-0.5">
                 <span>(=) Saldo Pendiente:</span>
                 <span className={esPazYSalvo ? "text-emerald-700" : "text-rose-700"}>
                   {esPazYSalvo ? "$0 (PAZ Y SALVO)" : formatCOP(saldoPendienteOperacion)}
@@ -1705,26 +1735,26 @@ export default function PlantillaImpresion({
 
             {/* SECCIÓN B: DEPÓSITO EXCLUSIVO DE ALQUILER CON VALOR > $0 */}
             {mostrarSeccionDeposito && (
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 space-y-1">
-                <p className="font-black text-[10px] uppercase text-amber-950 border-b border-amber-300 pb-1">
+              <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-300 space-y-0.5">
+                <p className="font-black text-[9.5px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
                   SECCIÓN B — DEPÓSITO EN GARANTÍA (COBRO SEPARADO)
                 </p>
                 <div className="flex justify-between font-black text-sm text-amber-950">
                   <span>Depósito en Custodia:</span>
                   <span className="font-mono text-emerald-900">{formatCOP(montoDepositoEfectivo)}</span>
                 </div>
-                <p className="text-[10px] text-amber-950/90 leading-snug">
+                <p className="text-[9.5px] text-amber-950/90 leading-snug">
                   {textoEstadoDeposito}
                 </p>
-                <p className="text-[9px] text-slate-500 italic pt-1">
+                <p className="text-[8.5px] text-slate-500 italic pt-0.5">
                   * Este depósito no suma al valor del alquiler; se reintegra al devolver las prendas a conformidad.
                 </p>
               </div>
             )}
 
             {/* SECCIÓN C: CUADRE EFECTIVO Y VUELTAS */}
-            <div className="p-3 bg-slate-100 rounded-xl border border-slate-300 space-y-1">
-              <p className="font-black text-[10px] uppercase text-slate-900 border-b border-slate-300 pb-1">
+            <div className="p-2.5 bg-slate-100 rounded-xl border border-slate-300 space-y-0.5">
+              <p className="font-black text-[9.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
                 SECCIÓN C — CUADRE EFECTIVO Y VUELTAS
               </p>
               <div className="flex justify-between text-xs">

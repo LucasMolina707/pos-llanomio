@@ -3318,3 +3318,56 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
 
 
 
+
+
+---
+
+## 48. REGLA AUTOMÁTICA DE DEVOLUCIÓN A LAS 8:00 P.M., TIPO DE TRAJE CON DETALLE OPCIONAL, COMPACTACIÓN ANTI-DESBORDE Y LOGO AUMENTADO
+
+### 1. Regla Automática de Fechas y Hora Límite de Devolución de Alquileres (8:00 p.m. / 20:00)
+- **Módulo Centralizado (`src/lib/fechas-alquiler.ts`):**
+  - `calcularFechaDevolucionAlquiler(fechaSalidaInput)`: Calcula la fecha comercial exacta fijando la hora estrictamente a las `20:00` (8:00 p.m.) en formato `YYYY-MM-DDTHH:mm`.
+  - `obtenerDescripcionReglaDevolucion(fechaSalidaInput)`: Genera el texto legible de retroalimentación inmediata para la cajera.
+- **Calendario Comercial de Alquiler Implementado:**
+  - **Lunes (1) ➔ Miércoles (3)** (+2 días) hasta las **8:00 p.m. (20:00)**.
+  - **Martes (2) ➔ Jueves (4)** (+2 días) hasta las **8:00 p.m. (20:00)**.
+  - **Miércoles (3) ➔ Viernes (5)** (+2 días) hasta las **8:00 p.m. (20:00)**.
+  - **Jueves (4) ➔ Sábado (6)** (+2 días) hasta las **8:00 p.m. (20:00)**.
+  - **Sábado (6) ➔ Lunes (1)** (+2 días) hasta las **8:00 p.m. (20:00)**.
+  - **Viernes (5) ➔ Lunes (1)** (+3 días) hasta las **8:00 p.m. (20:00)**.
+  - **Domingo (0) ➔ Martes (2)** (+2 días) hasta las **8:00 p.m. (20:00)**.
+- **Integración Reactiva en Mostrador:**
+  - Tanto en `/caja/alquileres` como en `/caja/apartados`, al cambiar la fecha de salida, la devolución pactada se autocompleta inmediatamente mostrando un badge informativo claro (`"Regla automática aplicada: Entrega pactada el [Día] hasta las 8:00 p.m."`). El cajero siempre conserva la potestad de ajustar la fecha manualmente si un caso particular lo amerita.
+
+### 2. "Tipo de Traje" + Campo Manual Opcional de "Descripción Detallada del Traje"
+- **Base de Datos SQLite (`prisma/schema.prisma` y `database/schema.prisma`):**
+  - Añadido `descripcionDetallada String?` a la tabla `DetalleFactura`.
+- **Inventario (`ModalProducto.tsx`, `/admin/inventario/page.tsx`, `excel-plantillas.ts`):**
+  - Se sustituyó la etiqueta genérica "Nombre / Descripción de la Prenda" por **"Tipo de Traje"** (o "Tipo de Traje / Producto").
+- **Flujo de Mostrador y Carrito (`/caja/alquileres` y `/caja/apartados`):**
+  - Cada ítem del contrato dispone de un campo de texto editable y 100% opcional: `placeholder="Opcional: Detalle piezas o modificaciones del traje (ej. Saco azul, pantalón negro, camisa, corbatín...)"`.
+  - No bloquea el cobro y no exige llenarse obligatoriamente.
+- **Persistencia en Backend (`/api/facturas` y `/api/facturas/[id]`):**
+  - Al crear una factura de alquiler nueva o al convertir un apartado existente en alquiler activo (`CONVERTIR_APARTADO_A_ALQUILER`), `descripcionDetallada` se almacena de forma íntegra y atómica.
+- **Presentación en Facturas Impresas y PDF (`PlantillaImpresion.tsx` y `pdf-media-carta.ts`):**
+  - Encabezado de tabla en alquileres: `"TIPO DE TRAJE / DETALLE"`.
+  - Si el cajero ingresó detalle: se imprime `[Tipo de Traje] — Detalle: ${descripcionDetallada}`.
+  - Si no ingresó detalle: se imprime únicamente el Tipo de Traje sin renglones vacíos ni textos muertos.
+
+### 3. Compactación de Secciones A, B y C (Garantía Anti-Desborde Multi-Producto)
+- Reducción de ~35% en la altura vertical, paddings e interlineados de los recuadros de Sección A (Operación Principal), Sección B (Depósito en Custodia — solo si > $0 en alquiler) y Sección C (Efectivo/Vueltas).
+- Eliminación del corte restrictivo `.slice(0, 4)` en Media Carta.
+- Garantía de impresión en **1 sola página física estricta** en `MEDIA_CARTA_DOBLE` (2 ejemplares por hoja Carta) incluso con hasta 5 trajes simultáneos.
+
+### 4. Aumento Proporcionado del Logotipo Corporativo
+- **`src/components/brand/LogoEmpresa.tsx`:** Ajuste de paddings a `p-0.5` y escalas visuales ampliadas (`sm: w-10 h-10`, `md: w-12 h-12`, `lg: w-20 h-20`, `xl: w-28 h-28`).
+- **`src/components/impresion/PlantillaImpresion.tsx`:**
+  - Tirilla (80mm): `max-h-20 w-auto max-w-[62mm] object-contain mx-auto mb-1.5`
+  - Media Carta Individual: `h-20 max-h-[22mm] w-auto max-w-[48mm] object-contain`
+  - Media Carta Doble: `h-16 max-h-[18mm] w-auto max-w-[44mm] object-contain`
+  - Carta Completa: `h-24 max-h-[28mm] w-auto max-w-[58mm] object-contain`
+- **`src/lib/pdf-media-carta.ts` (Generador Vectorial jsPDF):**
+  - Tirilla: `28mm x 18mm`
+  - Media Carta Individual: `34mm x 19mm`
+  - Media Carta Doble: `30mm x 16mm`
+  - Carta Completa: `42mm x 24mm`

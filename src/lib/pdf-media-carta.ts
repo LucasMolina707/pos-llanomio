@@ -137,8 +137,10 @@ function dibujarPaginaMediaCarta(
   const mostrarSeccionDeposito = esAlquiler && montoDepositoEfectivo > 0;
 
   // 1. ENCABEZADO: LOGO + DATOS DE EMPRESA + RECUADRO DE FACTURA
-  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 22, 15);
-  const textoEmpresaX = tieneLogo ? margenIzquierdo + 25 : margenIzquierdo;
+  const anchoLogo = offsetY > 0 ? 30 : 34;
+  const altoLogo = offsetY > 0 ? 16 : 19;
+  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, anchoLogo, altoLogo);
+  const textoEmpresaX = tieneLogo ? margenIzquierdo + anchoLogo + 3 : margenIzquierdo;
 
   doc.setTextColor(15, 23, 42); // Slate 900
   doc.setFont("helvetica", "bold");
@@ -292,25 +294,30 @@ function dibujarPaginaMediaCarta(
   cursorY += altoFichaCliente + 2;
 
   // 3. TABLA DE ÍTEMS
-  const altoCabecera = 5.5;
+  const altoCabecera = 5.2;
   doc.setFillColor(15, 23, 42);
   doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoCabecera, "F");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
+  doc.setFontSize(6.8);
   doc.setTextColor(255, 255, 255);
-  doc.text("CANT", margenIzquierdo + 3, cursorY + 3.8);
-  doc.text("TIPO", margenIzquierdo + 14, cursorY + 3.8);
-  doc.text("DESCRIPCIÓN DE LA PRENDA O SERVICIO", margenIzquierdo + 30, cursorY + 3.8);
-  doc.text("PRECIO UNIT.", margenDerecho - 38, cursorY + 3.8, { align: "right" });
-  doc.text("SUBTOTAL", margenDerecho - 3, cursorY + 3.8, { align: "right" });
+  doc.text("CANT", margenIzquierdo + 3, cursorY + 3.6);
+  doc.text("TIPO", margenIzquierdo + 13, cursorY + 3.6);
+  const labelColDescMC = esAlquiler
+    ? "TIPO DE TRAJE / DETALLE"
+    : esApartado
+    ? "TIPO DE TRAJE / PRENDA"
+    : "DESCRIPCIÓN DE LA PRENDA O SERVICIO";
+  doc.text(labelColDescMC, margenIzquierdo + 28, cursorY + 3.6);
+  doc.text("PRECIO UNIT.", margenDerecho - 36, cursorY + 3.6, { align: "right" });
+  doc.text("SUBTOTAL", margenDerecho - 3, cursorY + 3.6, { align: "right" });
 
   cursorY += altoCabecera;
 
-  const maxItemsMediaCarta = Math.min(factura.detalles.length, 4);
+  const maxItemsMediaCarta = Math.min(factura.detalles.length, 5);
   for (let i = 0; i < maxItemsMediaCarta; i++) {
     const det = factura.detalles[i];
-    const altoFila = 5.2;
+    const altoFila = 4.8;
     if (i % 2 === 0) {
       doc.setFillColor(255, 255, 255);
     } else {
@@ -319,9 +326,9 @@ function dibujarPaginaMediaCarta(
     doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoFila, "F");
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.2);
+    doc.setFontSize(6.8);
     doc.setTextColor(15, 23, 42);
-    doc.text(String(det.cantidad), margenIzquierdo + 5, cursorY + 3.7, { align: "center" });
+    doc.text(String(det.cantidad), margenIzquierdo + 5, cursorY + 3.4, { align: "center" });
 
     const tipoLabel = det.esServicioLibre
       ? "SERVICIO"
@@ -331,26 +338,29 @@ function dibujarPaginaMediaCarta(
       ? "APARTADO"
       : "VENTA";
     doc.setFont("helvetica", "bold");
-    doc.text(tipoLabel, margenIzquierdo + 14, cursorY + 3.7);
+    doc.text(tipoLabel, margenIzquierdo + 13, cursorY + 3.4);
 
     doc.setFont("helvetica", "normal");
     let desc = det.esServicioLibre
       ? (det.descripcionLibre || "Arreglo de sastrería")
-      : (det.producto?.nombre || "Prenda");
+      : (det.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje"));
     if (det.producto?.codigo) desc = `[${det.producto.codigo}] ${desc}`;
-    doc.text(desc.substring(0, 52), margenIzquierdo + 30, cursorY + 3.7);
+    if (det.descripcionDetallada && det.descripcionDetallada.trim()) {
+      desc = `${desc} [Det: ${det.descripcionDetallada.trim()}]`;
+    }
+    doc.text(desc.substring(0, 56), margenIzquierdo + 28, cursorY + 3.4);
 
-    doc.text(formatCOP(det.precioUnitario), margenDerecho - 38, cursorY + 3.7, { align: "right" });
+    doc.text(formatCOP(det.precioUnitario), margenDerecho - 36, cursorY + 3.4, { align: "right" });
     doc.setFont("helvetica", "bold");
-    doc.text(formatCOP(det.subtotal), margenDerecho - 3, cursorY + 3.7, { align: "right" });
+    doc.text(formatCOP(det.subtotal), margenDerecho - 3, cursorY + 3.4, { align: "right" });
 
     cursorY += altoFila;
   }
 
   // 4. RECUADRO DE DEPÓSITO EN GARANTÍA (SECCIÓN B) - SOLO SI ES ALQUILER Y TIENE DEPÓSITO > 0
   if (mostrarSeccionDeposito) {
-    cursorY += 1.5;
-    const altoDep = 10;
+    cursorY += 1.2;
+    const altoDep = 8.5;
     doc.setFillColor(254, 243, 199); // Amber 100
     doc.setDrawColor(217, 119, 6); // Amber 600
     doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDep, 1, 1, "FD");
@@ -576,8 +586,8 @@ function dibujarPaginaCarta(
   const mostrarSeccionDeposito = esAlquiler && montoDepositoEfectivo > 0;
 
   // 1. ENCABEZADO: LOGO + DATOS FISCALES + RECUADRO DE FACTURA
-  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 28, 20);
-  const textoEmpresaX = tieneLogo ? margenIzquierdo + 31 : margenIzquierdo;
+  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 42, 24);
+  const textoEmpresaX = tieneLogo ? margenIzquierdo + 45 : margenIzquierdo;
 
   doc.setTextColor(15, 23, 42);
   doc.setFont("helvetica", "bold");
@@ -767,16 +777,21 @@ function dibujarPaginaCarta(
   doc.setTextColor(255, 255, 255);
   doc.text("CANT", margenIzquierdo + 4, cursorY + 4.8);
   doc.text("TIPO", margenIzquierdo + 18, cursorY + 4.8);
-  doc.text("DESCRIPCIÓN DE LA PRENDA O SERVICIO", margenIzquierdo + 38, cursorY + 4.8);
+  const labelColCarta = esAlquiler
+    ? "TIPO DE TRAJE / DETALLE"
+    : esApartado
+    ? "TIPO DE TRAJE / PRENDA"
+    : "DESCRIPCIÓN DE LA PRENDA O SERVICIO";
+  doc.text(labelColCarta, margenIzquierdo + 38, cursorY + 4.8);
   doc.text("VALOR UNIT.", margenDerecho - 46, cursorY + 4.8, { align: "right" });
   doc.text("SUBTOTAL", margenDerecho - 4, cursorY + 4.8, { align: "right" });
 
   cursorY += altoCabecera;
 
-  const maxItemsCarta = Math.min(factura.detalles.length, 7);
+  const maxItemsCarta = Math.min(factura.detalles.length, 10);
   for (let i = 0; i < maxItemsCarta; i++) {
     const det = factura.detalles[i];
-    const altoFila = 6.5;
+    const altoFila = 6.2;
     if (i % 2 === 0) {
       doc.setFillColor(255, 255, 255);
     } else {
@@ -787,7 +802,7 @@ function dibujarPaginaCarta(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(15, 23, 42);
-    doc.text(String(det.cantidad), margenIzquierdo + 7, cursorY + 4.5, { align: "center" });
+    doc.text(String(det.cantidad), margenIzquierdo + 7, cursorY + 4.3, { align: "center" });
 
     const tipoDet = det.esServicioLibre
       ? "SERVICIO"
@@ -797,16 +812,19 @@ function dibujarPaginaCarta(
       ? "APARTADO"
       : "VENTA";
     doc.setFont("helvetica", "bold");
-    doc.text(tipoDet, margenIzquierdo + 18, cursorY + 4.5);
+    doc.text(tipoDet, margenIzquierdo + 18, cursorY + 4.3);
 
     doc.setFont("helvetica", "normal");
     let desc = det.esServicioLibre
       ? (det.descripcionLibre || "Servicio de Sastrería")
-      : (det.producto?.nombre || "Prenda");
+      : (det.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje"));
     if (det.producto?.codigo) desc = `[${det.producto.codigo}] ${desc}`;
-    doc.text(desc.substring(0, 56), margenIzquierdo + 38, cursorY + 4.5);
+    if (det.descripcionDetallada && det.descripcionDetallada.trim()) {
+      desc = `${desc} [Detalle: ${det.descripcionDetallada.trim()}]`;
+    }
+    doc.text(desc.substring(0, 68), margenIzquierdo + 38, cursorY + 4.3);
 
-    doc.text(formatCOP(det.precioUnitario), margenDerecho - 46, cursorY + 4.5, { align: "right" });
+    doc.text(formatCOP(det.precioUnitario), margenDerecho - 46, cursorY + 4.3, { align: "right" });
     doc.setFont("helvetica", "bold");
     doc.text(formatCOP(det.subtotal), margenDerecho - 4, cursorY + 4.5, { align: "right" });
 
@@ -1007,9 +1025,9 @@ function dibujarContenidoTirilla(
   let cursorY = startY;
 
   // Logo centrado si existe
-  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, (anchoMm - 26) / 2, cursorY, 26, 15);
+  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, (anchoMm - 28) / 2, cursorY, 28, 18);
   if (tieneLogo) {
-    cursorY += 16;
+    cursorY += 19;
   }
 
   // Cabecera Empresa
@@ -1120,19 +1138,30 @@ function dibujarContenidoTirilla(
   cursorY += 3.5;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.2);
-  doc.text("CANT  DESCRIPCIÓN", margen, cursorY);
+  const labelTirCol = esAlquiler ? "CANT  TIPO DE TRAJE / DETALLE" : "CANT  DESCRIPCIÓN";
+  doc.text(labelTirCol, margen, cursorY);
   doc.text("TOTAL", margenDer, cursorY, { align: "right" });
 
   cursorY += 3;
   factura.detalles.forEach((det) => {
     doc.setFont("helvetica", "normal");
-    const desc = det.esServicioLibre
+    let desc = det.esServicioLibre
       ? (det.descripcionLibre || "Servicio")
-      : (det.producto?.nombre || "Prenda");
-    doc.text(`${det.cantidad}x ${desc.substring(0, 24)}`, margen, cursorY);
+      : (det.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje"));
+    doc.text(`${det.cantidad}x ${desc.substring(0, 26)}`, margen, cursorY);
     doc.setFont("helvetica", "bold");
     doc.text(formatCOP(det.subtotal), margenDer, cursorY, { align: "right" });
     cursorY += 3.2;
+
+    if (det.descripcionDetallada && det.descripcionDetallada.trim()) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(6.5);
+      doc.setTextColor(71, 85, 105);
+      doc.text(`[Det: ${det.descripcionDetallada.trim().substring(0, 32)}]`, margen + 4, cursorY);
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(7.2);
+      cursorY += 2.8;
+    }
   });
 
   cursorY += 1.8;

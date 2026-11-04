@@ -125,7 +125,11 @@ export default function ModalProducto({
         throw new Error("El código de referencia es obligatorio.");
       }
       if (!formData.nombre.trim()) {
-        throw new Error("El nombre de la prenda es obligatorio.");
+        throw new Error(
+          formData.tipo === "ALQUILER"
+            ? "El tipo de traje es obligatorio."
+            : "El nombre del producto o prenda es obligatorio."
+        );
       }
 
       if (formData.tipo === "ALQUILER") {
@@ -250,7 +254,7 @@ export default function ModalProducto({
 
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Nombre o Descripción de la Prenda *
+                {formData.tipo === "ALQUILER" ? "Tipo de Traje *" : "Nombre del Producto / Prenda *"}
               </label>
               <input
                 type="text"
@@ -258,9 +262,18 @@ export default function ModalProducto({
                 name="nombre"
                 value={formData.nombre}
                 onChange={handleChange}
-                placeholder="ej. Vestido de Joropo Tradicional Azul Rey"
+                placeholder={
+                  formData.tipo === "ALQUILER"
+                    ? "ej. Traje Llanero Gala Blanco / Vestido Quinceañera"
+                    : "ej. Camisa Llanera Tradicional / Sombrero Peloeguama"
+                }
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
+              {formData.tipo === "ALQUILER" && (
+                <p className="text-[10.5px] text-slate-500 mt-1">
+                  En el catálogo se registra el Tipo de Traje general. Las piezas, accesorios o modificaciones específicas se detallan opcionalmente al momento del alquiler.
+                </p>
+              )}
             </div>
           </div>
 

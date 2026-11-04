@@ -638,7 +638,7 @@ export default function InventarioAdminPage() {
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200 text-xs sm:text-sm">
                     <th className="py-3.5 px-4">Código</th>
-                    <th className="py-3.5 px-4">Descripción y Categoría</th>
+                    <th className="py-3.5 px-4">Tipo de Traje / Descripción</th>
                     <th className="py-3.5 px-4">Talla / Color</th>
                     <th className="py-3.5 px-4">Tipo</th>
                     <th className="py-3.5 px-4 text-right">Precio Base</th>

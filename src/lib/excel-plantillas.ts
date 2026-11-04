@@ -31,8 +31,8 @@ export const GUIA_CAMPOS_INVENTARIO = [
   {
     COLUMNA: COLUMNAS_INVENTARIO.NOMBRE,
     OBLIGATORIO: "SI",
-    DESCRIPCION: "Nombre descriptivo de la prenda, traje típico, accesorio o artículo comercial.",
-    VALORES_PERMITIDOS_Y_EJEMPLOS: "Ej: Sombrero Pelo de Guama, Traje Joropo Hombre Gala",
+    DESCRIPCION: "Tipo de Traje (para alquileres) o Nombre descriptivo de la prenda/artículo comercial.",
+    VALORES_PERMITIDOS_Y_EJEMPLOS: "Ej: Traje Llanero Hombre Gala, Vestido Quinceañera, Sombrero Pelo de Guama",
   },
   {
     COLUMNA: COLUMNAS_INVENTARIO.TIPO,

@@ -175,3 +175,4 @@ export async function sembrarDatosDemoPermanentes(prismaClient: PrismaClient) {
     venta: prodsVentaCreados,
   };
 }
+

@@ -55,6 +55,7 @@ import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
+import { calcularFechaDevolucionAlquiler, obtenerDescripcionReglaDevolucion } from "@/lib/fechas-alquiler";
 
 // ---------------------------------------------------------------------------
 // Tipos e Interfaces
@@ -92,6 +93,7 @@ export interface ItemApartado {
   nombre: string;
   talla?: string | null;
   color?: string | null;
+  descripcionDetallada?: string;
   esServicioLibre: boolean;
   descripcionLibre?: string;
   cantidad: number;
@@ -189,13 +191,26 @@ export default function ApartadosPage() {
   const [fechaSalida, setFechaSalida] = useState(() => {
     const manana = new Date();
     manana.setDate(manana.getDate() + 1);
-    return manana.toISOString().split("T")[0];
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${manana.getFullYear()}-${pad(manana.getMonth() + 1)}-${pad(manana.getDate())}`;
   });
   const [fechaDevolucion, setFechaDevolucion] = useState(() => {
-    const limite = new Date();
-    limite.setDate(limite.getDate() + 4);
-    return limite.toISOString().split("T")[0];
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
+    return calcularFechaDevolucionAlquiler(manana);
   });
+
+  const reglaFechaTexto = useMemo(() => {
+    return obtenerDescripcionReglaDevolucion(fechaSalida);
+  }, [fechaSalida]);
+
+  const handleCambioFechaSalida = (nuevaFechaSalida: string) => {
+    setFechaSalida(nuevaFechaSalida);
+    if (nuevaFechaSalida) {
+      const calculada = calcularFechaDevolucionAlquiler(nuevaFechaSalida);
+      setFechaDevolucion(calculada);
+    }
+  };
   const [observaciones, setObservaciones] = useState("");
 
   // Paso 3: Valores Financieros
@@ -380,6 +395,17 @@ export default function ApartadosPage() {
     );
   };
 
+  const actualizarDescripcionDetallada = (idTemp: string, descripcionDetallada: string) => {
+    setItemsApartado((prev) =>
+      prev.map((item) => {
+        if (item.idTemporal === idTemp) {
+          return { ...item, descripcionDetallada };
+        }
+        return item;
+      })
+    );
+  };
+
   // ---------------------------------------------------------------------------
   // Guardado Seguro del Apartado (Paso 3 -> Paso 4)
   // ---------------------------------------------------------------------------
@@ -403,6 +429,7 @@ export default function ApartadosPage() {
         productoId: item.productoId || null,
         esServicioLibre: item.esServicioLibre,
         descripcionLibre: item.descripcionLibre || item.nombre,
+        descripcionDetallada: item.descripcionDetallada?.trim() || null,
         cantidad: item.cantidad,
         precioUnitario: item.precioUnitario,
         subtotal: item.subtotal,
@@ -958,28 +985,36 @@ export default function ApartadosPage() {
                 {paso === 2 && (
                   <div className="space-y-3">
                     {/* Fila de Fechas Compacta en Línea */}
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">
-                          Fecha Pactada de Retiro / Evento:
-                        </label>
-                        <input
-                          type="date"
-                          value={fechaSalida}
-                          onChange={(e) => setFechaSalida(e.target.value)}
-                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold text-slate-800 text-xs outline-none"
-                        />
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-700">Fechas de Reserva / Contrato:</span>
+                        <span className="text-[10.5px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-semibold">
+                          {reglaFechaTexto.mensajeInformativo}
+                        </span>
                       </div>
-                      <div>
-                        <label className="font-bold text-slate-700 block mb-1">
-                          Fecha Límite Estimada de Devolución:
-                        </label>
-                        <input
-                          type="date"
-                          value={fechaDevolucion}
-                          onChange={(e) => setFechaDevolucion(e.target.value)}
-                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold text-slate-800 text-xs outline-none"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">
+                            Fecha Pactada de Retiro / Salida:
+                          </label>
+                          <input
+                            type="date"
+                            value={fechaSalida}
+                            onChange={(e) => handleCambioFechaSalida(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold text-slate-800 text-xs outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-slate-700 block mb-1">
+                            Fecha Límite Estimada de Devolución (8:00 p.m.):
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={fechaDevolucion}
+                            onChange={(e) => setFechaDevolucion(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold text-indigo-900 text-xs outline-none"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -1284,29 +1319,42 @@ export default function ApartadosPage() {
                   itemsApartado.map((item) => (
                     <div
                       key={item.idTemporal}
-                      className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between gap-2"
+                      className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex flex-col gap-2"
                     >
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-slate-900 truncate">{item.nombre}</p>
-                        <span className="text-[11px] text-slate-500">
-                          ${item.precioUnitario.toLocaleString("es-CO")}
-                        </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-slate-900 truncate">{item.nombre}</p>
+                          <span className="text-[11px] text-slate-500">
+                            ${item.precioUnitario.toLocaleString("es-CO")}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <input
+                            type="number"
+                            value={item.precioUnitario}
+                            onChange={(e) => actualizarPrecioUnitario(item.idTemporal, Number(e.target.value) || 0)}
+                            className="w-16 px-1.5 py-0.5 rounded border border-slate-300 text-right font-mono font-bold text-xs bg-white"
+                            title="Editar precio de alquiler"
+                          />
+                          <IconButtonTooltip
+                            icon={Trash2}
+                            label="Quitar ítem del apartado"
+                            size="sm"
+                            variant="danger"
+                            onClick={() => eliminarItem(item.idTemporal)}
+                          />
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Campo Opcional de Detalle */}
+                      <div className="pt-1.5 border-t border-slate-200">
                         <input
-                          type="number"
-                          value={item.precioUnitario}
-                          onChange={(e) => actualizarPrecioUnitario(item.idTemporal, Number(e.target.value) || 0)}
-                          className="w-16 px-1.5 py-0.5 rounded border border-slate-300 text-right font-mono font-bold text-xs bg-white"
-                          title="Editar precio de alquiler"
-                        />
-                        <IconButtonTooltip
-                          icon={Trash2}
-                          label="Quitar ítem del apartado"
-                          size="sm"
-                          variant="danger"
-                          onClick={() => eliminarItem(item.idTemporal)}
+                          type="text"
+                          value={item.descripcionDetallada || ""}
+                          onChange={(e) => actualizarDescripcionDetallada(item.idTemporal, e.target.value)}
+                          placeholder="Opcional: Detalle piezas o modificaciones (ej. Saco azul, pantalón negro...)"
+                          className="w-full text-[11px] px-2 py-1 rounded-lg border border-slate-200 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                         />
                       </div>
                     </div>

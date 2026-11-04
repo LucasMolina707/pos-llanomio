@@ -270,6 +270,7 @@ export async function POST(req: NextRequest, { params }: Params) {
                 productoId: item.productoId || null,
                 esServicioLibre: !item.productoId || Boolean(item.esServicioLibre),
                 descripcionLibre: item.descripcionLibre || item.nombre || "Prenda de alquiler",
+                descripcionDetallada: item.descripcionDetallada ? String(item.descripcionDetallada).trim() : null,
                 cantidad: cant,
                 precioUnitario: pUnit,
                 subtotal: Math.round(cant * pUnit * 100) / 100,

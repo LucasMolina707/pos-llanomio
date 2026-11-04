@@ -283,9 +283,10 @@ model DetalleFactura {
   factura          Factura   @relation(fields: [facturaId], references: [id], onDelete: Cascade)
   productoId       String?
   producto         Producto? @relation(fields: [productoId], references: [id])
-  esServicioLibre  Boolean   @default(false)
-  descripcionLibre String?
-  cantidad         Int       @default(1)
+  esServicioLibre      Boolean   @default(false)
+  descripcionLibre     String?
+  descripcionDetallada String?   // Piezas específicas, modificaciones o accesorios opcionales del traje
+  cantidad             Int       @default(1)
   precioUnitario   Float     @default(0)
   subtotal         Float     @default(0)
   fechaCreacion    DateTime  @default(now())

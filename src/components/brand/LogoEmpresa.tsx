@@ -34,32 +34,32 @@ export interface LogoEmpresaProps {
 
 const SIZE_MAP = {
   sm: {
-    container: "w-9 h-9",
-    iconSize: 18,
+    container: "w-10 h-10",
+    iconSize: 20,
     titleSize: "text-sm font-bold",
     subSize: "text-[11px]",
-    badgePadding: "p-1.5",
+    badgePadding: "p-0.5",
   },
   md: {
-    container: "w-11 h-11",
-    iconSize: 22,
+    container: "w-12 h-12",
+    iconSize: 24,
     titleSize: "text-base font-bold",
     subSize: "text-xs",
-    badgePadding: "p-2",
+    badgePadding: "p-0.5",
   },
   lg: {
-    container: "w-16 h-16",
-    iconSize: 32,
+    container: "w-20 h-20",
+    iconSize: 36,
     titleSize: "text-lg font-bold",
     subSize: "text-xs",
-    badgePadding: "p-2.5",
+    badgePadding: "p-1",
   },
   xl: {
-    container: "w-24 h-24",
-    iconSize: 44,
+    container: "w-28 h-28",
+    iconSize: 52,
     titleSize: "text-2xl font-extrabold",
     subSize: "text-sm",
-    badgePadding: "p-3",
+    badgePadding: "p-1",
   },
 };
 

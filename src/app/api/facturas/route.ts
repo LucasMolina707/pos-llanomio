@@ -339,16 +339,20 @@ export async function POST(req: NextRequest) {
       productoId: string | null;
       esServicioLibre: boolean;
       descripcionLibre: string | null;
+      descripcionDetallada: string | null;
       cantidad: number;
       precioUnitario: number;
       subtotal: number;
       tipoProducto?: TipoProducto | null;
     }[] = [];
 
-    for (const item of detalles as (ItemDetalleInput & { fechaDevolucion?: string; fechaEntrega?: string })[]) {
+    for (const item of detalles as (ItemDetalleInput & { fechaDevolucion?: string; fechaEntrega?: string; descripcionDetallada?: string })[]) {
       const cantidad = Math.max(1, Math.round(Number(item.cantidad) || 1));
       const precioUnitario = Math.max(0, Number(item.precioUnitario) || 0);
       const subtotalItem = Math.round(cantidad * precioUnitario * 100) / 100;
+      const descripcionDetallada = typeof item.descripcionDetallada === "string" && item.descripcionDetallada.trim().length > 0
+        ? item.descripcionDetallada.trim()
+        : null;
 
       if (item.fechaDevolucion && !fechaDevolucionCalculada) {
         fechaDevolucionCalculada = parseFechaSegura(item.fechaDevolucion);
@@ -380,6 +384,7 @@ export async function POST(req: NextRequest) {
           productoId: null,
           esServicioLibre: esArreglo,
           descripcionLibre,
+          descripcionDetallada,
           cantidad,
           precioUnitario,
           subtotal: subtotalItem,
@@ -409,6 +414,7 @@ export async function POST(req: NextRequest) {
           productoId: producto.id,
           esServicioLibre: false,
           descripcionLibre: item.descripcionLibre?.trim() || null,
+          descripcionDetallada,
           cantidad,
           precioUnitario,
           subtotal: subtotalItem,
@@ -561,6 +567,7 @@ export async function POST(req: NextRequest) {
               productoId: d.productoId,
               esServicioLibre: d.esServicioLibre,
               descripcionLibre: d.descripcionLibre,
+              descripcionDetallada: d.descripcionDetallada,
               cantidad: d.cantidad,
               precioUnitario: d.precioUnitario,
               subtotal: d.subtotal,
