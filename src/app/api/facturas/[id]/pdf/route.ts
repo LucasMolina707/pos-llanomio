@@ -90,7 +90,9 @@ export async function GET(req: NextRequest, { params }: Params) {
       formatoParam === "MEDIA_CARTA" ||
       formatoParam === "MEDIA_CARTA_DOBLE"
         ? formatoParam
-        : (empresaConfig?.formatoPredeterminado as FormatoImpresionTipo) || "MEDIA_CARTA";
+        : factura.tipoOperacion === "ALQUILER"
+        ? "MEDIA_CARTA_DOBLE"
+        : "MEDIA_CARTA";
 
     const datosImpresion: DatosImpresionFactura = {
       factura: {

@@ -131,7 +131,31 @@ export interface DatosImpresionFactura {
 interface PlantillaImpresionProps {
   datos?: DatosImpresionFactura | null;
   facturaId?: string;
+  formatoInicial?: FormatoImpresionTipo;
   onCerrar?: () => void;
+}
+
+/**
+ * Resuelve el formato de impresión predeterminado según el tipo de operación:
+ * - Ventas (VENTA, ARREGLO): 1 sola impresión en Media Carta ("MEDIA_CARTA").
+ * - Alquileres (ALQUILER): 2 impresiones Media Carta en una sola hoja ("MEDIA_CARTA_DOBLE").
+ * - Apartados (SEPARE, APARTADO): 1 sola impresión en Media Carta ("MEDIA_CARTA").
+ */
+export function resolverFormatoPredeterminado(
+  tipoOperacion?: string,
+  formatoInicial?: FormatoImpresionTipo
+): FormatoImpresionTipo {
+  if (formatoInicial) return formatoInicial;
+
+  const tipo = (tipoOperacion || "").toUpperCase();
+  if (tipo === "ALQUILER") {
+    return "MEDIA_CARTA_DOBLE";
+  }
+  if (tipo === "SEPARE" || tipo === "APARTADO") {
+    return "MEDIA_CARTA";
+  }
+  // Ventas u otros tipos de operación
+  return "MEDIA_CARTA";
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +182,7 @@ const safeDate = (val: unknown, withTime = false): string => {
 export default function PlantillaImpresion({
   datos: datosProp,
   facturaId,
+  formatoInicial,
   onCerrar,
 }: PlantillaImpresionProps) {
   const [datosCargados, setDatosCargados] = useState<DatosImpresionFactura | null>(null);
@@ -207,25 +232,14 @@ export default function PlantillaImpresion({
   const datos = datosProp || datosCargados;
 
   const [formato, setFormato] = useState<FormatoImpresionTipo>(() => {
-    if (datos?.empresa) {
-      return (
-        datos.empresa.formatoPredeterminado ||
-        datos.empresa.formatoImpresionDefault ||
-        "MEDIA_CARTA"
-      );
-    }
-    return "MEDIA_CARTA";
+    return resolverFormatoPredeterminado(datos?.factura?.tipoOperacion, formatoInicial);
   });
 
   useEffect(() => {
-    if (datos?.empresa) {
-      setFormato(
-        datos.empresa.formatoPredeterminado ||
-          datos.empresa.formatoImpresionDefault ||
-          "MEDIA_CARTA"
-      );
+    if (datos?.factura?.tipoOperacion) {
+      setFormato(resolverFormatoPredeterminado(datos.factura.tipoOperacion, formatoInicial));
     }
-  }, [datos?.empresa]);
+  }, [datos?.factura?.id, datos?.factura?.tipoOperacion, formatoInicial]);
 
   const [numCopias, setNumCopias] = useState<1 | 2>(1);
   const areaImprimibleRef = useRef<HTMLDivElement>(null);

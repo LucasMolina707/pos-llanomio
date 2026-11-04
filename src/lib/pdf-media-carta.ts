@@ -1687,20 +1687,34 @@ export function crearDocumentoPdfTirilla(
 }
 
 /**
+ * Determina el formato documental predeterminado según el tipo de operación:
+ * - Ventas (VENTA, ARREGLO): 1 sola impresión en Media Carta ("MEDIA_CARTA").
+ * - Alquileres (ALQUILER): 2 impresiones Media Carta en una sola hoja ("MEDIA_CARTA_DOBLE").
+ * - Apartados (SEPARE, APARTADO): 1 sola impresión en Media Carta ("MEDIA_CARTA").
+ */
+export function resolverFormatoPdfPredeterminado(tipoOperacion?: string): FormatoImpresionTipo {
+  const tipo = (tipoOperacion || "").toUpperCase();
+  if (tipo === "ALQUILER") return "MEDIA_CARTA_DOBLE";
+  if (tipo === "SEPARE" || tipo === "APARTADO") return "MEDIA_CARTA";
+  return "MEDIA_CARTA";
+}
+
+/**
  * Descarga el archivo PDF de la factura según el formato documental elegido (TIRILLA, MEDIA_CARTA, MEDIA_CARTA_DOBLE o CARTA)
  */
 export function descargarPdfSegunFormato(
   datos: DatosImpresionFactura,
-  formato: FormatoImpresionTipo = "MEDIA_CARTA",
+  formato?: FormatoImpresionTipo,
   nombreArchivo?: string,
   opciones: OpcionesPdfMediaCarta = {}
 ): void {
+  const formatoEfectivo = formato || resolverFormatoPdfPredeterminado(datos.factura.tipoOperacion);
   let doc: jsPDF;
-  if (formato === "TIRILLA") {
+  if (formatoEfectivo === "TIRILLA") {
     doc = crearDocumentoPdfTirilla(datos, opciones);
-  } else if (formato === "CARTA") {
+  } else if (formatoEfectivo === "CARTA") {
     doc = crearDocumentoPdfCarta(datos, opciones);
-  } else if (formato === "MEDIA_CARTA_DOBLE") {
+  } else if (formatoEfectivo === "MEDIA_CARTA_DOBLE") {
     doc = crearDocumentoPdfMediaCartaDoble(datos, opciones);
   } else {
     doc = crearDocumentoPdfMediaCarta(datos, opciones);
@@ -1714,7 +1728,7 @@ export function descargarPdfSegunFormato(
     .substring(0, 20);
 
   const nombre =
-    nombreArchivo || `${prefijo}_${datos.factura.numeroFactura}_${clienteLimpio}_${formato}.pdf`;
+    nombreArchivo || `${prefijo}_${datos.factura.numeroFactura}_${clienteLimpio}_${formatoEfectivo}.pdf`;
   doc.save(nombre);
 }
 
@@ -1734,15 +1748,16 @@ export function descargarPdfMediaCarta(
  */
 export function abrirPdfMediaCarta(
   datos: DatosImpresionFactura,
-  formato: FormatoImpresionTipo = "MEDIA_CARTA",
+  formato?: FormatoImpresionTipo,
   opciones: OpcionesPdfMediaCarta = {}
 ): void {
+  const formatoEfectivo = formato || resolverFormatoPdfPredeterminado(datos.factura.tipoOperacion);
   let doc: jsPDF;
-  if (formato === "TIRILLA") {
+  if (formatoEfectivo === "TIRILLA") {
     doc = crearDocumentoPdfTirilla(datos, opciones);
-  } else if (formato === "CARTA") {
+  } else if (formatoEfectivo === "CARTA") {
     doc = crearDocumentoPdfCarta(datos, opciones);
-  } else if (formato === "MEDIA_CARTA_DOBLE") {
+  } else if (formatoEfectivo === "MEDIA_CARTA_DOBLE") {
     doc = crearDocumentoPdfMediaCartaDoble(datos, opciones);
   } else {
     doc = crearDocumentoPdfMediaCarta(datos, opciones);

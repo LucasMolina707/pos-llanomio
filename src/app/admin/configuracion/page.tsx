@@ -1427,11 +1427,14 @@ export default function ConfiguracionAdminPage() {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-semibold"
                   >
+                    <option value="MEDIA_CARTA">Media Carta Individual (1 por hoja apaisada — Predeterminado en Ventas y Apartados)</option>
+                    <option value="MEDIA_CARTA_DOBLE">Media Carta Doble (2 en 1 Hoja Carta — Predeterminado en Alquileres)</option>
                     <option value="TIRILLA">Tirilla POS (80mm / Térmica)</option>
-                    <option value="MEDIA_CARTA">Media Carta Individual (1 por hoja apaisada)</option>
-                    <option value="MEDIA_CARTA_DOBLE">Media Carta Doble (2 en 1 Hoja Carta — Recomendado)</option>
                     <option value="CARTA">Carta Completa Vertical (1 página ejecutiva)</option>
                   </select>
+                  <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                    Regla automática del sistema: Las ventas y los apartados se abren por defecto en 1 sola impresión de Media Carta; los alquileres se abren por defecto en 2 impresiones Media Carta en una sola hoja.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1739,25 +1742,31 @@ export default function ConfiguracionAdminPage() {
               <div className="flex gap-1">
                 <button
                   type="button"
-                  onClick={() => setTipoOperacionSimulador("VENTA")}
+                  onClick={() => {
+                    setTipoOperacionSimulador("VENTA");
+                    setFormatoSimulador("MEDIA_CARTA");
+                  }}
                   className={`px-3 py-1 rounded-lg text-xs transition ${
                     tipoOperacionSimulador === "VENTA"
                       ? "bg-blue-600 text-white shadow-xs font-bold"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  Venta (Sin Depósito)
+                  Venta (1 Media Carta)
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTipoOperacionSimulador("ALQUILER")}
+                  onClick={() => {
+                    setTipoOperacionSimulador("ALQUILER");
+                    setFormatoSimulador("MEDIA_CARTA_DOBLE");
+                  }}
                   className={`px-3 py-1 rounded-lg text-xs transition ${
                     tipoOperacionSimulador === "ALQUILER"
                       ? "bg-amber-600 text-white shadow-xs font-bold"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  Alquiler (Con Depósito)
+                  Alquiler (2 en 1 Hoja)
                 </button>
               </div>
             </div>

@@ -3546,3 +3546,34 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
 - **Tipado TypeScript:** `npx tsc --noEmit` completado con 0 errores.
 - **Build de Producción:** `npx next build --no-lint` exitoso en 21.9s (22/22 rutas generadas).
 - **Servicio PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` online y operativos en `http://localhost:3000`.
+
+---
+
+## SECCIÓN 52: CONFIGURACIÓN OFICIAL DE FORMATOS PREDETERMINADOS DE IMPRESIÓN POR TIPO DE OPERACIÓN
+
+### 1. Reglas de Negocio Oficiales Implementadas
+- **Ventas Directas (`tipoOperacion === 'VENTA'` o arreglos):**
+  - **Formato Predeterminado:** **Una sola impresión en Media Carta (`MEDIA_CARTA`)** (1 ejemplar individual apaisado 215.9mm x 139.7mm).
+- **Alquileres (`tipoOperacion === 'ALQUILER'`):**
+  - **Formato Predeterminado:** **Dos impresiones Media Carta en una sola hoja (`MEDIA_CARTA_DOBLE`)** (2 en 1 hoja carta vertical con línea de corte: Original Cliente + Copia Archivo/Tienda).
+- **Apartados (`tipoOperacion === 'SEPARE'` o `'APARTADO'`):**
+  - **Formato Predeterminado:** **Una sola impresión en Media Carta (`MEDIA_CARTA`)** (1 ejemplar individual apaisado).
+
+### 2. Módulos y Rutas Sincronizadas
+1. **`PlantillaImpresion.tsx` (`src/components/impresion/PlantillaImpresion.tsx`):**
+   - Incorporada la función `resolverFormatoPredeterminado(tipoOperacion, formatoInicial)` que inicializa y sincroniza el visor interactivo de pantalla/iframe según la operación.
+   - Conserva los 4 selectores manuales en barra de herramientas (`TIRILLA`, `MEDIA_CARTA`, `MEDIA_CARTA_DOBLE`, `CARTA`) para alternancia voluntaria por el cajero.
+2. **`pdf-media-carta.ts` (`src/lib/pdf-media-carta.ts`):**
+   - Incorporada `resolverFormatoPdfPredeterminado(tipoOperacion)` en `descargarPdfSegunFormato` y `abrirPdfMediaCarta`.
+3. **Endpoint de Exportación Binaria (`src/app/api/facturas/[id]/pdf/route.ts`):**
+   - Si no se especifica el query param `?formato=`, resuelve automáticamente `MEDIA_CARTA_DOBLE` para Alquileres y `MEDIA_CARTA` para Ventas y Apartados.
+4. **Simulador de Configuración (`src/app/admin/configuracion/page.tsx`):**
+   - Al simular `"Venta"`, conmuta automáticamente a `MEDIA_CARTA`.
+   - Al simular `"Alquiler"`, conmuta automáticamente a `MEDIA_CARTA_DOBLE`.
+   - Selector corporativo documenta la regla de negocio para conocimiento del administrador.
+
+### 3. Certificación QA y Despliegue
+- **Script Automatizado (`scripts/test-auditoria-formatos-predeterminados.cjs`):** 100% aprobado.
+- **Tipado TypeScript:** `npx tsc --noEmit` completado con 0 errores.
+- **Build de Producción:** `npx next build --no-lint` exitoso en 23.6s (22/22 rutas generadas).
+- **PM2:** Procesos en línea y funcionando en `http://localhost:3000`.
