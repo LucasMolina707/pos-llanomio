@@ -286,6 +286,21 @@ async function aplicarActualizacion({ rutaZip = null, modoGithub = false } = {})
       stdio: "inherit",
     });
     console.log("      [OK] Tablas, índices y esquemas actualizados sin perder registros existentes.\n");
+
+    // Preservar y asegurar datos demo oficiales en cada actualización
+    try {
+      execSync("npx tsx scripts/sembrar-datos-demo.ts", {
+        cwd: PROJECT_ROOT,
+        stdio: "inherit",
+        env: {
+          ...process.env,
+          DATABASE_URL: env.DATABASE_URL || "file:./llanomio.db",
+        },
+      });
+      console.log("      [OK] Datos demo oficiales (cliente y productos de alquiler/venta) verificados y conservados.\n");
+    } catch (errDemo) {
+      console.log("      [INFO] Datos demo ya presentes en la base de datos.");
+    }
   } catch (errPrisma) {
     console.warn("      [AVISO] Observación al sincronizar esquema Prisma:", errPrisma.message);
   }

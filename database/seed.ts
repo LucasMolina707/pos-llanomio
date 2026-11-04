@@ -4,6 +4,7 @@ import {
   PERMISOS_DEFAULT_ADMIN,
   sincronizarArchivoCredencialesMaestras,
 } from "../src/lib/usuarios-sync";
+import { sembrarDatosDemoPermanentes } from "../src/lib/datos-demo";
 
 const prisma = new PrismaClient();
 
@@ -82,6 +83,10 @@ export async function seedBaseDeDatos(prismaClient: PrismaClient = prisma) {
   // 3. Sincronizar directorio de USUARIOS_Y_CREDENCIALES_MAESTRAS.md
   await sincronizarArchivoCredencialesMaestras(prismaClient);
   console.log("-> [OK] Archivo maestro de credenciales sincronizado.");
+
+  // 4. Sembrado de Datos Demo Oficiales (Cliente Demo + 2 Alquiler + 2 Venta)
+  await sembrarDatosDemoPermanentes(prismaClient);
+  console.log("-> [OK] Datos demo oficiales sembrados exitosamente.");
 
   console.log("Sembrado neutro de fábrica completado exitosamente.");
 }

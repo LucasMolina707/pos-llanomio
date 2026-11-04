@@ -3268,6 +3268,53 @@ En respuesta a las necesidades operativas de mostrador y claridad contable para 
    - Apertura de cajón monedero RJ11 e impresión directa en iframe aislada 100% funcionales.
    - Suite de pruebas automatizadas QA (`scripts/test-media-carta-doble-qa.ts`) con 5/5 validaciones superadas.
 
+---
+
+## 47. CATÁLOGO DEMO OFICIAL PERMANENTE: 1 CLIENTE, 2 PRODUCTOS DE ALQUILER Y 2 PRODUCTOS DE VENTA (PRESERVACIÓN EN ACTUALIZACIONES)
+
+### 1. Objetivos y Reglas de Negocio
+Para facilitar la puesta en marcha, demostración de ventas, liquidación de alquileres y pruebas operativas inmediatas en cualquier instalación o actualización, se incorporó un conjunto oficial de registros de prueba permanentes e idempotentes en `src/lib/datos-demo.ts` y `scripts/sembrar-datos-demo.ts`.
+
+### 2. Registros Oficiales Creados en SQLite
+1. **Cliente Demo Oficial:**
+   - **Documento:** `1000000001` (C.C.)
+   - **Nombre:** `Cliente Demo POS`
+   - **Teléfonos:** `3101234567` (Primario) | `3209876543` (Secundario)
+   - **Email:** `clientedemo@posllanomio.com`
+   - **Dirección:** `Avenida Principal Demo # 12-34`
+   - **Municipio:** `Villavicencio - Meta` (Código DANE: `50001`)
+   - **Régimen / Responsabilidad:** No Responsable IVA / `R-99-PN`
+   - **Notas:** `Cliente demo permanente para demostración de ventas y alquileres.`
+
+2. **Productos Demo para ALQUILER (2 Ítems):**
+   - **Ítem 1:** `[DEMO-ALQ-01] Traje Llanero Gala Demo [Alquiler]`
+     - Categoría: `Trajes Típicos` | Talla: `M` | Color: `Blanco / Negro`
+     - Stock Actual: `3` unidades | Estado Prenda: `DISPONIBLE`
+     - Precio Alquiler Base: `$85.000` COP (24 horas)
+     - Tarifa Mora: `$15.000` COP / Día (`$2.000` COP / Hora)
+   - **Ítem 2:** `[DEMO-ALQ-02] Vestido Quinceañera Demo [Alquiler]`
+     - Categoría: `Vestidos de Fiesta` | Talla: `S` | Color: `Azul Rey`
+     - Stock Actual: `2` unidades | Estado Prenda: `DISPONIBLE`
+     - Precio Alquiler Base: `$120.000` COP (48 horas)
+     - Tarifa Mora: `$20.000` COP / Día (`$3.000` COP / Hora)
+
+3. **Productos Demo para VENTA (2 Ítems):**
+   - **Ítem 3:** `[DEMO-VTA-01] Camisa Llanera Tradicional Demo [Venta]`
+     - Categoría: `Prendas de Venta` | Talla: `L` | Color: `Blanca`
+     - Stock Actual: `10` unidades | Estado Prenda: `DISPONIBLE`
+     - Precio Base: `$45.000` COP | Precio Venta: `$65.000` COP
+   - **Ítem 4:** `[DEMO-VTA-02] Sombrero Peloeguama Demo [Venta]`
+     - Categoría: `Accesorios y Sombreros` | Talla: `Única` | Color: `Café`
+     - Stock Actual: `15` unidades | Estado Prenda: `DISPONIBLE`
+     - Precio Base: `$30.000` COP | Precio Venta: `$45.000` COP
+
+### 3. Preservación Garantizada en Actualizaciones y Ciclo de Vida
+- **Idempotencia Absoluta:** La función `sembrarDatosDemoPermanentes(prismaClient)` usa sentencias `upsert` por llave única (`documento` y `codigo`). No duplica registros si ya existen y restaura sus propiedades si sufrieron inconsistencias.
+- **Integración en Motor de Actualización Segura (`scripts/aplicar-actualizacion-segura.js`):** Durante la Fase 4 de actualización en computadores de clientes, tras la migración de Prisma, se ejecuta automáticamente la verificación de los registros demo.
+- **Integración en Sembrado de Fábrica (`database/seed.ts`):** Cualquier inicialización de tienda incorpora automáticamente estos registros.
+- **Comando NPM Rápido:** `npm run db:seed-demos` (`npx tsx scripts/sembrar-datos-demo.ts`).
+
+
 
 
 
