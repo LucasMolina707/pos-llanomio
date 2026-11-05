@@ -4062,3 +4062,39 @@ Se ejecutó la suite de validación de 5 escenarios comprobando la coherencia en
 ### 2. Eliminación de Parpadeo en [`useCajonSincronizado.ts`](src/hooks/useCajonSincronizado.ts)
 - Se implementó hidratación instantánea desde `sessionStorage` (`pos_cajon_activo_cache`, `pos_caja_saldo_cache` y `pos_turno_activo_id`) en los estados iniciales de React.
 - Al navegar entre `/caja/pos`, `/caja/alquileres` y `/caja/apartados`, la cápsula verde `"Turno Activo"` se renderiza en 0 milisegundos sin parpadear al botón ámbar mientras viaja la petición HTTP.
+
+
+---
+
+## SECCION 65: SINCRONIZACION CONTINUA EN TIEMPO REAL Y CALCULO INFALIBLE DEL SALDO EN CAJA
+
+### 1. Diagnóstico del Saldo en $0 y Desfase de Estado
+1. **Causas Raíz Detectadas:**
+   - En [`src/app/api/caja/route.ts`](src/app/api/caja/route.ts), los turnos abiertos se ordenaban con `orderBy: { fechaApertura: "asc" }`, provocando que en ciertas circunstancias se tomara el primer turno más antiguo en lugar del turno activo más reciente de la jornada.
+   - En [`src/components/caja/BarraEstadoCajon.tsx`](src/components/caja/BarraEstadoCajon.tsx), si el estado de React demoraba un ciclo en hidratar `saldoActualEnCajon`, el rótulo caía a `$0` a pesar de que el turno abierto tenía registrada su base inicial de efectivo en el objeto de turno o en la base de datos.
+   - En [`src/hooks/useCajonSincronizado.ts`](src/hooks/useCajonSincronizado.ts), el intervalo de actualización periódica de 15 segundos era demasiado extenso para sincronizar en vivo operaciones concurrentes de mostrador entre distintas pestañas y terminales.
+
+### 2. Soluciones de Arquitectura Aplicadas
+1. **Ordenamiento Descendente Estricto en Backend:**
+   - En `GET /api/caja`, se actualizó a `orderBy: { fechaApertura: "desc" }`, garantizando que el turno activo y el arqueo siempre correspondan al turno vigente más reciente de la tienda.
+2. **Cálculo Infalible del Saldo en `BarraEstadoCajon`:**
+   - Se diseñó el cálculo de cascada tolerante a fallos:
+     ```typescript
+     const saldoEfectivo =
+       Number(saldoActualEnCajon) > 0
+         ? Number(saldoActualEnCajon)
+         : Number(turnoEfectivo?.arqueo?.saldoActualEnCajon || 0) > 0
+         ? Number(turnoEfectivo?.arqueo?.saldoActualEnCajon)
+         : Number(turnoEfectivo?.arqueo?.esperadoEnGavetaEfectivo || 0) > 0
+         ? Number(turnoEfectivo?.arqueo?.esperadoEnGavetaEfectivo)
+         : Number(turnoEfectivo?.baseInicialEfectivo || 0) > 0
+         ? Number(turnoEfectivo?.baseInicialEfectivo)
+         : Number(seguridadCaja?.turnoAbierto?.baseInicialEfectivo || 0) > 0
+         ? Number(seguridadCaja?.turnoAbierto?.baseInicialEfectivo)
+         : Number(saldoActualEnCajon || 0);
+     ```
+   - Impide de forma absoluta que la cápsula verde muestre un falso `$0` cuando el turno tiene base inicial o recaudos registrados.
+3. **Sincronización Continua de Alta Frecuencia:**
+   - Intervalo de refresco en vivo acelerado a **3.5 segundos** en segundo plano mientras la ventana está activa.
+   - Actualización inmediata ante eventos de foco (`focus`), cambio de visibilidad (`visibilitychange`), `BroadcastChannel` y cambios en `localStorage`.
+   - Consulta de arranque ejecutada inmediatamente al montar el hook sin dependencias asíncronas retardadas.

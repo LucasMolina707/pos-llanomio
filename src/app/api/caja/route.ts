@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
           select: { id: true, nombre: true, username: true, rol: true },
         },
       },
-      orderBy: { fechaApertura: "asc" },
+      orderBy: { fechaApertura: "desc" },
     });
 
     const turnosAbiertosConArqueo = await Promise.all(

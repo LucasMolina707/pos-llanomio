@@ -92,7 +92,7 @@ export function notificarCajaActualizada(): void {
 }
 
 export function useCajonSincronizado() {
-  const [deviceId, setDeviceId] = useState<string>("");
+  const [deviceId, setDeviceId] = useState<string>(() => obtenerODefinirDeviceId());
   const [usuarioSesion, setUsuarioSesion] = useState<{ id: string; nombre: string; username: string } | null>(null);
 
   // Inicialización inteligente desde caché para evitar parpadeos visuales al navegar entre vistas
@@ -140,8 +140,8 @@ export function useCajonSincronizado() {
       } catch {}
     }
     return {
-      estado: "ABIERTO_HOY",
-      bloqueadoParaFacturar: false,
+      estado: "SIN_TURNO",
+      bloqueadoParaFacturar: true,
       motivoBloqueo: null,
     };
   });
@@ -152,12 +152,6 @@ export function useCajonSincronizado() {
   const [errorAccionCaja, setErrorAccionCaja] = useState<string | null>(null);
   const actualizandoRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Inicializar Device ID una sola vez
-  useEffect(() => {
-    const dId = obtenerODefinirDeviceId();
-    setDeviceId(dId);
-  }, []);
 
   /**
    * Consulta el estado del cajón y sincroniza en vivo con el backend.
@@ -408,14 +402,13 @@ export function useCajonSincronizado() {
     setTipoModalRequerido("DECISION_MODALIDAD");
   };
 
-  // Cargar estado inicial al montar y cuando deviceId esté listo
+  // Cargar estado inicial inmediatamente al montar
   useEffect(() => {
-    if (deviceId) {
-      actualizarCajon(false);
-    }
-  }, [deviceId, actualizarCajon]);
+    actualizarCajon(false);
+  }, [actualizarCajon]);
 
   // Escuchar eventos globales de caja actualizada transversalmente entre vistas/pestañas
+  // y mantener sincronización periódica activa cada 3.5 segundos
   useEffect(() => {
     const handleCajaEvent = () => {
       actualizarCajon(true);
@@ -451,11 +444,11 @@ export function useCajonSincronizado() {
     window.addEventListener("focus", handleVisibilidadCaja);
     document.addEventListener("visibilitychange", handleVisibilidadCaja);
 
-    // Refresco periódico suave cada 15 segundos (solo si la ventana está visible)
+    // Sincronización continua de mostrador cada 3.5 segundos (mientras la pestaña esté activa)
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       actualizarCajon(true);
-    }, 15000);
+    }, 3500);
 
     return () => {
       window.removeEventListener("pos_caja_actualizada", handleCajaEvent);

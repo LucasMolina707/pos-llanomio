@@ -54,6 +54,20 @@ export default function BarraEstadoCajon({
     seguridadCaja?.estado === "ABIERTO_HOY" ||
     Boolean(seguridadCaja?.turnosAbiertosHoy && seguridadCaja.turnosAbiertosHoy.length > 0);
 
+  // Saldo efectivo en caja: toma el saldo actual o el arqueo del turno o la base inicial
+  const saldoEfectivo =
+    Number(saldoActualEnCajon) > 0
+      ? Number(saldoActualEnCajon)
+      : Number(turnoEfectivo?.arqueo?.saldoActualEnCajon || 0) > 0
+      ? Number(turnoEfectivo?.arqueo?.saldoActualEnCajon)
+      : Number(turnoEfectivo?.arqueo?.esperadoEnGavetaEfectivo || 0) > 0
+      ? Number(turnoEfectivo?.arqueo?.esperadoEnGavetaEfectivo)
+      : Number(turnoEfectivo?.baseInicialEfectivo || 0) > 0
+      ? Number(turnoEfectivo?.baseInicialEfectivo)
+      : Number(seguridadCaja?.turnoAbierto?.baseInicialEfectivo || 0) > 0
+      ? Number(seguridadCaja?.turnoAbierto?.baseInicialEfectivo)
+      : Number(saldoActualEnCajon || 0);
+
   // ESTADO: BLOQUEADO POR DÍA ANTERIOR (Solo si no hay un turno activo hoy)
   if (
     !hayTurnoActivo &&
@@ -96,7 +110,7 @@ export default function BarraEstadoCajon({
       seguridadCaja?.turnoAbierto?.baseInicialEfectivo ??
       0;
 
-    const tooltipDesglose = `Turno Conectado (Ventas, Alquileres y Apartados) · Cajero: ${nombreCajero} · Efectivo en Caja: $${saldoActualEnCajon.toLocaleString("es-CO")} · Digital: $${totalDigital.toLocaleString("es-CO")}`;
+    const tooltipDesglose = `Turno Conectado (Ventas, Alquileres y Apartados) · Cajero: ${nombreCajero} · Efectivo en Caja: $${saldoEfectivo.toLocaleString("es-CO")} · Digital: $${totalDigital.toLocaleString("es-CO")}`;
 
     return (
       <>
@@ -116,7 +130,7 @@ export default function BarraEstadoCajon({
           <div className="flex items-center gap-1.5">
             <Wallet className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
             <span className="text-xs sm:text-sm font-mono font-black text-emerald-950 whitespace-nowrap">
-              Caja: ${saldoActualEnCajon.toLocaleString("es-CO")}
+              Caja: ${saldoEfectivo.toLocaleString("es-CO")}
             </span>
           </div>
 
@@ -207,7 +221,7 @@ export default function BarraEstadoCajon({
                   <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                     <span>Total Físico en Caja:</span>
                     <span className="text-base font-black font-mono text-slate-950">
-                      ${saldoActualEnCajon.toLocaleString("es-CO")}
+                      ${saldoEfectivo.toLocaleString("es-CO")}
                     </span>
                   </div>
                   <div className="border-t border-slate-200 pt-1.5 space-y-1 text-[11px] font-medium text-slate-600">
