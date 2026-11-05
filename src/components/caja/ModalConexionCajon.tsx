@@ -14,6 +14,7 @@ import {
   ArrowRight,
   DollarSign,
   ShieldAlert,
+  X,
 } from "lucide-react";
 import {
   TipoModalCajonRequerido,
@@ -310,21 +311,32 @@ export default function ModalConexionCajon({
   if (tipoModalEfectivo === "APERTURA_INICIAL") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
-        <div className="bg-[#FCFDFE] rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg p-6 sm:p-8 flex flex-col space-y-5 text-slate-800">
+        <div className="bg-[#FCFDFE] rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg p-6 sm:p-8 flex flex-col space-y-5 text-slate-800 relative">
+          {onCerrarModal && (
+            <button
+              type="button"
+              onClick={onCerrarModal}
+              title="Cerrar ventana"
+              className="absolute top-5 right-5 p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+
           <div className="text-center space-y-2">
             <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shadow-xs">
               <Unlock className="w-7 h-7" />
             </div>
             <div>
               <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-700 block mb-1">
-                Apertura de Caja Única &bull; Jornada Actual
+                Apertura Única de Tienda &bull; Jornada Actual
               </span>
               <h2 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
-                Apertura Única de Caja
+                Iniciar Turno en Caja
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-slate-600 max-w-sm mx-auto font-medium">
-              No hay una caja abierta para hoy en la tienda. Ingrese el dinero real físico total en gaveta para autorizar simultáneamente Ventas, Alquileres y Apartados.
+              Apertura única habilitada para Ventas, Alquileres y Apartados.
             </p>
           </div>
 
@@ -338,7 +350,7 @@ export default function ModalConexionCajon({
           <form onSubmit={handleSubmitAperturaInicial} className="space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
-                Dinero Real Físico Total en Gaveta ($ COP) *
+                Dinero actual en caja (Base + Efectivo en custodia)
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
@@ -407,12 +419,12 @@ export default function ModalConexionCajon({
                 {procesandoLocal || cargando ? (
                   <>
                     <RefreshCw className="w-5 h-5 animate-spin" />
-                    <span>Iniciando Turno Único de Caja...</span>
+                    <span>Iniciando Turno en Caja...</span>
                   </>
                 ) : (
                   <>
                     <Unlock className="w-5 h-5" />
-                    <span>Abrir Caja y Habilitar Mostrador</span>
+                    <span>Iniciar Turno en Caja Ahora</span>
                   </>
                 )}
               </button>

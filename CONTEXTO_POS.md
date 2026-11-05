@@ -3980,3 +3980,60 @@ Se implemento y ejecuto una suite de validacion de 5 escenarios reales contra la
 - **Compilacion de Produccion:** `npm run build` ejecutado exitosamente con 23/23 rutas optimizadas.
 - **Procesos PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` reiniciados y operativos (`online`).
 - **Verificacion de Red Local:** Respuesta `HTTP/1.1 200 OK` comprobada en `http://127.0.0.1:3000/login`.
+
+
+---
+
+## SECCION 63: INDICADOR CONCISO DE ESTADO DE CAJA, APERTURA UNICA Y SALDO EN VIVO EN LAS 3 VISTAS OPERATIVAS
+
+### 1. Refactorizacion del Indicador Superior `<BarraEstadoCajon />` (`src/components/caja/BarraEstadoCajon.tsx`)
+1. **Purga de Textos Redundantes:** Se eliminaron las leyendas extensas de *"Sin Cajón Abierto"*, *"APERTURAR"*, y nombres de gabinete largos que saturaban la cabecera.
+2. **ESTADO A (Caja Cerrada / Sin Turno):**
+   - Renderizado en botón interactivo ámbar suave (`h-9 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 flex items-center gap-2 transition-all cursor-pointer shadow-2xs`).
+   - Icono vectorial `<Lock className="w-4 h-4 text-amber-700 shrink-0" />`.
+   - Badge de acción directa: **`"Iniciar Turno en Caja"`** (`text-xs font-extrabold tracking-tight whitespace-nowrap px-2 py-0.5 rounded-md bg-amber-200/80 text-amber-950`).
+   - Tooltip explicativo: *"Turno cerrado. Clic para iniciar turno en caja (aplica para Ventas, Alquileres y Apartados)"*.
+3. **ESTADO B (Turno Activo Conectado):**
+   - Cápsula compacta uniforme (`h-9 px-3 rounded-xl bg-emerald-50/90 border border-emerald-300 text-slate-900 flex items-center gap-2.5 shadow-2xs`).
+   - Punto verde pulsante (`w-2 h-2 rounded-full bg-emerald-500 animate-pulse`) + texto conciso **`"Turno Activo"`** (`text-xs font-bold text-emerald-900 whitespace-nowrap`).
+   - Separador vertical sutil (`h-4 w-[1px] bg-emerald-200`).
+   - Saldo en caja en vivo con icono vectorial `<Wallet className="w-3.5 h-3.5 text-emerald-700 shrink-0" />` + **`"Caja: $XX.XXX"`** (`text-xs sm:text-sm font-mono font-black text-emerald-950 whitespace-nowrap`).
+   - Botón cuadrado discreto de refresco/detalle (`w-6 h-6 rounded-lg hover:bg-emerald-200/60 flex items-center justify-center transition-colors`) con tooltip completo: *"Turno Conectado (Ventas, Alquileres y Apartados) · Cajero: [Nombre] · Efectivo en Caja: $XX.XXX · Digital: $YY.YYY"* y despliegue del modal de desglose financiero billete a billete.
+
+---
+
+### 2. Estandarizacion del Modal de Apertura Rapida (`src/components/caja/ModalConexionCajon.tsx`)
+- Título principal actualizado a: **`"Iniciar Turno en Caja"`**.
+- Subtítulo breve: **`"Apertura única habilitada para Ventas, Alquileres y Apartados."`**.
+- Etiqueta del campo de efectivo: **`"Dinero actual en caja (Base + Efectivo en custodia)"`**.
+- Botón de confirmación principal: **`"Iniciar Turno en Caja Ahora"`**.
+- Botón de cierre `X` en la esquina superior derecha con delegación a `onCerrarModal` para permitir navegación libre si el usuario decide no aperturar de inmediato.
+
+---
+
+### 3. Sincronizacion Transversal de Apertura y Saldo en Vivo (`src/hooks/useCajonSincronizado.ts` y `src/app/admin/caja/page.tsx`)
+1. **Apertura Única Global:**
+   - La apertura realizada desde cualquiera de las tres vistas operativas (`/caja/pos`, `/caja/alquileres`, `/caja/apartados`) o desde la consola administrativa (`/admin/caja`) inicializa el turno de forma transversal para toda la tienda.
+2. **Canal de Comunicación Multi-Pestaña y Multi-Vista:**
+   - Implementación de `BroadcastChannel("pos_llanomio_caja_channel")` con fallback a `localStorage` (`pos_caja_sync_ts`) y eventos DOM `CustomEvent("caja_actualizada")`.
+   - Ante cualquier evento emitido, todas las consolas abiertas actualizan su saldo y estado en 0 milisegundos sin requerir recargar la página.
+3. **Actualización Automática Post-Transacción:**
+   - Las tres vistas invocan `cajon.notificarCajaActualizada()` y `cajon.actualizarCajon(true)` al finalizar una venta, un alquiler, un apartado, un abono o una liquidación/devolución de depósito, manteniendo el rótulo **`"Caja: $XX.XXX"`** permanentemente al día.
+
+---
+
+### 4. Suite de Calidad QA (`scripts/test-qa-barra-estado-caja.ts`)
+Se ejecutó la suite de validación de 5 escenarios comprobando la coherencia entre frontend y backend:
+1. **Test 1 (Sin Turno):** Base de datos con 0 turnos abiertos -> `/api/caja` reporta `hayTurnoAbierto: false`. La barra renderiza botón ámbar *"Iniciar Turno en Caja"*. -> **APROBADO**.
+2. **Test 2 (Apertura con $100.000):** Apertura en 1 clic -> Barra muestra *"Turno Activo | Caja: $100.000"* en Ventas, Alquileres y Apartados. -> **APROBADO**.
+3. **Test 3 (Venta POS $30.000 en Efectivo):** Registro de venta -> Saldo acumulado en gaveta: **$130.000**. Barra actualizada en vivo a *"Caja: $130.000"*. -> **APROBADO**.
+4. **Test 4 (Apartado con Abono de $20.000 en Efectivo):** Registro de apartado -> Saldo acumulado en gaveta: **$150.000**. Barra actualizada en vivo a *"Caja: $150.000"*. -> **APROBADO**.
+5. **Test 5 (Alquiler + Depósito de $50.000 en Efectivo):** Registro de alquiler ($30k canon + $20k custodia) -> Saldo acumulado en gaveta: **$200.000 exactos**. Barra actualizada en vivo a *"Caja: $200.000"*. -> **APROBADO (100% PASS)**.
+
+---
+
+### 5. Compilacion de Produccion y Verificacion de Servicios
+- **Verificación TypeScript:** `npx tsc --noEmit` completado con 0 errores.
+- **Compilación de Producción:** `npm run build` ejecutado exitosamente con 23/23 rutas optimizadas.
+- **Servicios PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` en línea (`online`).
+- **Verificación HTTP:** Endpoint `http://127.0.0.1:3000/login` respondiendo `HTTP/1.1 200 OK`.

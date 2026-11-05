@@ -54,6 +54,9 @@ export type TipoModalCajonRequerido =
   | null;
 
 const STORAGE_DEVICE_KEY = "pos_device_id";
+const CAJA_CHANNEL_NAME = "pos_llanomio_caja_channel";
+const CAJA_SYNC_STORAGE_KEY = "pos_caja_sync_ts";
+
 const getStorageCajonKey = (userId?: string) =>
   userId ? `pos_cajon_vinculado_${userId}` : "pos_cajon_vinculado_default";
 
@@ -67,9 +70,24 @@ export function obtenerODefinirDeviceId(): string {
   return devId;
 }
 
+/**
+ * Emite una notificación global transversal hacia todas las ventanas, pestañas
+ * y vistas del sistema (/caja/pos, /caja/alquileres, /caja/apartados).
+ */
 export function notificarCajaActualizada(): void {
   if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("caja_actualizada"));
     window.dispatchEvent(new CustomEvent("pos_caja_actualizada"));
+    try {
+      localStorage.setItem(CAJA_SYNC_STORAGE_KEY, String(Date.now()));
+    } catch {}
+    try {
+      if ("BroadcastChannel" in window) {
+        const bc = new BroadcastChannel(CAJA_CHANNEL_NAME);
+        bc.postMessage({ tipo: "CAJA_ACTUALIZADA", timestamp: Date.now() });
+        bc.close();
+      }
+    } catch {}
   }
 }
 
@@ -101,7 +119,7 @@ export function useCajonSincronizado() {
 
   /**
    * Consulta el estado del cajón y sincroniza en vivo con el backend.
-   * Si el dispositivo o usuario ya tiene cajón asignado hoy -> Cero preguntas ni modales.
+   * Si existe cualquier turno abierto en la tienda -> Estado ABIERTO_HOY sin preguntas ni bloqueos.
    */
   const actualizarCajon = useCallback(
     async (silencioso = false) => {
@@ -131,7 +149,7 @@ export function useCajonSincronizado() {
               setUsuarioSesion(dataAuth.user);
             }
           } catch {
-            // Continuar con usuario anónimo/cajero local
+            // Continuar con usuario local
           }
         }
 
@@ -162,28 +180,23 @@ export function useCajonSincronizado() {
 
         setSeguridadCaja(verif);
 
-        // Revisar memoria local de este dispositivo
-        const storageKey = getStorageCajonKey(uSesion?.id);
-        const vinculadoRaw = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
-        let turnoVinculadoLocal: { turnoId: string; deviceId: string; fechaDia: string } | null = null;
-        if (vinculadoRaw) {
-          try {
-            turnoVinculadoLocal = JSON.parse(vinculadoRaw);
-          } catch {
-            turnoVinculadoLocal = null;
-          }
-        }
-
-        // CASO A: SIN TURNO ABIERTO
-        if (!data.hayTurnoAbierto && (verif.estado === "SIN_TURNO" || !data.turnoAbierto)) {
+        // CASO A: BLOQUEADO POR DÍA ANTERIOR
+        if (verif.estado === "BLOQUEADO_DIA_ANTERIOR") {
           setCajonConectado(null);
-          setDebeMostrarModal(true);
-          setTipoModalRequerido("APERTURA_INICIAL");
-          setSaldoActualEnCajon(0);
+          setTipoModalRequerido("BLOQUEADO_DIA_ANTERIOR");
           return;
         }
 
-        // CASO 1: CONECTADO / TURNO ABIERTO ACTIVO (Cero preguntas ni modales falsos)
+        // CASO B: SIN TURNO ABIERTO HOY
+        if (!data.hayTurnoAbierto && (verif.estado === "SIN_TURNO" || !data.turnoAbierto)) {
+          setCajonConectado(null);
+          setTipoModalRequerido("APERTURA_INICIAL");
+          setSaldoActualEnCajon(0);
+          setTotalDigital(0);
+          return;
+        }
+
+        // CASO C: TURNO ABIERTO ACTIVO (Aplica globalmente para Ventas, Alquileres y Apartados)
         if (data.hayTurnoAbierto || data.turnoAbierto) {
           const turno = (data.turnoAbierto || data.turnosAbiertos?.[0]) as InfoTurnoGabinete;
           if (turno) {
@@ -194,6 +207,7 @@ export function useCajonSincronizado() {
 
             // Guardar en localStorage y sessionStorage para persistencia instantánea
             if (typeof window !== "undefined") {
+              const storageKey = getStorageCajonKey(uSesion?.id);
               const hoyStr = new Date().toISOString().split("T")[0];
               localStorage.setItem(
                 storageKey,
@@ -206,56 +220,6 @@ export function useCajonSincronizado() {
             setTipoModalRequerido(null);
             return;
           }
-        }
-
-        // CASO B: REQUIERE DECISIÓN DE MODALIDAD (Entró desde otro dispositivo o sin asignar)
-        if (verif.estado === "REQUIERE_DECISION_MODALIDAD") {
-          // Verificar si ya teníamos guardada una elección para este turno en este dispositivo hoy
-          const hoyStr = new Date().toISOString().split("T")[0];
-          if (
-            turnoVinculadoLocal &&
-            turnoVinculadoLocal.fechaDia === hoyStr &&
-            turnoVinculadoLocal.deviceId === currentDeviceId
-          ) {
-            // Vincular silenciosamente en el backend sin volver a preguntar al cajero
-            try {
-              const resAuto = await fetch("/api/caja", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  accion: "VINCULAR_DISPOSITIVO",
-                  turnoCajaId: turnoVinculadoLocal.turnoId,
-                  deviceId: currentDeviceId,
-                }),
-              });
-              const dataAuto = await resAuto.json();
-              if (dataAuto.success) {
-                // Re-consultar para tomar el turno vinculado
-                actualizandoRef.current = false;
-                await actualizarCajon(true);
-                return;
-              }
-            } catch {
-              // Si falla el auto-link silencioso, mostrar modal
-            }
-          }
-
-          // Si no hay elección previa en este dispositivo, mostrar modal de selección
-          setCajonConectado(null);
-          setDebeMostrarModal(true);
-          setTipoModalRequerido("DECISION_MODALIDAD");
-          setSaldoActualEnCajon(data.saldoActualEnCajon || 0);
-          return;
-        }
-
-        // Si hay turno abierto general pero no está bloqueado
-        if (data.turnoAbierto) {
-          const t = data.turnoAbierto as InfoTurnoGabinete;
-          setCajonConectado(t);
-          setSaldoActualEnCajon(data.saldoActualEnCajon || t.arqueo?.saldoActualEnCajon || t.baseInicialEfectivo || 0);
-          setTotalDigital(data.totalDigital || 0);
-          setDebeMostrarModal(false);
-          setTipoModalRequerido(null);
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
@@ -274,7 +238,6 @@ export function useCajonSincronizado() {
 
   /**
    * Conecta este dispositivo a la Caja Compartida activa.
-   * Queda registrado en el backend y en localStorage sin volver a preguntar.
    */
   const conectarCajaCompartida = async (turnoCajaId?: string): Promise<boolean> => {
     try {
@@ -321,7 +284,7 @@ export function useCajonSincronizado() {
   };
 
   /**
-   * Inicializa un nuevo cajón con su propia Base Inicial (modo Apertura o Caja Dividida).
+   * Inicializa un nuevo cajón con su propia Base Inicial (Apertura única transversal para toda la tienda).
    */
   const abrirNuevoCajon = async (params: {
     baseInicial: number;
@@ -349,7 +312,7 @@ export function useCajonSincronizado() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "No fue posible abrir el nuevo cajón de dinero.");
+        throw new Error(data.error || "No fue posible abrir el turno de caja.");
       }
 
       const hoyStr = new Date().toISOString().split("T")[0];
@@ -394,11 +357,29 @@ export function useCajonSincronizado() {
     }
   }, [deviceId, actualizarCajon]);
 
-  // Escuchar eventos globales de caja actualizada y mantener sincronización periódica suave (30s con pausa por visibilidad)
+  // Escuchar eventos globales de caja actualizada transversalmente entre vistas/pestañas
   useEffect(() => {
     const handleCajaEvent = () => {
       actualizarCajon(true);
     };
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === CAJA_SYNC_STORAGE_KEY) {
+        actualizarCajon(true);
+      }
+    };
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        channel = new BroadcastChannel(CAJA_CHANNEL_NAME);
+        channel.onmessage = (event) => {
+          if (event?.data?.tipo === "CAJA_ACTUALIZADA") {
+            actualizarCajon(true);
+          }
+        };
+      }
+    } catch {}
 
     const handleVisibilidadCaja = () => {
       if (typeof document !== "undefined" && !document.hidden) {
@@ -408,32 +389,34 @@ export function useCajonSincronizado() {
 
     window.addEventListener("pos_caja_actualizada", handleCajaEvent);
     window.addEventListener("caja_actualizada", handleCajaEvent);
+    window.addEventListener("storage", handleStorageEvent);
     window.addEventListener("focus", handleVisibilidadCaja);
     document.addEventListener("visibilitychange", handleVisibilidadCaja);
 
-    // Refresco periódico suave cada 30 segundos (solo si la ventana está visible)
+    // Refresco periódico suave cada 15 segundos (solo si la ventana está visible)
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       actualizarCajon(true);
-    }, 30000);
+    }, 15000);
 
     return () => {
       window.removeEventListener("pos_caja_actualizada", handleCajaEvent);
       window.removeEventListener("caja_actualizada", handleCajaEvent);
+      window.removeEventListener("storage", handleStorageEvent);
       window.removeEventListener("focus", handleVisibilidadCaja);
       document.removeEventListener("visibilitychange", handleVisibilidadCaja);
       clearInterval(interval);
+      if (channel) {
+        channel.close();
+      }
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
   }, [actualizarCajon]);
 
-  const notificarCajaActualizada = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("pos_caja_actualizada"));
-      window.dispatchEvent(new CustomEvent("caja_actualizada"));
-    }
+  const notificarLocal = useCallback(() => {
+    notificarCajaActualizada();
   }, []);
 
   return {
@@ -448,9 +431,9 @@ export function useCajonSincronizado() {
     bloqueadoParaFacturar: Boolean(seguridadCaja.bloqueadoParaFacturar) && !cajonConectado && !seguridadCaja.turnoAbierto,
     motivoBloqueo:
       seguridadCaja.motivoBloqueo ||
-      (!cajonConectado && !seguridadCaja.turnoAbierto ? "Debe inicializar un turno de caja para facturar." : null),
+      (!cajonConectado && !seguridadCaja.turnoAbierto ? "Debe iniciar turno en caja para facturar." : null),
     estado: seguridadCaja.estado,
-    turnoAbierto: seguridadCaja.turnoAbierto,
+    turnoAbierto: seguridadCaja.turnoAbierto || cajonConectado,
     turnoParaCompartir: seguridadCaja.turnoParaCompartir,
     turnosAbiertosHoy: seguridadCaja.turnosAbiertosHoy,
     arqueoTurno: seguridadCaja.arqueoTurno,
@@ -465,7 +448,7 @@ export function useCajonSincronizado() {
     setDebeMostrarModal,
     abrirModal: () => setDebeMostrarModal(true),
     cerrarModal: () => setDebeMostrarModal(false),
-    notificarCajaActualizada,
+    notificarCajaActualizada: notificarLocal,
   };
 }
 

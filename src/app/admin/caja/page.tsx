@@ -31,6 +31,7 @@ import {
 import HistorialArqueosView from "@/components/caja/HistorialArqueosView";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import { notificarCajaActualizada } from "@/hooks/useCajonSincronizado";
 
 interface CajeroParticipante {
   id: string;
@@ -251,6 +252,7 @@ export default function ControlCajaAdminPage() {
 
       setMensaje({ tipo: "exito", texto: data.mensaje });
       setObsApertura("");
+      notificarCajaActualizada();
       await consultarEstadoCaja();
     } catch (err: unknown) {
       setMensaje({
@@ -298,6 +300,7 @@ export default function ControlCajaAdminPage() {
       setMostrarModalNuevaCajaDividida(false);
       setNombreNuevaCajaDividida("");
       setObsNuevaCajaDividida("");
+      notificarCajaActualizada();
       await consultarEstadoCaja();
       if (data.turno?.id) {
         setGabineteSeleccionadoId(data.turno.id);
@@ -395,6 +398,7 @@ export default function ControlCajaAdminPage() {
       setMostrarModalConfirmarCierre(false);
       setEfectivoContadoInput("");
       setNotaObservacionesInput("");
+      notificarCajaActualizada();
       await consultarEstadoCaja();
     } catch (err: unknown) {
       setMensaje({
