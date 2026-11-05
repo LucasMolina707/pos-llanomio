@@ -18,7 +18,7 @@ Para restaurar la contraseña del Administrador directamente desde la pantalla d
 
 1. **Factor 1 - Identificación Registrada:** Cédula de Ciudadanía o NIT del titular asignado (Valor de fábrica: `0000000000`, personalizable en `/admin/usuarios`).
 2. **Factor 2 - PIN de Seguridad de 6 Dígitos:** Código numérico confidencial (Valor de fábrica: `000000`, hasheado con `bcryptjs` en BD).
-3. **Factor 3 - Pregunta y Respuesta de Seguridad:** Pregunta y respuesta secreta (Valor de fábrica: `llanomio`, hasheado con `bcryptjs` en BD).
+3. **Factor 3 - Pregunta y Respuesta de Seguridad:** Pregunta: "¿Cuál es la clave de seguridad de recuperación del sistema?" y Respuesta: `admin` (hasheado con `bcryptjs` en BD).
 
 > **Protección Anti-Fuerza Bruta en SQLite:** Si se introducen datos incorrectos 3 veces consecutivas, la cuenta entra en un bloqueo persistente en base de datos (`bloqueadoHasta`) durante **15 minutos**, impidiendo ataques por recarga de página o reinicio del navegador.
 
@@ -52,7 +52,7 @@ El sistema opera bajo un modelo de control de acceso basado en roles con permiso
 
 ## 3. Directorio Auto-Sincronizado de Usuarios en SQLite (`database/llanomio.db`)
 
-> **Última sincronización automática:** 4/11/2026, 12:23 a. m. (Hora Colombia)
+> **Última sincronización automática:** 5/11/2026, 1:42 p. m. (Hora Colombia)
 > Total de cuentas registradas: **1** (1 Administradores, 0 Cajeros)
 
 | Nombre Completo | Usuario (`username`) | Rol | Estado | Seguridad 3-Factores | Intentos Fallidos | Transacciones | Último Cambio de Clave |

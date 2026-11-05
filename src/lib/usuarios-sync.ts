@@ -82,7 +82,7 @@ Para restaurar la contraseña del Administrador directamente desde la pantalla d
 
 1. **Factor 1 - Identificación Registrada:** Cédula de Ciudadanía o NIT del titular asignado (Valor de fábrica: \`0000000000\`, personalizable en \`/admin/usuarios\`).
 2. **Factor 2 - PIN de Seguridad de 6 Dígitos:** Código numérico confidencial (Valor de fábrica: \`000000\`, hasheado con \`bcryptjs\` en BD).
-3. **Factor 3 - Pregunta y Respuesta de Seguridad:** Pregunta y respuesta secreta (Valor de fábrica: \`llanomio\`, hasheado con \`bcryptjs\` en BD).
+3. **Factor 3 - Pregunta y Respuesta de Seguridad:** Pregunta: "¿Cuál es la clave de seguridad de recuperación del sistema?" y Respuesta: \`admin\` (hasheado con \`bcryptjs\` en BD).
 
 > **Protección Anti-Fuerza Bruta en SQLite:** Si se introducen datos incorrectos 3 veces consecutivas, la cuenta entra en un bloqueo persistente en base de datos (\`bloqueadoHasta\`) durante **15 minutos**, impidiendo ataques por recarga de página o reinicio del navegador.
 

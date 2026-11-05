@@ -4098,3 +4098,60 @@ Se ejecutó la suite de validación de 5 escenarios comprobando la coherencia en
    - Intervalo de refresco en vivo acelerado a **3.5 segundos** en segundo plano mientras la ventana está activa.
    - Actualización inmediata ante eventos de foco (`focus`), cambio de visibilidad (`visibilitychange`), `BroadcastChannel` y cambios en `localStorage`.
    - Consulta de arranque ejecutada inmediatamente al montar el hook sin dependencias asíncronas retardadas.
+
+
+---
+
+## SECCION 66: RESTABLECIMIENTO TOTAL DE FABRICA Y ESTADO PURO COMERCIAL (CLEAN SLATE)
+
+### 1. Proposito y Alcance de la Intervencion
+El 5 de noviembre de 2026, el Consejo Tecnico Principal ejecuto la purga y puesta a cero integral del sistema POS Local LLANOMIO para prepararlo como paquete comercial virgen para distribucion e instalacion en nuevos comercios.
+
+### 2. Tablas SQLite Restablecidas a 0 Registros Exactos (`database/llanomio.db`)
+Mediante el script maestro `scripts/reset-db-fabrica.ts`, se eliminaron en orden estricto de restricciones de integridad referencial:
+- `Abono`: 0 registros.
+- `DetalleFactura`: 0 registros.
+- `Factura`: 0 registros.
+- `TurnoCaja`: 0 registros.
+- `CierreCaja`: 0 registros.
+- `Gasto`: 0 registros.
+- `EmpleadoGasto`: 0 registros.
+- `AuditoriaSesion`: 0 registros.
+- `Producto`: 0 registros (inventario virgen listo para importacion).
+- `Cliente`: 0 registros (cartera y directorio listos para importacion).
+
+### 3. Configuracion Neutra de Fabrica Sembrada (`database/seed.ts`)
+1. **Cuenta Administrador Unica:**
+   - Usuario: `admin` | Nombre: Administrador Principal | Rol: `ADMIN`.
+   - Contrasena inicial: `admin123` (hasheada con bcrypt 10 rondas).
+   - Triple factor de restauracion: Documento `0000000000`, PIN de seguridad `000000`, Pregunta: `"¿Cual es la clave de seguridad de recuperacion del sistema?"`, Respuesta: `admin`.
+   - Cero cajeros secundarios (creacion a demanda en `/admin/usuarios`).
+2. **Registro Neutro de Empresa (`ConfiguracionEmpresa`):**
+   - Nombre: `MI EMPRESA POS` | NIT: `000000000-0`.
+   - Formato predeterminado de factura: `MEDIA_CARTA_DOBLE`.
+   - Tarifa mora diaria default: $3.000 COP.
+   - Abonos minimos de alquiler y apartado: $20.000 COP.
+   - Apertura automatica de cajon: Activada.
+   - Carpeta de respaldos: `C:\POS_BACKUPS`.
+3. **Secuencia de Facturacion (`SecuenciaFactura`):**
+   - Registro `FACTURA_SECUENCIA` reiniciado en `ultimoFolio: 1000`.
+   - La primera factura real que emita el comercio sera la Factura N° 1001.
+4. **Categorias Base de Gastos (`CategoriaGasto`):**
+   - 9 categorias oficiales limpias para control operativo y nomina.
+
+### 4. Mantenimiento y Compactacion Fisica SQLite
+- Ejecucion de `DELETE FROM sqlite_sequence;` para resetear autonumericos.
+- Ejecucion de `PRAGMA wal_checkpoint(TRUNCATE);` y `VACUUM;` reduciendo el archivo fisico a su tamano base sin archivos `-wal` ni `-shm` residuales.
+
+### 5. Limpieza de Carpetas de Respaldos y Migracion
+- `database/backups_locales/`: Vaciado de bases de datos y carpetas JSON de prueba, preservando `.gitkeep`.
+- `C:\POS_BACKUPS\` y `C:\POS_LLANOMIO_BACKUPS\`: Vaciado de archivos residuales.
+- `migracion_excel/origen/` y `migracion_excel/excel_fuente/`: Listas con `.gitkeep` para recepcion de plantillas Excel del cliente.
+- `AUDITORIAS/`: Historial anterior archivado y publicacion oficial de `AUDITORIA_Nro_001_ESTADO_FABRICA_LIMPIO.md` e `INDICE_HISTORIAL_AUDITORIAS.md`.
+
+### 6. Procedimiento de Puesta en Marcha Comercial para el Nuevo Cliente
+1. Iniciar sesion en `http://127.0.0.1:3000/login` con `admin` / `admin123`.
+2. Dirigirse a `/admin/configuracion` para ingresar Nombre Comercial, NIT, Direccion, Telefono, Formato de Impresion y Logotipo.
+3. Crear los cajeros necesarios en `/admin/usuarios`.
+4. Importar o registrar clientes en `/admin/clientes` y catalogo de inventario en `/admin/inventario`.
+5. Iniciar turno de caja en `/admin/caja` o directamente desde las vistas operativas con el boton "Iniciar Turno en Caja".

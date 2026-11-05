@@ -1,11 +1,11 @@
 /**
- * SCRIPT DE RESTABLECIMIENTO DE FÁBRICA / FACTORY RESET TOTAL
+ * SCRIPT DE RESTABLECIMIENTO TOTAL DE FÁBRICA / FACTORY RESET COMERCIAL
  * POS LLANOMIO
  * 
  * Propósito:
- * Purga de raíz todos los datos operativos, facturas, clientes, prendas y auditorías,
- * reinicia las secuencias de SQLite (sqlite_sequence), compacta el archivo físico
- * con VACUUM y deja el sistema virgen con un único usuario administrador inicial.
+ * Purga de raíz todas las transacciones, facturas, clientes, prendas, gastos,
+ * auditorías y turnos de caja. Compacta físicamente la base de datos SQLite
+ * y siembra la configuración neutra de fábrica lista para un comercio nuevo.
  */
 
 if (!process.env.DATABASE_URL) {
@@ -33,14 +33,23 @@ async function resetearBaseDeDatosAFabrica() {
     const detalles = await prisma.detalleFactura.deleteMany({});
     console.log(`   -> Detalles de factura eliminados: ${detalles.count}`);
 
+    const gastos = await prisma.gasto.deleteMany({});
+    console.log(`   -> Gastos operativos eliminados: ${gastos.count}`);
+
+    const empleados = await prisma.empleadoGasto.deleteMany({});
+    console.log(`   -> Empleados de nómina eliminados: ${empleados.count}`);
+
+    const categoriasGasto = await prisma.categoriaGasto.deleteMany({});
+    console.log(`   -> Categorías de gasto eliminadas: ${categoriasGasto.count}`);
+
     const facturas = await prisma.factura.deleteMany({});
     console.log(`   -> Facturas eliminadas: ${facturas.count}`);
 
-    const turnos = await prisma.turnoCaja.deleteMany({});
-    console.log(`   -> Turnos de caja eliminados: ${turnos.count}`);
-
     const cierres = await prisma.cierreCaja.deleteMany({});
     console.log(`   -> Cierres de caja eliminados: ${cierres.count}`);
+
+    const turnos = await prisma.turnoCaja.deleteMany({});
+    console.log(`   -> Turnos de caja eliminados: ${turnos.count}`);
 
     const auditorias = await prisma.auditoriaSesion.deleteMany({});
     console.log(`   -> Auditorías de sesión eliminadas: ${auditorias.count}`);
@@ -52,19 +61,22 @@ async function resetearBaseDeDatosAFabrica() {
     const clientes = await prisma.cliente.deleteMany({});
     console.log(`   -> Clientes eliminados: ${clientes.count}`);
 
-    console.log("\n3. Purgando usuarios y configuración previa...");
+    console.log("\n3. Purgando usuarios, configuración previa y secuencias...");
     const usuarios = await prisma.user.deleteMany({});
     console.log(`   -> Usuarios eliminados: ${usuarios.count}`);
 
     const configs = await prisma.configuracionEmpresa.deleteMany({});
     console.log(`   -> Configuraciones empresariales eliminadas: ${configs.count}`);
 
+    const secuencias = await prisma.secuenciaFactura.deleteMany({});
+    console.log(`   -> Secuencias eliminadas: ${secuencias.count}`);
+
     // 2. Reiniciar contadores de autoincrementales en SQLite
     console.log("\n4. Reiniciando secuencias de autoincrementales en SQLite...");
     try {
       await prisma.$executeRawUnsafe("DELETE FROM sqlite_sequence;");
       console.log("   -> [OK] sqlite_sequence reiniciada exitosamente a 0.");
-    } catch (err) {
+    } catch {
       console.log("   -> [INFO] sqlite_sequence vacía o no requerida.");
     }
 
@@ -72,8 +84,11 @@ async function resetearBaseDeDatosAFabrica() {
     console.log("\n5. Sembrando registros neutros de fábrica...");
     await seedBaseDeDatos(prisma);
 
-    // 4. Compactar y desfragmentar el archivo SQLite en disco
-    console.log("\n6. Ejecutando VACUUM para compactación física de database/llanomio.db...");
+    // 4. Truncar WAL y compactar físicamente el archivo SQLite en disco
+    console.log("\n6. Ejecutando PRAGMA wal_checkpoint(TRUNCATE) y VACUUM...");
+    try {
+      await prisma.$executeRawUnsafe("PRAGMA wal_checkpoint(TRUNCATE);");
+    } catch {}
     await prisma.$executeRawUnsafe("VACUUM;");
     console.log("   -> [OK] Archivo de base de datos compactado a su tamaño mínimo de fábrica.");
 
@@ -88,8 +103,12 @@ async function resetearBaseDeDatosAFabrica() {
     const conteoAbonos = await prisma.abono.count();
     const conteoTurnos = await prisma.turnoCaja.count();
     const conteoCierres = await prisma.cierreCaja.count();
+    const conteoGastos = await prisma.gasto.count();
+    const conteoEmpleados = await prisma.empleadoGasto.count();
+    const conteoCatGasto = await prisma.categoriaGasto.count();
     const conteoUsuarios = await prisma.user.count();
     const conteoConfig = await prisma.configuracionEmpresa.count();
+    const secuencia = await prisma.secuenciaFactura.findUnique({ where: { id: "FACTURA_SECUENCIA" } });
 
     console.log(`- Clientes:                ${conteoClientes} (Esperado: 0)`);
     console.log(`- Productos / Prendas:     ${conteoProductos} (Esperado: 0)`);
@@ -98,8 +117,12 @@ async function resetearBaseDeDatosAFabrica() {
     console.log(`- Abonos:                  ${conteoAbonos} (Esperado: 0)`);
     console.log(`- Turnos de Caja:          ${conteoTurnos} (Esperado: 0)`);
     console.log(`- Cierres de Caja:         ${conteoCierres} (Esperado: 0)`);
+    console.log(`- Gastos:                  ${conteoGastos} (Esperado: 0)`);
+    console.log(`- Empleados de Nómina:     ${conteoEmpleados} (Esperado: 0)`);
+    console.log(`- Categorías de Gastos:    ${conteoCatGasto} (Esperado: 9)`);
     console.log(`- Usuarios (Admin):        ${conteoUsuarios} (Esperado: 1)`);
     console.log(`- Configuración Empresa:   ${conteoConfig} (Esperado: 1)`);
+    console.log(`- Secuencia Facturas:      ${secuencia?.ultimoFolio} (Esperado: 1000 -> próxima N° 1001)`);
 
     const estadoOk =
       conteoClientes === 0 &&
@@ -109,11 +132,15 @@ async function resetearBaseDeDatosAFabrica() {
       conteoAbonos === 0 &&
       conteoTurnos === 0 &&
       conteoCierres === 0 &&
+      conteoGastos === 0 &&
+      conteoEmpleados === 0 &&
+      conteoCatGasto === 9 &&
       conteoUsuarios === 1 &&
-      conteoConfig === 1;
+      conteoConfig === 1 &&
+      secuencia?.ultimoFolio === 1000;
 
     if (estadoOk) {
-      console.log("\n[EXITO TOTAL] La base de datos ha quedado 100% LIMPIA Y LISTA DE FABRICA.");
+      console.log("\n[EXITO TOTAL] La base de datos ha quedado 100% LIMPIA, VIRGEN Y EN ESTADO PURO DE FABRICA.");
     } else {
       console.warn("\n[ADVERTENCIA] Algunos conteos no coinciden con los valores esperados de fábrica.");
     }
