@@ -53,6 +53,7 @@ echo   - Puerto Local:   !PORT!
 echo   - Red LAN:        http://!LOCAL_DOMAIN!:!PORT!/login
 echo   - Instancia:      !INSTANCE_ID!
 echo.
+echo [0] Instalacion y Despliegue Maestro desde Cero (Node.js, BD, Autoarranque)
 echo [1] Iniciar / Levantar Servidor POS (Abre Navegador Web)
 echo [2] Abrir POS en Modo Aplicacion Nativa (Pantalla Completa sin Navegador)
 echo [3] Diagnostico de Red, Puertos y Base de Datos en Tiempo Real
@@ -64,8 +65,12 @@ echo [8] Detener Todos los Procesos y Liberar Recursos
 echo [9] Salir
 echo ===============================================================================
 echo.
-set /p OPC_MAE=">> Seleccione una opcion [1-9]: "
+set /p OPC_MAE=">> Seleccione una opcion [0-9]: "
 
+if "%OPC_MAE%"=="0" (
+    call "%PROJECT_ROOT%\INSTALAR_SISTEMA_DESDE_CERO.bat"
+    goto :MENU_MAESTRO
+)
 if "%OPC_MAE%"=="1" (
     call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\1_LEVANTAR_O_REINICIAR_SERVIDOR.bat"
     goto :MENU_MAESTRO

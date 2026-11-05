@@ -56,17 +56,21 @@ Cuando el sistema se distribuye a traves de un instalador ejecutable unico (`Set
 Si el sistema se copia directamente desde una memoria USB o disco externo:
 
 1. Copiar la carpeta completa a la raiz del disco duro local, por ejemplo `C:\POS_Llanomio`.
-2. Abrir la carpeta `instalador_tienda\1_INSTALACIONES\`.
-3. Hacer clic derecho sobre `1_INSTALADOR_MAESTRO_DESDE_CERO.bat` y seleccionar **Ejecutar como Administrador**.
-4. Seguir los 7 pasos interactivos del asistente:
+2. Para desplegar de inmediato, hacer doble clic sobre el lanzador maestro en la raiz:
+   `INSTALAR_SISTEMA_DESDE_CERO.bat`
+   *(O acceder a `instalador_tienda\1_INSTALACIONES\1_INSTALADOR_MAESTRO_DESDE_CERO.bat` y ejecutar como Administrador).*
+3. El asistente se encarga de ejecutar de forma automatizada los 10 pasos de despliegue:
    * **Paso 1:** Verificacion de ruta raiz y `package.json`.
-   * **Paso 2:** Deteccion del runtime Node.js (portable o de sistema).
-   * **Paso 3:** Creacion de carpetas de datos y `C:\POS_BACKUPS`.
-   * **Paso 4:** Escaneo de puertos y parametrizacion en archivo `.env`.
-   * **Paso 5:** Apertura de puertos TCP y UDP 5353 en Firewall de Windows.
-   * **Paso 6:** Registro en `shell:startup` para arranque automatico.
-   * **Paso 7:** Creacion de los accesos directos oficiales en el Escritorio.
-5. Iniciar sesion con las credenciales maestras de fabrica:
+   * **Paso 2:** Deteccion e instalacion automatica de Node.js LTS (si no esta instalado, lo descarga e instala silenciosamente).
+   * **Paso 3:** Instalacion y verificacion de dependencias de produccion (`npm install`) y orquestador PM2.
+   * **Paso 4:** Creacion de carpetas del sistema y directorio blindado `C:\POS_BACKUPS`.
+   * **Paso 5:** Asistente interactivo de red, escaneo de puertos TCP libres y asignacion de dominio mDNS local.
+   * **Paso 6:** Inicializacion de base de datos SQLite y Prisma ORM (crea esquema y siembra datos limpios de fabrica si es nueva, o permite conservar la existente).
+   * **Paso 7:** Verificacion y compilacion optimizada de Next.js (`npm run build`).
+   * **Paso 8:** Configuracion automatica de reglas en el Firewall de Windows para puertos TCP y UDP 5353.
+   * **Paso 9:** Registro de auto-arranque permanente en Windows al reiniciar el PC (triple capa: Tarea Programada de Windows, lanzador silencioso en Carpeta Startup de usuario y global, y persistencia con `pm2 save`).
+   * **Paso 10:** Creacion de los accesos directos oficiales en el Escritorio y comprobacion de salud HTTP.
+4. Iniciar sesion con las credenciales maestras de fabrica:
    * **Usuario:** `admin`
    * **Contrasena:** `admin123`
 

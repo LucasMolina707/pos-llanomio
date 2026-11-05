@@ -49,7 +49,8 @@ instalador_tienda/
 
 ### ACCESOS MAESTROS EN LA RAIZ DEL PROYECTO
 
-Para maxima comodidad del usuario final y del cajero, en la raiz del proyecto se disponen los 2 unicos accesos directos principales:
-1. `CONTROL_GENERAL_POS.bat`: Menu central que enlaza todas las operaciones de las 4 carpetas.
-2. `ABRIR_POS_PANTALLA_COMPLETA.bat`: Acceso directo para ventas con arranque silencioso integrado.
+Para maxima comodidad del usuario final, del soporte tecnico y del cajero, en la raiz del proyecto se disponen los accesos directos maestros:
+1. `INSTALAR_SISTEMA_DESDE_CERO.bat`: Asistente maestro para instalar y desplegar el sistema desde cero en cualquier equipo nuevo (instala Node.js, dependencias, base de datos SQLite, compila produccion, configura red/puertos y auto-arranque permanente al reiniciar Windows).
+2. `CONTROL_GENERAL_POS.bat`: Menu central administrativo que enlaza todas las operaciones de las 4 carpetas.
+3. `ABRIR_SISTEMA_PANTALLA_COMPLETA.bat`: Acceso directo para mostrador y ventas con arranque silencioso integrado.
 

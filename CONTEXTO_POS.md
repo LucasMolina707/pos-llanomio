@@ -4155,3 +4155,34 @@ Mediante el script maestro `scripts/reset-db-fabrica.ts`, se eliminaron en orden
 3. Crear los cajeros necesarios en `/admin/usuarios`.
 4. Importar o registrar clientes en `/admin/clientes` y catalogo de inventario en `/admin/inventario`.
 5. Iniciar turno de caja en `/admin/caja` o directamente desde las vistas operativas con el boton "Iniciar Turno en Caja".
+
+
+---
+
+## SECCION 67: ASISTENTE MAESTRO DE INSTALACION DESDE CERO Y PERSISTENCIA AUTOMATICA DE SERVICIOS EN REINICIO DE WINDOWS
+
+### 1. Diagnostico y Necesidad Operativa
+En implementaciones comerciales sobre equipos Windows nuevos o formateados, la puesta en marcha requeria multiples pasos manuales (verificacion de Node.js, dependencias npm, migracion de Prisma en SQLite, compilacion de Next.js, configuracion de reglas de Firewall y configuracion de auto-arranque). Adicionalmente, se detecto que scripts de inicio anteriores alojados en `Startup` de Windows contenian rutas estaticas absolutas que fallaban al mover la carpeta del sistema.
+
+### 2. Arquitectura del Asistente Maestro de Instalacion
+Se desarrollo e integro el lanzador principal en la raiz `INSTALAR_SISTEMA_DESDE_CERO.bat` y el motor maestro desatendido `instalador_tienda/1_INSTALACIONES/1_INSTALADOR_MAESTRO_DESDE_CERO.bat`, el cual orquesta 10 fases automatizadas:
+
+1. **Elevacion UAC de Administrador:** Verificacion mediante `net session` y re-lanzamiento elevado no bloqueante con PowerShell.
+2. **Auto-Instalacion Desatendida de Node.js LTS:** Deteccion multinivel (`runtime/node`, variables de entorno y `C:\Program Files\nodejs`). En equipos sin Node.js, el instalador descarga e instala automaticamente Node.js LTS silenciosamente (utilizando `winget` o descarga directa del paquete oficial `.msi` via PowerShell), inyectando las rutas de ejecucion al `PATH` de la sesion actual sin forzar reinicios intermedios.
+3. **Instalacion de Dependencias y PM2:** Verificacion de integridad de `node_modules`. Ejecucion de `npm install --no-audit --no-fund` y aseguramiento del gestor de procesos PM2.
+4. **Creacion de Estructura de Directorios:** Verificacion y creacion automatica de `database/backups_locales`, `actualizaciones` y la jerarquia completa de salvaguarda en `C:\POS_BACKUPS`.
+5. **Configuracion de Red, Puertos y Dominio LAN:** Opcion interactiva para mantener defaults (Puerto 3000 / Proxy 80 / `llanomio.local`) o escanear puertos libres con `scripts/escanear-y-elegir-puertos.js`.
+6. **Despliegue y Sembrado de Base de Datos SQLite:** Ejecucion obligatoria de `npx prisma generate`. Si no existe base de datos previa, ejecuta `npx prisma db push` y `database/seed.ts` (sembrado neutro de fabrica). Si detecta base existente, ofrece conservarla o restablecerla a cero comercial.
+7. **Compilacion de Produccion Next.js:** Verificacion del directorio optimizado `.next` o generacion mediante `npm run build`.
+8. **Configuracion de Windows Defender Firewall:** Apertura de reglas de entrada TCP para los puertos web/proxy y regla UDP 5353 para resolucion mDNS Bonjour, ademas de autorizacion para el binario de Node.js.
+9. **Triple Capa de Auto-Arranque al Reiniciar el PC:**
+   - Purga de scripts obsoletos o con rutas rotas en la carpeta de inicio de Windows.
+   - Creacion de lanzador silencioso invisible `Arranque_Automatico_POS.vbs` y orquestador `ARRANQUE_AUTOMATICO_SISTEMA.bat`.
+   - Registro de Tarea Programada de Windows con maximos privilegios: `schtasks /create /tn "POS_LLANOMIO_AUTOSTART" /tr ... /sc onlogon /rl highest /f`.
+   - Copia del lanzador en la carpeta Startup de Usuario (`%APPDATA%`) y Global del Sistema (`%ALLUSERSPROFILE%`).
+   - Persistencia de procesos en PM2 mediante `pm2 start ecosystem.config.js` y `pm2 save`.
+10. **Accesos Directos en el Escritorio y Healthcheck HTTP:**
+    - `POS Llanomio - Panel de Control.lnk` -> `CONTROL_GENERAL_POS.bat`
+    - `POS Llanomio - Pantalla Completa.lnk` -> `ABRIR_SISTEMA_PANTALLA_COMPLETA.bat` (con icono `llanomio.ico`)
+    - `POS Llanomio - Carpeta Respaldos.lnk` -> `C:\POS_BACKUPS`
+    - Sondeo continuo de disponibilidad HTTP (`http://localhost:!PORT!/login`) y apertura en modo aplicacion nativa.
