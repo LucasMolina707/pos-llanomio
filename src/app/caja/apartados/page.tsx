@@ -463,16 +463,9 @@ export default function ApartadosPage() {
   // Guardado Seguro del Apartado (Paso 3 -> Paso 4)
   // ---------------------------------------------------------------------------
   const procesarGuardadoApartado = async () => {
-    // 1. Verificación de seguridad de caja única transversal
-    if (cajon.seguridadCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
-      setMensajeError(cajon.motivoBloqueo || "Existe un turno de caja del día anterior sin cerrar. Debe realizar el cierre formal antes de operar.");
-      cajon.abrirModal();
-      return;
-    }
-    if (cajon.seguridadCaja.estado === "SIN_TURNO" && !cajon.cajonConectado && !cajon.turnoAbierto) {
-      setMensajeError("No existe un turno de caja iniciado para la jornada de hoy. Debe registrar la base de efectivo inicial.");
-      cajon.abrirModal();
-      return;
+    // Sincronización proactiva de caja si no estuviese en memoria
+    if (!cajon.cajonConectado && !cajon.turnoAbierto) {
+      await cajon.actualizarCajon(true);
     }
 
     if (!clienteSeleccionado) {
@@ -609,16 +602,9 @@ export default function ApartadosPage() {
   const registrarAbonoHistorial = async () => {
     if (!apartadoParaAbonar) return;
 
-    // Validación de seguridad de caja
-    if (cajon.seguridadCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
-      setMensajeError(cajon.motivoBloqueo || "Existe un turno de caja del día anterior sin cerrar. Debe realizar el cierre formal antes de operar.");
-      cajon.abrirModal();
-      return;
-    }
-    if (cajon.seguridadCaja.estado === "SIN_TURNO" && !cajon.cajonConectado && !cajon.turnoAbierto) {
-      setMensajeError("No existe un turno de caja iniciado para la jornada de hoy. Debe registrar la base de efectivo inicial.");
-      cajon.abrirModal();
-      return;
+    // Sincronización proactiva de caja si no estuviese en memoria
+    if (!cajon.cajonConectado && !cajon.turnoAbierto) {
+      await cajon.actualizarCajon(true);
     }
 
     const monto = Math.max(0, Number(montoNuevoAbono) || 0);

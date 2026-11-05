@@ -103,26 +103,35 @@ export async function GET(req: NextRequest) {
     const dineroTienda = arqueoActual?.dineroTienda ?? (efectivoVentasYAbonos + totalDigital);
     const dineroCustodia = arqueoActual?.dineroCustodia ?? efectivoDepositosCustodia;
 
-    return NextResponse.json({
-      success: true,
-      hayTurnoAbierto: turnosAbiertosConArqueo.length > 0,
-      yaConectado,
-      saldoActualEnCajon,
-      efectivoEsperado,
-      efectivoVentasYAbonos,
-      efectivoDepositosCustodia,
-      dineroTienda,
-      dineroCustodia,
-      totalDigital,
-      turnoAbierto: turnoActivo,
-      turnosAbiertos: turnosAbiertosConArqueo,
-      arqueoActual,
-      verificacionSeguridad,
-      historialTurnos: historialTurnos.map((t) => ({
-        ...t,
-        cajerosParticipantes: parsearCajerosParticipantes(t.cajerosParticipantes),
-      })),
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        hayTurnoAbierto: turnosAbiertosConArqueo.length > 0,
+        yaConectado,
+        saldoActualEnCajon,
+        efectivoEsperado,
+        efectivoVentasYAbonos,
+        efectivoDepositosCustodia,
+        dineroTienda,
+        dineroCustodia,
+        totalDigital,
+        turnoAbierto: turnoActivo,
+        turnosAbiertos: turnosAbiertosConArqueo,
+        arqueoActual,
+        verificacionSeguridad,
+        historialTurnos: historialTurnos.map((t) => ({
+          ...t,
+          cajerosParticipantes: parsearCajerosParticipantes(t.cajerosParticipantes),
+        })),
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
   } catch (error: unknown) {
     console.error("Error al consultar estado de caja:", error);
     return NextResponse.json(
@@ -200,41 +209,56 @@ export async function POST(req: NextRequest) {
     // ACCIÓN: APERTURA DE TURNO (COMPARTIDA O DIVIDIDA)
     // ==========================================
     if (accion === "APERTURA") {
-      // Bloqueo estricto si hay caja de día anterior sin cerrar
-      if (turnoDiaAnterior) {
-        const fechaAnt = obtenerFechaColombiaStr(turnoDiaAnterior.fechaApertura);
-        return NextResponse.json(
-          {
-            success: false,
-            error: `ALERTA DE SEGURIDAD FINANCIERA: Existe un turno de caja del día anterior (${fechaAnt} en ${turnoDiaAnterior.nombreGabinete}) que no fue cerrado. Por política de control estricto, debe realizar primero el arqueo y cierre formal de esa caja antes de aperturar hoy.`,
-            esDiaAnterior: true,
-            turno: turnoDiaAnterior,
-          },
-          { status: 409 }
-        );
-      }
-
-      // Validar si el usuario ya está en un turno activo de hoy
-      const turnoHoyDelUsuario = turnosAbiertos.find((t) => {
-        if (obtenerFechaColombiaStr(t.fechaApertura) !== fechaHoy) return false;
-        if (t.usuarioCajeroId === usuarioResponsableId) return true;
-        const participantes = parsearCajerosParticipantes(t.cajerosParticipantes);
-        return participantes.some((p) => p.id === usuarioResponsableId || (deviceId && p.deviceId === deviceId));
-      });
-
-      if (turnoHoyDelUsuario) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Usted ya tiene un turno de caja activo en ${turnoHoyDelUsuario.nombreGabinete}.`,
-            turno: turnoHoyDelUsuario,
-          },
-          { status: 409 }
-        );
-      }
-
       const modalidadFinal: ModalidadCaja = modalidad === "DIVIDIDA" ? "DIVIDIDA" : "COMPARTIDA";
       const baseNumerica = Math.max(0, Math.round(Number(baseInicialEfectivo) * 100) / 100);
+
+      // Si es modalidad COMPARTIDA (predeterminada), sanear turnos viejos o reutilizar si ya existe uno abierto hoy
+      if (modalidadFinal === "COMPARTIDA") {
+        // Si ya hay un turno ABIERTO con esta base o de hoy, reutilizarlo y asegurar vinculación del dispositivo
+        const turnoAbiertoExistente = turnosAbiertos.find((t) => t.estado === EstadoTurno.ABIERTO);
+        if (turnoAbiertoExistente && baseNumerica === 0) {
+          // Reutilizar el turno abierto sin error 409
+          const participantes = parsearCajerosParticipantes(turnoAbiertoExistente.cajerosParticipantes);
+          if (deviceId && !participantes.some((p) => p.deviceId === deviceId)) {
+            participantes.push({
+              id: usuarioObj.id,
+              nombre: usuarioObj.nombre,
+              username: usuarioObj.username,
+              fechaUnion: new Date().toISOString(),
+              deviceId,
+            });
+            await prisma.turnoCaja.update({
+              where: { id: turnoAbiertoExistente.id },
+              data: { cajerosParticipantes: JSON.stringify(participantes) },
+            });
+          }
+          return NextResponse.json({
+            success: true,
+            mensaje: `Conectado al turno activo en ${turnoAbiertoExistente.nombreGabinete}`,
+            turno: turnoAbiertoExistente,
+          });
+        }
+
+        // Si se abre un nuevo turno con nueva base, cerrar de forma limpia cualquier turno anterior colgado
+        for (const tViejo of turnosAbiertos) {
+          try {
+            const arqueoViejo = await calcularArqueoExactoTurno(prisma, tViejo);
+            await prisma.turnoCaja.update({
+              where: { id: tViejo.id },
+              data: {
+                estado: EstadoTurno.CERRADO,
+                fechaCierre: new Date(),
+                efectivoEsperado: arqueoViejo.efectivoEsperado,
+                totalEfectivo: arqueoViejo.totalEfectivo,
+                totalRecaudado: arqueoViejo.totalRecaudado,
+                observaciones: (tViejo.observaciones ? tViejo.observaciones + " | " : "") + "Cierre automático al aperturar nueva jornada.",
+              },
+            });
+          } catch (errCierre) {
+            console.warn("Aviso al cerrar turno anterior huérfano:", errCierre);
+          }
+        }
+      }
 
       // Si no especificó nombre de gabinete, generar uno intuitivo
       let nombreGabineteFinal = nombreGabinete?.trim();

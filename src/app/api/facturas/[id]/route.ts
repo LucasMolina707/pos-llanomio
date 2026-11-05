@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
-import { verificarEstadoCajaParaFacturacion, parsearCajerosParticipantes } from "@/lib/caja-control";
+import {
+  verificarEstadoCajaParaFacturacion,
+  parsearCajerosParticipantes,
+  obtenerTurnoAbiertoActivo,
+} from "@/lib/caja-control";
 import { EstadoFactura, MetodoPago, TipoProducto, EstadoPrenda, EstadoTurno, TipoOperacion } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -173,23 +177,16 @@ export async function POST(req: NextRequest, { params }: Params) {
       
       // Control de caja si se recibe dinero en la entrega
       if (montoNuevo > 0) {
-        const controlCaja = await verificarEstadoCajaParaFacturacion(prisma, cajeroId);
-        if (controlCaja.bloqueadoParaFacturar) {
-          const turnoAbiertoHoy = await prisma.turnoCaja.findFirst({
-            where: { estado: EstadoTurno.ABIERTO },
-            orderBy: { fechaApertura: "desc" },
-          });
-
-          if (!turnoAbiertoHoy || controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
-            return NextResponse.json(
-              {
-                success: false,
-                error: controlCaja.motivoBloqueo || "No existe un turno de caja iniciado para registrar el pago del saldo.",
-                codigoSeguridad: controlCaja.estado,
-              },
-              { status: 409 }
-            );
-          }
+        const turnoActivo = await obtenerTurnoAbiertoActivo(prisma, cajeroId, body.turnoCajaId || turnoCajaId);
+        if (!turnoActivo) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "No existe un turno de caja iniciado para registrar el pago del saldo. Abra la caja antes de registrar cobros.",
+              codigoSeguridad: "SIN_TURNO",
+            },
+            { status: 409 }
+          );
         }
       }
 
@@ -366,30 +363,19 @@ export async function POST(req: NextRequest, { params }: Params) {
       });
     }
 
-    // Control de Caja: Si ingresa dinero, la caja no puede estar bloqueada por día anterior ni sin turno
+    // Control de Caja: Si ingresa dinero, resolver el turno abierto de forma universal
     if (montoNumerico > 0) {
-      const controlCaja = await verificarEstadoCajaParaFacturacion(prisma, cajeroId);
-      if (controlCaja.bloqueadoParaFacturar) {
-        const turnoAbiertoHoy = await prisma.turnoCaja.findFirst({
-          where: { estado: EstadoTurno.ABIERTO },
-          orderBy: { fechaApertura: "desc" },
-        });
-
-        if (!turnoAbiertoHoy || controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
-          return NextResponse.json(
-            {
-              success: false,
-              error: controlCaja.motivoBloqueo || "No existe un turno de caja iniciado para la jornada de hoy.",
-              codigoSeguridad: controlCaja.estado,
-              requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
-              requiereAperturaHoy: controlCaja.estado === "SIN_TURNO" && !turnoAbiertoHoy,
-              requiereDecisionModalidad: false,
-              turnoAbierto: controlCaja.turnoAbierto || (turnoAbiertoHoy ? { id: turnoAbiertoHoy.id, nombreGabinete: turnoAbiertoHoy.nombreGabinete } : null),
-              turnoParaCompartir: controlCaja.turnoParaCompartir,
-            },
-            { status: 409 }
-          );
-        }
+      const turnoActivo = await obtenerTurnoAbiertoActivo(prisma, cajeroId, body.turnoCajaId || turnoCajaId);
+      if (!turnoActivo) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "No existe un turno de caja iniciado para la jornada de hoy. Debe registrar la base de efectivo inicial antes de registrar cobros.",
+            codigoSeguridad: "SIN_TURNO",
+            requiereAperturaHoy: true,
+          },
+          { status: 409 }
+        );
       }
     }
 
@@ -423,24 +409,8 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // 5. Transacción atómica en base de datos SQLite
     const resultado = await prisma.$transaction(async (tx) => {
-      // Buscar el turno de caja abierto asignado a este cajero
-      const turnosAbiertos = await tx.turnoCaja.findMany({
-        where: { estado: "ABIERTO" },
-        orderBy: { fechaApertura: "desc" },
-      });
-
-      let turnoAbierto = null;
-      if (turnoCajaId) {
-        turnoAbierto = turnosAbiertos.find((t) => t.id === turnoCajaId) || null;
-      }
-      if (!turnoAbierto && turnosAbiertos.length > 0) {
-        turnoAbierto =
-          turnosAbiertos.find((t) => {
-            if (t.usuarioCajeroId === cajeroId) return true;
-            const participantes = parsearCajerosParticipantes(t.cajerosParticipantes);
-            return participantes.some((p) => p.id === cajeroId);
-          }) || turnosAbiertos[0];
-      }
+      // Buscar el turno de caja abierto asignado a este cajero de forma infalible
+      const turnoAbierto = await obtenerTurnoAbiertoActivo(tx, cajeroId, body.turnoCajaId || turnoCajaId);
 
       let nuevoTotalFactura = facturaExistente.totalFactura;
       let nuevoRecargoMora = facturaExistente.recargoMoraAcumulado;
@@ -924,11 +894,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
       await tx.detalleFactura.deleteMany({ where: { facturaId: id } });
       await tx.abono.deleteMany({ where: { facturaId: id } });
 
-      // 3. Buscar turno abierto
-      const turnoAbierto = await tx.turnoCaja.findFirst({
-        where: { estado: "ABIERTO" },
-        orderBy: { fechaApertura: "desc" },
-      });
+      // 3. Buscar turno abierto de forma infalible
+      const turnoAbierto = await obtenerTurnoAbiertoActivo(tx, cajeroId, body.turnoCajaId);
 
       // 4. Crear los nuevos detalles
       await tx.detalleFactura.createMany({

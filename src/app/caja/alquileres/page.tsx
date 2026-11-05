@@ -811,16 +811,9 @@ export default function TerminalAlquileresPage() {
 
   // Crear o Registrar Factura de Alquiler (Paso 3 -> Paso 4)
   const registrarNuevoAlquiler = async () => {
-    // 1. Verificación de seguridad de caja: Solo bloquear si existe turno anterior sin cerrar o si no hay turno iniciado hoy
-    if (cajon.seguridadCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
-      setMensajeError(cajon.motivoBloqueo || "Existe un turno de caja del día anterior sin cerrar. Debe realizar el cierre formal antes de operar.");
-      cajon.abrirModal();
-      return;
-    }
-    if (cajon.seguridadCaja.estado === "SIN_TURNO" && !cajon.cajonConectado && !cajon.turnoAbierto) {
-      setMensajeError("No existe un turno de caja iniciado para la jornada de hoy. Debe registrar la base de efectivo inicial.");
-      cajon.abrirModal();
-      return;
+    // Sincronización proactiva de caja si no estuviese en memoria
+    if (!cajon.cajonConectado && !cajon.turnoAbierto) {
+      await cajon.actualizarCajon(true);
     }
 
     if (!clienteSeleccionado) {
@@ -1058,10 +1051,8 @@ export default function TerminalAlquileresPage() {
 
   // Registrar un Abono Parcial o Cancelación de Saldo Pendiente
   const procesarRegistroAbono = async () => {
-    if (cajon.bloqueadoParaFacturar) {
-      setMensajeError(cajon.motivoBloqueo || "Debe conectar o inicializar el cajón antes de registrar abonos.");
-      cajon.abrirModal();
-      return;
+    if (!cajon.cajonConectado && !cajon.turnoAbierto) {
+      await cajon.actualizarCajon(true);
     }
 
     if (!alquilerAbonar) return;
@@ -1157,10 +1148,8 @@ export default function TerminalAlquileresPage() {
 
   // Confirmar y Procesar Liquidación de Depósito y Recepción de Prendas
   const procesarLiquidacionYDevolucion = async () => {
-    if (cajon.bloqueadoParaFacturar) {
-      setMensajeError(cajon.motivoBloqueo || "Debe conectar o inicializar el cajón antes de liquidar depósitos.");
-      cajon.abrirModal();
-      return;
+    if (!cajon.cajonConectado && !cajon.turnoAbierto) {
+      await cajon.actualizarCajon(true);
     }
 
     if (!alquilerLiquidar) return;

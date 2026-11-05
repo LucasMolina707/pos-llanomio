@@ -77,13 +77,62 @@ export interface ResultadoVerificacionCaja {
 }
 
 /**
+ * Helper universal e infalible para resolver el turno de caja abierto activo.
+ * Prioriza:
+ * 1. El turno explícito si se proporcionó y sigue abierto.
+ * 2. El turno asignado al cajero preferido (titular o participante).
+ * 3. El turno abierto más reciente en la base de datos.
+ */
+export async function obtenerTurnoAbiertoActivo(
+  prismaClient: any,
+  cajeroIdPreferido?: string,
+  turnoCajaIdExplicito?: string
+): Promise<any | null> {
+  if (turnoCajaIdExplicito) {
+    const turnoExplicito = await prismaClient.turnoCaja.findFirst({
+      where: { id: turnoCajaIdExplicito, estado: EstadoTurno.ABIERTO },
+      include: {
+        usuarioCajero: {
+          select: { id: true, nombre: true, username: true, rol: true },
+        },
+      },
+    });
+    if (turnoExplicito) return turnoExplicito;
+  }
+
+  // Buscar todos los turnos ABIERTOS ordenados del más reciente al más antiguo
+  const turnosAbiertos = await prismaClient.turnoCaja.findMany({
+    where: { estado: EstadoTurno.ABIERTO },
+    include: {
+      usuarioCajero: {
+        select: { id: true, nombre: true, username: true, rol: true },
+      },
+    },
+    orderBy: { fechaApertura: "desc" },
+  });
+
+  if (turnosAbiertos.length === 0) return null;
+
+  // Si el cajero tiene uno propio o está en participantes, priorizarlo
+  if (cajeroIdPreferido) {
+    const propio = turnosAbiertos.find((t: any) => {
+      if (t.usuarioCajeroId === cajeroIdPreferido) return true;
+      const participantes = parsearCajerosParticipantes(t.cajerosParticipantes);
+      return participantes.some((p) => p.id === cajeroIdPreferido);
+    });
+    if (propio) return propio;
+  }
+
+  // Por defecto, retornar el turno abierto principal más reciente
+  return turnosAbiertos[0];
+}
+
+/**
  * Verifica el estado del turno de caja activo contra la fecha calendario actual de Colombia.
- * Implementa las reglas estrictas de control financiero y multi-cajero por dispositivo:
- * 1. Si existe CUALQUIER turno abierto de un día anterior => BLOQUEADO_DIA_ANTERIOR (exige arqueo previo).
- * 2. Si no hay turnos abiertos hoy => SIN_TURNO (exige apertura con base inicial).
- * 3. Si hay turnos abiertos hoy:
- *    a. Si el usuario O dispositivo ya está asignado a un turno (creador o participante) => ABIERTO_HOY (yaConectado = true).
- *    b. Si el usuario/dispositivo no está asignado => REQUIERE_DECISION_MODALIDAD (permite elegir Compartida o Dividida).
+ * Implementa la REGLA DE NEGOCIO INQUEBRANTABLE:
+ * - Si existe CUALQUIER turno con estado: "ABIERTO" en la tabla TurnoCaja,
+ *   TODAS las terminales quedan 100% HABILITADAS (bloqueadoParaFacturar: false, yaConectado: true, estado: "ABIERTO_HOY").
+ * - Solo si turnosAbiertos.length === 0 se retorna SIN_TURNO y bloqueadoParaFacturar: true.
  */
 export async function verificarEstadoCajaParaFacturacion(
   prisma: PrismaClient,
@@ -92,7 +141,7 @@ export async function verificarEstadoCajaParaFacturacion(
 ): Promise<ResultadoVerificacionCaja> {
   const fechaHoy = obtenerFechaColombiaStr();
 
-  // 1. Verificar si existen turnos abiertos en la base de datos
+  // 1. Obtener todos los turnos ABIERTOS en la base de datos ordenados del más reciente al más antiguo
   const turnosAbiertos = await prisma.turnoCaja.findMany({
     where: { estado: EstadoTurno.ABIERTO },
     include: {
@@ -100,7 +149,7 @@ export async function verificarEstadoCajaParaFacturacion(
         select: { id: true, nombre: true, username: true },
       },
     },
-    orderBy: { fechaApertura: "asc" },
+    orderBy: { fechaApertura: "desc" },
   });
 
   if (turnosAbiertos.length === 0) {
@@ -108,7 +157,7 @@ export async function verificarEstadoCajaParaFacturacion(
       estado: "SIN_TURNO",
       bloqueadoParaFacturar: true,
       motivoBloqueo:
-        "No existe un turno de caja iniciado para la jornada de hoy. Debe registrar la base de efectivo inicial antes de facturar.",
+        "No existe un turno de caja iniciado. Debe registrar la base de efectivo inicial antes de registrar cobros.",
       fechaHoy,
       turnoAbierto: null,
       turnosAbiertosHoy: [],
@@ -117,131 +166,59 @@ export async function verificarEstadoCajaParaFacturacion(
     };
   }
 
-  // 2. Regla inquebrantable: Si hay al menos un turno de un día anterior abierto, bloquear inmediatamente
-  const turnoDiaAnterior = turnosAbiertos.find((t) => {
+  // 2. Mapear todos los turnos abiertos existentes a InfoTurnoAbierto
+  const turnosMapeados: InfoTurnoAbierto[] = turnosAbiertos.map((t) => {
     const fechaAperturaLocal = obtenerFechaColombiaStr(t.fechaApertura);
-    return fechaAperturaLocal < fechaHoy;
-  });
-
-  if (turnoDiaAnterior) {
-    const fechaAperturaLocal = obtenerFechaColombiaStr(turnoDiaAnterior.fechaApertura);
     const msPorDia = 1000 * 60 * 60 * 24;
     const diasTranscurridos = Math.max(
-      1,
+      0,
       Math.floor((new Date(fechaHoy).getTime() - new Date(fechaAperturaLocal).getTime()) / msPorDia)
     );
 
     return {
-      estado: "BLOQUEADO_DIA_ANTERIOR",
-      bloqueadoParaFacturar: true,
-      motivoBloqueo: `ALERTA DE SEGURIDAD FINANCIERA: Existe un turno de caja anterior abierto correspondiente al ${fechaAperturaLocal} (${diasTranscurridos} día(s) sin cerrar) en ${turnoDiaAnterior.nombreGabinete} a cargo de ${turnoDiaAnterior.usuarioCajero.nombre}. Por control financiero, debe realizar el arqueo y cierre formal de esa caja antes de poder operar hoy.`,
-      fechaHoy,
-      turnoAbierto: {
-        id: turnoDiaAnterior.id,
-        nombreGabinete: turnoDiaAnterior.nombreGabinete,
-        modalidad: (turnoDiaAnterior.modalidad as ModalidadCaja) || "COMPARTIDA",
-        fechaApertura: turnoDiaAnterior.fechaApertura.toISOString(),
-        fechaAperturaLocal,
-        baseInicialEfectivo: turnoDiaAnterior.baseInicialEfectivo,
-        diasAbierto: diasTranscurridos,
-        usuarioCajero: turnoDiaAnterior.usuarioCajero,
-        cajerosParticipantes: parsearCajerosParticipantes(turnoDiaAnterior.cajerosParticipantes),
-      },
-      turnosAbiertosHoy: [],
-      turnoParaCompartir: null,
-      yaConectado: false,
+      id: t.id,
+      nombreGabinete: t.nombreGabinete,
+      modalidad: (t.modalidad as ModalidadCaja) || "COMPARTIDA",
+      fechaApertura: t.fechaApertura.toISOString(),
+      fechaAperturaLocal,
+      baseInicialEfectivo: t.baseInicialEfectivo,
+      diasAbierto: diasTranscurridos,
+      usuarioCajero: t.usuarioCajero,
+      cajerosParticipantes: parsearCajerosParticipantes(t.cajerosParticipantes),
     };
-  }
+  });
 
-  // 3. Mapear todos los turnos abiertos de hoy
-  const turnosHoyMapeados: InfoTurnoAbierto[] = turnosAbiertos
-    .filter((t) => obtenerFechaColombiaStr(t.fechaApertura) === fechaHoy)
-    .map((t) => {
-      const fechaLocal = obtenerFechaColombiaStr(t.fechaApertura);
-      return {
-        id: t.id,
-        nombreGabinete: t.nombreGabinete,
-        modalidad: (t.modalidad as ModalidadCaja) || "COMPARTIDA",
-        fechaApertura: t.fechaApertura.toISOString(),
-        fechaAperturaLocal: fechaLocal,
-        baseInicialEfectivo: t.baseInicialEfectivo,
-        diasAbierto: 0,
-        usuarioCajero: t.usuarioCajero,
-        cajerosParticipantes: parsearCajerosParticipantes(t.cajerosParticipantes),
-      };
-    });
+  // 3. Determinar el turno más adecuado para este usuario o dispositivo
+  let turnoSeleccionado: InfoTurnoAbierto | undefined = undefined;
 
-  if (turnosHoyMapeados.length === 0) {
-    return {
-      estado: "SIN_TURNO",
-      bloqueadoParaFacturar: true,
-      motivoBloqueo: "No existe un turno de caja iniciado para la jornada de hoy.",
-      fechaHoy,
-      turnoAbierto: null,
-      turnosAbiertosHoy: [],
-      turnoParaCompartir: null,
-      yaConectado: false,
-    };
-  }
-
-  // 4. Verificar vinculación por deviceId o usuarioId
-  let turnoAsignado: InfoTurnoAbierto | undefined = undefined;
-
-  // Primero verificar por deviceId si se suministró
   if (deviceId) {
-    turnoAsignado = turnosHoyMapeados.find(
-      (t) => t.cajerosParticipantes.some((c) => c.deviceId === deviceId)
+    turnoSeleccionado = turnosMapeados.find((t) =>
+      t.cajerosParticipantes.some((c) => c.deviceId === deviceId)
     );
   }
 
-  // Si no se encontró por deviceId, verificar por usuarioId
-  if (!turnoAsignado && usuarioId) {
-    turnoAsignado = turnosHoyMapeados.find(
+  if (!turnoSeleccionado && usuarioId) {
+    turnoSeleccionado = turnosMapeados.find(
       (t) =>
         t.usuarioCajero.id === usuarioId ||
         t.cajerosParticipantes.some((c) => c.id === usuarioId)
     );
   }
 
-  if (turnoAsignado) {
-    return {
-      estado: "ABIERTO_HOY",
-      bloqueadoParaFacturar: false,
-      motivoBloqueo: null,
-      fechaHoy,
-      turnoAbierto: turnoAsignado,
-      turnosAbiertosHoy: turnosHoyMapeados,
-      turnoParaCompartir: null,
-      yaConectado: true,
-    };
+  // Si no hay vinculación específica, asignar el turno abierto principal más reciente
+  if (!turnoSeleccionado) {
+    turnoSeleccionado = turnosMapeados[0];
   }
 
-  // Si hay turnos abiertos hoy y la modalidad es COMPARTIDA o hay un solo turno, conectar automáticamente sin bloquear
-  const turnoCompartible =
-    turnosHoyMapeados.find((t) => t.modalidad === "COMPARTIDA") || turnosHoyMapeados[0];
-
-  if (turnoCompartible && (turnoCompartible.modalidad === "COMPARTIDA" || turnosHoyMapeados.length === 1)) {
-    return {
-      estado: "ABIERTO_HOY",
-      bloqueadoParaFacturar: false,
-      motivoBloqueo: null,
-      fechaHoy,
-      turnoAbierto: turnoCompartible,
-      turnosAbiertosHoy: turnosHoyMapeados,
-      turnoParaCompartir: null,
-      yaConectado: true,
-    };
-  }
-
-  // Si existen múltiples turnos en modalidad dividida y no se ha asignado este usuario/dispositivo
+  // 4. Retornar siempre habilitado para facturar si hay un turno abierto
   return {
-    estado: "REQUIERE_DECISION_MODALIDAD",
-    bloqueadoParaFacturar: false, // Permitir facturación asociando al turno principal
+    estado: "ABIERTO_HOY",
+    bloqueadoParaFacturar: false,
     motivoBloqueo: null,
     fechaHoy,
-    turnoAbierto: turnoCompartible,
-    turnosAbiertosHoy: turnosHoyMapeados,
-    turnoParaCompartir: turnoCompartible,
+    turnoAbierto: turnoSeleccionado,
+    turnosAbiertosHoy: turnosMapeados,
+    turnoParaCompartir: turnosMapeados[0] || null,
     yaConectado: true,
   };
 }
@@ -376,14 +353,14 @@ export async function calcularArqueoExactoTurno(
     }
   }
 
-  // 2. Facturas de alquiler o apartados vinculadas para depósitos en garantía
+  // 2. Facturas con depósitos en garantía vinculadas a este turno
   const facturasAlquiler = await prismaClient.factura.findMany({
     where: {
       OR: [
         { turnoCajaId: turno.id },
         { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
       ],
-      tipoOperacion: { in: ["ALQUILER", "SEPARE"] },
+      montoDeposito: { gt: 0 },
     },
     select: {
       id: true,

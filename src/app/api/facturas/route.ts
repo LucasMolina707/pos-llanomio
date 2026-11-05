@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
-import { verificarEstadoCajaParaFacturacion, parsearCajerosParticipantes } from "@/lib/caja-control";
+import {
+  verificarEstadoCajaParaFacturacion,
+  parsearCajerosParticipantes,
+  obtenerTurnoAbiertoActivo,
+} from "@/lib/caja-control";
 import { EstadoFactura, MetodoPago, TipoOperacion, TipoProducto, EstadoTurno } from "@prisma/client";
 
 interface ItemDetalleInput {
@@ -275,31 +279,30 @@ export async function POST(req: NextRequest) {
     }
     cajeroId = usuarioCajero.id;
 
-    // 0. Control de Seguridad Financiera POS (Apertura Obligatoria y Bloqueo por Día Anterior)
-    const controlCaja = await verificarEstadoCajaParaFacturacion(prisma, cajeroId);
-    if (controlCaja.bloqueadoParaFacturar) {
-      // Si está bloqueado pero existe un turno abierto de hoy en SQLite, NO bloquear la facturación
-      const turnoAbiertoHoy = await prisma.turnoCaja.findFirst({
-        where: { estado: EstadoTurno.ABIERTO },
-        orderBy: { fechaApertura: "desc" },
-      });
-
-      if (!turnoAbiertoHoy || controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR") {
-        return NextResponse.json(
-          {
-            success: false,
-            error: controlCaja.motivoBloqueo || "No existe un turno de caja iniciado para la jornada de hoy.",
-            codigoSeguridad: controlCaja.estado,
-            requiereCierreAnterior: controlCaja.estado === "BLOQUEADO_DIA_ANTERIOR",
-            requiereAperturaHoy: controlCaja.estado === "SIN_TURNO" && !turnoAbiertoHoy,
-            requiereDecisionModalidad: false,
-            turnoAbierto: controlCaja.turnoAbierto || (turnoAbiertoHoy ? { id: turnoAbiertoHoy.id, nombreGabinete: turnoAbiertoHoy.nombreGabinete } : null),
-            turnoParaCompartir: controlCaja.turnoParaCompartir,
-          },
-          { status: 409 }
-        );
-      }
+    // 0. Control de Seguridad Financiera POS y Resolución Universal de Turno Abierto
+    let abonoInicialNum = 0;
+    if (typeof abonoInicial === "number") {
+      abonoInicialNum = Math.max(0, abonoInicial);
+    } else if (abonoInicial && typeof abonoInicial === "object" && "monto" in abonoInicial) {
+      abonoInicialNum = Math.max(0, Number((abonoInicial as any).monto) || 0);
+    } else if (body.abonos && Array.isArray(body.abonos)) {
+      abonoInicialNum = body.abonos.reduce((acc: number, a: any) => acc + (Number(a.monto) || 0), 0);
     }
+
+    const turnoActivo = await obtenerTurnoAbiertoActivo(prisma, cajeroId, body.turnoCajaId);
+    if (!turnoActivo && (abonoInicialNum > 0 || montoDeposito > 0)) {
+      return NextResponse.json(
+        {
+          success: false,
+          ok: false,
+          error: "No hay un turno de caja abierto. Abra la caja ingresando el dinero actual en gaveta antes de registrar pagos.",
+          codigoSeguridad: "SIN_TURNO",
+          requiereAperturaHoy: true,
+        },
+        { status: 409 }
+      );
+    }
+    const turnoCajaIdFinal = turnoActivo ? turnoActivo.id : null;
 
     // 2. Validar cliente existente
     if (!clienteId) {
@@ -470,33 +473,34 @@ export async function POST(req: NextRequest) {
 
     // 6. Determinar estado final según liquidación
     const esSepare = tipoOperacion === "SEPARE" || body.tipoOperacion === "SEPARE";
+    const esOpAlquiler = tieneAlquiler || tipoOperacion === "ALQUILER" || body.tipoOperacion === "ALQUILER";
     let estadoFinal: EstadoFactura = EstadoFactura.ACTIVA;
     if (esSepare) {
       estadoFinal = totalAbonado > 0 ? EstadoFactura.ACTIVA : EstadoFactura.EN_PROCESO;
     } else if (saldoPendiente <= 0) {
       // Pago completo (100%)
-      estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.CERRADA;
+      estadoFinal = esOpAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.CERRADA;
     } else if (totalAbonado === 0) {
       // Pendiente por pagar ($0 adelanto)
-      estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.EN_PROCESO;
+      estadoFinal = esOpAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.EN_PROCESO;
     } else {
       // Adelanto parcial
-      estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.ACTIVA;
+      estadoFinal = esOpAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.ACTIVA;
     }
 
     // 7. Determinar TipoOperacion con soporte para Mixto (Venta + Alquiler + Arreglo) y SEPARE
     let categoriasCount = 0;
     if (tieneVenta) categoriasCount++;
-    if (tieneAlquiler) categoriasCount++;
-    if (tieneArreglo) categoriasCount++;
+    if (tieneAlquiler || esOpAlquiler) categoriasCount++;
+    if (tieneArreglo && !esOpAlquiler) categoriasCount++;
 
     let tipoOpFinal: TipoOperacion = TipoOperacion.VENTA;
     if (esSepare) {
       tipoOpFinal = TipoOperacion.SEPARE;
+    } else if (esOpAlquiler) {
+      tipoOpFinal = TipoOperacion.ALQUILER;
     } else if (categoriasCount > 1) {
       tipoOpFinal = TipoOperacion.MIXTO;
-    } else if (tieneAlquiler) {
-      tipoOpFinal = TipoOperacion.ALQUILER;
     } else if (tieneArreglo) {
       tipoOpFinal = TipoOperacion.ARREGLO;
     } else {
@@ -508,24 +512,8 @@ export async function POST(req: NextRequest) {
       // Reservar correlativo estrictamente numérico, secuencial e inmodificable
       const { consecutivo, numeroFactura } = await reservarSiguienteFolioFactura(tx);
 
-      // Buscar el turno de caja abierto correspondiente al gabinete del cajero autenticado
-      const turnosAbiertos = await tx.turnoCaja.findMany({
-        where: { estado: "ABIERTO" },
-        orderBy: { fechaApertura: "desc" },
-      });
-
-      let turnoAbierto = null;
-      if (body.turnoCajaId) {
-        turnoAbierto = turnosAbiertos.find((t) => t.id === body.turnoCajaId) || null;
-      }
-      if (!turnoAbierto && turnosAbiertos.length > 0) {
-        turnoAbierto =
-          turnosAbiertos.find((t) => {
-            if (t.usuarioCajeroId === cajeroId) return true;
-            const participantes = parsearCajerosParticipantes(t.cajerosParticipantes);
-            return participantes.some((p) => p.id === cajeroId);
-          }) || turnosAbiertos[0];
-      }
+      // Buscar el turno de caja abierto correspondiente de forma infalible
+      const turnoAbierto = await obtenerTurnoAbiertoActivo(tx, cajeroId, body.turnoCajaId || turnoCajaIdFinal);
 
       const abonosConTurno = abonosDataCreacion.map((ab) => ({
         ...ab,

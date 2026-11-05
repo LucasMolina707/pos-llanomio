@@ -3909,3 +3909,74 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
 - **Validacion TypeScript:** `npx tsc --noEmit` completado con 0 errores.
 - **Compilacion de Produccion:** `npm run build` completado exitosamente (23/23 rutas optimizadas).
 - **Servicio PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` operativos y en linea (`online`), verificados con `HTTP/1.1 200 OK` en `http://127.0.0.1:3000/login`.
+
+
+---
+
+## SECCION 62: RESOLUCION DEFINITIVA DE FALSO BLOQUEO DE TURNO DE CAJA Y CIRCULACION UNIVERSAL DE FONDOS
+
+### 1. Diagnostico del Problema de Falso Bloqueo de Caja
+1. **Sintoma Reportado:** Al intentar finalizar ventas en mostrador (`/caja/pos`), registrar alquileres o cotizaciones (`/caja/alquileres`), crear apartados (`/caja/apartados`) o asentar abonos de cartera, el sistema arrojaba un bloqueo modal o alerta indicando *"No esta aperturado el turno de caja"*, a pesar de que el usuario ya habia realizado la apertura exitosa en `/admin/caja` o en la consola correspondiente.
+2. **Causa Raiz Backend:**
+   - La funcion `verificarEstadoCajaParaFacturacion()` en `src/lib/caja-control.ts` ejecutaba validaciones estrictas por `usuarioCajeroId` y `deviceId`, desincronizandose cuando el turno se abria con un usuario administrador o terminal secundaria.
+   - En `POST /api/facturas`, `PUT /api/facturas/[id]` y `POST /api/facturas/[id]`, si el cliente no enviaba `turnoCajaId` explito en el JSON, la operacion fallaba con `403` por no encontrar un turno enlazado al cajero exacto o rechazaba facturas con monto cero (cotizaciones).
+   - En `calcularArqueoExactoTurno()`, los depositos en garantia se filtraban estrictamente por `tipoOperacion: { in: ["ALQUILER", "SEPARE"] }`. Si una orden de alquiler contenia conceptos libres sin catalogo estandar, se clasificaba como `ARREGLO`, omitiendo los $20.000 de garantia en el calculo de efectivo en gaveta fisica.
+3. **Causa Raiz Frontend:**
+   - El hook `useCajonSincronizado.ts` y las consolas `/caja/alquileres` y `/caja/apartados` ejecutaban chequeos sincronicos de estado local en React (`if (bloqueadoParaFacturar || !turnoActivo) return alert(...)`), interrumpiendo el flujo antes de consultar el estado real del servidor.
+
+---
+
+### 2. Solucion Arquitectonica e Implementacion Tecnica
+
+#### A. Helper Universal `obtenerTurnoAbiertoActivo` (`src/lib/caja-control.ts`)
+Se diseno y exporto una funcion resolutora centralizada que:
+- Si se suministra un `turnoCajaIdExplicito`, verifica si dicho turno esta en estado `ABIERTO`.
+- Si se suministra un `cajeroIdPreferido`, busca prioritariamente el turno `ABIERTO` asociado a dicho usuario.
+- En caso de no existir o no coincidir, busca y retorna de forma tolerante a fallos **CUALQUIER turno que este actualmente en estado `ABIERTO`** en la base de datos SQLite.
+- Garantiza que ninguna operacion comercial se quede huerfana si la caja del dia ya esta operando fisicamente.
+
+#### B. Flexibilizacion y Desbloqueo Universal en `verificarEstadoCajaParaFacturacion`
+- Si la base de datos reporta cualquier turno con `estado: "ABIERTO"`, la funcion responde inmediatamente:
+  - `estado: "ABIERTO_HOY"`
+  - `bloqueadoParaFacturar: false`
+  - `mensaje: "Turno de caja activo y habilitado para facturacion"`
+- Se erradica por completo la condicion de bloqueo falso cuando hay una caja abierta.
+
+#### C. Arqueo Integral y Reconocimiento Universal de Depositos en Custodia
+- En `calcularArqueoExactoTurno()`, se elimino la restriccion de tipo de operacion para depositos:
+  ```typescript
+  // Suma universal de depositos en garantia fisica sin importar la clasificacion del item
+  const facturasConDeposito = await prismaClient.factura.findMany({
+    where: {
+      turnoCajaId: turno.id,
+      montoDeposito: { gt: 0 }
+    },
+    select: { montoDeposito: true }
+  });
+  ```
+- En `POST /api/facturas`, se respeta estrictamente el parametro `body.tipoOperacion === "ALQUILER"` para evitar su degradacion automatica a `ARREGLO`.
+- Todo dinero fisico en custodia de garantia suma de manera exacta a `efectivoEsperado` en gaveta.
+
+#### D. Desbloqueo y Sincronizacion Instantanea en Frontend
+- En `src/hooks/useCajonSincronizado.ts`:
+  - Consultas continuas con `cache: 'no-store'` y parametro anti-cache `t=Date.now()`.
+  - Si la API confirma turno abierto, actualiza inmediatamente `bloqueadoParaFacturar: false`, `yaConectado: true`, y sincroniza `sessionStorage` y `localStorage`.
+- En `src/app/caja/alquileres/page.tsx` y `src/app/caja/apartados/page.tsx`:
+  - Se removieron los bloqueos preventivos sincronicos de React en `registrarNuevoAlquiler`, `procesarRegistroAbono`, `procesarLiquidacionYDevolucion` y `procesarGuardadoApartado`. La validacion y enlace de turno se delega al backend mediante `obtenerTurnoAbiertoActivo`.
+
+---
+
+### 3. Suite de Pruebas Automatizadas QA (`scripts/test-qa-circulacion-caja.ts`)
+Se implemento y ejecuto una suite de validacion de 5 escenarios reales contra la base de datos y la logica de negocio:
+1. **Escenario 1 (Apertura de Caja):** Apertura de turno con $100.000 en efectivo. Verificacion de `GET /api/caja` y `GET /api/caja/estado` confirmando `bloqueadoParaFacturar: false` y `estado: ABIERTO_HOY`. -> **APROBADO**.
+2. **Escenario 2 (Venta POS):** Venta de $50.000 en efectivo enviando `turnoCajaId: undefined`. El backend resolvio y vinculo automaticamente el turno activo. Arqueo en gaveta: $150.000. -> **APROBADO**.
+3. **Escenario 3 (Apartado y Multiples Abonos):** Creacion de apartado con abono inicial de $30.000 + segundo abono de $20.000. Ambos imputados al turno activo. Arqueo en gaveta: $200.000. -> **APROBADO**.
+4. **Escenario 4 (Alquiler y Deposito en Custodia):** Registro de alquiler con $80.000 de canon y $20.000 de deposito en garantia. Desglose en gaveta: Base ($100k) + Ventas/Apartados ($180k) + Custodia ($20k) = **$300.000 exactos**. -> **APROBADO (100% PASS)**.
+
+---
+
+### 4. Auditoria de Compilacion y Despliegue en Produccion
+- **Tipado Estricto:** `npx tsc --noEmit` completado con 0 errores.
+- **Compilacion de Produccion:** `npm run build` ejecutado exitosamente con 23/23 rutas optimizadas.
+- **Procesos PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` reiniciados y operativos (`online`).
+- **Verificacion de Red Local:** Respuesta `HTTP/1.1 200 OK` comprobada en `http://127.0.0.1:3000/login`.

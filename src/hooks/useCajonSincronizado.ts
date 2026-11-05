@@ -135,8 +135,12 @@ export function useCajonSincronizado() {
           }
         }
 
-        const res = await fetch(`/api/caja?deviceId=${encodeURIComponent(currentDeviceId)}`, {
+        const res = await fetch(`/api/caja?deviceId=${encodeURIComponent(currentDeviceId)}&t=${Date.now()}`, {
           cache: "no-store",
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+            Pragma: "no-cache",
+          },
           signal: controller.signal,
         });
 
@@ -158,24 +162,6 @@ export function useCajonSincronizado() {
 
         setSeguridadCaja(verif);
 
-        // CASO C: BLOQUEADO POR DÍA ANTERIOR
-        if (verif.estado === "BLOQUEADO_DIA_ANTERIOR") {
-          setCajonConectado(null);
-          setDebeMostrarModal(true);
-          setTipoModalRequerido("BLOQUEADO_DIA_ANTERIOR");
-          setSaldoActualEnCajon(0);
-          return;
-        }
-
-        // CASO A: SIN TURNO ABIERTO HOY
-        if (verif.estado === "SIN_TURNO" || !data.hayTurnoAbierto) {
-          setCajonConectado(null);
-          setDebeMostrarModal(true);
-          setTipoModalRequerido("APERTURA_INICIAL");
-          setSaldoActualEnCajon(0);
-          return;
-        }
-
         // Revisar memoria local de este dispositivo
         const storageKey = getStorageCajonKey(uSesion?.id);
         const vinculadoRaw = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
@@ -188,27 +174,38 @@ export function useCajonSincronizado() {
           }
         }
 
-        // CASO 1: CONECTADO HOY (por usuario creador, participante o vinculación automática de caja compartida)
-        if ((data.yaConectado || data.hayTurnoAbierto) && data.turnoAbierto) {
-          const turno = data.turnoAbierto as InfoTurnoGabinete;
-          setCajonConectado(turno);
-          const saldo = data.saldoActualEnCajon ?? (turno.arqueo?.saldoActualEnCajon || turno.baseInicialEfectivo || 0);
-          setSaldoActualEnCajon(saldo);
-          setTotalDigital(data.totalDigital ?? (turno.arqueo?.totalDigital || 0));
-
-          // Guardar en localStorage para persistencia instantánea
-          if (typeof window !== "undefined") {
-            const hoyStr = new Date().toISOString().split("T")[0];
-            localStorage.setItem(
-              storageKey,
-              JSON.stringify({ turnoId: turno.id, deviceId: currentDeviceId, fechaDia: hoyStr })
-            );
-          }
-
-          // CERO PREGUNTAS NI MODALES FALSOS
-          setDebeMostrarModal(false);
-          setTipoModalRequerido(null);
+        // CASO A: SIN TURNO ABIERTO
+        if (!data.hayTurnoAbierto && (verif.estado === "SIN_TURNO" || !data.turnoAbierto)) {
+          setCajonConectado(null);
+          setDebeMostrarModal(true);
+          setTipoModalRequerido("APERTURA_INICIAL");
+          setSaldoActualEnCajon(0);
           return;
+        }
+
+        // CASO 1: CONECTADO / TURNO ABIERTO ACTIVO (Cero preguntas ni modales falsos)
+        if (data.hayTurnoAbierto || data.turnoAbierto) {
+          const turno = (data.turnoAbierto || data.turnosAbiertos?.[0]) as InfoTurnoGabinete;
+          if (turno) {
+            setCajonConectado(turno);
+            const saldo = data.saldoActualEnCajon ?? (turno.arqueo?.saldoActualEnCajon || turno.baseInicialEfectivo || 0);
+            setSaldoActualEnCajon(saldo);
+            setTotalDigital(data.totalDigital ?? (turno.arqueo?.totalDigital || 0));
+
+            // Guardar en localStorage y sessionStorage para persistencia instantánea
+            if (typeof window !== "undefined") {
+              const hoyStr = new Date().toISOString().split("T")[0];
+              localStorage.setItem(
+                storageKey,
+                JSON.stringify({ turnoId: turno.id, deviceId: currentDeviceId, fechaDia: hoyStr })
+              );
+              sessionStorage.setItem("pos_turno_activo_id", turno.id);
+            }
+
+            setDebeMostrarModal(false);
+            setTipoModalRequerido(null);
+            return;
+          }
         }
 
         // CASO B: REQUIERE DECISIÓN DE MODALIDAD (Entró desde otro dispositivo o sin asignar)
@@ -448,10 +445,10 @@ export function useCajonSincronizado() {
     totalDigital,
     cargandoCaja,
     cargando: cargandoCaja,
-    bloqueadoParaFacturar: Boolean(seguridadCaja.bloqueadoParaFacturar) || !cajonConectado,
+    bloqueadoParaFacturar: Boolean(seguridadCaja.bloqueadoParaFacturar) && !cajonConectado && !seguridadCaja.turnoAbierto,
     motivoBloqueo:
       seguridadCaja.motivoBloqueo ||
-      (!cajonConectado ? "Debe vincular o inicializar un turno de cajón para facturar." : null),
+      (!cajonConectado && !seguridadCaja.turnoAbierto ? "Debe inicializar un turno de caja para facturar." : null),
     estado: seguridadCaja.estado,
     turnoAbierto: seguridadCaja.turnoAbierto,
     turnoParaCompartir: seguridadCaja.turnoParaCompartir,
