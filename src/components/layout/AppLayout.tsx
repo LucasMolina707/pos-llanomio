@@ -26,12 +26,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return null;
   });
 
-  // Consultar usuario en sesión de forma segura y optimizada (evita llamadas repetitivas en cada navegación si ya está en memoria)
+  // Consultar usuario en sesión una sola vez al montar (evita llamadas repetitivas en cada cambio de ruta)
   useEffect(() => {
     let activo = true;
 
-    // Si ya disponemos del usuario en memoria y la ruta no es /login, no re-consultar en cada click
-    if (usuario && pathname !== "/login") {
+    // Si ya disponemos del usuario en memoria, no re-consultar
+    if (usuario) {
       return;
     }
 
@@ -57,7 +57,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => {
       activo = false;
     };
-  }, [pathname, usuario]);
+  }, []);
 
   // Cerrar menú móvil al navegar
   useEffect(() => {

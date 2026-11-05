@@ -29,6 +29,7 @@ import {
   Download,
   Upload,
   FileDown,
+  FileUp,
 } from "lucide-react";
 import ModalProducto, { ProductoData } from "@/components/inventario/ModalProducto";
 import ModalGestionExcel from "@/components/excel/ModalGestionExcel";
@@ -263,59 +264,45 @@ export default function InventarioAdminPage() {
   return (
     <div className="w-full space-y-6">
       {/* Cabecera Principal */}
-      <header className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <header className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl">
             <Package className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-                Inventario & Catálogo de Prendas
-              </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/80">
-                Alquiler & Venta
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Control de prendas por tallas, colores, estados de disponibilidad y tarifas de mora
+            <h1 className="text-lg font-bold text-slate-900 leading-tight truncate">
+              Inventario de Prendas
+            </h1>
+            <p className="text-xs text-slate-500 font-medium truncate">
+              Catálogo de trajes, tallas, disponibilidad y tarifas
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-nowrap">
-          {/* Botones de Operación Excel */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 shrink-0">
-            <button
-              type="button"
-              onClick={() => window.open("/api/inventario/excel?modo=plantilla", "_blank")}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 h-7 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition cursor-pointer"
-              title="Descargar Plantilla / Regleta Oficial en Excel (.xlsx) con campos obligatorios marcados"
-            >
-              <Download className="h-3.5 w-3.5 text-blue-600" />
-              <span>Plantilla</span>
-            </button>
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-end flex-nowrap">
+          <IconButtonTooltip
+            icon={FileDown}
+            label="Descargar Plantilla Oficial Excel"
+            size="md"
+            variant="neutral"
+            onClick={() => window.open("/api/inventario/excel?modo=plantilla", "_blank")}
+          />
 
-            <button
-              type="button"
-              onClick={() => window.open("/api/inventario/excel?modo=exportar", "_blank")}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 h-7 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition cursor-pointer"
-              title="Exportar toda la base de datos actual de inventario a Excel (.xlsx) como respaldo"
-            >
-              <FileDown className="h-3.5 w-3.5 text-indigo-600" />
-              <span>Exportar</span>
-            </button>
+          <IconButtonTooltip
+            icon={Download}
+            label="Exportar Base de Datos a Excel"
+            size="md"
+            variant="neutral"
+            onClick={() => window.open("/api/inventario/excel?modo=exportar", "_blank")}
+          />
 
-            <button
-              type="button"
-              onClick={() => setModalExcelAbierto(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition cursor-pointer"
-              title="Importar masivamente catálogo de productos o prendas desde Excel (.xlsx)"
-            >
-              <Upload className="h-3.5 w-3.5 text-white" />
-              <span>Importar Excel</span>
-            </button>
-          </div>
+          <IconButtonTooltip
+            icon={FileUp}
+            label="Importar Masivamente desde Excel"
+            variant="emerald"
+            size="md"
+            onClick={() => setModalExcelAbierto(true)}
+          />
 
           <IconButtonTooltip
             icon={Clock}
@@ -327,20 +314,19 @@ export default function InventarioAdminPage() {
 
           <IconButtonTooltip
             icon={ShoppingBag}
-            label="Ir a Terminal POS"
+            label="Ir a Terminal POS (Ventas)"
             href="/caja/pos"
             size="md"
             variant="neutral"
           />
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={Plus}
+            label="Crear Nueva Prenda"
+            variant="primary"
+            size="md"
             onClick={handleNuevoProducto}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm shadow-blue-500/20 transition cursor-pointer whitespace-nowrap shrink-0"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Nueva Prenda</span>
-          </button>
+          />
         </div>
       </header>
 

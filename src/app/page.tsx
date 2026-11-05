@@ -233,6 +233,7 @@ export default function HomePage() {
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <Link
               href="/caja/pos"
+              prefetch={true}
               className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm md:text-base font-bold transition shadow-xs cursor-pointer"
             >
               <ShoppingBag className="h-5 w-5" />
@@ -252,6 +253,7 @@ export default function HomePage() {
               <>
                 <Link
                   href="/admin/dashboard"
+                  prefetch={true}
                   className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs sm:text-sm font-bold transition shadow-2xs"
                   title="Ver Métricas y Rendimiento Financiero del Sistema"
                 >
@@ -261,6 +263,7 @@ export default function HomePage() {
 
                 <Link
                   href="/admin/configuracion"
+                  prefetch={true}
                   className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs sm:text-sm font-bold transition shadow-2xs"
                   title="Configurar y Personalizar Tienda y Factura"
                 >
@@ -299,6 +302,7 @@ export default function HomePage() {
               <Link
                 key={idx}
                 href={modulo.href}
+                prefetch={true}
                 className="group bg-[#FCFDFE] rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs hover:border-blue-400 transition-all duration-200 flex flex-col justify-between"
               >
                 <div>

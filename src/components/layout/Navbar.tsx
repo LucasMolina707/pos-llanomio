@@ -17,9 +17,12 @@ import {
   Settings,
   Receipt,
   LayoutDashboard,
+  Clock,
+  Wifi,
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import TarjetaConexionLAN from "@/components/red/TarjetaConexionLAN";
 
 interface NavbarProps {
   onToggleSidebarMobile: () => void;
@@ -35,6 +38,7 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
   const pathname = usePathname();
   const router = useRouter();
   const [cerrandoSesion, setCerrandoSesion] = React.useState(false);
+  const [mostrarModalLAN, setMostrarModalLAN] = React.useState(false);
 
   if (
     pathname === "/login" ||
@@ -139,59 +143,67 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
       </div>
 
       {/* 2. Lado Derecho: Acceso Rápido POS, Métricas, Configuración, Estado LAN y Perfil */}
-      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 flex-nowrap">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-nowrap">
         {/* Accesos Rápidos Exclusivos de Administrador */}
         {esAdmin && (
           <>
             <IconButtonTooltip
               icon={BarChart3}
-              label="Métricas y Rendimiento Financiero del Sistema"
+              label="Métricas y Rendimiento"
               href="/admin/dashboard"
               active={pathname === "/admin/dashboard"}
               size="md"
-              variant="neutral"
-              iconClassName="text-indigo-600"
+              variant={pathname === "/admin/dashboard" ? "primary" : "neutral"}
             />
 
             <IconButtonTooltip
               icon={Settings}
-              label="Configuración de Página y Factura"
+              label="Configuración del Sistema"
               href="/admin/configuracion"
               active={pathname === "/admin/configuracion"}
               size="md"
-              variant="neutral"
-              iconClassName="text-purple-600"
+              variant={pathname === "/admin/configuracion" ? "primary" : "neutral"}
             />
           </>
         )}
 
-        {/* Acceso Rápido a Terminal POS si no estamos en la página del POS */}
-        {pathname !== "/caja/pos" && (
-          <Link
-            href="/caja/pos"
-            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold transition shadow-xs whitespace-nowrap"
-            title="Abrir Terminal de Facturación POS"
-          >
-            <ShoppingBag className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Terminal POS</span>
-            <span className="sm:hidden font-bold">POS</span>
-          </Link>
-        )}
+        {/* Acceso Rápido a Terminal POS */}
+        <IconButtonTooltip
+          icon={ShoppingBag}
+          label="Abrir Terminal POS (Ventas)"
+          href="/caja/pos"
+          active={pathname === "/caja/pos"}
+          size="md"
+          variant={pathname === "/caja/pos" ? "primary" : "neutral"}
+        />
 
-        {/* Indicador de Red Local */}
-        <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200/90 text-xs font-semibold text-slate-700">
-          <Radio className="h-3.5 w-3.5 text-blue-600 animate-pulse" />
-          <span>Red Local LAN</span>
-        </div>
+        {/* Sistema de Alquileres */}
+        <IconButtonTooltip
+          icon={Clock}
+          label="Abrir Sistema de Alquileres"
+          href="/caja/alquileres"
+          active={pathname === "/caja/alquileres"}
+          size="md"
+          variant={pathname === "/caja/alquileres" ? "primary" : "neutral"}
+        />
+
+        {/* Red Local LAN */}
+        <IconButtonTooltip
+          icon={Wifi}
+          label="Conexión Red Local LAN (QR)"
+          onClick={() => setMostrarModalLAN(true)}
+          size="md"
+          variant="neutral"
+        />
 
         {/* Perfil del Usuario y Cierre de Sesión */}
         {usuario ? (
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+          <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
             <div className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs sm:text-sm">
+              <div className="h-9 w-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs sm:text-sm shrink-0">
                 {usuario.nombre ? usuario.nombre.charAt(0).toUpperCase() : "U"}
               </div>
-              <div className="hidden xl:flex flex-col">
+              <div className="hidden 2xl:flex flex-col">
                 <span className="text-xs font-bold text-slate-800 leading-tight">
                   {usuario.nombre || usuario.username}
                 </span>
@@ -203,16 +215,31 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
 
             <IconButtonTooltip
               icon={LogOut}
-              label="Cerrar sesión"
+              label="Cerrar Sesión y Respaldar"
               onClick={handleLogout}
               disabled={cerrandoSesion}
               size="md"
-              variant="ghost"
+              variant="neutral"
               iconClassName="text-slate-500 hover:text-rose-600"
             />
           </div>
         ) : null}
       </div>
+
+      {/* Modal Flotante de Conexión LAN */}
+      {mostrarModalLAN && (
+        <div
+          onClick={() => setMostrarModalLAN(false)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-3xl animate-in zoom-in-95 duration-150"
+          >
+            <TarjetaConexionLAN onClose={() => setMostrarModalLAN(false)} />
+          </div>
+        </div>
+      )}
     </header>
   );
 }

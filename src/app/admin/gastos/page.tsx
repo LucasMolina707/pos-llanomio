@@ -23,6 +23,7 @@ import {
   RefreshCw,
   FolderPlus,
   ChevronDown,
+  Download,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import { safeFetchJson } from "@/lib/safe-fetch";
@@ -502,11 +503,11 @@ export default function GastosAdminPage() {
               <Receipt className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                Gastos Operativos y Nómina
+              <h1 className="text-lg font-bold text-slate-900 leading-tight truncate">
+                Gastos y Nómina
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium">
-                Hoja de cálculo consolidada de tesorería y balances gerenciales (Aislado de la caja activa diaria)
+              <p className="text-xs text-slate-500 font-medium truncate">
+                Erogaciones operativas, nómina y balances de tesorería (Aislado de la caja activa diaria)
               </p>
             </div>
           </div>
@@ -541,14 +542,13 @@ export default function GastosAdminPage() {
             </button>
           </div>
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={Download}
+            label="Exportar Base de Datos de Gastos a Excel (.xlsx)"
+            variant="emerald"
+            size="md"
             onClick={handleDescargarExcel}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span className="hidden sm:inline">Exportar Excel (.xlsx)</span>
-          </button>
+          />
         </div>
       </div>
 

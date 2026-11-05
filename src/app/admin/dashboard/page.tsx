@@ -358,69 +358,30 @@ export default function DashboardGerencialPage() {
   return (
     <div className="w-full space-y-6">
       {/* 1. Cabecera Gerencial & Telemetría en Vivo */}
-      <div className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-              Dashboard Gerencial
-            </h1>
-
-            {/* Indicador de Conexión en Vivo (Local LAN) */}
-            <div
-              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border transition ${
-                enVivoActivo
-                  ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                  : "bg-slate-100 text-slate-600 border-slate-300"
-              }`}
-              title={
-                enVivoActivo
-                  ? `Sincronización activa en red local. Pulsos recibidos: ${totalPulsosRecibidos}`
-                  : "Sincronización automática en pausa"
-              }
-            >
-              {enVivoActivo ? (
-                <>
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                  </span>
-                  <span>Conectado en Vivo (Local LAN)</span>
-                </>
-              ) : (
-                <>
-                  <span className="h-2 w-2 rounded-full bg-slate-400"></span>
-                  <span>En Vivo Pausado</span>
-                </>
-              )}
-            </div>
-
-            {/* Hora de última actualización silenciosa */}
-            <span className="text-xs text-slate-400 font-medium">
-              Actualizado: {ultimaSincronizacion.toLocaleTimeString("es-CO")}
-            </span>
-          </div>
-
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Visualización en tiempo real de ingresos, cuentas por cobrar, moras y rendimiento comercial
+          <h1 className="text-lg font-bold text-slate-900 leading-tight truncate">
+            Dashboard Gerencial
+          </h1>
+          <p className="text-xs text-slate-500 font-medium truncate">
+            Visualización en tiempo real de ingresos, cuentas por cobrar, moras y balance
           </p>
         </div>
 
         {/* Controles de Filtros Temporales y Botón En Vivo */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Conmutador de Pausa / Reanudación En Vivo */}
-          <button
-            type="button"
-            onClick={() => setEnVivoActivo(!enVivoActivo)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition border shadow-xs ${
+          <IconButtonTooltip
+            icon={enVivoActivo ? Pause : Play}
+            label={
               enVivoActivo
-                ? "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
-                : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
-            }`}
-            title={enVivoActivo ? "Pausar actualización en tiempo real" : "Reanudar actualización en tiempo real"}
-          >
-            {enVivoActivo ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            <span>{enVivoActivo ? "Tiempo Real Activo" : "Reanudar En Vivo"}</span>
-          </button>
+                ? `Sincronización activa en red local (Pulsos: ${totalPulsosRecibidos}). Clic para pausar.`
+                : "Sincronización en tiempo real en pausa. Clic para reanudar."
+            }
+            onClick={() => setEnVivoActivo(!enVivoActivo)}
+            size="md"
+            variant={enVivoActivo ? "emerald" : "neutral"}
+          />
 
           {/* Botones de Selección Rápida de Periodo */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
@@ -469,7 +430,7 @@ export default function DashboardGerencialPage() {
                 setPeriodoActivo("PERSONALIZADO");
                 setFechaDesde(e.target.value);
               }}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-800"
+              className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-800"
             />
             <span className="text-xs text-slate-400 font-bold">a</span>
             <input
@@ -479,18 +440,18 @@ export default function DashboardGerencialPage() {
                 setPeriodoActivo("PERSONALIZADO");
                 setFechaHasta(e.target.value);
               }}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-800"
+              className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-800"
             />
           </div>
 
           {/* Botón de Refresco Manual */}
           <IconButtonTooltip
             icon={RefreshCw}
-            label="Forzar actualización completa de métricas ahora"
+            label={`Forzar actualización completa. Última: ${ultimaSincronizacion.toLocaleTimeString("es-CO")}`}
             onClick={() => cargarMetricas(true)}
             disabled={cargandoInicial || actualizandoSilencioso}
             iconClassName={
-              cargandoInicial || actualizandoSilencioso ? "animate-spin text-blue-600" : "text-slate-600"
+              cargandoInicial || actualizandoSilencioso ? "animate-spin text-blue-600" : "text-blue-600"
             }
             size="md"
             variant="neutral"
@@ -498,41 +459,30 @@ export default function DashboardGerencialPage() {
         </div>
       </div>
 
-      {/* 2. Banner de Estado de Turno de Caja en Vivo */}
+      {/* 2. Barra de Estado de Turno de Caja en Vivo */}
       {turnoActual && (
-        <div className="bg-gradient-to-r from-blue-900 to-slate-900 rounded-xl p-4 text-white shadow-xs border border-blue-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-600 text-white shrink-0">
-              <Vault className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-300">
-                  Turno de Caja Activo en Mostrador
-                </span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-200">
-                A cargo de: <strong className="text-white">{turnoActual.cajero}</strong> — Abierto el{" "}
-                {new Date(turnoActual.fechaApertura).toLocaleTimeString("es-CO")}
-              </p>
-            </div>
+        <div className="bg-white border border-slate-200 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span className="text-sm font-semibold text-slate-800 truncate">
+              Caja Activa: <strong className="text-slate-900 font-bold">{turnoActual.cajero}</strong>
+            </span>
           </div>
 
-          <div className="flex items-center gap-3 self-end sm:self-auto">
-            <div className="text-right">
-              <span className="text-xs text-slate-400 block font-semibold">Base en Gaveta</span>
-              <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base">
-                ${turnoActual.baseInicial.toLocaleString("es-CO")}
-              </span>
-            </div>
-            <Link
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-xs font-mono font-bold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+              Base: ${turnoActual.baseInicial.toLocaleString("es-CO")}
+            </span>
+            <IconButtonTooltip
+              icon={ArrowUpRight}
+              label="Ir a Control y Arqueo de Caja"
               href="/admin/caja"
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition shadow-xs flex items-center gap-1"
-            >
-              <span>Ver Arqueo</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </Link>
+              size="md"
+              variant="neutral"
+            />
           </div>
         </div>
       )}

@@ -409,48 +409,33 @@ export default function ControlCajaAdminPage() {
   return (
     <div className="w-full space-y-6 max-w-full overflow-x-hidden">
       {/* 1. Cabecera Principal Ergonómica */}
-      <header className="bg-[#FCFDFE] rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <header className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-xl shrink-0">
             <Vault className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-                Control de Caja & Gabinetes
-              </h1>
-              <span
-                className={`px-3 py-0.5 rounded-full text-xs font-bold ${
-                  hayTurnoAbierto
-                    ? "bg-emerald-50 text-emerald-800 border border-emerald-300"
-                    : "bg-slate-100 text-slate-700 border border-slate-300"
-                }`}
-              >
-                {hayTurnoAbierto
-                  ? `${turnosAbiertos.length} Gabinete(s) Activo(s)`
-                  : "Caja Cerrada"}
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-600 font-medium">
-              Soporte multi-cajero en tienda con Caja Compartida o Cajas Divididas independientes
+            <h1 className="text-lg font-bold text-slate-900 leading-tight truncate">
+              Control de Caja
+            </h1>
+            <p className="text-xs text-slate-500 font-medium truncate">
+              Apertura, arqueos, gabinetes divididos y balance de efectivo
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-nowrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-end flex-nowrap">
           {hayTurnoAbierto && (
-            <button
-              type="button"
+            <IconButtonTooltip
+              icon={Plus}
+              label="Abrir Caja Dividida (Habilitar gabinete independiente)"
+              variant="indigo"
+              size="md"
               onClick={() => {
                 setNombreNuevaCajaDividida(`Gabinete #${turnosAbiertos.length + 1}`);
                 setMostrarModalNuevaCajaDividida(true);
               }}
-              className="flex items-center gap-2 px-3.5 py-2 h-9 rounded-xl text-xs sm:text-sm font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 shadow-2xs transition cursor-pointer whitespace-nowrap shrink-0"
-              title="Habilitar un gabinete de dinero independiente para otro cajero"
-            >
-              <Plus className="w-4 h-4 text-indigo-600" />
-              <span>Abrir Caja Dividida</span>
-            </button>
+            />
           )}
 
           <BotonAbrirCajon variante="barra" mostrarAtajo={true} />

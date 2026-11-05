@@ -38,7 +38,6 @@ interface MenuItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  badge?: string;
 }
 
 export default function Sidebar({
@@ -111,13 +110,11 @@ export default function Sidebar({
           name: "Métricas y Rendimiento",
           href: "/admin/dashboard",
           icon: BarChart3,
-          badge: "EN VIVO",
         },
         {
           name: "Gastos y Nómina",
           href: "/admin/gastos",
           icon: Receipt,
-          badge: "BALANCE",
         },
       ],
     },
@@ -128,19 +125,16 @@ export default function Sidebar({
           name: "Terminal POS (Ventas)",
           href: "/caja/pos",
           icon: ShoppingBag,
-          badge: "POS",
         },
         {
           name: "Sistema de Alquileres",
           href: "/caja/alquileres",
           icon: Clock,
-          badge: "ALQUILER",
         },
         {
           name: "Apartados y Reservas",
           href: "/caja/apartados",
           icon: CalendarClock,
-          badge: "SEPARE",
         },
         {
           name: "Control y Arqueo de Caja",
@@ -151,7 +145,6 @@ export default function Sidebar({
           name: "Historial y Monitoreo",
           href: "/admin/monitoreo",
           icon: CalendarClock,
-          badge: "CARTERA",
         },
         {
           name: "Directorio de Clientes",
@@ -321,6 +314,7 @@ export default function Sidebar({
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={true}
                     onClick={() => isMobile && onCloseMobile && onCloseMobile()}
                     title={!isExpanded ? item.name : undefined}
                     className={`h-10 px-2.5 rounded-xl flex items-center transition-colors duration-150 ${
@@ -338,23 +332,9 @@ export default function Sidebar({
                     />
 
                     {isExpanded && (
-                      <div className="flex items-center justify-between w-full min-w-0">
-                        <span className="text-[13px] font-semibold leading-tight tracking-tight whitespace-nowrap">
-                          {item.name}
-                        </span>
-
-                        {item.badge && (
-                          <span
-                            className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ml-auto uppercase tracking-wider ${
-                              isActive
-                                ? "bg-blue-500/40 text-white border border-blue-400/40"
-                                : "bg-slate-100 text-slate-600 border border-slate-200"
-                            }`}
-                          >
-                            {item.badge}
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-[13px] font-semibold leading-tight tracking-tight whitespace-nowrap truncate">
+                        {item.name}
+                      </span>
                     )}
                   </Link>
                 );
@@ -371,12 +351,12 @@ export default function Sidebar({
         {/* Indicador de Red Local */}
         {!isExpanded ? (
           <div
-            className="h-9 w-full flex items-center justify-center rounded-xl bg-slate-100/90 border border-slate-200/80 text-slate-700 cursor-default"
-            title="LAN Activa · Red Local (Servicio mDNS activo)"
+            className="w-10 h-10 mx-auto flex items-center justify-center rounded-xl bg-slate-100/90 border border-slate-200/80 text-slate-700 cursor-default"
+            title="Red Local LAN Activa (Servicio mDNS y sincronización activa)"
           >
-            <div className="relative flex h-2 w-2 shrink-0">
+            <div className="relative flex h-2.5 w-2.5 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </div>
           </div>
         ) : (
@@ -397,13 +377,13 @@ export default function Sidebar({
           <div>
             {!isExpanded ? (
               <div
-                className="h-9 w-full flex items-center justify-center rounded-xl bg-blue-50/80 border border-blue-200/80 text-blue-700 cursor-default"
+                className="w-10 h-10 mx-auto flex items-center justify-center rounded-xl bg-blue-50/80 border border-blue-200/80 text-blue-700 cursor-default"
                 title={`${usuario.nombre || usuario.username} (${usuario.rol})`}
               >
                 {usuario.rol === "ADMIN" ? (
-                  <Shield className="h-4 w-4 text-blue-600 shrink-0" />
+                  <Shield className="h-4.5 w-4.5 text-blue-600 shrink-0" />
                 ) : (
-                  <UserCheck className="h-4 w-4 text-blue-600 shrink-0" />
+                  <UserCheck className="h-4.5 w-4.5 text-blue-600 shrink-0" />
                 )}
               </div>
             ) : (

@@ -32,6 +32,7 @@ export interface IconButtonTooltipProps {
   id?: string;
   title?: string;
   href?: string;
+  prefetch?: boolean;
 }
 
 export default function IconButtonTooltip({
@@ -51,6 +52,7 @@ export default function IconButtonTooltip({
   id,
   title,
   href,
+  prefetch = true,
 }: IconButtonTooltipProps) {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -146,7 +148,7 @@ export default function IconButtonTooltip({
   // Variantes de color
   const variantClasses: Record<IconButtonVariant, string> = {
     neutral: active
-      ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+      ? "bg-blue-50 text-blue-700 border-blue-300 shadow-2xs ring-1 ring-blue-400"
       : "bg-white hover:bg-slate-100/90 text-slate-700 border-slate-200 hover:border-slate-300 shadow-2xs",
     primary: active
       ? "bg-blue-700 text-white border-blue-800 shadow-inner ring-2 ring-blue-300"
@@ -220,6 +222,7 @@ export default function IconButtonTooltip({
         <Link
           ref={elementRef}
           href={href}
+          prefetch={prefetch}
           id={id}
           onClick={(e) => {
             ocultar();

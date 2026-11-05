@@ -34,6 +34,7 @@ import {
   Unlock,
   ShieldAlert,
   Trash2,
+  Plus,
 } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
@@ -472,27 +473,22 @@ export default function GestionUsuariosPage() {
   return (
     <div className="w-full space-y-6 max-w-full overflow-x-hidden">
       {/* 1. Cabecera Principal Ergonómica */}
-      <header className="bg-[#FCFDFE] rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <header className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-xl shrink-0 shadow-2xs">
-            <ShieldCheck className="w-6 h-6" />
+            <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-                Usuarios, Roles & Permisos (RBAC)
-              </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                Seguridad Local
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-600 font-medium">
-              Administración de cuentas de cajeros y administradores, permisos granulares y protocolo de 3 factores
+            <h1 className="text-lg font-bold text-slate-900 leading-tight truncate">
+              Usuarios y Permisos
+            </h1>
+            <p className="text-xs text-slate-500 font-medium truncate">
+              Cuentas de cajeros, administradores y permisos de acceso
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-nowrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-end flex-nowrap">
           <IconButtonTooltip
             icon={Settings}
             label="Ir a Configuración General"
@@ -528,8 +524,11 @@ export default function GestionUsuariosPage() {
             variant={mostrarCardSeguridad ? "amber" : "neutral"}
           />
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={Plus}
+            label="Crear Nuevo Usuario"
+            variant="primary"
+            size="md"
             onClick={() => {
               setNombreCrear("");
               setUsernameCrear("");
@@ -545,11 +544,7 @@ export default function GestionUsuariosPage() {
               });
               setMostrarModalCrear(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 h-9 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20 cursor-pointer whitespace-nowrap shrink-0"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Crear Nuevo Usuario</span>
-          </button>
+          />
         </div>
       </header>
 

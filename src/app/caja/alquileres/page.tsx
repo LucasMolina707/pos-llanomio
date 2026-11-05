@@ -1377,19 +1377,16 @@ export default function TerminalAlquileresPage() {
             <BotonAbrirCajon soloIcono={true} size="md" />
           </div>
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={FolderDown}
+            label="Tomar desde Apartados / Reservas"
+            variant="indigo"
+            size="md"
             onClick={() => {
               cargarApartadosActivos();
               setModalCargarApartadoAbierto(true);
             }}
-            className="px-3.5 py-1.5 rounded-xl font-bold text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-2xs flex items-center gap-1.5 transition cursor-pointer shrink-0"
-            title="Tomar desde Apartados / Reservas: Cargar reserva previa con cliente, prendas y abono"
-          >
-            <ShoppingBag className="w-4 h-4 text-indigo-600" />
-            <span className="hidden sm:inline">Tomar desde Apartados / Reservas</span>
-            <span className="sm:hidden">Apartados</span>
-          </button>
+          />
 
           <IconButtonTooltip
             icon={PlusCircle}
@@ -1991,34 +1988,6 @@ export default function TerminalAlquileresPage() {
                     <>
                       {/* Cabecera Fija Paso 1 (shrink-0) */}
                       <div className="shrink-0 p-3 border-b border-slate-100 bg-white space-y-3">
-                        {/* Botón Superior Destacado: Tomar desde Apartados (Antes de seleccionar cliente) */}
-                        <div className="p-3 bg-indigo-50/90 border border-indigo-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                              <ShoppingBag className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <h3 className="text-xs sm:text-sm font-black text-indigo-950">
-                                ¿El cliente ya tiene un traje apartado?
-                              </h3>
-                              <p className="text-[11px] text-indigo-700 font-medium">
-                                Seleccione el producto apartado antes de buscar al cliente: arrastra el cliente, trajes y abono automáticamente.
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              cargarApartadosActivos();
-                              setModalCargarApartadoAbierto(true);
-                            }}
-                            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer shrink-0"
-                          >
-                            <ShoppingBag className="w-4 h-4" />
-                            <span>Tomar desde Apartados / Reservas</span>
-                          </button>
-                        </div>
-
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div>
                             <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
@@ -2166,20 +2135,17 @@ export default function TerminalAlquileresPage() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              type="button"
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <IconButtonTooltip
+                              icon={FolderDown}
+                              label="Tomar desde Apartados / Reservas"
+                              variant="indigo"
+                              size="md"
                               onClick={() => {
                                 cargarApartadosActivos();
                                 setModalCargarApartadoAbierto(true);
                               }}
-                              className="px-3 py-1.5 rounded-xl font-bold text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-2xs flex items-center gap-1.5 transition cursor-pointer"
-                              title="Tomar desde Apartados / Reservas"
-                            >
-                              <ShoppingBag className="w-4 h-4 text-indigo-600" />
-                              <span className="hidden sm:inline">Tomar desde Apartados / Reservas</span>
-                              <span className="sm:hidden">Apartados</span>
-                            </button>
+                            />
                             <IconButtonTooltip
                               icon={PackagePlus}
                               label="Crear Nuevo Traje en Catálogo"
@@ -2654,13 +2620,18 @@ export default function TerminalAlquileresPage() {
 
                   {/* Fechas del Contrato (shrink-0) */}
                   <div className="shrink-0 px-3 py-2 border-b border-slate-200 bg-slate-50/70">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    <div className="flex items-center justify-between gap-1 mb-1 min-w-0">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block shrink-0">
                         Fechas del Contrato
                       </span>
-                      <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-semibold">
-                        {reglaFechaTexto.mensajeInformativo}
-                      </span>
+                      {itemsCarrito.length > 0 && reglaFechaTexto.mensajeInformativo && (
+                        <span
+                          className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-semibold truncate max-w-[190px]"
+                          title={reglaFechaTexto.mensajeInformativo}
+                        >
+                          {reglaFechaTexto.mensajeInformativo}
+                        </span>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>

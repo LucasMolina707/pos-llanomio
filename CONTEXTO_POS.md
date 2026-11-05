@@ -3810,3 +3810,54 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
 - **Validación Estática TypeScript:** `npx tsc --noEmit` completado con 0 errores (código 0).
 - **Compilación de Producción:** `npm run build` completado exitosamente (23/23 rutas estáticas y dinámicas optimizadas).
 - **Servicio PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` en línea (`online`) y operativos en `http://localhost:3000` con respuesta HTTP 200.
+
+
+---
+
+## SECCIÓN 60: PURGA VISUAL DE TEXTOS REDUNDANTES, ESTANDARIZACIÓN 100% A ICONOGRAFÍA CUADRADA CON TOOLTIP FLOTANTE Y CACHÉ CLIENTE
+
+### 1. Directrices de Purga Visual y Estandarización 100% Cuadrada
+1. **Navbar Superior (`src/components/layout/Navbar.tsx`):**
+   - Eliminados por completo los textos visibles `"Terminal POS"` y `"Red Local LAN"`, así como los fondos oscuros o colores discordantes.
+   - Estandarizada toda la botonera superior en botones cuadrados de solo icono `w-9 h-9 rounded-xl` (`<IconButtonTooltip size="md" />`):
+     - `Métricas`: `<IconButtonTooltip icon={BarChart3} label="Métricas y Rendimiento" href="/admin/dashboard" />`
+     - `Configuración`: `<IconButtonTooltip icon={Settings} label="Configuración del Sistema" href="/admin/configuracion" />`
+     - `Terminal POS`: `<IconButtonTooltip icon={ShoppingBag} label="Abrir Terminal POS (Ventas)" href="/caja/pos" />`
+     - `Sistema de Alquileres`: `<IconButtonTooltip icon={Clock} label="Abrir Sistema de Alquileres" href="/caja/alquileres" />`
+     - `Red Local LAN`: `<IconButtonTooltip icon={Wifi} label="Conexión Red Local LAN (QR)" onClick={() => setMostrarModalLAN(true)} />` (abre modal de conexión QR)
+     - `Cerrar Sesión`: `<IconButtonTooltip icon={LogOut} label="Cerrar Sesión y Respaldar" onClick={handleLogout} />`
+2. **Menú Lateral (`src/components/layout/Sidebar.tsx`):**
+   - Eliminadas todas las etiquetas/badges derechas del menú (`"EN VIVO"`, `"BALANCE"`, `"POS"`, `"ALQUILER"`, `"SEPARE"`, `"CARTERA"`).
+   - Estructura limpia de 1 sola línea por ítem: **Icono + Nombre del Módulo** (`text-[13px] font-semibold text-slate-700 whitespace-nowrap`).
+   - Riel colapsado (`w-[68px]`): Iconos inferiores de Red Local y Usuario homologados al tamaño cuadrado `w-10 h-10 rounded-xl` con tooltip.
+3. **Terminal de Alquileres (`src/app/caja/alquileres/page.tsx`):**
+   - Eliminado por completo el banner morado gigante redundante del Paso 1 (*"¿El cliente ya tiene un traje apartado?..."*).
+   - Botón superior *"Tomar desde Apartados / Reservas"* transformado en botón cuadrado de solo icono `w-9 h-9` con `<IconButtonTooltip icon={FolderDown} ... />`.
+   - En el panel derecho (`CLIENTE ARRENDATARIO`), se corrigió la sobreposición del badge azul de fecha cuando el carrito está vacío, asegurando `truncate` y visibilidad condicional.
+4. **Cabeceras de Vistas Administrativas (`Clientes`, `Inventario`, `Usuarios`, `Gastos`, `Caja` y `Dashboard`):**
+   - Títulos limpios de una sola línea: `"Directorio de Clientes"`, `"Inventario de Prendas"`, `"Usuarios y Permisos"`, `"Gastos y Nómina"`, `"Control de Caja"`, `"Dashboard Gerencial"`.
+   - Eliminadas las píldoras decorativas atravesadas (`"Cartera & DIAN"`, `"Seguridad Local"`, `"Alquiler & Venta"`).
+   - Botoneras convertidas a botones cuadrados `w-9 h-9` con `<IconButtonTooltip />`:
+     - Descargar Plantilla: `<IconButtonTooltip icon={FileDown} label="Descargar Plantilla Oficial Excel" />`
+     - Exportar Respaldo: `<IconButtonTooltip icon={Download} label="Exportar Base de Datos a Excel" />`
+     - Importar Excel: `<IconButtonTooltip icon={FileUp} label="Importar Masivamente desde Excel" variant="emerald" />`
+     - Actualizar / Recargar: `<IconButtonTooltip icon={RefreshCw} label="Actualizar listado" />`
+     - Crear Nuevo: `<IconButtonTooltip icon={Plus} label="Crear Nuevo Registro" variant="primary" />`
+5. **Dashboard Gerencial (`src/app/admin/dashboard/page.tsx`):**
+   - Eliminado el fondo azul marino oscuro (`bg-slate-900`) del banner de turno de caja. Reemplazado por una barra limpia de 1 sola línea (`bg-white border border-slate-200 rounded-2xl px-4 py-2.5`) con punto verde pulsante, `"Caja Activa: [Nombre]"`, `"Base: $XXX.XXX"` y botón cuadrado `<IconButtonTooltip icon={ArrowUpRight} label="Ir a Control y Arqueo de Caja" href="/admin/caja" />`.
+   - Selectores de telemetría y refresco convertidos a botones cuadrados con tooltip.
+
+### 2. Rendimiento y Velocidad de Navegación Instantánea
+1. **Caché Ligero en Memoria de Cliente (`src/lib/client-cache.ts`):**
+   - Implementada estrategia *Stale-While-Revalidate* con TTL de 30 segundos, deduplicación de peticiones concurrentes e invalidación reactiva por prefijo de ruta para cargas en 0 milisegundos sin spinners bloqueantes.
+2. **AppLayout Optimizado (`src/components/layout/AppLayout.tsx`):**
+   - Sesión en memoria persistida en `sessionStorage` que valida `/api/auth/me` una sola vez al montar y no re-consulta en cada click o cambio de ruta.
+3. **Prefetching de Enlaces:**
+   - Habilitado `prefetch={true}` en todos los enlaces de `Sidebar.tsx`, `Navbar.tsx` y `page.tsx` para transiciones fluidas e instantáneas.
+4. **Purga de Scripts Obsoletos:**
+   - Eliminados más de 40 archivos de prueba temporales (`scripts/test-*.cjs`, `scripts/test-*.ts`, `scripts/test_*.ts`, `scripts/test_*.js`), preservando intactos los scripts esenciales de producción y mantenimiento.
+
+### 3. Resultados de Certificación QA y Despliegue
+- **Validación TypeScript:** `npx tsc --noEmit` completado con 0 errores (código 0).
+- **Compilación de Producción:** `npm run build` completado exitosamente (23/23 rutas optimizadas con reducción de bundles).
+- **Servicio PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` online en `http://localhost:3000` con respuesta HTTP 200.
