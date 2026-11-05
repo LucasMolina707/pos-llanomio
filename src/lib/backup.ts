@@ -162,6 +162,7 @@ export async function generarVolcadosEstructurados(
     "clientes",
     "historial_facturas",
     "movimientos_caja",
+    "gastos_operativos",
   ];
 
   for (const sub of subcarpetas) {
@@ -255,6 +256,32 @@ export async function generarVolcadosEstructurados(
       "utf-8"
     );
     purgarRespaldosExcedentesPorExtension(dirCaja, ".json", 15, "movimientos_caja_ULTIMO.json");
+
+    // 5. Gastos Operativos y Nómina
+    const gastos = await prisma.gasto.findMany({
+      take: 500,
+      orderBy: { fecha: "desc" },
+      include: { categoria: true },
+    });
+    const categoriasGasto = await prisma.categoriaGasto.findMany({
+      orderBy: { nombre: "asc" },
+    });
+    const empleadosGasto = await prisma.empleadoGasto.findMany({
+      orderBy: { nombreCompleto: "asc" },
+    });
+    const datosGastos = { gastos, categoriasGasto, empleadosGasto };
+    const dirGastos = path.join(directorioRaiz, "gastos_operativos");
+    fs.writeFileSync(
+      path.join(dirGastos, "gastos_ULTIMO.json"),
+      JSON.stringify(datosGastos, null, 2),
+      "utf-8"
+    );
+    fs.writeFileSync(
+      path.join(dirGastos, `gastos_${timestamp}.json`),
+      JSON.stringify(datosGastos, null, 2),
+      "utf-8"
+    );
+    purgarRespaldosExcedentesPorExtension(dirGastos, ".json", 15, "gastos_ULTIMO.json");
   } catch (errDump) {
     console.warn("[BACKUP ESTRUCTURADO] Advertencia al generar volcados estructurados:", errDump);
   }

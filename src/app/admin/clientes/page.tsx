@@ -31,6 +31,7 @@ import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCr
 import ModalGestionExcel from "@/components/excel/ModalGestionExcel";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 import { safeFetchJson } from "@/lib/safe-fetch";
+import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 
 interface ClienteDirectorio {
   id: string;
@@ -133,13 +134,13 @@ export default function DirectorioClientesPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-nowrap">
           {/* Botones de Operación Excel */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 shrink-0">
             <button
               type="button"
               onClick={() => window.open("/api/clientes/excel?modo=plantilla", "_blank")}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 h-7 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition cursor-pointer"
               title="Descargar Plantilla / Regleta Oficial en Excel (.xlsx) con campos obligatorios marcados"
             >
               <Download className="h-3.5 w-3.5 text-blue-600" />
@@ -149,7 +150,7 @@ export default function DirectorioClientesPage() {
             <button
               type="button"
               onClick={() => window.open("/api/clientes/excel?modo=exportar", "_blank")}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 h-7 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition cursor-pointer"
               title="Exportar toda la base de datos actual de clientes a Excel (.xlsx) como respaldo"
             >
               <FileDown className="h-3.5 w-3.5 text-indigo-600" />
@@ -159,7 +160,7 @@ export default function DirectorioClientesPage() {
             <button
               type="button"
               onClick={() => setMostrarModalExcel(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition cursor-pointer"
               title="Importar masivamente directorio de clientes desde Excel (.xlsx)"
             >
               <Upload className="h-3.5 w-3.5 text-white" />
@@ -167,24 +168,23 @@ export default function DirectorioClientesPage() {
             </button>
           </div>
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={RefreshCw}
+            label="Recargar directorio de clientes"
             onClick={cargarClientes}
             disabled={cargando}
-            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition disabled:opacity-50 cursor-pointer"
-            title="Recargar listado de clientes"
-          >
-            <RefreshCw className={`w-4 h-4 text-blue-600 ${cargando ? "animate-spin" : ""}`} />
-            <span>Recargar</span>
-          </button>
+            iconClassName={cargando ? "animate-spin text-blue-600" : "text-blue-600"}
+            size="md"
+            variant="neutral"
+          />
 
           <button
             type="button"
             onClick={abrirModalCrear}
-            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 h-9 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20 cursor-pointer whitespace-nowrap shrink-0"
           >
             <UserPlus className="w-4 h-4" />
-            <span>+ Nuevo Cliente</span>
+            <span>Nuevo Cliente</span>
           </button>
         </div>
       </header>
@@ -294,13 +294,13 @@ export default function DirectorioClientesPage() {
 
                     {/* 3. Contacto / Correo */}
                     <td className="px-4 py-3.5">
-                      <div className="space-y-1 text-xs sm:text-sm">
+                      <div className="space-y-1.5 text-xs sm:text-sm">
                         {c.telefono ? (
-                          <div className="flex items-center gap-1.5 font-mono font-bold text-slate-800">
+                          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-mono font-semibold text-slate-800 tracking-tight leading-none">
                             <Phone className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                             <span>{c.telefono}</span>
                             {c.telefonoSecundario && (
-                              <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded font-sans font-medium">
+                              <span className="inline-flex items-center justify-center w-6 h-5 text-[10px] font-bold rounded-md shrink-0 bg-blue-50 text-blue-700 border border-blue-200">
                                 1°
                               </span>
                             )}
@@ -309,17 +309,17 @@ export default function DirectorioClientesPage() {
                           <span className="text-slate-400 text-xs block">Sin teléfono</span>
                         )}
                         {c.telefonoSecundario && (
-                          <div className="flex items-center gap-1.5 font-mono text-slate-600 text-xs">
-                            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-mono font-semibold text-slate-800 tracking-tight leading-none">
+                            <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                             <span>{c.telefonoSecundario}</span>
-                            <span className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded font-sans font-medium">
+                            <span className="inline-flex items-center justify-center w-6 h-5 text-[10px] font-bold rounded-md shrink-0 bg-slate-100 text-slate-700 border border-slate-300">
                               2°
                             </span>
                           </div>
                         )}
                         {c.email && (
-                          <div className="flex items-center gap-1 text-slate-600 text-xs">
-                            <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                          <div className="flex items-center gap-1 text-slate-600 text-xs pt-0.5">
+                            <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span className="truncate max-w-[180px]">{c.email}</span>
                           </div>
                         )}

@@ -374,6 +374,19 @@ export async function GET(req: NextRequest) {
       morasRecaudadas: Math.round(morasRecaudadas * 100) / 100,
     };
 
+    // 8. Gastos consolidados del periodo y balance neto operativo (Sin tocar caja física)
+    const gastosPeriodo = await prisma.gasto.aggregate({
+      where: {
+        fecha: {
+          gte: fechaDesde,
+          lte: fechaHasta,
+        },
+      },
+      _sum: { valor: true },
+    });
+    const totalGastosPeriodo = Math.round((gastosPeriodo._sum.valor || 0) * 100) / 100;
+    const utilidadNetaPeriodo = Math.round((ingresosNetos - totalGastosPeriodo) * 100) / 100;
+
     return NextResponse.json(
       {
         success: true,
@@ -386,6 +399,9 @@ export async function GET(req: NextRequest) {
         },
         metricas: {
           ingresosNetos: Math.round(ingresosNetos * 100) / 100,
+          totalGastos: totalGastosPeriodo,
+          utilidadNeta: utilidadNetaPeriodo,
+          balanceNeto: utilidadNetaPeriodo,
           cuentasPorCobrar: Math.round(totalSaldosPendientesCalle * 100) / 100,
           morasRecaudadas: Math.round(morasRecaudadas * 100) / 100,
           totalPrendasAlquiladas,

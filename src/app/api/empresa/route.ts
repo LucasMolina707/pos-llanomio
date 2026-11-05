@@ -40,6 +40,8 @@ export async function GET() {
           formatoPredeterminado: "MEDIA_CARTA",
           formatoImpresionDefault: "MEDIA_CARTA",
           rutaCarpetaRespaldo: "C:\\POS_BACKUPS",
+          ultimoAbonoAlquiler: 20000,
+          ultimoAbonoApartado: 20000,
         },
       });
     }
@@ -103,6 +105,8 @@ async function guardarConfiguracion(req: NextRequest) {
       nombreImpresoraPos,
       abrirCajonAutoEfectivo,
       pinCajon,
+      ultimoAbonoAlquiler,
+      ultimoAbonoApartado,
     } = body;
 
     // Normalizar formato
@@ -153,6 +157,14 @@ async function guardarConfiguracion(req: NextRequest) {
             abrirCajonAutoEfectivo !== undefined ? Boolean(abrirCajonAutoEfectivo) : config.abrirCajonAutoEfectivo,
           pinCajon:
             pinCajon !== undefined ? Number(pinCajon) : config.pinCajon,
+          ultimoAbonoAlquiler:
+            ultimoAbonoAlquiler !== undefined
+              ? Math.max(0, Number(ultimoAbonoAlquiler) || 20000)
+              : (config.ultimoAbonoAlquiler ?? 20000),
+          ultimoAbonoApartado:
+            ultimoAbonoApartado !== undefined
+              ? Math.max(0, Number(ultimoAbonoApartado) || 20000)
+              : (config.ultimoAbonoApartado ?? 20000),
         },
       });
     } else {
@@ -182,6 +194,14 @@ async function guardarConfiguracion(req: NextRequest) {
           nombreImpresoraPos: nombreImpresoraPos ? String(nombreImpresoraPos).trim() : "",
           abrirCajonAutoEfectivo: abrirCajonAutoEfectivo !== undefined ? Boolean(abrirCajonAutoEfectivo) : true,
           pinCajon: pinCajon !== undefined ? Number(pinCajon) : 0,
+          ultimoAbonoAlquiler:
+            ultimoAbonoAlquiler !== undefined
+              ? Math.max(0, Number(ultimoAbonoAlquiler) || 20000)
+              : 20000,
+          ultimoAbonoApartado:
+            ultimoAbonoApartado !== undefined
+              ? Math.max(0, Number(ultimoAbonoApartado) || 20000)
+              : 20000,
         },
       });
     }

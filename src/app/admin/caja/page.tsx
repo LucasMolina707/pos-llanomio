@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import HistorialArqueosView from "@/components/caja/HistorialArqueosView";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
+import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 
 interface CajeroParticipante {
   id: string;
@@ -436,7 +437,7 @@ export default function ControlCajaAdminPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-nowrap">
           {hayTurnoAbierto && (
             <button
               type="button"
@@ -444,36 +445,33 @@ export default function ControlCajaAdminPage() {
                 setNombreNuevaCajaDividida(`Gabinete #${turnosAbiertos.length + 1}`);
                 setMostrarModalNuevaCajaDividida(true);
               }}
-              className="flex items-center gap-2 px-3.5 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 shadow-2xs transition cursor-pointer"
+              className="flex items-center gap-2 px-3.5 py-2 h-9 rounded-xl text-xs sm:text-sm font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 shadow-2xs transition cursor-pointer whitespace-nowrap shrink-0"
               title="Habilitar un gabinete de dinero independiente para otro cajero"
             >
               <Plus className="w-4 h-4 text-indigo-600" />
-              <span>+ Abrir Otra Caja Dividida</span>
+              <span>Abrir Caja Dividida</span>
             </button>
           )}
 
           <BotonAbrirCajon variante="barra" mostrarAtajo={true} />
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={RefreshCw}
+            label="Actualizar arqueo y sincronizar saldos"
             onClick={consultarEstadoCaja}
             disabled={cargando}
-            className="flex items-center gap-2 px-3.5 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300/80 shadow-2xs transition cursor-pointer"
-          >
-            <RefreshCw className={`w-4 h-4 text-blue-600 ${cargando ? "animate-spin" : ""}`} />
-            <span>Actualizar Arqueo</span>
-          </button>
+            iconClassName={cargando ? "animate-spin text-blue-600" : "text-blue-600"}
+            size="md"
+            variant="neutral"
+          />
 
-          <Link
+          <IconButtonTooltip
+            icon={Receipt}
+            label="Terminal POS (Abrir en nueva ventana)"
             href="/caja/pos"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
-            title="Abrir Terminal de Facturación POS en nueva ventana"
-          >
-            <Receipt className="w-4 h-4" />
-            <span>Terminal POS</span>
-          </Link>
+            size="md"
+            variant="primary"
+          />
         </div>
       </header>
 

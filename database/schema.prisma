@@ -150,6 +150,8 @@ model ConfiguracionEmpresa {
   formatoImpresionDefault FormatoImpresion @default(MEDIA_CARTA)
   rutaCarpetaRespaldo     String           @default("C:\\POS_BACKUPS")
   tarifaMoraDiariaDefault Float            @default(3000)
+  ultimoAbonoAlquiler     Float            @default(20000)
+  ultimoAbonoApartado     Float            @default(20000)
 
   // Hardware POS - Impresora Térmica y Cajón Monedero RJ11/RJ12
   nombreImpresoraPos      String?          @default("")
@@ -418,4 +420,50 @@ model SecuenciaFactura {
   updatedAt   DateTime @updatedAt
 
   @@map("secuencias_factura")
+}
+
+model CategoriaGasto {
+  id               String   @id @default(cuid())
+  nombre           String   @unique
+  requiereEmpleado Boolean  @default(false)
+  esPredeterminada Boolean  @default(false)
+  activa           Boolean  @default(true)
+  fechaCreacion    DateTime @default(now())
+  gastos           Gasto[]
+
+  @@map("categorias_gasto")
+}
+
+model EmpleadoGasto {
+  id             String   @id @default(cuid())
+  nombreCompleto String   @unique
+  cargoOperacion String?
+  telefono       String?
+  activo         Boolean  @default(true)
+  fechaCreacion  DateTime @default(now())
+
+  @@map("empleados_gasto")
+}
+
+model Gasto {
+  id                  String         @id @default(cuid())
+  fecha               DateTime       @default(now())
+  categoriaId         String
+  categoria           CategoriaGasto @relation(fields: [categoriaId], references: [id])
+  categoriaNombre     String
+  descripcion         String
+  valor               Float
+  esNomina            Boolean        @default(false)
+  nombreEmpleado      String?
+  modalidadPagoNomina String?
+  observacionNomina   String?
+  registradoPorId     String?
+  registradoPorNombre String?
+  fechaCreacion       DateTime       @default(now())
+
+  @@index([fecha])
+  @@index([categoriaId])
+  @@index([esNomina])
+  @@index([nombreEmpleado])
+  @@map("gastos")
 }

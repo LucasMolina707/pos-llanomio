@@ -42,6 +42,8 @@ export async function GET() {
           nombreImpresoraPos: "",
           abrirCajonAutoEfectivo: true,
           pinCajon: 0,
+          ultimoAbonoAlquiler: 20000,
+          ultimoAbonoApartado: 20000,
         },
       });
     }

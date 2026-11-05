@@ -35,9 +35,13 @@ import {
   Zap,
 } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
+import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 
 interface MetricasData {
   ingresosNetos: number;
+  totalGastos?: number;
+  utilidadNeta?: number;
+  balanceNeto?: number;
   cuentasPorCobrar: number;
   morasRecaudadas: number;
   totalPrendasAlquiladas: number;
@@ -480,20 +484,17 @@ export default function DashboardGerencialPage() {
           </div>
 
           {/* Botón de Refresco Manual */}
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={RefreshCw}
+            label="Forzar actualización completa de métricas ahora"
             onClick={() => cargarMetricas(true)}
             disabled={cargandoInicial || actualizandoSilencioso}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition"
-            title="Forzar actualización completa ahora"
-          >
-            <RefreshCw
-              className={`w-3.5 h-3.5 ${
-                cargandoInicial || actualizandoSilencioso ? "animate-spin text-blue-600" : "text-slate-500"
-              }`}
-            />
-            <span>Actualizar</span>
-          </button>
+            iconClassName={
+              cargandoInicial || actualizandoSilencioso ? "animate-spin text-blue-600" : "text-slate-600"
+            }
+            size="md"
+            variant="neutral"
+          />
         </div>
       </div>
 
@@ -683,8 +684,8 @@ export default function DashboardGerencialPage() {
         </div>
       </div>
 
-      {/* 3. Cuadrícula de Métricas Principales (5 Columnas en Pantallas Grandes) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+      {/* 3. Cuadrícula de Métricas Principales */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4">
         {/* Tarjeta 1: Ingresos Netos */}
         <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
           <div className="flex items-center justify-between">
@@ -785,6 +786,54 @@ export default function DashboardGerencialPage() {
             </div>
             <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
               Arreglos y confección sin stock
+            </p>
+          </div>
+        </div>
+
+        {/* Tarjeta 6: Total Gastos del Periodo */}
+        <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Total Gastos
+            </span>
+            <div className="h-10 w-10 rounded-full bg-rose-50 border border-rose-100/80 flex items-center justify-center text-rose-600">
+              <Receipt className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-black tracking-tight text-rose-600 transition-colors">
+              {formatearDinero(metricas.totalGastos ?? 0)}
+            </div>
+            <Link
+              href="/admin/gastos"
+              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 mt-1 flex items-center justify-between hover:underline"
+            >
+              <span>Ver hoja de gastos</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Tarjeta 7: Balance / Utilidad Neta */}
+        <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Utilidad Neta
+            </span>
+            <div className="h-10 w-10 rounded-full bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div
+              className={`text-2xl font-black tracking-tight transition-colors ${
+                (metricas.utilidadNeta ?? metricas.ingresosNetos) >= 0 ? "text-emerald-700" : "text-rose-600"
+              }`}
+            >
+              {formatearDinero(metricas.utilidadNeta ?? metricas.ingresosNetos)}
+            </div>
+            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
+              Ingresos - Gastos
             </p>
           </div>
         </div>

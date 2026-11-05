@@ -3742,3 +3742,71 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
 - **Verificación Estática TypeScript:** `npx tsc --noEmit` completado con 0 errores (código 0).
 - **Compilación de Producción:** `npm run build` ejecutado exitosamente.
 - **Servicio PM2:** Procesos en línea (`online`) y operativos en `http://localhost:3000`.
+
+
+---
+
+## SECCIÓN 57: ABONO / DEPÓSITO PREDETERMINADO DINÁMICO BASADO EN EL ÚLTIMO VALOR GENERADO (EDITABLE)
+
+### 1. Objetivos Técnicos y Reglas de Negocio Implementadas
+1. **Persistencia Dinámica del Último Valor en Base de Datos SQLite (`ConfiguracionEmpresa`):**
+   - Se incorporaron los campos `ultimoAbonoAlquiler Float @default(20000)` y `ultimoAbonoApartado Float @default(20000)` en el modelo `ConfiguracionEmpresa` tanto en `prisma/schema.prisma` como en `database/schema.prisma`.
+   - Al formalizar un nuevo alquiler en `/caja/alquileres` o un apartado en `/caja/apartados`, el valor de depósito/abono ingresado por el cajero se persiste automáticamente en la base de datos a través de `src/app/api/facturas/route.ts` y en `localStorage` del navegador cliente como respaldo ultra rápido de contingencia.
+2. **Precarga Reactiva y Editable en Mostrador:**
+   - Tanto en `/caja/alquileres` como en `/caja/apartados`, al iniciar una operación el campo de Abono / Depósito se inicializa con el valor guardado en base de datos o `localStorage`.
+   - El cajero mantiene 100% la libertad de editar manualmente el valor para cualquier operación que requiera un monto diferente.
+
+### 2. Archivos Modificados
+- `prisma/schema.prisma` & `database/schema.prisma`: Campos `ultimoAbonoAlquiler` y `ultimoAbonoApartado`.
+- `src/app/api/facturas/route.ts`: Actualización atómica en base de datos del último abono/depósito al registrar operaciones.
+- `src/app/caja/alquileres/page.tsx` & `src/app/caja/apartados/page.tsx`: Carga y guardado reactivo.
+- `scripts/test-auditoria-abonos-dinamicos.cjs`: Suite de pruebas QA que certifica la persistencia y recuperación.
+
+---
+
+## SECCIÓN 58: MÓDULO DE GASTOS OPERATIVOS Y NÓMINA (`/admin/gastos`) CON BALANCES MULTI-PERIODO Y AISLAMIENTO DE CAJA
+
+### 1. Reglas de Negocio y Arquitectura Financiera
+1. **Regla de Oro Contable (Aislamiento Total de la Caja Diaria):**
+   - Los gastos y pagos de nómina registrados en `/admin/gastos` **NO** descuentan ni modifican los fondos del turno activo de caja (`TurnoCaja` / `CierreCaja`), protegiendo el arqueo del cajero en mostrador.
+   - Representan erogaciones de tesorería y balances gerenciales para evaluar la **Utilidad Operativa Real**:
+     $$\text{Balance Neto} = \text{Ingresos Totales (Ventas + Alquileres + Moras)} - \text{Gastos Operativos y Nómina}$$
+2. **Modelado en Base de Datos SQLite:**
+   - Nuevos modelos: `Gasto` (con campos de fecha, valor, descripción, modalidad de pago de nómina, empleado y categoría), `CategoriaGasto` (categorías persistentes con bandera `requiereEmpleado`) y `EmpleadoGasto` (directorio de personal).
+3. **Interfaz de Usuario Tipo Hoja de Cálculo Excel:**
+   - Vista en `/admin/gastos` con filtros instantáneos por Día, Mes, Año o Rango de Fechas.
+   - Pestañas conmutables: **Hoja de Gastos** y **Balance Mes a Mes** (comparativa tabular de Ingresos vs Gastos vs Utilidad Neta).
+   - Fila superior de inserción rápida tipo Excel con validaciones en caliente.
+   - Exportación profesional a archivo Excel nativo (`.xlsx`) mediante `exceljs` en `/api/gastos/excel`.
+
+### 2. Archivos Desarrollados
+- `src/app/admin/gastos/page.tsx`: Vista administrativa completa.
+- `src/app/api/gastos/route.ts`, `/api/gastos/[id]/route.ts`, `/api/gastos/categorias/route.ts`, `/api/gastos/empleados/route.ts`, `/api/gastos/excel/route.ts`.
+- `src/app/api/dashboard/metrics/route.ts` & `src/app/admin/dashboard/page.tsx`: Integración de gastos en las métricas gerenciales.
+- `scripts/test-auditoria-gastos-y-nomina.cjs`: Suite de certificación QA.
+
+---
+
+## SECCIÓN 59: HOMOLOGACIÓN GEOMÉTRICA, TIPOGRÁFICA Y DE ALINEACIÓN VISUAL
+
+### 1. Directrices de Homologación Ejecutadas
+1. **Liberación del Logotipo Principal de la Empresa:**
+   - En `src/components/brand/LogoEmpresa.tsx`, se erradicó por completo el contenedor tipo "caja" con fondo gris/blanco, borde y sombras que comprimía la imagen.
+   - El logo ahora se despliega de forma libre, nítida y transparente con dimensiones óptimas escalables (`sm: h-9`, `md: h-11`, `lg: h-16`, `xl: h-24`).
+   - El subtítulo por defecto fue acortado a `"POS & Facturación"` en una sola línea para evitar cortes tipográficos en la barra lateral (`Sidebar.tsx`).
+2. **Igualdad Visual Estricta entre Teléfono Primario y Secundario:**
+   - En `ModalCrearClienteRapido.tsx`, se nivelaron las etiquetas de ambos teléfonos a 1 sola línea de altura fija (`h-5 text-xs font-bold uppercase tracking-wide text-slate-700 truncate`), inputs con misma altura (`h-10 text-sm font-mono font-semibold`) y alineación en grilla de 2 columnas `grid-cols-2 gap-3 items-start`.
+   - En `admin/clientes/page.tsx` y `admin/clientes/[id]/page.tsx`, ambos números se unificaron al mismo tamaño tipográfico e insignias de contacto `1°` y `2°` del mismo tamaño (`w-6 h-5 text-[10px] font-bold rounded-md shrink-0`).
+3. **Eliminación de Signos `+` Duplicados y Estandarización de Filas:**
+   - En `/admin/caja`: se cambió `+ + Abrir Otra Caja Dividida` por `"Abrir Caja Dividida"`.
+   - En `/admin/usuarios`: se cambió `+ + Crear Nuevo Usuario` por `"Crear Nuevo Usuario"`.
+   - En `/admin/clientes`: se unificó a `"Nuevo Cliente"`.
+   - En `/admin/gastos`: se eliminó el botón redundante `+ Crear Nueva Categoría Persistente` y los micro-textos `[+] Nueva` y `[+] Nuevo Empleado`, homologando todas las etiquetas a `h-5` y todos los controles a `h-10 items-end`.
+4. **Estandarización de Botones Cuadrados con Tooltip Flotante (`<IconButtonTooltip />`):**
+   - En `src/app/admin/monitoreo/page.tsx`: columna ACCIONES alineada a la derecha en 1 sola fila horizontal (`flex-nowrap gap-1.5 h-9 items-center justify-end`), botón verde `"Recibir"` (`h-9 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs inline-flex items-center gap-1.5`) con icono `<PackageCheck />` y tooltip descriptivo, botón de impresión PDF cuadrado (`w-9 h-9`) con tooltip y botón WhatsApp cuadrado (`w-9 h-9`).
+   - En cabeceras de `/admin/usuarios`, `/admin/caja`, `/admin/dashboard`, `/admin/inventario`, `/admin/clientes` y `Navbar.tsx`: botones secundarios (`Métricas`, `Configuración`, `Terminal POS`, `Actualizar`, `Red Local`, `Cerrar Sesión`) convertidos a botones cuadrados uniformes (`w-9 h-9 rounded-xl`) con `<IconButtonTooltip />`, manteniendo todas las barras de acciones en 1 sola fila sin desbordes.
+
+### 2. Resultados de Certificación QA y Despliegue
+- **Validación Estática TypeScript:** `npx tsc --noEmit` completado con 0 errores (código 0).
+- **Compilación de Producción:** `npm run build` completado exitosamente (23/23 rutas estáticas y dinámicas optimizadas).
+- **Servicio PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` en línea (`online`) y operativos en `http://localhost:3000` con respuesta HTTP 200.

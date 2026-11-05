@@ -240,6 +240,16 @@ export default function TerminalAlquileresPage() {
   const [montoDepositoPersonalizado, setMontoDepositoPersonalizado] = useState<string>("0");
   const [tarifaMoraDiaria, setTarifaMoraDiaria] = useState<number>(3000);
   const [abonoEfectivoConfirmado, setAbonoEfectivoConfirmado] = useState<boolean>(true);
+  const [ultimoAbonoSugeridoAlquiler, setUltimoAbonoSugeridoAlquiler] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const guardado = localStorage.getItem("pos_ultimo_abono_alquiler");
+      if (guardado) {
+        const val = parseFloat(guardado);
+        if (!isNaN(val) && val > 0) return val;
+      }
+    }
+    return 20000;
+  });
 
   // Bloque 2: Valor del Canon de Alquiler y Saldo
   const [modalidadPago, setModalidadPago] = useState<ModalidadPagoAlquiler>("COMPLETO");
@@ -534,7 +544,15 @@ export default function TerminalAlquileresPage() {
     try {
       const res = await safeFetchJson<any>("/api/empresa");
       if (res.ok && res.data) {
-        setEmpresaConfig(res.data.empresa || res.data.configuracion || null);
+        const cfg = res.data.empresa || res.data.configuracion || null;
+        setEmpresaConfig(cfg);
+        if (cfg?.ultimoAbonoAlquiler && Number(cfg.ultimoAbonoAlquiler) > 0) {
+          const valDb = Number(cfg.ultimoAbonoAlquiler);
+          setUltimoAbonoSugeridoAlquiler(valDb);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("pos_ultimo_abono_alquiler", String(valDb));
+          }
+        }
       }
     } catch (err) {
       console.warn("No se pudo cargar la configuración de empresa:", err);
@@ -729,9 +747,11 @@ export default function TerminalAlquileresPage() {
       setItemsCarrito((prev) => [...prev, nuevoItem]);
     }
 
-    // Al agregar el primer traje, asignar el depósito configurado del traje o $40.000 sugerido
+    // Al agregar el primer traje, asignar el depósito configurado del traje o el último abono sugerido dinámico
     if (montoDeposito === 0 && !apartadoOrigen) {
-      const depSugerido = (prenda as any).depositoGarantia ? Number((prenda as any).depositoGarantia) : 40000;
+      const depSugerido = (prenda as any).depositoGarantia
+        ? Number((prenda as any).depositoGarantia)
+        : ultimoAbonoSugeridoAlquiler;
       setMontoDeposito(depSugerido);
       setMontoDepositoPersonalizado(String(depSugerido));
     }
@@ -946,6 +966,14 @@ export default function TerminalAlquileresPage() {
       // Sincronizar en vivo el cajón
       cajon.actualizarCajon(true);
       cajon.notificarCajaActualizada();
+
+      // Persistir memoria dinámica del último abono de alquiler
+      if (montoDeposito > 0) {
+        setUltimoAbonoSugeridoAlquiler(montoDeposito);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("pos_ultimo_abono_alquiler", String(montoDeposito));
+        }
+      }
 
       // Disparar apertura automática de cajón si hay recepción de efectivo (abono o depósito)
       if (montoDeposito > 0 || valorAbonoAlquilerHoy > 0) {
@@ -2342,6 +2370,12 @@ export default function TerminalAlquileresPage() {
                                       onClick={() => {
                                         setMontoDeposito(sug);
                                         setMontoDepositoPersonalizado(String(sug));
+                                        if (sug > 0) {
+                                          setUltimoAbonoSugeridoAlquiler(sug);
+                                          if (typeof window !== "undefined") {
+                                            localStorage.setItem("pos_ultimo_abono_alquiler", String(sug));
+                                          }
+                                        }
                                       }}
                                       className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                                         montoDeposito === sug
@@ -2356,16 +2390,28 @@ export default function TerminalAlquileresPage() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                   <div>
-                                    <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
-                                      Monto Acordado ($)
-                                    </label>
+                                    <div className="flex flex-col mb-1">
+                                      <label className="text-[11px] font-bold text-slate-700">
+                                        Monto Acordado ($)
+                                      </label>
+                                      <span className="text-[10px] font-semibold text-amber-800">
+                                        Sugerido según último abono (${ultimoAbonoSugeridoAlquiler.toLocaleString("es-CO")}) — Editable
+                                      </span>
+                                    </div>
                                     <input
                                       type="number"
                                       value={montoDepositoPersonalizado}
                                       onChange={(e) => {
                                         const valStr = e.target.value;
                                         setMontoDepositoPersonalizado(valStr);
-                                        setMontoDeposito(parseFloat(valStr) || 0);
+                                        const valNum = parseFloat(valStr) || 0;
+                                        setMontoDeposito(valNum);
+                                        if (valNum > 0) {
+                                          setUltimoAbonoSugeridoAlquiler(valNum);
+                                          if (typeof window !== "undefined") {
+                                            localStorage.setItem("pos_ultimo_abono_alquiler", String(valNum));
+                                          }
+                                        }
                                       }}
                                       className="w-full px-2.5 py-1.5 text-xs font-black bg-white border border-amber-400 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
                                     />

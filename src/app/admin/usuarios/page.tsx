@@ -36,6 +36,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
+import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 
 export interface PermisosUsuario {
   pos_facturar: boolean;
@@ -491,43 +492,41 @@ export default function GestionUsuariosPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
-          <Link
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-nowrap">
+          <IconButtonTooltip
+            icon={Settings}
+            label="Ir a Configuración General"
             href="/admin/configuracion"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 min-h-[42px] rounded-xl border border-slate-300/80 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold shadow-2xs transition"
-            title="Ir a Configuración General"
-          >
-            <Settings className="h-4 w-4 text-purple-600" />
-            <span className="hidden sm:inline">Configuración</span>
-          </Link>
+            size="md"
+            variant="neutral"
+          />
 
-          <Link
+          <IconButtonTooltip
+            icon={ShoppingBag}
+            label="Ir a Terminal POS"
             href="/caja/pos"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 min-h-[42px] rounded-xl border border-slate-300/80 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold shadow-2xs transition"
-            title="Ir a Terminal POS"
-          >
-            <ShoppingBag className="h-4 w-4 text-blue-600" />
-            <span className="hidden sm:inline">Terminal POS</span>
-          </Link>
+            size="md"
+            variant="neutral"
+          />
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={RefreshCw}
+            label="Actualizar listado de usuarios"
             onClick={consultarUsuarios}
             disabled={cargando}
-            className="flex items-center gap-2 px-3.5 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 shadow-2xs transition cursor-pointer"
-          >
-            <RefreshCw className={`w-4 h-4 text-blue-600 ${cargando ? "animate-spin" : ""}`} />
-            <span>Actualizar</span>
-          </button>
+            iconClassName={cargando ? "animate-spin text-blue-600" : "text-blue-600"}
+            size="md"
+            variant="neutral"
+          />
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={KeyRound}
+            label="Configurar protocolo de 3 factores (seguridad)"
             onClick={() => setMostrarCardSeguridad(!mostrarCardSeguridad)}
-            className="flex items-center gap-2 px-3.5 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 shadow-2xs transition cursor-pointer"
-          >
-            <KeyRound className="w-4 h-4 text-amber-700" />
-            <span>Configurar 3 Factores</span>
-          </button>
+            active={mostrarCardSeguridad}
+            size="md"
+            variant={mostrarCardSeguridad ? "amber" : "neutral"}
+          />
 
           <button
             type="button"
@@ -546,10 +545,10 @@ export default function GestionUsuariosPage() {
               });
               setMostrarModalCrear(true);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 h-9 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20 cursor-pointer whitespace-nowrap shrink-0"
           >
             <UserPlus className="w-4 h-4" />
-            <span>+ Crear Nuevo Usuario</span>
+            <span>Crear Nuevo Usuario</span>
           </button>
         </div>
       </header>

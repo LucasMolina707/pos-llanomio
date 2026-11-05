@@ -220,6 +220,29 @@ export default function ApartadosPage() {
   const [metodoPagoAbono, setMetodoPagoAbono] = useState<string>("EFECTIVO");
   const [efectivoRecibidoInput, setEfectivoRecibidoInput] = useState<string>("");
 
+  // Abono y Depósito Predeterminado Dinámico basado en el Último Valor Generado (Editable)
+  const [ultimoAbonoSugeridoApartado, setUltimoAbonoSugeridoApartado] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const guardado = localStorage.getItem("pos_ultimo_abono_apartado");
+      if (guardado) {
+        const val = parseFloat(guardado);
+        if (!isNaN(val) && val > 0) return val;
+      }
+    }
+    return 20000;
+  });
+
+  const [ultimoDepositoSugeridoApartado, setUltimoDepositoSugeridoApartado] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const guardado = localStorage.getItem("pos_ultimo_deposito_apartado");
+      if (guardado) {
+        const val = parseFloat(guardado);
+        if (!isNaN(val) && val > 0) return val;
+      }
+    }
+    return 20000;
+  });
+
   // Historial de Apartados
   const [apartadosHistorial, setApartadosHistorial] = useState<FacturaApartadoResumen[]>([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
@@ -281,7 +304,15 @@ export default function ApartadosPage() {
     try {
       const res = await safeFetchJson<{ ok: boolean; configuracion: any }>("/api/empresa");
       if (res.ok && res.data?.configuracion) {
-        setConfiguracionEmpresa(res.data.configuracion);
+        const cfg = res.data.configuracion;
+        setConfiguracionEmpresa(cfg);
+        if (cfg.ultimoAbonoApartado && Number(cfg.ultimoAbonoApartado) > 0) {
+          const valDb = Number(cfg.ultimoAbonoApartado);
+          setUltimoAbonoSugeridoApartado(valDb);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("pos_ultimo_abono_apartado", String(valDb));
+          }
+        }
       }
     } catch (e) {
       console.error("Error al cargar configuración:", e);
@@ -355,6 +386,11 @@ export default function ApartadosPage() {
       subtotal: precio,
     };
     setItemsApartado((prev) => [...prev, nuevoItem]);
+
+    // Precargar abono inicial dinámico sugerido si aún está en 0
+    if (itemsApartado.length === 0 && (abonoInicialInput === "0" || abonoInicialInput === "")) {
+      setAbonoInicialInput(String(ultimoAbonoSugeridoApartado));
+    }
   };
 
   const agregarItemLibre = () => {
@@ -382,10 +418,22 @@ export default function ApartadosPage() {
     setDescripcionLibreInput("");
     setPrecioLibreInput("");
     setCantidadLibreInput("1");
+
+    // Precargar abono inicial dinámico sugerido si aún está en 0
+    if (itemsApartado.length === 0 && (abonoInicialInput === "0" || abonoInicialInput === "")) {
+      setAbonoInicialInput(String(ultimoAbonoSugeridoApartado));
+    }
   };
 
   const eliminarItem = (idTemp: string) => {
-    setItemsApartado((prev) => prev.filter((i) => i.idTemporal !== idTemp));
+    setItemsApartado((prev) => {
+      const actualizados = prev.filter((i) => i.idTemporal !== idTemp);
+      if (actualizados.length === 0) {
+        setAbonoInicialInput("0");
+        setMontoDepositoInput("0");
+      }
+      return actualizados;
+    });
   };
 
   const actualizarPrecioUnitario = (idTemp: string, nuevoPrecio: number) => {
@@ -511,6 +559,20 @@ export default function ApartadosPage() {
         }
       }
 
+      // Persistir memoria dinámica del último abono y depósito de apartado
+      if (abonoNumerico > 0) {
+        setUltimoAbonoSugeridoApartado(abonoNumerico);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("pos_ultimo_abono_apartado", String(abonoNumerico));
+        }
+      }
+      if (depositoNumerico > 0) {
+        setUltimoDepositoSugeridoApartado(depositoNumerico);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("pos_ultimo_deposito_apartado", String(depositoNumerico));
+        }
+      }
+
       // Recargar historial en segundo plano
       cargarHistorial();
 
@@ -585,6 +647,13 @@ export default function ApartadosPage() {
       // Sincronizar en vivo el saldo de cajón si se recibió dinero hoy
       cajon.actualizarCajon(true);
       cajon.notificarCajaActualizada();
+
+      if (monto > 0) {
+        setUltimoAbonoSugeridoApartado(monto);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("pos_ultimo_abono_apartado", String(monto));
+        }
+      }
 
       // Disparar apertura automática de cajón si el abono fue en efectivo
       if (metodoNuevoAbono === "EFECTIVO" && monto > 0) {
@@ -1152,13 +1221,28 @@ export default function ApartadosPage() {
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
-                          Depósito en Garantía (Opcional):
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-bold text-slate-700">
+                            Depósito en Garantía (Opcional):
+                          </label>
+                          <span className="text-[10px] font-semibold text-indigo-700">
+                            Sugerido (${ultimoDepositoSugeridoApartado.toLocaleString("es-CO")}) — Editable
+                          </span>
+                        </div>
                         <input
                           type="number"
                           value={montoDepositoInput}
-                          onChange={(e) => setMontoDepositoInput(e.target.value)}
+                          onChange={(e) => {
+                            const valStr = e.target.value;
+                            setMontoDepositoInput(valStr);
+                            const valNum = parseFloat(valStr) || 0;
+                            if (valNum > 0) {
+                              setUltimoDepositoSugeridoApartado(valNum);
+                              if (typeof window !== "undefined") {
+                                localStorage.setItem("pos_ultimo_deposito_apartado", String(valNum));
+                              }
+                            }
+                          }}
                           className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-sm bg-white outline-none focus:border-indigo-500"
                           placeholder="0"
                         />
@@ -1174,13 +1258,28 @@ export default function ApartadosPage() {
                       </div>
 
                       <div>
-                        <label className="text-xs font-bold text-slate-700 block mb-1">
-                          Abono Inicial (Hoy):
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-bold text-slate-700">
+                            Abono Inicial (Hoy):
+                          </label>
+                          <span className="text-[10px] font-semibold text-emerald-700">
+                            Sugerido según último abono (${ultimoAbonoSugeridoApartado.toLocaleString("es-CO")}) — Editable
+                          </span>
+                        </div>
                         <input
                           type="number"
                           value={abonoInicialInput}
-                          onChange={(e) => setAbonoInicialInput(e.target.value)}
+                          onChange={(e) => {
+                            const valStr = e.target.value;
+                            setAbonoInicialInput(valStr);
+                            const valNum = parseFloat(valStr) || 0;
+                            if (valNum > 0) {
+                              setUltimoAbonoSugeridoApartado(valNum);
+                              if (typeof window !== "undefined") {
+                                localStorage.setItem("pos_ultimo_abono_apartado", String(valNum));
+                              }
+                            }
+                          }}
                           className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-base bg-white text-emerald-700 outline-none focus:border-emerald-500"
                           placeholder="0"
                         />

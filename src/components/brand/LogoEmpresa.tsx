@@ -34,32 +34,32 @@ export interface LogoEmpresaProps {
 
 const SIZE_MAP = {
   sm: {
-    container: "w-10 h-10",
-    iconSize: 20,
+    container: "h-9 w-auto max-w-[44px]",
+    imgSize: "h-9 w-auto max-w-[44px]",
+    iconSize: 22,
     titleSize: "text-sm font-bold",
     subSize: "text-[11px]",
-    badgePadding: "p-0.5",
   },
   md: {
-    container: "w-12 h-12",
-    iconSize: 24,
+    container: "h-11 w-auto max-w-[52px]",
+    imgSize: "h-11 w-auto max-w-[52px]",
+    iconSize: 26,
     titleSize: "text-base font-bold",
     subSize: "text-xs",
-    badgePadding: "p-0.5",
   },
   lg: {
-    container: "w-20 h-20",
-    iconSize: 36,
+    container: "h-16 w-auto max-w-[76px]",
+    imgSize: "h-16 w-auto max-w-[76px]",
+    iconSize: 38,
     titleSize: "text-lg font-bold",
     subSize: "text-xs",
-    badgePadding: "p-1",
   },
   xl: {
-    container: "w-28 h-28",
-    iconSize: 52,
+    container: "h-24 w-auto max-w-[110px]",
+    imgSize: "h-24 w-auto max-w-[110px]",
+    iconSize: 56,
     titleSize: "text-2xl font-extrabold",
     subSize: "text-sm",
-    badgePadding: "p-1",
   },
 };
 
@@ -155,24 +155,24 @@ export default function LogoEmpresa({
 
   const config = SIZE_MAP[size] || SIZE_MAP.md;
   const nombreFinal = customNombre || empresa?.nombreComercial || empresa?.nombreTienda || "Mi Empresa";
-  const subtituloFinal = customSubtitle || empresa?.eslogan || "Punto de Venta y Alquileres";
+  const subtituloFinal = customSubtitle || "POS & Facturación";
   const hasLogo = Boolean(empresa?.logoUrl && !imgError);
 
   const logoNode = (
     <div
-      className={`relative ${config.container} shrink-0 rounded-2xl bg-gradient-to-br from-white to-slate-100 border border-slate-200/90 shadow-sm flex items-center justify-center overflow-hidden transition-all duration-200 ${config.badgePadding} ${imageClassName}`}
+      className={`relative ${config.container} shrink-0 bg-transparent border-0 shadow-none p-0 flex items-center justify-center transition-all duration-200 ${imageClassName}`}
     >
       {hasLogo && empresa?.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={empresa.logoUrl}
           alt={nombreFinal}
-          className="w-full h-full object-contain filter drop-shadow-sm select-none"
+          className={`${config.imgSize} object-contain select-none`}
           onError={() => setImgError(true)}
         />
       ) : (
-        <div className="w-full h-full flex items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 via-blue-500 to-indigo-600 text-white shadow-inner">
-          <Store size={config.iconSize} className="stroke-[2.2] drop-shadow" />
+        <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 via-blue-500 to-indigo-600 text-white shadow-xs">
+          <Store size={config.iconSize} className="stroke-[2.2]" />
         </div>
       )}
     </div>

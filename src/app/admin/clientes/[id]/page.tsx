@@ -315,12 +315,22 @@ export default function PerfilClientePage() {
           <div className="flex items-center gap-2 text-slate-700">
             <Phone className="w-4 h-4 text-blue-600 shrink-0" />
             <span className="font-semibold">Tel. Primario:</span>
-            <span className="font-mono font-bold">{cliente.telefono || "No registrado"}</span>
+            <span className="font-mono font-semibold text-slate-800">{cliente.telefono || "No registrado"}</span>
+            {cliente.telefono && (
+              <span className="inline-flex items-center justify-center w-6 h-5 text-[10px] font-bold rounded-md shrink-0 bg-blue-50 text-blue-700 border border-blue-200">
+                1°
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 text-slate-700">
             <Phone className="w-4 h-4 text-slate-500 shrink-0" />
             <span className="font-semibold">Tel. Secundario:</span>
-            <span className="font-mono">{cliente.telefonoSecundario || "No registrado"}</span>
+            <span className="font-mono font-semibold text-slate-800">{cliente.telefonoSecundario || "No registrado"}</span>
+            {cliente.telefonoSecundario && (
+              <span className="inline-flex items-center justify-center w-6 h-5 text-[10px] font-bold rounded-md shrink-0 bg-slate-100 text-slate-700 border border-slate-300">
+                2°
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 text-slate-700">
             <MapPin className="w-4 h-4 text-blue-600 shrink-0" />

@@ -12,6 +12,7 @@ import {
   Radio,
   Settings,
   Vault,
+  Receipt,
   ArrowRight,
   QrCode,
 } from "lucide-react";
@@ -130,6 +131,16 @@ export default function HomePage() {
       etiqueta: "Inteligencia Gerencial",
       colorBadge: "bg-indigo-50 text-indigo-700 border-indigo-200",
       href: "/admin/dashboard",
+      adminOnly: true,
+    },
+    {
+      titulo: "Gastos Operativos y Nómina",
+      descripcion: "Hoja de cálculo consolidada de compras a proveedores, nómina de empleados, arriendo y balance neto de tesorería.",
+      icono: Receipt,
+      colorIcono: "bg-emerald-50 text-emerald-600 border-emerald-200",
+      etiqueta: "Tesorería y Nómina",
+      colorBadge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      href: "/admin/gastos",
       adminOnly: true,
     },
     {

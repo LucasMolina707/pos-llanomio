@@ -639,6 +639,17 @@ export async function POST(req: NextRequest, { params }: Params) {
         },
       });
 
+      // Persistencia dinámica del último abono en apartados
+      try {
+        if (facturaExistente.tipoOperacion === TipoOperacion.SEPARE && montoNumerico > 0) {
+          await tx.configuracionEmpresa.updateMany({
+            data: { ultimoAbonoApartado: montoNumerico },
+          });
+        }
+      } catch (errCfg) {
+        console.warn("[EMPRESA] No se pudo actualizar ultimoAbonoApartado:", errCfg);
+      }
+
       return { nuevoAbono, facturaActualizada };
     });
 
@@ -987,6 +998,26 @@ export async function PUT(req: NextRequest, { params }: Params) {
             } catch {}
           }
         }
+      }
+
+      // Persistencia dinámica del último abono/depósito en ConfiguracionEmpresa
+      try {
+        if (tipoOpFinal === TipoOperacion.ALQUILER || tieneAlquiler) {
+          if (montoDeposito > 0) {
+            await tx.configuracionEmpresa.updateMany({
+              data: { ultimoAbonoAlquiler: montoDeposito },
+            });
+          }
+        } else if (tipoOpFinal === TipoOperacion.SEPARE) {
+          const abonoApt = totalAbonado > 0 ? totalAbonado : (montoDeposito > 0 ? montoDeposito : 0);
+          if (abonoApt > 0) {
+            await tx.configuracionEmpresa.updateMany({
+              data: { ultimoAbonoApartado: abonoApt },
+            });
+          }
+        }
+      } catch (errCfg) {
+        console.warn("[EMPRESA] No se pudo actualizar ultimoAbono dinámico:", errCfg);
       }
 
       return fUpd;

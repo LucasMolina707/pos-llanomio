@@ -673,6 +673,26 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Persistencia dinámica del último abono/depósito en ConfiguracionEmpresa
+      try {
+        if (tipoOpFinal === TipoOperacion.ALQUILER || tieneAlquiler) {
+          if (montoDeposito > 0) {
+            await tx.configuracionEmpresa.updateMany({
+              data: { ultimoAbonoAlquiler: montoDeposito },
+            });
+          }
+        } else if (tipoOpFinal === TipoOperacion.SEPARE || esSepare) {
+          const abonoApt = totalAbonado > 0 ? totalAbonado : (montoDeposito > 0 ? montoDeposito : 0);
+          if (abonoApt > 0) {
+            await tx.configuracionEmpresa.updateMany({
+              data: { ultimoAbonoApartado: abonoApt },
+            });
+          }
+        }
+      } catch (errCfg) {
+        console.warn("[EMPRESA] No se pudo actualizar ultimoAbono dinámico:", errCfg);
+      }
+
       return factura;
     });
 

@@ -15,9 +15,11 @@ import {
   CalendarClock,
   Package,
   Settings,
+  Receipt,
   LayoutDashboard,
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
+import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 
 interface NavbarProps {
   onToggleSidebarMobile: () => void;
@@ -72,6 +74,9 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
     }
     if (pathname === "/admin/configuracion") {
       return { titulo: "Configuración y Datos de Factura", seccion: "Sistema", icono: Settings };
+    }
+    if (pathname === "/admin/gastos") {
+      return { titulo: "Gastos Operativos & Nómina", seccion: "Tesorería", icono: Receipt };
     }
     return { titulo: "Panel Principal", seccion: "Inicio", icono: LayoutDashboard };
   };
@@ -134,35 +139,29 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
       </div>
 
       {/* 2. Lado Derecho: Acceso Rápido POS, Métricas, Configuración, Estado LAN y Perfil */}
-      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 flex-nowrap">
         {/* Accesos Rápidos Exclusivos de Administrador */}
         {esAdmin && (
           <>
-            <Link
+            <IconButtonTooltip
+              icon={BarChart3}
+              label="Métricas y Rendimiento Financiero del Sistema"
               href="/admin/dashboard"
-              className={`inline-flex items-center gap-1.5 px-3 py-2 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold transition border ${
-                pathname === "/admin/dashboard"
-                  ? "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-2xs"
-                  : "bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border-slate-200"
-              }`}
-              title="Métricas y Rendimiento Financiero del Sistema"
-            >
-              <BarChart3 className="h-4 w-4 shrink-0 text-indigo-600" />
-              <span className="hidden lg:inline">Métricas</span>
-            </Link>
+              active={pathname === "/admin/dashboard"}
+              size="md"
+              variant="neutral"
+              iconClassName="text-indigo-600"
+            />
 
-            <Link
+            <IconButtonTooltip
+              icon={Settings}
+              label="Configuración de Página y Factura"
               href="/admin/configuracion"
-              className={`inline-flex items-center gap-1.5 px-3 py-2 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold transition border ${
-                pathname === "/admin/configuracion"
-                  ? "bg-purple-50 text-purple-700 border-purple-200 shadow-2xs"
-                  : "bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border-slate-200"
-              }`}
-              title="Configuración de Página y Factura"
-            >
-              <Settings className="h-4 w-4 shrink-0 text-purple-600" />
-              <span className="hidden lg:inline">Configuración</span>
-            </Link>
+              active={pathname === "/admin/configuracion"}
+              size="md"
+              variant="neutral"
+              iconClassName="text-purple-600"
+            />
           </>
         )}
 
@@ -170,7 +169,7 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
         {pathname !== "/caja/pos" && (
           <Link
             href="/caja/pos"
-            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 min-h-[42px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold transition shadow-xs"
+            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold transition shadow-xs whitespace-nowrap"
             title="Abrir Terminal de Facturación POS"
           >
             <ShoppingBag className="h-4 w-4 shrink-0" />
@@ -202,15 +201,15 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
               </div>
             </div>
 
-            <button
-              type="button"
+            <IconButtonTooltip
+              icon={LogOut}
+              label="Cerrar sesión"
               onClick={handleLogout}
               disabled={cerrandoSesion}
-              title="Cerrar sesión"
-              className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
+              size="md"
+              variant="ghost"
+              iconClassName="text-slate-500 hover:text-rose-600"
+            />
           </div>
         ) : null}
       </div>

@@ -15,6 +15,7 @@ import {
   UserCheck,
   Shield,
   LayoutDashboard,
+  Receipt,
   Pin,
   X,
 } from "lucide-react";
@@ -112,6 +113,12 @@ export default function Sidebar({
           icon: BarChart3,
           badge: "EN VIVO",
         },
+        {
+          name: "Gastos y Nómina",
+          href: "/admin/gastos",
+          icon: Receipt,
+          badge: "BALANCE",
+        },
       ],
     },
     {
@@ -184,6 +191,7 @@ export default function Sidebar({
   const rutasExclusivasAdmin = [
     "/admin/inventario",
     "/admin/dashboard",
+    "/admin/gastos",
     "/admin/usuarios",
     "/admin/configuracion",
   ];
@@ -244,7 +252,12 @@ export default function Sidebar({
               onClick={() => isMobile && onCloseMobile && onCloseMobile()}
               className="flex items-center gap-2 min-w-0 truncate hover:opacity-90 transition"
             >
-              <LogoEmpresa size="sm" showText={true} showSubtitle={true} />
+              <LogoEmpresa
+                size="md"
+                showText={true}
+                showSubtitle={true}
+                customSubtitle="POS & Facturación"
+              />
             </Link>
 
             {/* Controles de fijado o cierre según escritorio o móvil */}

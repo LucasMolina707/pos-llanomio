@@ -577,11 +577,11 @@ export default function ModalCrearClienteRapido({
             </div>
           </div>
 
-          {/* Teléfonos Primario y Secundario */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          {/* Teléfonos Primario y Secundario (Alineación Geométrica y Textual Idéntica) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
-                Teléfono Primario (Obligatorio) *
+              <label className="h-5 flex items-center text-xs font-bold uppercase tracking-wide text-slate-700 truncate whitespace-nowrap mb-1">
+                TELÉFONO PRIMARIO *
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -593,32 +593,32 @@ export default function ModalCrearClienteRapido({
                   placeholder="Ej. 3101234567"
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                  className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
                 />
               </div>
-              <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                Contacto principal para ventas, WhatsApp y facturas.
+              <p className="text-[11px] text-slate-500 mt-1 font-medium truncate">
+                Contacto principal (Obligatorio).
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
-                Teléfono Secundario / Respaldo (Opcional)
+              <label className="h-5 flex items-center text-xs font-bold uppercase tracking-wide text-slate-700 truncate whitespace-nowrap mb-1">
+                TELÉFONO SECUNDARIO (OPCIONAL)
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Phone className="w-4 h-4 text-emerald-600" />
+                  <Phone className="w-4 h-4" />
                 </div>
                 <input
                   type="text"
-                  placeholder="Ej. 3209876543 (Familiar o respaldo)"
+                  placeholder="Ej. 3209876543 (Respaldo)"
                   value={telefonoSecundario}
                   onChange={(e) => setTelefonoSecundario(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                  className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
                 />
               </div>
-              <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                Número alternativo para seguimiento y cobros de alquiler.
+              <p className="text-[11px] text-slate-500 mt-1 font-medium truncate">
+                Contacto alternativo o familiar.
               </p>
             </div>
           </div>

@@ -25,7 +25,9 @@ import {
   History,
   PhoneCall,
   ShieldCheck,
+  PackageCheck,
 } from "lucide-react";
+import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import BotonWhatsApp from "@/components/crm/BotonWhatsApp";
 import ModalLiquidarFactura from "@/components/facturas/ModalLiquidarFactura";
 import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
@@ -247,28 +249,24 @@ export default function CentralMonitoreoPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
-          <button
-            type="button"
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-nowrap">
+          <IconButtonTooltip
+            icon={RefreshCw}
+            label={sincronizando ? "Sincronizando moras..." : "Recalcular moras y sincronizar estados en caliente"}
             onClick={() => cargarFacturas(true)}
             disabled={sincronizando || cargando}
-            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-xs transition disabled:opacity-50"
-            title="Recalcular moras acumuladas y sincronizar estados en caliente"
-          >
-            <RefreshCw className={`w-4 h-4 text-amber-600 ${sincronizando ? "animate-spin" : ""}`} />
-            <span>{sincronizando ? "Sincronizando..." : "Sincronizar Moras"}</span>
-          </button>
+            iconClassName={sincronizando ? "animate-spin text-amber-600" : "text-amber-600"}
+            size="md"
+            variant="neutral"
+          />
 
-          <Link
+          <IconButtonTooltip
+            icon={Receipt}
+            label="Abrir Terminal de Facturación POS en nueva ventana"
             href="/caja/pos"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
-            title="Abrir Terminal de Facturación POS en nueva ventana"
-          >
-            <Receipt className="w-4 h-4" />
-            <span>Terminal POS (Nueva Ventana)</span>
-          </Link>
+            size="md"
+            variant="primary"
+          />
         </div>
       </header>
 
@@ -554,7 +552,7 @@ export default function CentralMonitoreoPage() {
                   <th className="px-3.5 py-3 text-right">Saldo Base</th>
                   <th className="px-3.5 py-3 text-right">Recargo Mora</th>
                   <th className="px-3.5 py-3 text-right">Total Exigible</th>
-                  <th className="px-3.5 py-3 text-center">Acciones</th>
+                  <th className="px-3.5 py-3 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -706,42 +704,41 @@ export default function CentralMonitoreoPage() {
                       </td>
 
                       {/* 9. Botones de Acción */}
-                      <td className="px-3.5 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      <td className="px-3.5 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5 flex-nowrap h-9">
                           {/* Botón Principal para Alquileres Activos */}
                           {f.esCajaAlquiler || (f.tipoOperacion === "ALQUILER" && !f.fechaDevolucionReal && f.estado !== "CERRADA") ? (
                             <button
                               type="button"
                               onClick={() => abrirLiquidarFactura(f.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
-                              title="Recibir prendas en almacén, verificar estado y liquidar depósito"
+                              className="h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                              title="Recibir traje en almacén y liquidar depósito en custodia"
                             >
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>Recibir en Almacén / Liquidar Depósito</span>
+                              <PackageCheck className="w-4 h-4" />
+                              <span>Recibir</span>
                             </button>
                           ) : f.totalExigible > 0 ? (
                             <button
                               type="button"
                               onClick={() => abrirLiquidarFactura(f.id)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
+                              className="h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
                               title="Cobrar saldo pendiente y liquidar mora"
                             >
-                              <DollarSign className="w-3.5 h-3.5" />
+                              <DollarSign className="w-4 h-4" />
                               <span>Cobrar</span>
                             </button>
                           ) : null}
 
                           {/* Botón Reimprimir / Ver Comprobante PDF */}
-                          <button
-                            type="button"
-                            onClick={() => abrirImpresionFactura(f.id)}
+                          <IconButtonTooltip
+                            icon={Printer}
+                            label="Ver o imprimir comprobante / Descargar PDF"
+                            size="md"
+                            variant="neutral"
                             disabled={cargandoImpresionId === f.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold border border-slate-300 transition"
-                            title="Reimprimir o exportar PDF en Tirilla, Media Carta o Carta"
-                          >
-                            <Printer className="w-3.5 h-3.5 text-blue-600" />
-                            <span>{cargandoImpresionId === f.id ? "..." : "PDF"}</span>
-                          </button>
+                            onClick={() => abrirImpresionFactura(f.id)}
+                            className="shrink-0"
+                          />
 
                           {/* Botón WhatsApp CRM */}
                           <BotonWhatsApp
@@ -760,6 +757,7 @@ export default function CentralMonitoreoPage() {
                             }
                             numeroFactura={f.numeroFactura}
                             mostrarTexto={false}
+                            className="w-9 h-9 min-w-[36px] min-h-[36px] p-0 justify-center shrink-0 rounded-xl"
                           />
                         </div>
                       </td>

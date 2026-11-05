@@ -35,12 +35,22 @@ export async function GET(req: NextRequest) {
       orderBy: { fechaCreacion: "desc" },
     });
 
+    const configEmpresa = await prisma.configuracionEmpresa.findFirst({
+      select: {
+        ultimoAbonoApartado: true,
+        ultimoAbonoAlquiler: true,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       ok: true,
       facturas: apartados,
       apartados,
       total: apartados.length,
+      ultimoAbonoApartado: configEmpresa?.ultimoAbonoApartado ?? 20000,
+      ultimoAbonoAlquiler: configEmpresa?.ultimoAbonoAlquiler ?? 20000,
+      configuracion: configEmpresa,
     });
   } catch (error: unknown) {
     console.error("Error en GET /api/apartados:", error);
