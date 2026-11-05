@@ -4037,3 +4037,28 @@ Se ejecutó la suite de validación de 5 escenarios comprobando la coherencia en
 - **Compilación de Producción:** `npm run build` ejecutado exitosamente con 23/23 rutas optimizadas.
 - **Servicios PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` en línea (`online`).
 - **Verificación HTTP:** Endpoint `http://127.0.0.1:3000/login` respondiendo `HTTP/1.1 200 OK`.
+
+
+---
+
+## SECCION 64: BLINDAJE DE VISIBILIDAD ESTRICTA (TURNO ACTIVO EN VERDE VS INICIAR TURNO EN CAJA)
+
+### 1. Diagnóstico y Corrección de Condición en `<BarraEstadoCajon />`
+1. **Problema Reportado:** En ciertas transiciones o al consultar estado, el botón ámbar *"Iniciar Turno en Caja"* podía renderizarse aun cuando ya existía un turno de caja iniciado en el sistema, debido a que la condición evaluaba `(!cajonConectado)` antes de sincronizar el objeto completo en memoria de React.
+2. **Solución Implementada en [`BarraEstadoCajon.tsx`](src/components/caja/BarraEstadoCajon.tsx):**
+   - Se estableció la variable de evaluación universal:
+     ```typescript
+     const turnoEfectivo = cajonConectado || seguridadCaja?.turnoAbierto || null;
+     const hayTurnoActivo =
+       Boolean(turnoEfectivo) ||
+       estado === "ABIERTO_HOY" ||
+       seguridadCaja?.estado === "ABIERTO_HOY" ||
+       Boolean(seguridadCaja?.turnosAbiertosHoy && seguridadCaja.turnosAbiertosHoy.length > 0);
+     ```
+   - **Regla Estricta:**
+     - Si `hayTurnoActivo` es verdadero: Renderiza **exclusivamente en verde** la cápsula con punto pulsante, texto **`"Turno Activo"`** y el saldo en vivo **`"Caja: $XX.XXX"`**.
+     - Únicamente si `!hayTurnoActivo` (la tienda no tiene ningún turno abierto): Renderiza el botón ámbar **`"Iniciar Turno en Caja"`**.
+
+### 2. Eliminación de Parpadeo en [`useCajonSincronizado.ts`](src/hooks/useCajonSincronizado.ts)
+- Se implementó hidratación instantánea desde `sessionStorage` (`pos_cajon_activo_cache`, `pos_caja_saldo_cache` y `pos_turno_activo_id`) en los estados iniciales de React.
+- Al navegar entre `/caja/pos`, `/caja/alquileres` y `/caja/apartados`, la cápsula verde `"Turno Activo"` se renderiza en 0 milisegundos sin parpadear al botón ámbar mientras viaja la petición HTTP.

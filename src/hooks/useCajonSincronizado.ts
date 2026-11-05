@@ -95,15 +95,57 @@ export function useCajonSincronizado() {
   const [deviceId, setDeviceId] = useState<string>("");
   const [usuarioSesion, setUsuarioSesion] = useState<{ id: string; nombre: string; username: string } | null>(null);
 
-  const [cajonConectado, setCajonConectado] = useState<InfoTurnoGabinete | null>(null);
-  const [seguridadCaja, setSeguridadCaja] = useState<EstadoSeguridadCajaInfo>({
-    estado: "SIN_TURNO",
-    bloqueadoParaFacturar: true,
-    motivoBloqueo: null,
+  // Inicialización inteligente desde caché para evitar parpadeos visuales al navegar entre vistas
+  const [cajonConectado, setCajonConectado] = useState<InfoTurnoGabinete | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const guardado = sessionStorage.getItem("pos_cajon_activo_cache");
+        if (guardado) return JSON.parse(guardado);
+      } catch {}
+    }
+    return null;
   });
 
-  const [saldoActualEnCajon, setSaldoActualEnCajon] = useState<number>(0);
-  const [totalDigital, setTotalDigital] = useState<number>(0);
+  const [saldoActualEnCajon, setSaldoActualEnCajon] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saldoG = sessionStorage.getItem("pos_caja_saldo_cache");
+        if (saldoG !== null) return Number(saldoG) || 0;
+      } catch {}
+    }
+    return 0;
+  });
+
+  const [totalDigital, setTotalDigital] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const digG = sessionStorage.getItem("pos_caja_digital_cache");
+        if (digG !== null) return Number(digG) || 0;
+      } catch {}
+    }
+    return 0;
+  });
+
+  const [seguridadCaja, setSeguridadCaja] = useState<EstadoSeguridadCajaInfo>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const turnoId = sessionStorage.getItem("pos_turno_activo_id");
+        if (turnoId) {
+          return {
+            estado: "ABIERTO_HOY",
+            bloqueadoParaFacturar: false,
+            motivoBloqueo: null,
+          };
+        }
+      } catch {}
+    }
+    return {
+      estado: "ABIERTO_HOY",
+      bloqueadoParaFacturar: false,
+      motivoBloqueo: null,
+    };
+  });
+
   const [cargandoCaja, setCargandoCaja] = useState<boolean>(true);
   const [debeMostrarModal, setDebeMostrarModal] = useState<boolean>(false);
   const [tipoModalRequerido, setTipoModalRequerido] = useState<TipoModalCajonRequerido>(null);
@@ -119,7 +161,7 @@ export function useCajonSincronizado() {
 
   /**
    * Consulta el estado del cajón y sincroniza en vivo con el backend.
-   * Si existe cualquier turno abierto en la tienda -> Estado ABIERTO_HOY sin preguntas ni bloqueos.
+   * Si existe cualquier turno abierto en la tienda -> Estado ABIERTO_HOY y Turno Activo.
    */
   const actualizarCajon = useCallback(
     async (silencioso = false) => {
@@ -178,48 +220,83 @@ export function useCajonSincronizado() {
           turnoAbierto: data.turnoAbierto || null,
         };
 
-        setSeguridadCaja(verif);
-
         // CASO A: BLOQUEADO POR DÍA ANTERIOR
         if (verif.estado === "BLOQUEADO_DIA_ANTERIOR") {
+          setSeguridadCaja(verif);
           setCajonConectado(null);
           setTipoModalRequerido("BLOQUEADO_DIA_ANTERIOR");
           return;
         }
 
-        // CASO B: SIN TURNO ABIERTO HOY
+        // CASO B: SIN TURNO ABIERTO HOY (La tienda no ha iniciado caja aún)
         if (!data.hayTurnoAbierto && (verif.estado === "SIN_TURNO" || !data.turnoAbierto)) {
+          setSeguridadCaja({
+            estado: "SIN_TURNO",
+            bloqueadoParaFacturar: true,
+            motivoBloqueo: "Turno cerrado",
+            turnoAbierto: null,
+          });
           setCajonConectado(null);
-          setTipoModalRequerido("APERTURA_INICIAL");
           setSaldoActualEnCajon(0);
           setTotalDigital(0);
+          setTipoModalRequerido("APERTURA_INICIAL");
+
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.removeItem("pos_cajon_activo_cache");
+              sessionStorage.removeItem("pos_caja_saldo_cache");
+              sessionStorage.removeItem("pos_caja_digital_cache");
+              sessionStorage.removeItem("pos_turno_activo_id");
+            } catch {}
+          }
           return;
         }
 
-        // CASO C: TURNO ABIERTO ACTIVO (Aplica globalmente para Ventas, Alquileres y Apartados)
-        if (data.hayTurnoAbierto || data.turnoAbierto) {
-          const turno = (data.turnoAbierto || data.turnosAbiertos?.[0]) as InfoTurnoGabinete;
-          if (turno) {
-            setCajonConectado(turno);
-            const saldo = data.saldoActualEnCajon ?? (turno.arqueo?.saldoActualEnCajon || turno.baseInicialEfectivo || 0);
-            setSaldoActualEnCajon(saldo);
-            setTotalDigital(data.totalDigital ?? (turno.arqueo?.totalDigital || 0));
+        // CASO C: TURNO ABIERTO ACTIVO (El turno ya fue iniciado en la tienda)
+        if (data.hayTurnoAbierto || data.turnoAbierto || verif.estado === "ABIERTO_HOY") {
+          const turno = (data.turnoAbierto ||
+            verif.turnoAbierto ||
+            data.turnosAbiertos?.[0]) as InfoTurnoGabinete;
 
-            // Guardar en localStorage y sessionStorage para persistencia instantánea
-            if (typeof window !== "undefined") {
+          const saldo =
+            data.saldoActualEnCajon ??
+            data.efectivoEsperado ??
+            (turno?.arqueo?.saldoActualEnCajon || turno?.baseInicialEfectivo || 0);
+
+          const digital = data.totalDigital ?? (turno?.arqueo?.totalDigital || 0);
+
+          setCajonConectado(turno || null);
+          setSaldoActualEnCajon(saldo);
+          setTotalDigital(digital);
+          setSeguridadCaja({
+            estado: "ABIERTO_HOY",
+            bloqueadoParaFacturar: false,
+            motivoBloqueo: null,
+            turnoAbierto: turno || null,
+          });
+
+          // Guardar en sessionStorage y localStorage para persistencia instantánea entre pestañas/vistas
+          if (typeof window !== "undefined") {
+            try {
+              if (turno) {
+                sessionStorage.setItem("pos_cajon_activo_cache", JSON.stringify(turno));
+                sessionStorage.setItem("pos_turno_activo_id", turno.id);
+              }
+              sessionStorage.setItem("pos_caja_saldo_cache", String(saldo));
+              sessionStorage.setItem("pos_caja_digital_cache", String(digital));
+
               const storageKey = getStorageCajonKey(uSesion?.id);
               const hoyStr = new Date().toISOString().split("T")[0];
               localStorage.setItem(
                 storageKey,
-                JSON.stringify({ turnoId: turno.id, deviceId: currentDeviceId, fechaDia: hoyStr })
+                JSON.stringify({ turnoId: turno?.id, deviceId: currentDeviceId, fechaDia: hoyStr })
               );
-              sessionStorage.setItem("pos_turno_activo_id", turno.id);
-            }
-
-            setDebeMostrarModal(false);
-            setTipoModalRequerido(null);
-            return;
+            } catch {}
           }
+
+          setDebeMostrarModal(false);
+          setTipoModalRequerido(null);
+          return;
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
@@ -258,16 +335,6 @@ export function useCajonSincronizado() {
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || "No fue posible conectarse a la caja compartida.");
-      }
-
-      // Guardar vinculación en localStorage
-      const hoyStr = new Date().toISOString().split("T")[0];
-      const storageKey = getStorageCajonKey(usuarioSesion?.id);
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          storageKey,
-          JSON.stringify({ turnoId: data.turnoId || turnoCajaId, deviceId: currentDeviceId, fechaDia: hoyStr })
-        );
       }
 
       setDebeMostrarModal(false);
@@ -313,15 +380,6 @@ export function useCajonSincronizado() {
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || "No fue posible abrir el turno de caja.");
-      }
-
-      const hoyStr = new Date().toISOString().split("T")[0];
-      const storageKey = getStorageCajonKey(usuarioSesion?.id);
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          storageKey,
-          JSON.stringify({ turnoId: data.turno?.id, deviceId: currentDeviceId, fechaDia: hoyStr })
-        );
       }
 
       setDebeMostrarModal(false);
