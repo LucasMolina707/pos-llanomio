@@ -619,26 +619,17 @@ export default function TerminalAlquileresPage() {
     return subtotalPrendas;
   }, [subtotalPrendas, apartadoOrigen]);
 
-  // Abono que el cliente realiza hoy al canon de alquiler
+  // REGLA INQUEBRANTABLE DE PAGO COMPLETO EN ALQUILER:
+  // Para generar la factura de alquiler y despachar prendas, el canon y el depósito deben quedar 100% cubiertos hoy
   const valorAbonoAlquilerHoy = useMemo(() => {
-    if (modalidadPago === "COMPLETO") {
-      return saldoAlquilerPendienteBase;
-    }
-    if (modalidadPago === "ADELANTO") {
-      const val = parseFloat(montoAbonoManual) || 0;
-      return Math.min(saldoAlquilerPendienteBase, Math.max(0, val));
-    }
-    return 0; // PENDIENTE ($0 hoy)
-  }, [modalidadPago, saldoAlquilerPendienteBase, montoAbonoManual]);
+    return saldoAlquilerPendienteBase;
+  }, [saldoAlquilerPendienteBase]);
 
-  // Saldo faltante por pagar del alquiler (El depósito NO suma ni altera este saldo)
-  const saldoFaltanteAlquiler = useMemo(() => {
-    const abonoPrev = apartadoOrigen ? apartadoOrigen.abonoPrevio : 0;
-    return Math.max(0, subtotalPrendas - (abonoPrev + valorAbonoAlquilerHoy));
-  }, [subtotalPrendas, apartadoOrigen, valorAbonoAlquilerHoy]);
+  // Saldo faltante por pagar del alquiler (En alquiler con entrega física siempre debe ser $0)
+  const saldoFaltanteAlquiler = 0;
 
   // REGLA CONTABLE ESTRICTA:
-  // Total Exigido Hoy en Caja = Abono al Alquiler Hoy (Efectivo) + Depósito de Respaldo (Efectivo)
+  // Total Exigido Hoy en Caja = Total a Pagar Hoy (Canon Alquiler + Depósito de Respaldo)
   const totalExigidoHoyEnCaja = useMemo(() => {
     return valorAbonoAlquilerHoy + montoDeposito;
   }, [valorAbonoAlquilerHoy, montoDeposito]);
@@ -833,10 +824,16 @@ export default function TerminalAlquileresPage() {
       return;
     }
 
-    // Regla Estricta: El depósito y abono en caja deben confirmarse con efectivo suficiente
-    if (!depositoEfectivoValido) {
+    // Regla Inquebrantable de Pago Completo en Alquiler:
+    if (efectivoRecibidoNum < totalExigidoHoyEnCaja) {
       setMensajeError(
-        `El efectivo recibido debe ser igual o superior al total a cobrar hoy en caja ($${totalExigidoHoyEnCaja.toLocaleString("es-CO")}) y estar confirmado en gaveta.`
+        `Para generar la factura completa de alquiler, el valor recibido debe cubrir tanto el costo del alquiler como el depósito en garantía ($${totalExigidoHoyEnCaja.toLocaleString("es-CO")}). Si el cliente solo dejará un abono parcial para reservar, regístrelo en el módulo de Apartados.`
+      );
+      return;
+    }
+    if (!abonoEfectivoConfirmado) {
+      setMensajeError(
+        "Debe marcar la casilla de confirmación de recepción de dinero en efectivo en gaveta."
       );
       return;
     }
@@ -855,7 +852,9 @@ export default function TerminalAlquileresPage() {
           monto: valorAbonoAlquilerHoy,
           metodoPago: "EFECTIVO",
           montoRecibido: efectivoRecibidoNum,
+          efectivoRecibido: efectivoRecibidoNum,
           vueltasEntregadas: vueltasCambioFinal,
+          cambioEntregado: vueltasCambioFinal,
           referenciaComprobante: referenciaPago.trim() || undefined,
           montoDeposito: montoDeposito,
           tarifaMoraDiaria: Number(tarifaMoraDiaria) || 3000,
@@ -2402,9 +2401,9 @@ export default function TerminalAlquileresPage() {
                               </div>
                             </div>
 
-                            {/* BLOQUE 2: VALOR DEL CANON DE ALQUILER Y MODALIDAD */}
-                            <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-200">
-                              <div className="flex items-center justify-between mb-2">
+                            {/* BLOQUE 2: VALOR DEL CANON DE ALQUILER Y PAGO COMPLETO OBLIGATORIO */}
+                            <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-200 space-y-2.5">
+                              <div className="flex items-center justify-between">
                                 <h3 className="text-xs font-black text-blue-950 uppercase tracking-wider">
                                   BLOQUE 2 — Canon de Alquiler
                                 </h3>
@@ -2413,65 +2412,17 @@ export default function TerminalAlquileresPage() {
                                 </span>
                               </div>
 
-                              <div className="grid grid-cols-3 gap-1.5 mb-2.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setModalidadPago("COMPLETO")}
-                                  className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
-                                    modalidadPago === "COMPLETO"
-                                      ? "bg-blue-600 text-white border-blue-700 shadow-xs"
-                                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                                  }`}
-                                >
-                                  <span className="font-black text-xs block">Completo</span>
-                                  <span className="text-[10px] opacity-90">100% Hoy</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => setModalidadPago("ADELANTO")}
-                                  className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
-                                    modalidadPago === "ADELANTO"
-                                      ? "bg-blue-600 text-white border-blue-700 shadow-xs"
-                                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                                  }`}
-                                >
-                                  <span className="font-black text-xs block">Adelanto</span>
-                                  <span className="text-[10px] opacity-90">Parcial</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => setModalidadPago("PENDIENTE")}
-                                  className={`p-2 rounded-lg border text-center transition-all cursor-pointer ${
-                                    modalidadPago === "PENDIENTE"
-                                      ? "bg-blue-600 text-white border-blue-700 shadow-xs"
-                                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                                  }`}
-                                >
-                                  <span className="font-black text-xs block">Pendiente</span>
-                                  <span className="text-[10px] opacity-90">$0 Hoy</span>
-                                </button>
-                              </div>
-
-                              {modalidadPago === "ADELANTO" && (
-                                <div className="p-2.5 rounded-lg bg-white border border-blue-200 mb-2.5">
-                                  <label className="text-[11px] font-bold text-blue-900 block mb-1">
-                                    Monto de Abono al Alquiler Hoy ($):
-                                  </label>
-                                  <input
-                                    type="number"
-                                    value={montoAbonoManual}
-                                    onChange={(e) => setMontoAbonoManual(e.target.value)}
-                                    className="w-full px-2.5 py-1 text-xs font-black bg-white border border-blue-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
-                                    placeholder="Ej: 30000"
-                                  />
-                                  <div className="flex justify-between items-center text-[10.5px] text-blue-900 mt-1 font-bold">
-                                    <span>Abona hoy: ${valorAbonoAlquilerHoy.toLocaleString("es-CO")}</span>
-                                    <span>Resta: ${saldoFaltanteAlquiler.toLocaleString("es-CO")}</span>
-                                  </div>
+                              <div className="p-2.5 rounded-lg bg-white border border-blue-200">
+                                <div className="flex items-center justify-between text-xs font-black text-blue-950 mb-1">
+                                  <span>Modalidad de Cobro:</span>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-300">
+                                    100% COMPLETO OBLIGATORIO
+                                  </span>
                                 </div>
-                              )}
+                                <p className="text-[11px] text-slate-600 leading-snug">
+                                  Para despachar las prendas, el cliente debe cubrir el 100% del canon de alquiler y el depósito en garantía. Si requiere dejar un abono parcial de reserva, diríjase al módulo de Apartados.
+                                </p>
+                              </div>
 
                               <div>
                                 <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
@@ -2501,26 +2452,18 @@ export default function TerminalAlquileresPage() {
                                 </h3>
                               </div>
                               <div className="text-right">
-                                <span className="text-[10px] text-slate-500 block uppercase font-bold">Total Hoy en Gaveta</span>
+                                <span className="text-[10px] text-slate-500 block uppercase font-bold">Total a Pagar (Alquiler + Depósito)</span>
                                 <span className="text-base font-black text-emerald-700 font-mono">
                                   ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
                                 </span>
                               </div>
                             </div>
 
-                            {/* Desglose resumido de Totales */}
+                            {/* Desglose de Totales de Pago de Alquiler en Orden Estricto */}
                             <div className="p-3 rounded-xl bg-white border-2 border-emerald-300 text-xs space-y-1.5 shadow-2xs">
                               <p className="text-[10px] font-black uppercase text-slate-800 border-b border-slate-200 pb-1">
-                                TOTALES DE ALQUILER
+                                TOTALES DE PAGO DE ALQUILER
                               </p>
-                              {apartadoOrigen && (
-                                <div className="flex justify-between text-indigo-700">
-                                  <span>(-) Abono Previo Apartado:</span>
-                                  <span className="font-mono font-bold text-emerald-700">
-                                    -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
-                                  </span>
-                                </div>
-                              )}
                               <div className="flex justify-between text-slate-700">
                                 <span>Total Valor Alquiler:</span>
                                 <span className="font-mono font-bold text-slate-900">
@@ -2539,32 +2482,42 @@ export default function TerminalAlquileresPage() {
                                   ${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}
                                 </span>
                               </div>
-                              <div className="flex justify-between font-bold text-emerald-800 pt-0.5">
-                                <span>Valor Pagado ({metodoPagoPrincipal === "EFECTIVO" ? "Efectivo" : "Consignación"}):</span>
-                                <span className="font-mono">
-                                  ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
-                                </span>
-                              </div>
-                              {saldoFaltanteAlquiler > 0 && (
-                                <div className="flex justify-between text-rose-700 font-black pt-1 border-t border-slate-200">
-                                  <span>Falta por pagar:</span>
-                                  <span className="font-mono">
-                                    ${saldoFaltanteAlquiler.toLocaleString("es-CO")}
+                              {apartadoOrigen && (
+                                <div className="flex justify-between text-indigo-700 font-bold">
+                                  <span>(-) Abono Previo en Apartado:</span>
+                                  <span className="font-mono text-emerald-700">
+                                    -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
                                   </span>
                                 </div>
                               )}
+                              <div className="flex justify-between font-bold text-slate-800 pt-0.5 border-t border-dashed border-slate-300">
+                                <span>Recibido:</span>
+                                <span className="font-mono">${efectivoRecibidoNum.toLocaleString("es-CO")}</span>
+                              </div>
+                              <div className="flex justify-between font-black text-emerald-800 pt-0.5">
+                                <span>Valor Pagado ({metodoPagoPrincipal === "EFECTIVO" ? "Efectivo" : "Consignación"}):</span>
+                                <span className="font-mono">
+                                  ${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}
+                                </span>
+                              </div>
+                              <div className="flex justify-between font-black text-emerald-800 text-sm pt-0.5 border-t border-slate-200">
+                                <span>Vueltas:</span>
+                                <span className="font-mono">
+                                  ${vueltasCambioFinal.toLocaleString("es-CO")}
+                                </span>
+                              </div>
                             </div>
 
                             {/* Campo Efectivo Recibido y Billetes */}
                             <div className="space-y-1.5">
                               <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                                <label>Efectivo Recibido ($):</label>
+                                <label>Recibido / Dinero que entrega el cliente ($):</label>
                                 <button
                                   type="button"
                                   onClick={() => setEfectivoRecibidoCliente(String(totalExigidoHoyEnCaja))}
                                   className="text-[10px] text-emerald-700 hover:underline font-bold cursor-pointer"
                                 >
-                                  Monto Exacto (${totalExigidoHoyEnCaja.toLocaleString("es-CO")})
+                                  Exacto (${totalExigidoHoyEnCaja.toLocaleString("es-CO")})
                                 </button>
                               </div>
                               <input
@@ -2597,6 +2550,13 @@ export default function TerminalAlquileresPage() {
                                 ${vueltasCambioFinal.toLocaleString("es-CO")}
                               </span>
                             </div>
+
+                            {/* Aviso de Bloqueo si el valor recibido no cubre el 100% */}
+                            {efectivoRecibidoNum < totalExigidoHoyEnCaja && (
+                              <div className="p-3 rounded-xl bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs font-semibold leading-relaxed">
+                                Para generar la factura completa de alquiler, el valor recibido debe cubrir tanto el costo del alquiler como el depósito en garantía (${totalExigidoHoyEnCaja.toLocaleString("es-CO")}). Si el cliente solo dejará un abono parcial para reservar, regístrelo en el módulo de Apartados.
+                              </div>
+                            )}
 
                             {/* Confirmación Checkbox */}
                             <label className="flex items-start gap-2 cursor-pointer select-none pt-1">
@@ -2781,14 +2741,6 @@ export default function TerminalAlquileresPage() {
                       </div>
                     ) : (
                       <div className="p-2.5 rounded-xl border-2 border-slate-300 bg-white space-y-1 text-xs">
-                        {apartadoOrigen && (
-                          <div className="flex justify-between text-indigo-700">
-                            <span>(-) Abono Previo Apartado:</span>
-                            <span className="font-mono font-bold text-emerald-700">
-                              -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
-                            </span>
-                          </div>
-                        )}
                         <div className="flex justify-between text-slate-700">
                           <span>Total Valor Alquiler:</span>
                           <span className="font-mono font-bold text-slate-900">${subtotalPrendas.toLocaleString("es-CO")}</span>
@@ -2801,16 +2753,26 @@ export default function TerminalAlquileresPage() {
                           <span>Total (Alquiler + Depósito):</span>
                           <span className="font-mono text-emerald-700 text-sm">${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}</span>
                         </div>
-                        <div className="flex justify-between text-emerald-800 font-bold pt-0.5">
-                          <span>Valor Pagado ({metodoPagoPrincipal === "EFECTIVO" ? "Efectivo" : "Consignación"}):</span>
-                          <span className="font-mono">${totalExigidoHoyEnCaja.toLocaleString("es-CO")}</span>
-                        </div>
-                        {saldoFaltanteAlquiler > 0 && (
-                          <div className="flex justify-between text-rose-700 font-black pt-0.5 border-t border-slate-200">
-                            <span>Falta por pagar:</span>
-                            <span className="font-mono">${saldoFaltanteAlquiler.toLocaleString("es-CO")}</span>
+                        {apartadoOrigen && (
+                          <div className="flex justify-between text-indigo-700 font-bold">
+                            <span>(-) Abono Previo en Apartado:</span>
+                            <span className="font-mono text-emerald-700">
+                              -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
+                            </span>
                           </div>
                         )}
+                        <div className="flex justify-between text-slate-800 font-bold pt-0.5 border-t border-dashed border-slate-300">
+                          <span>Recibido:</span>
+                          <span className="font-mono">${efectivoRecibidoNum.toLocaleString("es-CO")}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-800 font-black pt-0.5">
+                          <span>Valor Pagado ({metodoPagoPrincipal === "EFECTIVO" ? "Efectivo" : "Consignación"}):</span>
+                          <span className="font-mono">${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-800 font-black pt-0.5 border-t border-slate-200">
+                          <span>Vueltas:</span>
+                          <span className="font-mono">${vueltasCambioFinal.toLocaleString("es-CO")}</span>
+                        </div>
                       </div>
                     )}
 

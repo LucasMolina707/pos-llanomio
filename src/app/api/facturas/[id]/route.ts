@@ -313,6 +313,13 @@ export async function POST(req: NextRequest, { params }: Params) {
         const montoDep = body.montoDeposito !== undefined ? Math.max(0, Number(body.montoDeposito) || 0) : facturaPrevia.montoDeposito;
         const estadoDep = montoDep > 0 ? "RECIBIDO_EN_GARANTIA" : "SIN_DEPOSITO";
 
+        const efRec = body.efectivoRecibido !== undefined
+          ? Math.max(0, Number(body.efectivoRecibido) || 0)
+          : (body.montoRecibido !== undefined ? Math.max(0, Number(body.montoRecibido) || 0) : undefined);
+        const camEnt = body.cambioEntregado !== undefined
+          ? Math.max(0, Number(body.cambioEntregado) || 0)
+          : (body.vueltasEntregadas !== undefined ? Math.max(0, Number(body.vueltasEntregadas) || 0) : undefined);
+
         // 7. Actualizar factura a ALQUILER y ACTIVA_ALQUILADA
         const facturaConvertida = await tx.factura.update({
           where: { id: facturaPrevia.id },
@@ -328,6 +335,8 @@ export async function POST(req: NextRequest, { params }: Params) {
             montoDeposito: montoDep,
             estadoDeposito: estadoDep,
             metodoPagoDeposito: montoDep > 0 ? "EFECTIVO" : null,
+            efectivoRecibido: efRec !== undefined ? efRec : facturaPrevia.efectivoRecibido,
+            cambioEntregado: camEnt !== undefined ? camEnt : facturaPrevia.cambioEntregado,
             observaciones: body.observaciones !== undefined ? body.observaciones : facturaPrevia.observaciones,
             notas: body.notas !== undefined ? body.notas : facturaPrevia.notas,
           },

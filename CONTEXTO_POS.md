@@ -3695,3 +3695,50 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
 - **Verificación Estática TypeScript:** `npx tsc --noEmit` completado con 0 errores.
 - **Compilación de Producción:** `npm run build` ejecutado exitosamente.
 - **Servicio PM2:** Procesos en línea y funcionando en `http://localhost:3000`.
+
+
+---
+
+## SECCIÓN 56: CORRECCIÓN DE LA LÓGICA MATEMÁTICA Y ORDEN VISUAL EN "TOTALES DE PAGO DE ALQUILER" Y REGLA DE PAGO COMPLETO
+
+### 1. Objetivos Técnicos y Reglas de Negocio Implementadas
+1. **Regla Inquebrantable de Pago Completo en Alquiler:**
+   - Para formalizar y cerrar una operación de **Alquiler** (en la cual el cliente retira físicamente las prendas de la tienda), queda terminantemente prohibido dejar saldos pendientes tanto en el canon de alquiler como en el depósito en garantía.
+   - Cualquier operación con pago parcial o deuda corresponde operativamente a una reserva en el módulo de **Apartados** y no puede generar factura definitiva de alquiler ni pase a salida de prendas.
+   - El monto total exigible de la operación se define como:
+     $$\text{Total Operación Exigible} = \text{Total Valor Alquiler} + \text{Depósito en Garantía} - \text{Abono Previo (si proviene de Apartado)}$$
+   - En el Paso 3 de `src/app/caja/alquileres/page.tsx`, el sistema bloquea defensivamente la confirmación del cobro si `efectivoRecibido < totalExigidoHoyEnCaja`, mostrando el aviso preventivo:
+     > *"Para generar la factura completa de alquiler, el valor recibido debe cubrir tanto el costo del alquiler como el depósito en garantía ($XXX.XXX). Si el cliente solo dejará un abono parcial para reservar, regístrelo en el módulo de Apartados."*
+2. **Corrección del Orden de las Celdas y del "Valor Pagado" en `TOTALES DE PAGO DE ALQUILER`:**
+   - Se erradicó la discordancia en la que `Valor Pagado (EFECTIVO)` reflejaba únicamente el subtotal de alquiler ($85.000) excluyendo el depósito ($20.000) e invirtiendo la posición de `Recibido`.
+   - **Nuevo Orden Oficial y Cálculo Exacto (sincronizado en los 4 formatos de impresión y en mostrador):**
+     1. **`Total Valor Alquiler:`** `$XX.XXX` (ej. `$85.000`).
+     2. **`Depósito en Garantía:`** `$XX.XXX` (ej. `$20.000`).
+     3. **`Total (Alquiler + Depósito):`** `$XXX.XXX` (ej. `$105.000` — suma exacta del canon más el depósito).
+     4. *(Si proviene de un apartado con abono previo > 0):* **`(-) Abono Previo en Apartado: -$XX.XXX`**.
+     5. **`Recibido:`** (Ubicado en la celda **anterior** a Valor Pagado). Refleja el dinero en efectivo entregado por el cliente (ej. `$105.000` o `$120.000`).
+     6. **`Valor Pagado ([MÉTODO DE PAGO]):`** Refleja la suma real que cubre la operación completa (**Alquiler + Depósito = `$105.000`**, y nunca `$85.000`).
+     7. **`Vueltas:`** Refleja el cambio entregado al cliente (`Recibido - Valor Pagado`, ej. `$0` con pago exacto de `$105.000`, o `$15.000` si entregó `$120.000`).
+
+### 2. Archivos Modificados y Sincronizados
+1. `src/components/impresion/PlantillaImpresion.tsx`:
+   - Cálculo unificado de `totalAlquilerConDeposito = totalOperacionPrincipal + montoDepositoEfectivo`, `totalPagadoOperacionAlquiler = totalAbonadoOperacion + montoDepositoEfectivo`, `efectivoRecibidoAlquiler` y `vueltasAlquiler`.
+   - Orden estricto implementado en los 4 formatos: **TIRILLA**, **MEDIA_CARTA**, **MEDIA_CARTA_DOBLE** y **CARTA**.
+2. `src/lib/pdf-media-carta.ts`:
+   - Sincronización en los 4 generadores vectoriales PDF (`dibujarPaginaMediaCarta`, `dibujarPaginaCartaCompleta` y `dibujarPaginaTirilla`) garantizando que `Valor Pagado` sume alquiler + depósito y `Recibido` aparezca antes de `Valor Pagado`.
+3. `src/app/caja/alquileres/page.tsx`:
+   - Bloque 2 actualizado a **"100% COMPLETO OBLIGATORIO"** sin opciones de deuda en despacho.
+   - Sección C y panel derecho de totales actualizados con la celda `Recibido` antes de `Valor Pagado` y visualización de la suma completa (`$105.000`).
+   - Validación y bloqueo estricto en Paso 3 si el dinero entregado no cubre el 100% del alquiler más el depósito.
+4. `src/app/admin/configuracion/page.tsx`:
+   - Sincronizado el simulador en vivo de facturas (Tirilla, Media Carta y Carta) con el nuevo orden y totales ($100.000 alquiler + $50.000 depósito = $150.000 total, recibido $150.000, valor pagado $150.000, vueltas $0).
+5. `src/app/api/facturas/[id]/route.ts`:
+   - Persistencia explícita de `efectivoRecibido` y `cambioEntregado` durante la acción `CONVERTIR_APARTADO_A_ALQUILER`.
+6. `scripts/test-auditoria-totales-pago-alquiler.cjs`:
+   - Suite de prueba automatizada QA que evalúa el caso exacto ($85.000 + $20.000 = $105.000 con vueltas $0 y $15.000), el bloqueo por pago incompleto y la conversión con abono previo.
+
+### 3. Resultados de Certificación QA y Despliegue
+- **Prueba Automatizada QA:** Aprobada al 100% (`node scripts/test-auditoria-totales-pago-alquiler.cjs`).
+- **Verificación Estática TypeScript:** `npx tsc --noEmit` completado con 0 errores (código 0).
+- **Compilación de Producción:** `npm run build` ejecutado exitosamente.
+- **Servicio PM2:** Procesos en línea (`online`) y operativos en `http://localhost:3000`.

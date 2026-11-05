@@ -1878,13 +1878,17 @@ export default function ConfiguracionAdminPage() {
                         <span>Total (Alquiler + Depósito):</span>
                         <span className="font-mono text-sm">$150.000</span>
                       </div>
-                      <div className="flex justify-between text-emerald-800 font-bold pt-0.5">
-                        <span>Valor Pagado (Efectivo):</span>
-                        <span className="font-mono">$100.000</span>
+                      <div className="flex justify-between text-slate-800 font-bold pt-0.5 border-t border-dashed border-black">
+                        <span>Recibido:</span>
+                        <span className="font-mono">$150.000</span>
                       </div>
-                      <div className="flex justify-between text-rose-700 font-black border-t border-black pt-1">
-                        <span>Falta por pagar:</span>
-                        <span className="font-mono">$50.000</span>
+                      <div className="flex justify-between text-emerald-800 font-black pt-0.5">
+                        <span>Valor Pagado (Efectivo):</span>
+                        <span className="font-mono">$150.000</span>
+                      </div>
+                      <div className="flex justify-between font-black text-emerald-800 pt-0.5 border-t border-black">
+                        <span>Vueltas:</span>
+                        <span className="font-mono">$0</span>
                       </div>
                     </div>
                   ) : (
@@ -2010,8 +2014,9 @@ export default function ConfiguracionAdminPage() {
                         <div className="text-slate-800">Total Valor Alquiler: <strong>$100.000</strong></div>
                         <div className="text-amber-800 font-bold">Depósito en Garantía: <strong>$50.000</strong></div>
                         <div className="font-black text-slate-950 bg-slate-100 p-0.5 rounded">Total (Alquiler + Depósito): $150.000</div>
-                        <div className="text-emerald-700 font-semibold">Valor Pagado (Efectivo): $100.000</div>
-                        <div className="text-rose-700 font-black">Falta por pagar: $50.000</div>
+                        <div className="text-slate-700 font-semibold">Recibido: <strong>$150.000</strong></div>
+                        <div className="text-emerald-700 font-black">Valor Pagado (Efectivo): $150.000</div>
+                        <div className="text-emerald-700 font-semibold">Vueltas: $0</div>
                       </>
                     ) : (
                       <>
@@ -2251,8 +2256,9 @@ export default function ConfiguracionAdminPage() {
                         <div className="text-slate-800">Total Valor Alquiler: <strong>$100.000</strong></div>
                         <div className="text-amber-800 font-bold">Depósito en Garantía: <strong>$50.000</strong></div>
                         <div className="font-black text-slate-950 bg-slate-100 p-1 rounded">Total (Alquiler + Depósito): $150.000</div>
-                        <div className="text-emerald-700 font-semibold">Valor Pagado (Efectivo): $100.000</div>
-                        <div className="text-rose-700 font-bold">Falta por pagar: $50.000</div>
+                        <div className="text-slate-700 font-semibold">Recibido: <strong>$150.000</strong></div>
+                        <div className="text-emerald-700 font-black">Valor Pagado (Efectivo): $150.000</div>
+                        <div className="text-emerald-700 font-semibold">Vueltas: $0</div>
                       </>
                     ) : (
                       <>
