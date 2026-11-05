@@ -4186,3 +4186,42 @@ Se desarrollo e integro el lanzador principal en la raiz `INSTALAR_SISTEMA_DESDE
     - `POS Llanomio - Pantalla Completa.lnk` -> `ABRIR_SISTEMA_PANTALLA_COMPLETA.bat` (con icono `llanomio.ico`)
     - `POS Llanomio - Carpeta Respaldos.lnk` -> `C:\POS_BACKUPS`
     - Sondeo continuo de disponibilidad HTTP (`http://localhost:!PORT!/login`) y apertura en modo aplicacion nativa.
+
+
+---
+
+## SECCION 68: CONSOLIDACION DEL PAQUETE PORTABLE PARA DISTRIBUCION .ZIP, TRIPLE ESPEJO CLOUD Y RECUPERACION ANTE CAIDAS
+
+### 1. Proposito y Alcance de la Intervencion
+Se consolido la suite oficial de despliegue para distribucion mediante archivo comprimido `.ZIP`, permitiendo que cualquier usuario descomprima el sistema en cualquier disco o directorio (`D:\`, `C:\`, memorias USB, etc.) y complete la instalacion, el auto-arranque y la sincronizacion en la nube de forma autonoma y resiliente.
+
+### 2. Script Maestro de Despliegue Dinamico (`INSTALAR_Y_CONFIGURAR_DESDE_AQUI.bat`)
+- Localizado en la raiz del proyecto y sincronizado con `instalador_tienda/1_INSTALACIONES/1_INSTALADOR_MAESTRO_DESDE_CERO.bat`.
+- **Fijacion de Ruta Dinamica:** Emplea `cd /d "%~dp0"` para resolver la ruta absoluta de ejecucion independientemente del directorio donde fue descomprimido el archivo `.ZIP`.
+- **Deteccion e Instalacion Automatica de Dependencias:**
+  - Runtime portable o descarga e instalacion silenciosa de Node.js LTS mediante Windows Package Manager (`winget`) o instalador oficial `.msi` via PowerShell.
+  - Generacion y sincronizacion de Prisma ORM (`npx prisma generate --schema=database/schema.prisma` y `npx prisma db push --schema=database/schema.prisma --skip-generate`).
+  - Sembrado neutro con credencial unica de administrador: Usuario `admin`, Contraseña `admin123` (Rol `ADMIN`, permisos totales).
+  - Apertura total en Windows Defender Firewall para tráfico TCP/UDP entrante y saliente en Red Local (LAN).
+
+### 3. Auto-Arranque Permanente y Recuperacion en Ultimo Estado
+1. **Orquestacion Resiliente en `ecosystem.config.js`:**
+   - Parametros `autorestart: true`, `max_restarts: 50`, `restart_delay: 2000` y `exp_backoff_restart_delay: 100`.
+   - Congelacion de estado en dump con `pm2 save --force`.
+2. **Mecanismos Redundantes de Arranque en Windows:**
+   - Tarea Programada de Windows: `schtasks /Create /TN "POS_Llanomio_AutoArranque" /TR "\"%PROJECT_ROOT%\RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat\" --silencioso" /SC ONLOGON /RL HIGHEST /F`.
+   - Lanzador invisible en la carpeta Startup: `AutoArranque_POS_Llanomio.vbs`.
+3. **Motor de Rescate (`scripts/recuperar-ultimo-estado.js` y `RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat`):**
+   - Ejecuta `PRAGMA wal_checkpoint(FULL);` para consolidar transacciones pendientes en el archivo `-wal` tras apagones o caidas bruscas de electricidad.
+   - Ejecuta `PRAGMA integrity_check;` para verificar la consistencia logica de SQLite.
+   - En caso de perdida o daño irreversible del archivo principal `database/llanomio.db`, localiza automaticamente la copia sana mas reciente en la Nube (`CLOUD_BACKUP_PATH`), en `C:\POS_BACKUPS` o en `database/backups_locales` y la restaura sin intervencion tecnica compleja.
+
+### 4. Triple Espejo Automatico con la Nube (`src/lib/backup.ts` y `scripts/configurar-carpeta-nube.js`)
+1. **Deteccion Automatica de Proveedores Cloud:**
+   - Deteccion automatica de carpetas sincronizadas locales de **Microsoft OneDrive**, **Google Drive Desktop** y **Dropbox**.
+   - Asignacion dinamica de la variable `CLOUD_BACKUP_PATH` en `.env` y en `ConfiguracionEmpresa.rutaCarpetaRespaldo`.
+2. **Replicacion Simultanea (Triple Espejo):**
+   - En cada respaldo en caliente o cierre operativo, el sistema vuelca de forma atomica la base de datos `llanomio_ULTIMO.db`, el historial fechado y los volcados estructurados JSON (`clientes`, `inventario`, `historial_facturas`, `movimientos_caja`, `gastos_operativos`) en:
+     1. Carpeta interna del proyecto: `database/backups_locales/`
+     2. Boveda local en disco: `C:\POS_BACKUPS/`
+     3. Carpeta compartida en la nube: `[CLOUD_BACKUP_PATH]/` (+ copia de seguridad `.env.backup`).

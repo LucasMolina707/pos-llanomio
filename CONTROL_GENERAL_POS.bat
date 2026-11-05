@@ -106,7 +106,7 @@ if "%OPC_MAE%"=="8" (
 if "%OPC_MAE%"=="9" exit /b 0
 
 echo.
-echo [ERROR] Opcion no valida. Seleccione un numero del 1 al 9.
+echo [ERROR] Opcion no valida. Seleccione un numero del 0 al 9.
 timeout /t 2 >nul
 goto :MENU_MAESTRO
 

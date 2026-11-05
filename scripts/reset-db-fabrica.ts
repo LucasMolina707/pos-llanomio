@@ -141,6 +141,8 @@ async function resetearBaseDeDatosAFabrica() {
 
     if (estadoOk) {
       console.log("\n[EXITO TOTAL] La base de datos ha quedado 100% LIMPIA, VIRGEN Y EN ESTADO PURO DE FABRICA.");
+      console.log("- Credencial Administrador Inicial: Usuario 'admin' / Contraseña 'admin123' (Rol ADMIN)");
+      console.log("- Protocolo de Recuperacion: 3 Factores (Doc: 0000000000, PIN: 000000, Pregunta/Respuesta: admin)");
     } else {
       console.warn("\n[ADVERTENCIA] Algunos conteos no coinciden con los valores esperados de fábrica.");
     }

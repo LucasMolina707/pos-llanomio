@@ -39,7 +39,7 @@ if %errorlevel% neq 0 (
         powershell -NoProfile -ExecutionPolicy Bypass -Command ^
           "try { $r = Invoke-WebRequest -Uri 'http://localhost:!PORT!/login' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
         if !errorlevel! equ 0 goto :servidor_listo_para_abrir
-        timeout /t 1 >nul
+        ping 127.0.0.1 -n 2 >nul
     )
 )
 

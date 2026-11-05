@@ -55,6 +55,9 @@ const apps = [
     exec_mode: "fork",
     instances: 1,
     autorestart: true,
+    max_restarts: 50,
+    restart_delay: 2000,
+    exp_backoff_restart_delay: 100,
     watch: false,
     max_memory_restart: "800M",
     env: {
@@ -73,6 +76,9 @@ const apps = [
     exec_mode: "fork",
     instances: 1,
     autorestart: true,
+    max_restarts: 50,
+    restart_delay: 2000,
+    exp_backoff_restart_delay: 100,
     watch: false,
     max_memory_restart: "200M",
     env: {

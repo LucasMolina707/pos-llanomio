@@ -328,7 +328,26 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
   const carpetaHistorial = path.join(carpetaPrincipal, "historial");
   const carpetaLocal = path.join(process.cwd(), "database", "backups_locales");
 
-  const rutaUltimo = path.join(carpetaPrincipal, "pos_ULTIMO.db");
+  // Resolver carpeta de sincronización en la nube (Google Drive / OneDrive / Dropbox)
+  let carpetaNube: string | null = process.env.CLOUD_BACKUP_PATH || null;
+  if (!carpetaNube) {
+    try {
+      const config = await prisma.configuracionEmpresa.findFirst({
+        select: { rutaCarpetaRespaldo: true },
+      });
+      if (
+        config?.rutaCarpetaRespaldo &&
+        config.rutaCarpetaRespaldo !== carpetaPrincipal &&
+        fs.existsSync(path.dirname(config.rutaCarpetaRespaldo))
+      ) {
+        carpetaNube = config.rutaCarpetaRespaldo;
+      }
+    } catch {}
+  }
+
+  const rutaUltimo = path.join(carpetaPrincipal, "llanomio_ULTIMO.db");
+  const rutaUltimoCompat = path.join(carpetaPrincipal, "pos_ULTIMO.db");
+  const rutaLocalUltimo = path.join(carpetaLocal, "llanomio_ULTIMO.db");
   const rutaHistorial = path.join(carpetaHistorial, nombreArchivo);
   const rutaLocal = path.join(carpetaLocal, nombreArchivo);
 
@@ -350,6 +369,14 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
     }
     if (!fs.existsSync(carpetaLocal)) {
       fs.mkdirSync(carpetaLocal, { recursive: true });
+    }
+
+    if (carpetaNube && !fs.existsSync(carpetaNube)) {
+      try {
+        fs.mkdirSync(carpetaNube, { recursive: true });
+      } catch (errNube) {
+        console.warn("[BACKUP NUBE] No se pudo crear directorio de nube:", errNube);
+      }
     }
 
     // 2. Definir archivo de salida para VACUUM INTO
@@ -375,16 +402,23 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
       throw new Error("El archivo de respaldo generado tiene tamaño de 0 bytes.");
     }
 
-    // 6. Replicar a la carpeta externa (pos_ULTIMO.db y subcarpeta historial)
+    // 6. Actualizar copia local maestra llanomio_ULTIMO.db en database/backups_locales
+    try {
+      if (fs.existsSync(rutaLocalUltimo)) {
+        fs.unlinkSync(rutaLocalUltimo);
+      }
+      fs.copyFileSync(rutaDestinoInicial, rutaLocalUltimo);
+    } catch {}
+
+    // 7. Replicar a la bóveda local C:\POS_BACKUPS (llanomio_ULTIMO.db, pos_ULTIMO.db y subcarpeta historial)
     try {
       if (fs.existsSync(carpetaPrincipal)) {
-        // Actualizar el archivo maestro de sincronización con la nube
-        if (fs.existsSync(rutaUltimo)) {
-          fs.unlinkSync(rutaUltimo);
-        }
+        if (fs.existsSync(rutaUltimo)) fs.unlinkSync(rutaUltimo);
         fs.copyFileSync(rutaDestinoInicial, rutaUltimo);
 
-        // Copiar en el historial externo si la subcarpeta existe
+        if (fs.existsSync(rutaUltimoCompat)) fs.unlinkSync(rutaUltimoCompat);
+        fs.copyFileSync(rutaDestinoInicial, rutaUltimoCompat);
+
         if (fs.existsSync(carpetaHistorial)) {
           fs.copyFileSync(rutaDestinoInicial, rutaHistorial);
         }
@@ -393,24 +427,58 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
       console.warn("[BACKUP] Advertencia al replicar en almacenamiento externo C:\\POS_BACKUPS:", errCopiaExterna);
     }
 
-    // 6.b Generar volcados estructurados por carpetas (inventario, clientes, facturas, caja)
+    // 8. Replicar en la carpeta compartida con la NUBE (Google Drive / OneDrive / Dropbox)
+    if (carpetaNube && fs.existsSync(carpetaNube)) {
+      try {
+        const rutaNubeUltimo = path.join(carpetaNube, "llanomio_ULTIMO.db");
+        const rutaNubeUltimoCompat = path.join(carpetaNube, "pos_ULTIMO.db");
+        const carpetaNubeHistorial = path.join(carpetaNube, "historial");
+
+        if (!fs.existsSync(carpetaNubeHistorial)) {
+          fs.mkdirSync(carpetaNubeHistorial, { recursive: true });
+        }
+
+        if (fs.existsSync(rutaNubeUltimo)) fs.unlinkSync(rutaNubeUltimo);
+        fs.copyFileSync(rutaDestinoInicial, rutaNubeUltimo);
+
+        if (fs.existsSync(rutaNubeUltimoCompat)) fs.unlinkSync(rutaNubeUltimoCompat);
+        fs.copyFileSync(rutaDestinoInicial, rutaNubeUltimoCompat);
+
+        fs.copyFileSync(rutaDestinoInicial, path.join(carpetaNubeHistorial, nombreArchivo));
+
+        // Respaldo de configuración de entorno (.env.backup)
+        const rutaEnv = path.join(process.cwd(), ".env");
+        if (fs.existsSync(rutaEnv)) {
+          fs.copyFileSync(rutaEnv, path.join(carpetaNube, ".env.backup"));
+        }
+
+        purgarRespaldosExcedentes(carpetaNubeHistorial, 15);
+      } catch (errCloudCopy) {
+        console.warn("[BACKUP NUBE] Advertencia al replicar en carpeta compartida con la nube:", errCloudCopy);
+      }
+    }
+
+    // 9. Generar volcados estructurados por carpetas (inventario, clientes, facturas, caja, gastos)
     try {
       await generarVolcadosEstructurados(carpetaLocal, timestamp);
       if (fs.existsSync(carpetaPrincipal)) {
         await generarVolcadosEstructurados(carpetaPrincipal, timestamp);
       }
+      if (carpetaNube && fs.existsSync(carpetaNube)) {
+        await generarVolcadosEstructurados(carpetaNube, timestamp);
+      }
     } catch (errDump) {
       console.warn("[BACKUP] Advertencia al generar volcados estructurados:", errDump);
     }
 
-    // 7. Rotación y retención automática: conservar únicamente los últimos 15 respaldos
+    // 10. Rotación y retención automática: conservar únicamente los últimos 15 respaldos
     const eliminadosLocal = purgarRespaldosExcedentes(carpetaLocal, 15);
     const eliminadosHistorial = fs.existsSync(carpetaHistorial)
       ? purgarRespaldosExcedentes(carpetaHistorial, 15)
       : 0;
 
     console.log(
-      `[RESPALDO EXITOSO] Motivo: ${motivo} | Bytes: ${stat.size} | Archivo: ${nombreArchivo} | Purgados Local/Ext: ${eliminadosLocal}/${eliminadosHistorial}`
+      `[RESPALDO EXITOSO - TRIPLE ESPEJO] Motivo: ${motivo} | Bytes: ${stat.size} | Archivo: ${nombreArchivo} | Nube: ${carpetaNube || "No configurada"}`
     );
 
     return {

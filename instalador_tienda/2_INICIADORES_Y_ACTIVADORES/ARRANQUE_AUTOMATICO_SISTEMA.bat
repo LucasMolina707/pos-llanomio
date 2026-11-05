@@ -77,7 +77,7 @@ for /L %%i in (1,1,25) do (
         if !errorlevel! equ 0 (
             set "LISTO=1"
         ) else (
-            timeout /t 1 >nul
+            ping 127.0.0.1 -n 2 >nul
         )
     )
 )
@@ -90,3 +90,4 @@ if "%~1"=="--abrir-pantalla" (
 )
 
 exit /b 0
+

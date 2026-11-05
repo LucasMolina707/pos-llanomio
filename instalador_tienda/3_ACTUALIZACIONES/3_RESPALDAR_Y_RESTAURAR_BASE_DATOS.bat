@@ -19,16 +19,18 @@ echo.
 echo [1] Generar Copia de Seguridad Inmediata (Respaldo en Caliente)
 echo [2] Abrir Carpeta de Respaldos en el Explorador de Windows
 echo [3] Restaurar Base de Datos desde un Archivo de Respaldo (.db)
-echo [4] Salir
+echo [4] Configurar Carpeta Sincronizada con la Nube (Google Drive / OneDrive / Dropbox)
+echo [5] Salir
 echo.
 echo ===============================================================================
 echo.
-set /p OPC_BKP=">> Ingrese una opcion [1-4]: "
+set /p OPC_BKP=">> Ingrese una opcion [1-5]: "
 
 if "%OPC_BKP%"=="1" goto :CREAR_RESPALDO
 if "%OPC_BKP%"=="2" goto :ABRIR_CARPETA_RESPALDOS
 if "%OPC_BKP%"=="3" goto :RESTAURAR_BASE_DATOS
-if "%OPC_BKP%"=="4" exit /b 0
+if "%OPC_BKP%"=="4" goto :CONFIGURAR_NUBE
+if "%OPC_BKP%"=="5" exit /b 0
 
 echo Opcion no valida.
 timeout /t 2 >nul
@@ -157,6 +159,20 @@ echo.
 echo ===============================================================================
 echo                   RESTAURACION COMPLETADA EXITOSAMENTE
 echo ===============================================================================
+pause
+goto :MENU_BACKUP
+
+:: -------------------------------------------------------------------------------
+:: 4. Configurar Carpeta Sincronizada con la Nube
+:: -------------------------------------------------------------------------------
+:CONFIGURAR_NUBE
+echo.
+if exist "%PROJECT_ROOT%\runtime\node\node.exe" (
+    "%PROJECT_ROOT%\runtime\node\node.exe" "%PROJECT_ROOT%\scripts\configurar-carpeta-nube.js"
+) else (
+    node "%PROJECT_ROOT%\scripts\configurar-carpeta-nube.js"
+)
+echo.
 pause
 goto :MENU_BACKUP
 
