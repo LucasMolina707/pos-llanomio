@@ -236,8 +236,8 @@ export default function TerminalAlquileresPage() {
   };
 
   // Bloque 1: Cobro Obligatorio de Abono / Depósito de Respaldo (EXCLUSIVO EN EFECTIVO)
-  const [montoDeposito, setMontoDeposito] = useState<number>(40000);
-  const [montoDepositoPersonalizado, setMontoDepositoPersonalizado] = useState<string>("40000");
+  const [montoDeposito, setMontoDeposito] = useState<number>(0);
+  const [montoDepositoPersonalizado, setMontoDepositoPersonalizado] = useState<string>("0");
   const [tarifaMoraDiaria, setTarifaMoraDiaria] = useState<number>(3000);
   const [abonoEfectivoConfirmado, setAbonoEfectivoConfirmado] = useState<boolean>(true);
 
@@ -416,11 +416,9 @@ export default function TerminalAlquileresPage() {
   const cargarApartadosActivos = async () => {
     try {
       setCargandoApartadosModal(true);
-      const res = await safeFetchJson<any>("/api/facturas/monitoreo?modulo=APARTADOS&tipo=SEPARE");
+      const res = await safeFetchJson<any>("/api/apartados?todos=true");
       if (res.ok && res.data) {
-        const lista = (res.data.facturas || []).filter(
-          (f: any) => f.tipoOperacion === "SEPARE" && f.estado !== "CERRADA"
-        );
+        const lista = res.data.facturas || res.data.apartados || [];
         setApartadosDisponibles(lista);
       }
     } catch (err) {
@@ -433,7 +431,7 @@ export default function TerminalAlquileresPage() {
   const seleccionarApartadoParaAlquilar = (apt: any) => {
     if (!apt) return;
 
-    // 1. Asignar cliente del apartado
+    // 1. Asignar cliente del apartado (incluso si no había cliente seleccionado)
     if (apt.cliente) {
       setClienteSeleccionado({
         id: apt.cliente.id,
@@ -461,7 +459,7 @@ export default function TerminalAlquileresPage() {
     }));
     setItemsCarrito(items);
 
-    // 3. Registrar información del apartado de origen
+    // 3. Registrar información del apartado de origen y vincular folio en curso
     const abonoPrev = Number(apt.totalAbonado) || 0;
     const totalAlq = Number(apt.totalFactura || apt.total) || 0;
     const saldoPend = Math.max(0, totalAlq - abonoPrev);
@@ -474,21 +472,27 @@ export default function TerminalAlquileresPage() {
       saldoPendiente: saldoPend,
       observaciones: apt.observaciones || apt.notas || "",
     });
+    setFacturaEnCursoId(apt.id);
 
-    if (apt.montoDeposito !== undefined && apt.montoDeposito !== null && Number(apt.montoDeposito) > 0) {
-      setMontoDeposito(Number(apt.montoDeposito));
-      setMontoDepositoPersonalizado(String(apt.montoDeposito));
-    }
+    // 4. Asignación Automática del Precio de Depósito en Garantía
+    const depositoApartado = Number(apt.montoDeposito) || 0;
+    const depositoProductos = (apt.detalles || []).reduce(
+      (acc: number, d: any) => acc + (Number(d.producto?.depositoGarantia || 0) * (d.cantidad || 1)),
+      0
+    );
+    const depositoFinal = depositoApartado > 0 ? depositoApartado : depositoProductos;
+    setMontoDeposito(depositoFinal);
+    setMontoDepositoPersonalizado(String(depositoFinal));
 
     if (apt.observaciones || apt.notas) {
       setNotasAlquiler(apt.observaciones || apt.notas);
     }
 
-    if (apt.fechaDevolucionEstimada) {
+    if (apt.fechaDevolucionEstimada || apt.fechaDevolucionPactada) {
       try {
-        const d = new Date(apt.fechaDevolucionEstimada);
+        const d = new Date(apt.fechaDevolucionEstimada || apt.fechaDevolucionPactada);
         const pad = (n: number) => String(n).padStart(2, "0");
-        setFechaDevolucion(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T18:00`);
+        setFechaDevolucion(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T20:00`);
       } catch {}
     }
 
@@ -592,6 +596,14 @@ export default function TerminalAlquileresPage() {
       return () => clearTimeout(timer);
     }
   }, [mensajeError, mensajeExito]);
+
+  // Vigilancia estricta de carrito vacío: si no hay productos ni apartado cargado, reiniciar depósito a $0
+  useEffect(() => {
+    if (itemsCarrito.length === 0 && !apartadoOrigen) {
+      setMontoDeposito(0);
+      setMontoDepositoPersonalizado("0");
+    }
+  }, [itemsCarrito.length, apartadoOrigen]);
 
   // Cálculos financieros del alquiler y liquidación por bloques
   // Subtotal exclusivo de prendas del alquiler (TOTAL OPERACIÓN)
@@ -724,6 +736,13 @@ export default function TerminalAlquileresPage() {
         subtotal: precio,
       };
       setItemsCarrito((prev) => [...prev, nuevoItem]);
+    }
+
+    // Al agregar el primer traje, asignar el depósito configurado del traje o $40.000 sugerido
+    if (montoDeposito === 0 && !apartadoOrigen) {
+      const depSugerido = (prenda as any).depositoGarantia ? Number((prenda as any).depositoGarantia) : 40000;
+      setMontoDeposito(depSugerido);
+      setMontoDepositoPersonalizado(String(depSugerido));
     }
   };
 
@@ -979,8 +998,8 @@ export default function TerminalAlquileresPage() {
     setMontoAbonoManual("");
     setMetodoPagoPrincipal("EFECTIVO");
     setReferenciaPago("");
-    setMontoDeposito(40000);
-    setMontoDepositoPersonalizado("40000");
+    setMontoDeposito(0);
+    setMontoDepositoPersonalizado("0");
     setEfectivoRecibidoCliente("");
     setAbonoEfectivoConfirmado(true);
     setNotasAlquiler("");
@@ -2756,30 +2775,44 @@ export default function TerminalAlquileresPage() {
 
                   {/* Pie Fijo de Totales y Botones de Avance (shrink-0) */}
                   <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
-                    <div className="p-2.5 rounded-xl border-2 border-slate-300 bg-white space-y-1 text-xs">
-                      <div className="flex justify-between text-slate-700">
-                        <span>Total Valor Alquiler:</span>
-                        <span className="font-mono font-bold text-slate-900">${subtotalPrendas.toLocaleString("es-CO")}</span>
+                    {itemsCarrito.length === 0 && !apartadoOrigen ? (
+                      <div className="p-3.5 rounded-xl border border-dashed border-slate-300 bg-white text-center text-xs text-slate-500 font-medium leading-relaxed">
+                        Seleccione un traje o tome un apartado para calcular precio y depósito en garantía
                       </div>
-                      <div className="flex justify-between text-slate-700">
-                        <span>Depósito en Garantía:</span>
-                        <span className="font-mono font-bold text-amber-800">${montoDeposito.toLocaleString("es-CO")}</span>
-                      </div>
-                      <div className="flex justify-between text-slate-950 font-black p-1 rounded bg-slate-100 border border-slate-200">
-                        <span>Total (Alquiler + Depósito):</span>
-                        <span className="font-mono text-emerald-700 text-sm">${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}</span>
-                      </div>
-                      <div className="flex justify-between text-emerald-800 font-bold pt-0.5">
-                        <span>Valor Pagado ({metodoPagoPrincipal === "EFECTIVO" ? "Efectivo" : "Consignación"}):</span>
-                        <span className="font-mono">${totalExigidoHoyEnCaja.toLocaleString("es-CO")}</span>
-                      </div>
-                      {saldoFaltanteAlquiler > 0 && (
-                        <div className="flex justify-between text-rose-700 font-black pt-0.5 border-t border-slate-200">
-                          <span>Falta por pagar:</span>
-                          <span className="font-mono">${saldoFaltanteAlquiler.toLocaleString("es-CO")}</span>
+                    ) : (
+                      <div className="p-2.5 rounded-xl border-2 border-slate-300 bg-white space-y-1 text-xs">
+                        {apartadoOrigen && (
+                          <div className="flex justify-between text-indigo-700">
+                            <span>(-) Abono Previo Apartado:</span>
+                            <span className="font-mono font-bold text-emerald-700">
+                              -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-slate-700">
+                          <span>Total Valor Alquiler:</span>
+                          <span className="font-mono font-bold text-slate-900">${subtotalPrendas.toLocaleString("es-CO")}</span>
                         </div>
-                      )}
-                    </div>
+                        <div className="flex justify-between text-slate-700">
+                          <span>Depósito en Garantía:</span>
+                          <span className="font-mono font-bold text-amber-800">${montoDeposito.toLocaleString("es-CO")}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-950 font-black p-1 rounded bg-slate-100 border border-slate-200">
+                          <span>Total (Alquiler + Depósito):</span>
+                          <span className="font-mono text-emerald-700 text-sm">${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-800 font-bold pt-0.5">
+                          <span>Valor Pagado ({metodoPagoPrincipal === "EFECTIVO" ? "Efectivo" : "Consignación"}):</span>
+                          <span className="font-mono">${totalExigidoHoyEnCaja.toLocaleString("es-CO")}</span>
+                        </div>
+                        {saldoFaltanteAlquiler > 0 && (
+                          <div className="flex justify-between text-rose-700 font-black pt-0.5 border-t border-slate-200">
+                            <span>Falta por pagar:</span>
+                            <span className="font-mono">${saldoFaltanteAlquiler.toLocaleString("es-CO")}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Botones de Navegación del Flujo */}
                     <div className="pt-1">
@@ -3548,6 +3581,9 @@ export default function TerminalAlquileresPage() {
                           <div className="text-right text-xs">
                             <div className="text-slate-500 text-[10px]">
                               Total Alquiler: <strong>${(apt.totalFactura || apt.total || 0).toLocaleString("es-CO")}</strong>
+                            </div>
+                            <div className="text-amber-800 font-bold text-[10.5px]">
+                              Depósito Garantía: ${(Number(apt.montoDeposito) || 0).toLocaleString("es-CO")}
                             </div>
                             <div className="text-emerald-700 font-bold text-[11px]">
                               Abono Pagado: -${(apt.totalAbonado || 0).toLocaleString("es-CO")}

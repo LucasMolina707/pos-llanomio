@@ -3649,3 +3649,49 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
 - **Tipado TypeScript:** `npx tsc --noEmit` completado con 0 errores.
 - **Compilación de Producción:** `npm run build` exitoso con 22/22 rutas generadas.
 - **Servicio PM2:** Procesos en línea (`online`) y operativos en `http://localhost:3000`.
+
+
+---
+
+## SECCIÓN 55: LISTADO UNIVERSAL DE APARTADOS, PRECARGA DE DEPÓSITO, VISIBILIDAD CONDICIONAL Y CIERRE DEFINITIVO AL CONVERTIRSE EN ALQUILER
+
+### 1. Objetivos Técnicos y Reglas de Negocio Implementadas
+1. **Listado Universal en el Botón "Tomar desde Apartados / Reservas":**
+   - Habilitado siempre desde el inicio en `src/app/caja/alquileres/page.tsx` (incluso en el Paso 1 antes de seleccionar cliente alguno).
+   - Consulta Prisma en `GET /api/apartados` limpia y universal (`where: { tipoOperacion: 'SEPARE' }`), permitiendo listar y buscar todos los apartados registrados en la base de datos sin restricciones de fechas programadas (hoy, fechas futuras o vencidas).
+   - En el modal selector se visualiza para cada apartado: Consecutivo, Nombre y Cédula/Teléfono del Cliente, Trajes y prendas reservadas (con especificaciones completas), Fecha programada de retiro, Canon de alquiler, Depósito en Garantía pactado, Abono en consigna y Saldo restante por pagar.
+2. **Arrastre Automático Integral al Seleccionar un Apartado:**
+   - Asignación inmediata del cliente titular con sincronización de sus teléfonos primario y secundario.
+   - Inyección en el carrito de las prendas reservadas con código, descripción, especificaciones y precios pactados.
+   - **Asignación Automática de Depósito en Garantía:** Aplica de inmediato el valor de depósito estipulado en la reserva (`apartado.montoDeposito`) o, si este fuese 0, calcula la suma de los depósitos configurados de las prendas seleccionadas.
+   - Vinculación del apartado origen (`apartadoOrigen` y `facturaEnCursoId`) para ejecutar la conversión sobre el mismo folio contable.
+   - Salto automático al Paso 2 con retroalimentación visual clara.
+3. **Visibilidad Condicional Estricta de Precio y Depósito en Garantía:**
+   - Mientras `itemsCarrito.length === 0 && !apartadoOrigen`, el panel lateral no exhibe celdas de depósito residuales ($40.000 ni $0). En su lugar, presenta un estado limpio informativo: *"Seleccione un traje o tome un apartado para calcular precio y depósito en garantía"*.
+   - Se implementó un hook `useEffect` reactivo que vigila `itemsCarrito.length`; si el cajero vacía el carrito y no proviene de un apartado, fuerza `montoDeposito` a 0.
+   - Al agregar una prenda manual al carrito, si el depósito está en 0 y no hay apartado origen, asigna automáticamente el depósito sugerido del traje o el valor por defecto ($40.000).
+4. **Eliminación y Desaparición Definitiva del Apartado al Convertirse en Alquiler:**
+   - Al confirmar el cobro (`PATCH /api/facturas/[id]` con `accion: "CONVERTIR_APARTADO_A_ALQUILER"` o `POST /api/facturas` con `apartadoOrigenId`):
+     - La factura transiciona atómicamente a `tipoOperacion: "ALQUILER"` y `estado: "ACTIVA_ALQUILADA"`.
+     - El inventario físico de las prendas pasa a `estado: "ALQUILADO"` y `estadoPrenda: "ALQUILADO"`.
+     - Al cambiar su `tipoOperacion` a `ALQUILER`, el registro desaparece inmediatamente de la bandeja de apartados (`/caja/apartados`, modal selector y pestaña de reservas en monitoreo), pasando a vivir como alquiler activo en mostrador y cartera.
+
+### 2. Archivos Modificados y Blindados
+1. `src/app/api/apartados/route.ts`:
+   - Endpoint universal que consulta `{ where: { tipoOperacion: 'SEPARE' } }` con relaciones de cliente, detalles de producto y abonos.
+2. `src/app/api/facturas/monitoreo/route.ts`:
+   - Eliminado filtro inválido `where.estado = { not: "ANULADA" }`, preservando tipado estricto con el enum `EstadoFactura`.
+3. `src/app/caja/alquileres/page.tsx`:
+   - Habilitado modal de apartados desde Paso 1 sin cliente seleccionado.
+   - Precarga automática de cliente, prendas, abono y depósito en garantía.
+   - Visibilidad condicional estricta: panel lateral limpio cuando no hay prendas ni apartado.
+4. `src/app/api/facturas/route.ts` & `src/app/api/facturas/[id]/route.ts`:
+   - Conversión atómica a `ALQUILER` y `ACTIVA_ALQUILADA` en la misma transacción Prisma, liberando la reserva y actualizando el inventario físico.
+5. `scripts/test-auditoria-flujo-apartados-a-alquiler.cjs`:
+   - Suite de prueba QA automatizada que valida: creación de apartados (fechas futuras y hoy), consulta universal, arrastre de datos y depósito, conversión atómica a alquiler, desaparición de la lista de apartados y actualización física en inventario.
+
+### 3. Resultados de Certificación QA y Despliegue
+- **Prueba Automatizada QA:** Aprobada al 100% (`node scripts/test-auditoria-flujo-apartados-a-alquiler.cjs`).
+- **Verificación Estática TypeScript:** `npx tsc --noEmit` completado con 0 errores.
+- **Compilación de Producción:** `npm run build` ejecutado exitosamente.
+- **Servicio PM2:** Procesos en línea y funcionando en `http://localhost:3000`.

@@ -657,6 +657,22 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Si la factura provino de un apartado (apartadoOrigenId), cerrar/convertir el registro original para evitar duplicados
+      if (body.apartadoOrigenId) {
+        try {
+          await tx.factura.update({
+            where: { id: body.apartadoOrigenId },
+            data: {
+              tipoOperacion: TipoOperacion.ALQUILER,
+              estado: EstadoFactura.ACTIVA_ALQUILADA,
+              observaciones: `Apartado formalizado y convertido en contrato de alquiler N° ${factura.numeroFactura}`,
+            },
+          });
+        } catch (errConv) {
+          console.warn("[APARTADOS] No se pudo actualizar apartadoOrigenId:", errConv);
+        }
+      }
+
       return factura;
     });
 

@@ -1,29 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GET as getFacturas, POST as postFacturas } from "@/app/api/facturas/route";
+import { prisma } from "@/lib/prisma";
+import { POST as postFacturas } from "@/app/api/facturas/route";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 /**
  * GET /api/apartados
- * Retorna las facturas de tipo apartado/separe delegando a /api/facturas
+ * Retorna todos los apartados (SEPARE) existentes en la base de datos sin filtros restrictivos
+ * de fecha ni estado (excepto ANULADA), para consulta directa y selector de alquileres.
  */
 export async function GET(req: NextRequest) {
   try {
-    const url = new URL(req.url);
-    url.searchParams.set("modulo", "APARTADOS");
-    url.searchParams.set("tipoOperacion", "SEPARE");
-
-    const delegatedReq = new NextRequest(url.toString(), {
-      headers: req.headers,
-      method: "GET",
+    const apartados = await prisma.factura.findMany({
+      where: {
+        tipoOperacion: "SEPARE",
+      },
+      include: {
+        cliente: true,
+        detalles: {
+          include: {
+            producto: true,
+          },
+        },
+        abonos: {
+          include: {
+            cajero: {
+              select: { id: true, nombre: true, username: true },
+            },
+          },
+          orderBy: { fecha: "desc" },
+        },
+      },
+      orderBy: { fechaCreacion: "desc" },
     });
 
-    return await getFacturas(delegatedReq);
+    return NextResponse.json({
+      success: true,
+      ok: true,
+      facturas: apartados,
+      apartados,
+      total: apartados.length,
+    });
   } catch (error: unknown) {
     console.error("Error en GET /api/apartados:", error);
     return NextResponse.json(
-      { ok: false, error: "Error al consultar apartados." },
+      { success: false, ok: false, error: "Error al consultar apartados." },
       { status: 500 }
     );
   }

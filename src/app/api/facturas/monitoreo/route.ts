@@ -38,6 +38,8 @@ export async function GET(req: NextRequest) {
 
     if (moduloParam === "ALQUILERES" || tipoParam === "ALQUILER") {
       where.tipoOperacion = "ALQUILER";
+    } else if (moduloParam === "APARTADOS" || tipoParam === "SEPARE") {
+      where.tipoOperacion = "SEPARE";
     } else if (
       moduloParam === "POS" ||
       tipoParam === "VENTA" ||
