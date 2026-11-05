@@ -18,10 +18,16 @@ export async function POST(req: NextRequest) {
     const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
     const userAgent = req.headers.get("user-agent") || "Desconocido";
 
-    // 1. Buscar usuario en la base de datos local
-    const user = await prisma.user.findUnique({
-      where: { username: String(username).trim() },
+    // 1. Buscar usuario en la base de datos local (tolerante a mayúsculas/minúsculas)
+    const usernameBuscado = String(username || "").trim();
+    let user = await prisma.user.findUnique({
+      where: { username: usernameBuscado },
     });
+
+    if (!user) {
+      const todos = await prisma.user.findMany();
+      user = todos.find((u) => u.username.toLowerCase() === usernameBuscado.toLowerCase()) || null;
+    }
 
     if (!user) {
       return NextResponse.json(

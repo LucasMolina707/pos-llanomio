@@ -294,28 +294,32 @@ call npx prisma db push --schema=database/schema.prisma --skip-generate
 
 if not exist "%PROJECT_ROOT%\database\llanomio.db" goto :sembrar_bd_fabrica
 if "%OPC_MODO%"=="2" goto :consultar_bd_existente
-echo [OK] Base de datos existente respetada e integrada.
+echo [OK] Base de datos existente detectada. Asegurando credenciales maestras...
+node "%PROJECT_ROOT%\scripts\asegurar-admin.js"
 goto :fin_bd_config
 
 :sembrar_bd_fabrica
 echo [BD] Sembrando estado limpio de fabrica (admin / admin123)...
-call npx tsx database/seed.ts
+node "%PROJECT_ROOT%\database\seed.js"
+node "%PROJECT_ROOT%\scripts\asegurar-admin.js"
 echo [OK] Base de datos creada y sembrada exitosamente.
 goto :fin_bd_config
 
 :consultar_bd_existente
 echo.
 echo Se detecto una base de datos existente en 'database\llanomio.db'.
-echo   [1] Conservar datos actuales (Recomendado)
+echo   [1] Conservar datos actuales y asegurar credenciales admin (Recomendado)
 echo   [2] Restablecer a Estado Puro de Fabrica (Clean Slate - Elimina ventas y deja admin123)
 echo.
 set /p OPC_BD=">> Seleccione una opcion [1-2, Enter = 1]: "
 if "%OPC_BD%"=="2" goto :ejecutar_reset_fabrica
-echo [OK] Base de datos existente respetada.
+echo [OK] Base de datos existente respetada. Asegurando credenciales maestras...
+node "%PROJECT_ROOT%\scripts\asegurar-admin.js"
 goto :fin_bd_config
 
 :ejecutar_reset_fabrica
-call npx tsx scripts/reset-db-fabrica.ts
+node "%PROJECT_ROOT%\scripts\reset-db-fabrica.js"
+node "%PROJECT_ROOT%\scripts\asegurar-admin.js"
 echo [OK] Base de datos restablecida a Estado Puro de Fabrica.
 
 :fin_bd_config

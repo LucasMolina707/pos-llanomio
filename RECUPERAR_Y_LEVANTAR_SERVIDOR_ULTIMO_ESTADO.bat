@@ -70,6 +70,7 @@ if %errorlevel% neq 0 (
         echo [AVISO] La recuperacion de base de datos reporto observaciones. Continuando arranque...
     )
 )
+call "%NODE_EXE%" "%PROJECT_ROOT%\scripts\asegurar-admin.js" >nul 2>&1
 
 :: ===============================================================================
 :: 5. PASO 2: Gestion de Procesos con PM2 o Arranque Nativo

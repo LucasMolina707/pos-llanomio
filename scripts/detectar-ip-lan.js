@@ -21,3 +21,4 @@ function obtenerIpLan() {
 }
 
 console.log(obtenerIpLan());
+

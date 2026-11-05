@@ -67,10 +67,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Buscar usuario en SQLite
-    const usuario = await prisma.user.findUnique({
+    // 1. Buscar usuario en SQLite (tolerante a mayúsculas/minúsculas)
+    let usuario = await prisma.user.findUnique({
       where: { username: usernameLimpio },
     });
+
+    if (!usuario) {
+      const todos = await prisma.user.findMany();
+      usuario = todos.find((u) => u.username.toLowerCase() === usernameLimpio.toLowerCase()) || null;
+    }
 
     if (!usuario) {
       return NextResponse.json(
