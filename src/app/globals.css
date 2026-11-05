@@ -4,14 +4,14 @@
 
 :root {
   --background: #F4F6F9;
-  --surface: #FFFFFF;
-  --text-primary: #0F172A;
+  --surface: #FCFDFE;
+  --text-primary: #1E293B;
   --surface-muted: #EEF2F6;
-  --surface-elevated: #FFFFFF;
+  --surface-elevated: #FCFDFE;
   --sidebar-bg: #F1F5F9;
   --sidebar-border: #E2E8F0;
   --sidebar-hover: #E2E8F0;
-  --foreground: #0F172A;
+  --foreground: #1E293B;
   --foreground-muted: #64748B;
   --border-soft: #E2E8F0;
   --border-medium: #CBD5E1;
@@ -22,7 +22,7 @@
 
 html, body {
   background-color: #F4F6F9;
-  color: #0F172A;
+  color: #1E293B;
   margin: 0;
   padding: 0;
   max-width: 100vw;

@@ -144,14 +144,17 @@ set "POS_ZBX_CONF=%ZBX_CONF_D%\pos_llanomio.conf"
 
 (
     echo ### PARAMETROS DE MONITOREO POS LLANOMIO ###
-    echo # 1. Estado del Servidor POS (1=En linea / 0=Caido^)
-    echo UserParameter=pos.status,powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'http://localhost:!PORT!/login' -UseBasicParsing -TimeoutSec 2; if ($r.StatusCode -eq 200) { Write-Output 1 } else { Write-Output 0 } } catch { Write-Output 0 }"
+    echo # 1. Estado HTTP del Servidor POS (Codigo HTTP: 200=OK, 0=Caido^)
+    echo UserParameter=pos.llanomio.http.status[*],powershell -NoProfile -WindowStyle Hidden -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:$1/login' -UseBasicParsing -TimeoutSec 3; $r.StatusCode } catch { 0 }"
+    echo UserParameter=pos.status,powershell -NoProfile -WindowStyle Hidden -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:!PORT!/login' -UseBasicParsing -TimeoutSec 3; if ($r.StatusCode -eq 200) { 1 } else { 0 } } catch { 0 }"
     echo.
     echo # 2. Tamano en Bytes de la Base de Datos SQLite (database\llanomio.db^)
-    echo UserParameter=pos.db.size,powershell -NoProfile -Command "if (Test-Path '%PROJECT_ROOT%\database\llanomio.db') { (Get-Item '%PROJECT_ROOT%\database\llanomio.db').Length } else { Write-Output 0 }"
+    echo UserParameter=pos.llanomio.db.size,powershell -NoProfile -WindowStyle Hidden -Command "if (Test-Path '%PROJECT_ROOT%\database\llanomio.db') { (Get-Item '%PROJECT_ROOT%\database\llanomio.db').Length } else { 0 }"
+    echo UserParameter=pos.db.size,powershell -NoProfile -WindowStyle Hidden -Command "if (Test-Path '%PROJECT_ROOT%\database\llanomio.db') { (Get-Item '%PROJECT_ROOT%\database\llanomio.db').Length } else { 0 }"
     echo.
     echo # 3. Cantidad de Procesos Node.js Activos en el Sistema
-    echo UserParameter=pos.node.processes,powershell -NoProfile -Command "(Get-Process node -ErrorAction SilentlyContinue).Count"
+    echo UserParameter=pos.llanomio.node.running,powershell -NoProfile -WindowStyle Hidden -Command "(Get-Process -Name node -ErrorAction SilentlyContinue | Measure-Object).Count"
+    echo UserParameter=pos.node.processes,powershell -NoProfile -WindowStyle Hidden -Command "(Get-Process -Name node -ErrorAction SilentlyContinue | Measure-Object).Count"
 ) > "%POS_ZBX_CONF%"
 
 echo [OK] Archivo de metricas creado en:
@@ -197,19 +200,19 @@ echo.
 :: ===============================================================================
 :: 9. Prueba Local Inmediata de UserParameters
 :: ===============================================================================
-echo [TEST] Comprobando lectura local de las 3 metricas del POS:
+echo [TEST] Comprobando lectura local de las metricas del POS:
 echo.
 
 set "ZBX_BIN=C:\Program Files\Zabbix Agent 2\zabbix_agent2.exe"
 if exist "%ZBX_BIN%" (
-    echo Probando pos.status...
-    "%ZBX_BIN%" -c "%ZBX_CONF_FILE%" -t pos.status
+    echo Probando pos.llanomio.http.status[!PORT!]...
+    "%ZBX_BIN%" -c "%ZBX_CONF_FILE%" -t "pos.llanomio.http.status[!PORT!]"
     echo.
-    echo Probando pos.db.size...
-    "%ZBX_BIN%" -c "%ZBX_CONF_FILE%" -t pos.db.size
+    echo Probando pos.llanomio.db.size...
+    "%ZBX_BIN%" -c "%ZBX_CONF_FILE%" -t pos.llanomio.db.size
     echo.
-    echo Probando pos.node.processes...
-    "%ZBX_BIN%" -c "%ZBX_CONF_FILE%" -t pos.node.processes
+    echo Probando pos.llanomio.node.running...
+    "%ZBX_BIN%" -c "%ZBX_CONF_FILE%" -t pos.llanomio.node.running
 )
 
 echo.
@@ -221,7 +224,8 @@ echo   - Host name:         !ZBX_HOST!
 echo   - Interface Type:    Agent
 echo   - IP Address:        [IP local de esta maquina]
 echo   - Port:              !ZBX_PORT!
-echo   - Monitoreo Activo:  pos.status, pos.db.size, pos.node.processes
+echo   - Metricas Clave:    pos.llanomio.http.status[!PORT!], pos.llanomio.db.size, pos.llanomio.node.running
+echo   - Metricas Alias:    pos.status, pos.db.size, pos.node.processes
 echo.
 echo Presione cualquier tecla para finalizar...
 pause >nul

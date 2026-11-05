@@ -70,7 +70,7 @@ export default function Sidebar({
       if (typeof window !== "undefined") {
         try {
           localStorage.setItem("pos_sidebar_pinned", String(next));
-        } catch {}
+        } catch { }
       }
       return next;
     });
@@ -216,15 +216,13 @@ export default function Sidebar({
     <aside
       onMouseEnter={() => !isMobile && setIsHovered(true)}
       onMouseLeave={() => !isMobile && setIsHovered(false)}
-      className={`${
-        isMobile
+      className={`${isMobile
           ? "w-[292px] h-full flex flex-col bg-white border-r border-slate-200 select-none shadow-2xl"
-          : `hidden lg:flex flex-col fixed top-0 left-0 h-screen z-50 bg-white border-r border-slate-200/90 select-none transition-all duration-200 ease-out ${
-              isExpanded
-                ? "w-[292px] shadow-2xl shadow-slate-900/10"
-                : "w-[68px] shadow-xs"
-            }`
-      }`}
+          : `hidden lg:flex flex-col fixed top-0 left-0 h-screen z-50 bg-white border-r border-slate-200/90 select-none transition-all duration-200 ease-out ${isExpanded
+            ? "w-[292px] shadow-2xl shadow-slate-900/10"
+            : "w-[68px] shadow-xs"
+          }`
+        }`}
     >
       {/* ===================================================================== */}
       {/* 1. CABECERA CON LOGO Y BOTÓN DE PIN / CIERRE                           */}
@@ -272,16 +270,14 @@ export default function Sidebar({
                     ? "Desfijar barra lateral (volver a auto-desplegable)"
                     : "Fijar barra lateral siempre abierta"
                 }
-                className={`w-7 h-7 rounded-lg flex items-center justify-center transition shrink-0 ${
-                  isPinned
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition shrink-0 ${isPinned
                     ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-2xs"
                     : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                }`}
+                  }`}
               >
                 <Pin
-                  className={`w-3.5 h-3.5 transition-transform duration-150 ${
-                    isPinned ? "rotate-45 text-blue-600" : ""
-                  }`}
+                  className={`w-3.5 h-3.5 transition-transform duration-150 ${isPinned ? "rotate-45 text-blue-600" : ""
+                    }`}
                 />
               </button>
             )}
@@ -317,18 +313,16 @@ export default function Sidebar({
                     prefetch={true}
                     onClick={() => isMobile && onCloseMobile && onCloseMobile()}
                     title={!isExpanded ? item.name : undefined}
-                    className={`h-10 px-2.5 rounded-xl flex items-center transition-colors duration-150 ${
-                      isActive
+                    className={`h-10 px-2.5 rounded-xl flex items-center transition-colors duration-150 ${isActive
                         ? "bg-blue-600 text-white font-semibold shadow-2xs"
                         : "text-slate-700 hover:bg-slate-100/90 hover:text-slate-950 font-medium"
-                    } ${!isExpanded ? "justify-center" : "gap-3 justify-start"}`}
+                      } ${!isExpanded ? "justify-center" : "gap-3 justify-start"}`}
                   >
                     <Icon
-                      className={`w-[18px] h-[18px] shrink-0 ${
-                        isActive
+                      className={`w-[18px] h-[18px] shrink-0 ${isActive
                           ? "text-white"
                           : "text-slate-500 group-hover:text-slate-800"
-                      } ${!isExpanded ? "mx-auto" : ""}`}
+                        } ${!isExpanded ? "mx-auto" : ""}`}
                     />
 
                     {isExpanded && (

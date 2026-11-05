@@ -114,42 +114,42 @@ volumes:
 
 En la pestana **Items** del Host creado, presione **Create item** para configurar individualmente las 3 metricas:
 
-#### Metrica 1: Estado Web del Servidor POS (Latido Vital)
+#### Metrica 1: Estado HTTP del Servidor POS (Latido Vital)
 * **Name:** `Estado HTTP Servidor POS`
 * **Type:** `Zabbix agent`
-* **Key:** `pos.status`
+* **Key:** `pos.llanomio.http.status[3000]` *(o el puerto configurado en su tienda)*
 * **Type of information:** `Numeric (unsigned)`
 * **Update interval:** `30s` (revisa cada 30 segundos)
 * **Trigger de Alarma:**
   * Ir a la pestana **Triggers -> Create trigger**.
-  * **Name:** `CRITICO: El Servidor POS Llanomio no responde peticiones HTTP`
+  * **Name:** `CRITICO: El Servidor POS Llanomio no responde peticiones HTTP (Codigo no es 200)`
   * **Severity:** `High` o `Disaster`
-  * **Expression:** `last(/POS-LLANOMIO-CAJA1/pos.status)=0`
+  * **Expression:** `last(/POS-LLANOMIO-CAJA1/pos.llanomio.http.status[3000])<>200`
   * **Descripcion:** El proceso web en el puerto local ha dejado de responder codigo HTTP 200. Se recomienda ejecutar el script de rescate `1_LEVANTAR_O_REINICIAR_SERVIDOR.bat`.
 
 #### Metrica 2: Tamano de la Base de Datos SQLite
 * **Name:** `Tamano Base de Datos SQLite`
 * **Type:** `Zabbix agent`
-* **Key:** `pos.db.size`
+* **Key:** `pos.llanomio.db.size`
 * **Type of information:** `Numeric (unsigned)`
 * **Units:** `B`
 * **Update interval:** `5m` (revisa cada 5 minutos)
 * **Trigger de Alarma:**
   * **Name:** `ADVERTENCIA: La base de datos SQLite supero los 500 MB`
   * **Severity:** `Warning`
-  * **Expression:** `last(/POS-LLANOMIO-CAJA1/pos.db.size)>524288000`
+  * **Expression:** `last(/POS-LLANOMIO-CAJA1/pos.llanomio.db.size)>524288000`
   * **Descripcion:** Sugiere programar una depuracion o vaciado controlado de historicos antiguos.
 
 #### Metrica 3: Procesos Node.js en Memoria
 * **Name:** `Procesos Node.js Activos`
 * **Type:** `Zabbix agent`
-* **Key:** `pos.node.processes`
+* **Key:** `pos.llanomio.node.running`
 * **Type of information:** `Numeric (unsigned)`
 * **Update interval:** `1m`
 * **Trigger de Alarma:**
   * **Name:** `ADVERTENCIA: No se registran procesos Node.js en ejecucion`
   * **Severity:** `Average`
-  * **Expression:** `last(/POS-LLANOMIO-CAJA1/pos.node.processes)=0`
+  * **Expression:** `last(/POS-LLANOMIO-CAJA1/pos.llanomio.node.running)=0`
 
 ---
 
@@ -173,21 +173,21 @@ zabbix_export:
       items:
         - uuid: 11111111222233334444555566667777
           name: 'Estado HTTP Servidor POS'
-          key: pos.status
+          key: 'pos.llanomio.http.status[3000]'
           delay: 30s
           value_type: UNSIGNED
           trends: 365d
           history: 7d
-          description: 'Devuelve 1 si responde HTTP 200 en /login, 0 si esta caido.'
+          description: 'Devuelve 200 si responde HTTP 200 en /login, 0 si esta caido.'
           triggers:
             - uuid: aaaaaaaabbbbccccddddeeeeeeeeffff
-              expression: 'last(/Template POS Llanomio Health/pos.status)=0'
+              expression: 'last(/Template POS Llanomio Health/pos.llanomio.http.status[3000])<>200'
               name: 'CRITICO: El Servidor POS Llanomio esta caido'
               priority: HIGH
-              description: 'El servidor local de ventas ha dejado de responder.'
+              description: 'El servidor local de ventas ha dejado de responder codigo 200.'
         - uuid: 22222222333344445555666677778888
           name: 'Tamano Base de Datos SQLite'
-          key: pos.db.size
+          key: pos.llanomio.db.size
           delay: 5m
           value_type: UNSIGNED
           units: B
@@ -196,12 +196,12 @@ zabbix_export:
           description: 'Tamano en bytes de database/llanomio.db'
           triggers:
             - uuid: bbbbbbbbccccddddeeeeffffffff0000
-              expression: 'last(/Template POS Llanomio Health/pos.db.size)>524288000'
+              expression: 'last(/Template POS Llanomio Health/pos.llanomio.db.size)>524288000'
               name: 'ADVERTENCIA: Base de datos SQLite supero 500MB'
               priority: WARNING
         - uuid: 33333333444455556666777788889999
           name: 'Cantidad Procesos Node.js'
-          key: pos.node.processes
+          key: pos.llanomio.node.running
           delay: 1m
           value_type: UNSIGNED
           trends: 365d
@@ -209,7 +209,7 @@ zabbix_export:
           description: 'Cuenta cuantos procesos node.exe estan corriendo en Windows.'
           triggers:
             - uuid: ccccccccddddeeeeffffffff11112222
-              expression: 'last(/Template POS Llanomio Health/pos.node.processes)=0'
+              expression: 'last(/Template POS Llanomio Health/pos.llanomio.node.running)=0'
               name: 'ALERTA: Cero procesos Node.js activos'
               priority: AVERAGE
 ```
@@ -224,5 +224,5 @@ Para recibir una notificacion inmediata en su telefono movil cuando la caja deje
 2. Crear un Bot en Telegram mediante `@BotFather` y obtener el `Token de la API`.
 3. Ingresar el Token en la configuracion del Media Type.
 4. En **Users -> Users**, editar el usuario administrador e ingresar en la pestana **Media** su ID de chat de Telegram.
-5. Cada vez que el trigger `pos.status=0` se active por mas de 30 segundos, Zabbix enviara un mensaje instantaneo a su movil alertando la situacion para tomar accion remota inmediata.
+5. Cada vez que el trigger `pos.llanomio.http.status[3000]<>200` se active por mas de 30 segundos, Zabbix enviara un mensaje instantaneo a su movil alertando la situacion para tomar accion remota inmediata.
 

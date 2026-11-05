@@ -29,7 +29,7 @@ echo [1] Consultar Estado Detallado del Servicio
 echo [2] Iniciar Servicio Zabbix Agent 2
 echo [3] Detener Servicio Zabbix Agent 2
 echo [4] Reiniciar Servicio Zabbix Agent 2
-echo [5] Ejecutar Test de Metricas Locales (pos.status, pos.db.size, pos.node.processes)
+echo [5] Ejecutar Test de Metricas Locales (pos.llanomio.* y pos.*)
 echo [6] Ver Ultimas Lineas del Archivo de Log (zabbix_agent2.log)
 echo [7] Salir
 echo.
@@ -92,14 +92,17 @@ if not exist "%ZBX_EXE%" (
     goto :MENU_ZABBIX
 )
 
-echo Evaluando 'pos.status' (Estado web del POS: 1=OK, 0=Caido):
+echo Evaluando 'pos.llanomio.http.status[3000]' (Codigo de estado HTTP):
+"%ZBX_EXE%" -c "%ZBX_CONF%" -t "pos.llanomio.http.status[3000]"
+echo.
+echo Evaluando 'pos.llanomio.db.size' (Tamano de la base de datos en bytes):
+"%ZBX_EXE%" -c "%ZBX_CONF%" -t pos.llanomio.db.size
+echo.
+echo Evaluando 'pos.llanomio.node.running' (Procesos Node.js en memoria):
+"%ZBX_EXE%" -c "%ZBX_CONF%" -t pos.llanomio.node.running
+echo.
+echo Evaluando alias clasico 'pos.status':
 "%ZBX_EXE%" -c "%ZBX_CONF%" -t pos.status
-echo.
-echo Evaluando 'pos.db.size' (Tamano de la base de datos en bytes):
-"%ZBX_EXE%" -c "%ZBX_CONF%" -t pos.db.size
-echo.
-echo Evaluando 'pos.node.processes' (Procesos Node.js en memoria):
-"%ZBX_EXE%" -c "%ZBX_CONF%" -t pos.node.processes
 echo.
 pause
 goto :MENU_ZABBIX

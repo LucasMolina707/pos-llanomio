@@ -153,3 +153,4 @@ export function invalidarCache(prefijo?: string): void {
 export function setCacheData<T>(url: string, data: T): void {
   memoryCache.set(url, { data, timestamp: Date.now() });
 }
+

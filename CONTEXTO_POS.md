@@ -3861,3 +3861,51 @@ Para facilitar la puesta en marcha, demostración de ventas, liquidación de alq
 - **Validación TypeScript:** `npx tsc --noEmit` completado con 0 errores (código 0).
 - **Compilación de Producción:** `npm run build` completado exitosamente (23/23 rutas optimizadas con reducción de bundles).
 - **Servicio PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` online en `http://localhost:3000` con respuesta HTTP 200.
+
+
+---
+
+## SECCION 61: DEPURACION ESTRUCTURAL, REORGANIZACION EN 4 CARPETAS OFICIALES, MONITOREO ZABBIX AGENT 2 Y HOMOLOGACION ANTIFATIGA VISUAL
+
+### 1. Reorganizacion Estructural de Scripts y Raiz del Proyecto
+1. **Preservacion de la Raiz del Proyecto:**
+   - De conformidad con la regla de oro institucional, `CONTEXTO_POS.md` se mantuvo 100% integro.
+   - En la raiz del proyecto se dejaron exclusivamente los lanzadores indispensables:
+     - `CONTROL_GENERAL_POS.bat`: Panel de control maestro interactivo con guardian persistente (`cmd /k`), menu numerado del 1 al 9 y delegacion hacia los scripts de `instalador_tienda/`.
+     - `ABRIR_SISTEMA_PANTALLA_COMPLETA.bat`: Acceso directo para ejecucion en Modo App nativo sin barra de navegador.
+     - `USUARIOS_Y_CREDENCIALES_MAESTRAS.md`: Documentacion tecnica de credenciales iniciales del sistema.
+2. **Consolidacion en 4 Carpetas Maestras en `instalador_tienda/`:**
+   - **`1_INSTALACIONES/`:** Contiene `1_INSTALADOR_MAESTRO_DESDE_CERO.bat`, `2_CONFIGURAR_PUERTOS_Y_DOMINIO.bat`, `3_PREPARAR_LIMPIEZA_FABRICA_PARA_EXE.bat` y `MANUAL_INSTALACION_DESDE_CERO.md`.
+   - **`2_INICIADORES_Y_ACTIVADORES/`:** Contiene `1_LEVANTAR_O_REINICIAR_SERVIDOR.bat`, `2_FINALIZAR_Y_DETENER_SERVIDOR.bat`, `3_ABRIR_POS_PANTALLA_COMPLETA_SIN_NAVEGADOR.bat`, `4_ESTADO_Y_DIAGNOSTICO_SERVIDOR.bat` y `MANUAL_ACTIVADORES_Y_CONTROL_SERVIDOR.md`.
+   - **`3_ACTUALIZACIONES/`:** Contiene `1_GENERAR_PARCHE_ACTUALIZACION_DEV.bat`, `2_APLICAR_ACTUALIZACION_CLIENTE_SEGURO.bat`, `3_RESPALDAR_Y_RESTAURAR_BASE_DATOS.bat` y `MANUAL_ACTUALIZACIONES_Y_RESPALDOS.md`.
+   - **`4_ZABBIX_MONITOREO/`:** Contiene `1_INSTALAR_Y_CONFIGURAR_ZABBIX_DESDE_CERO.bat`, `2_CONTROLAR_SERVICIO_ZABBIX.bat`, `MANUAL_ZABBIX_INSTALACION_Y_MONITOREO_DESDE_CERO.md` y subcarpeta `bin/`.
+   - Todos los scripts operan con rutas relativas dinamicas `%~dp0`, sin emojis, comprobacion de elevacion UAC y guardian persistente para evitar cierres abruptos de ventana.
+
+### 2. Automatizacion de Monitoreo Zabbix Agent 2
+1. **Instalacion Desatendida:**
+   - Script `1_INSTALAR_Y_CONFIGURAR_ZABBIX_DESDE_CERO.bat` con descarga automatica TLS 1.2 desde el CDN oficial de Zabbix (`zabbix_agent2-7.0.0-windows-amd64-openssl.msi`) o deteccion de instalador local en `bin/`.
+   - Instalacion silenciosa con parametros `SERVER`, `SERVERACTIVE`, `HOSTNAME`, `LISTENPORT` y `ENABLEPATH=1`.
+2. **Metricas Oficiales (UserParameters) Inyectadas en `pos_llanomio.conf`:**
+   - `pos.llanomio.http.status[*]`: Retorna el codigo de respuesta HTTP (`200` en operacion normal, `0` en caida o error).
+   - `pos.llanomio.db.size`: Retorna el tamano exacto en bytes del archivo SQLite `database/llanomio.db`.
+   - `pos.llanomio.node.running`: Conteo en tiempo real de subprocesos `node.exe` en memoria.
+   - Alias retrocompatibles definidos: `pos.status`, `pos.db.size` y `pos.node.processes`.
+3. **Firewall y Servicio:**
+   - Reglas de firewall TCP 10050 (inbound) y TCP 10051 (outbound) aplicadas automaticamente.
+   - Servicio Windows `Zabbix Agent 2` registrado con inicio automatico.
+   - Script interactivo `2_CONTROLAR_SERVICIO_ZABBIX.bat` para arranque, parada, reinicio y prueba local inmediata de metricas.
+   - Documentacion completa con plantilla YAML oficial `template_pos_llanomio.yaml` y guia de alertas Telegram.
+
+### 3. Homologacion de Colorimetria Antifatiga Visual (WCAG AAA)
+- En `src/app/globals.css`:
+  - Fondo global `--background: #F4F6F9` para eliminar el deslumbramiento en jornadas extensas de facturacion.
+  - Superficies `--surface` y `--surface-elevated: #FCFDFE` para tarjetas y contenedores de datos.
+  - Tipografia de alto contraste `--text-primary` y `--foreground: #1E293B`, evitando el negro puro `#000000`.
+  - Bordes armonicos `--border-soft: #E2E8F0` y `--border-medium: #CBD5E1`.
+
+### 4. Auditoria de Calidad y Despliegue en Produccion
+- **Informe de Auditoria Nro 004:** Registrado en `AUDITORIAS/AUDITORIA_Nro_004_2026-11-05_02-21-00.md` y agregado a `AUDITORIAS/INDICE_HISTORIAL_AUDITORIAS.md`.
+- **Integridad de Base de Datos:** `PRAGMA integrity_check` = `ok` en `database/llanomio.db`.
+- **Validacion TypeScript:** `npx tsc --noEmit` completado con 0 errores.
+- **Compilacion de Produccion:** `npm run build` completado exitosamente (23/23 rutas optimizadas).
+- **Servicio PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` operativos y en linea (`online`), verificados con `HTTP/1.1 200 OK` en `http://127.0.0.1:3000/login`.

@@ -335,11 +335,10 @@ export default function InventarioAdminPage() {
         {/* Notificación flotante */}
         {notificacion && (
           <div
-            className={`p-4 rounded-xl border flex items-center space-x-3 text-xs font-semibold shadow-sm animate-fade-in ${
-              notificacion.tipo === "exito"
+            className={`p-4 rounded-xl border flex items-center space-x-3 text-xs font-semibold shadow-sm animate-fade-in ${notificacion.tipo === "exito"
                 ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                 : "bg-red-50 border-red-200 text-red-800"
-            }`}
+              }`}
           >
             {notificacion.tipo === "exito" ? (
               <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
@@ -394,11 +393,10 @@ export default function InventarioAdminPage() {
           <div className="inline-flex p-1 bg-slate-100 rounded-xl space-x-1">
             <button
               onClick={() => setPestañaTipo("ALQUILER")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
-                pestañaTipo === "ALQUILER"
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${pestañaTipo === "ALQUILER"
                   ? "bg-white text-emerald-800 shadow-sm"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               <Tag className="h-3.5 w-3.5 text-emerald-600" />
               <span>Disfraces y Prendas de Alquiler ({resumen.alquileres})</span>
@@ -406,11 +404,10 @@ export default function InventarioAdminPage() {
 
             <button
               onClick={() => setPestañaTipo("VENTA")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
-                pestañaTipo === "VENTA"
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${pestañaTipo === "VENTA"
                   ? "bg-white text-blue-800 shadow-sm"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               <Package className="h-3.5 w-3.5 text-blue-600" />
               <span>Ropa de Venta Directa ({resumen.ventas})</span>
@@ -418,11 +415,10 @@ export default function InventarioAdminPage() {
 
             <button
               onClick={() => setPestañaTipo("TODOS")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
-                pestañaTipo === "TODOS"
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${pestañaTipo === "TODOS"
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5 text-slate-600" />
               <span>Todo el Inventario ({resumen.total})</span>
@@ -517,11 +513,10 @@ export default function InventarioAdminPage() {
                   key={est.id}
                   type="button"
                   onClick={() => setFiltroEstado(est.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition min-h-[34px] ${
-                    filtroEstado === est.id
+                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition min-h-[34px] ${filtroEstado === est.id
                       ? "bg-emerald-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   {est.label}
                 </button>
@@ -537,11 +532,10 @@ export default function InventarioAdminPage() {
                 <button
                   type="button"
                   onClick={() => setFiltroCategoria("TODAS")}
-                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition min-h-[34px] ${
-                    filtroCategoria === "TODAS"
+                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition min-h-[34px] ${filtroCategoria === "TODAS"
                       ? "bg-blue-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   Todas
                 </button>
@@ -550,11 +544,10 @@ export default function InventarioAdminPage() {
                     key={cat}
                     type="button"
                     onClick={() => setFiltroCategoria(filtroCategoria === cat ? "TODAS" : cat)}
-                    className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition min-h-[34px] ${
-                      filtroCategoria === cat
+                    className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition min-h-[34px] ${filtroCategoria === cat
                         ? "bg-blue-600 text-white shadow-xs"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+                      }`}
                   >
                     {cat}
                   </button>
@@ -571,11 +564,10 @@ export default function InventarioAdminPage() {
                 <button
                   type="button"
                   onClick={() => setFiltroTalla("TODAS")}
-                  className={`px-2.5 py-1 rounded-md text-xs sm:text-sm font-semibold transition min-h-[34px] ${
-                    filtroTalla === "TODAS"
+                  className={`px-2.5 py-1 rounded-md text-xs sm:text-sm font-semibold transition min-h-[34px] ${filtroTalla === "TODAS"
                       ? "bg-blue-600 text-white shadow-xs"
                       : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   Todas
                 </button>
@@ -584,11 +576,10 @@ export default function InventarioAdminPage() {
                     key={talla}
                     type="button"
                     onClick={() => setFiltroTalla(filtroTalla === talla ? "TODAS" : talla)}
-                    className={`px-2.5 py-1 rounded-md text-xs sm:text-sm font-semibold transition min-h-[34px] ${
-                      filtroTalla === talla
+                    className={`px-2.5 py-1 rounded-md text-xs sm:text-sm font-semibold transition min-h-[34px] ${filtroTalla === talla
                         ? "bg-blue-600 text-white shadow-xs"
                         : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    }`}
+                      }`}
                   >
                     {talla}
                   </button>
@@ -699,9 +690,8 @@ export default function InventarioAdminPage() {
 
                       {/* Stock */}
                       <td className="py-3.5 px-4 text-center font-bold">
-                        <span className={`px-2 py-0.5 rounded-md ${
-                          prod.stockActual > 0 ? "bg-slate-100 text-slate-800" : "bg-red-50 text-red-700"
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded-md ${prod.stockActual > 0 ? "bg-slate-100 text-slate-800" : "bg-red-50 text-red-700"
+                          }`}>
                           {prod.stockActual}
                         </span>
                       </td>
