@@ -22,7 +22,7 @@ instalador_tienda/
 ### GUIA RAPIDA POR CARPETA
 
 #### 1. CARPETA: `1_INSTALACIONES` (Para Instalaciones Nuevas y Distribucion)
-* `1_INSTALADOR_MAESTRO_DESDE_CERO.bat`: Ejecutable post-instalacion que escanea puertos, abre Firewall de Windows, registra auto-arranque y crea los accesos directos en el Escritorio.
+* `INSTALADOR_MAESTRO_UNICO_POS.bat` (en la raiz): Ejecutable maestro definitivo que realiza la limpieza quirurgica de servicios previos, escanea puertos, configura Firewall, registra auto-arranque permanente y abre en modo pantalla completa.
 * `2_CONFIGURAR_PUERTOS_Y_DOMINIO.bat`: Reconfigura puertos TCP en caliente sin alterar la base de datos.
 * `3_PREPARAR_LIMPIEZA_FABRICA_PARA_EXE.bat`: Limpia registros temporales, restablece la base a estado virgen de fabrica y compila en produccion para Smart Install Maker.
 * `MANUAL_INSTALACION_DESDE_CERO.md`: Guia paso a paso de instalacion y empaquetado `.exe`.
@@ -50,7 +50,8 @@ instalador_tienda/
 ### ACCESOS MAESTROS EN LA RAIZ DEL PROYECTO
 
 Para maxima comodidad del usuario final, del soporte tecnico y del cajero, en la raiz del proyecto se disponen los accesos directos maestros:
-1. `INSTALAR_SISTEMA_DESDE_CERO.bat`: Asistente maestro para instalar y desplegar el sistema desde cero en cualquier equipo nuevo (instala Node.js, dependencias, base de datos SQLite, compila produccion, configura red/puertos y auto-arranque permanente al reiniciar Windows).
+1. `INSTALADOR_MAESTRO_UNICO_POS.bat`: Unico asistente maestro para instalar y desplegar el sistema desde cero en cualquier equipo nuevo (limpieza quirurgica de servicios previos, instala Node.js, dependencias, base de datos SQLite, compila produccion, configura red/puertos, auto-arranque permanente y apertura en modo kiosco).
 2. `CONTROL_GENERAL_POS.bat`: Menu central administrativo que enlaza todas las operaciones de las 4 carpetas.
 3. `ABRIR_SISTEMA_PANTALLA_COMPLETA.bat`: Acceso directo para mostrador y ventas con arranque silencioso integrado.
+4. `RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat`: Rescate inmediato y verificacion de integridad de la base de datos tras apagones.
 

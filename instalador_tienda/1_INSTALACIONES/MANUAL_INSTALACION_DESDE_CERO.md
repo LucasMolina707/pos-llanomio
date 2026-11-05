@@ -22,7 +22,7 @@ Dentro del directorio `instalador_tienda/1_INSTALACIONES/` se encuentran las her
 
 | Archivo | Funcion Principal |
 | :--- | :--- |
-| `1_INSTALADOR_MAESTRO_DESDE_CERO.bat` | Asistente integral de instalacion inicial, configuracion de Firewall, registro en inicio de Windows y accesos directos. |
+| `INSTALADOR_MAESTRO_UNICO_POS.bat` (en la raiz) | Asistente integral unico de instalacion maestro, limpieza quirurgica de servicios, configuracion de Firewall, registro en inicio de Windows y accesos directos. |
 | `2_CONFIGURAR_PUERTOS_Y_DOMINIO.bat` | Asistente de reasignacion de puertos TCP (evita colisiones con otros softwares) y cambio de dominio mDNS. |
 | `3_PREPARAR_LIMPIEZA_FABRICA_PARA_EXE.bat` | Script de desarrollo para purgar datos de prueba, restaurar la base a estado neutro de fabrica y compilar para empaquetado. |
 | `MANUAL_INSTALACION_DESDE_CERO.md` | Este documento tecnico con las instrucciones operativas. |
@@ -42,8 +42,8 @@ Cuando el sistema se distribuye a traves de un instalador ejecutable unico (`Set
 3. **Descompresion de Archivos:**
    El asistente descomprimira el paquete portable completo (runtime, `.next/`, `node_modules/`, `database/llanomio.db`, scripts y recursos).
 4. **Ejecucion del Post-Instalador:**
-   Al finalizar la descompresion, el instalador ejecutara automaticamente el script:
-   `instalador_tienda\1_INSTALACIONES\1_INSTALADOR_MAESTRO_DESDE_CERO.bat`
+   Al finalizar la descompresion, el instalador ejecutara automaticamente el script maestro en la raiz:
+   `INSTALADOR_MAESTRO_UNICO_POS.bat`
 5. **Configuracion de Red Interactiva:**
    El asistente escaneara los puertos del computador y ofrecera el puerto sugerido (por defecto `3000`). Presione Enter para aceptar o digite un puerto alternativo disponible.
 6. **Finalizacion y Acceso Inmediato:**
@@ -56,9 +56,8 @@ Cuando el sistema se distribuye a traves de un instalador ejecutable unico (`Set
 Si el sistema se copia directamente desde una memoria USB o disco externo:
 
 1. Copiar la carpeta completa a la raiz del disco duro local, por ejemplo `C:\POS_Llanomio`.
-2. Para desplegar de inmediato, hacer doble clic sobre el lanzador maestro en la raiz:
-   `INSTALAR_SISTEMA_DESDE_CERO.bat`
-   *(O acceder a `instalador_tienda\1_INSTALACIONES\1_INSTALADOR_MAESTRO_DESDE_CERO.bat` y ejecutar como Administrador).*
+2. Para desplegar de inmediato, hacer doble clic sobre el unico lanzador maestro en la raiz:
+   `INSTALADOR_MAESTRO_UNICO_POS.bat`
 3. El asistente se encarga de ejecutar de forma automatizada los 10 pasos de despliegue:
    * **Paso 1:** Verificacion de ruta raiz y `package.json`.
    * **Paso 2:** Deteccion e instalacion automatica de Node.js LTS (si no esta instalado, lo descarga e instala silenciosamente).

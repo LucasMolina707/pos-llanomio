@@ -68,7 +68,7 @@ echo.
 set /p OPC_MAE=">> Seleccione una opcion [0-9]: "
 
 if "%OPC_MAE%"=="0" (
-    call "%PROJECT_ROOT%\INSTALAR_SISTEMA_DESDE_CERO.bat"
+    call "%PROJECT_ROOT%\INSTALADOR_MAESTRO_UNICO_POS.bat"
     goto :MENU_MAESTRO
 )
 if "%OPC_MAE%"=="1" (

@@ -148,8 +148,12 @@ function asegurarEstructuraCarpetaNube(rutaDestino) {
   ];
   for (const sub of subcarpetas) {
     const dir = path.join(rutaDestino, sub);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    try {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+    } catch {
+      // Continuar si la carpeta esta protegida o no permite creacion directa
     }
   }
 }

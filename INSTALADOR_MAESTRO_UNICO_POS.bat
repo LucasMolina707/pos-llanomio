@@ -5,24 +5,21 @@ title Instalador Maestro Unico - Sistema POS Llanomio
 :: ===============================================================================
 :: 1. Guardian de Ventana Persistente
 :: ===============================================================================
-if "%~1" NEQ "--persistente" (
-    cmd /k ""%~f0" --persistente"
-    exit /b
-)
+if "%~1"=="--persistente" goto :iniciar_instalador
+cmd /k ""%~f0" --persistente"
+exit /b
 
-:: ===============================================================================
-:: 2. Ubicar la raiz del proyecto de forma dinamica (sin rutas absolutas fijas)
-:: ===============================================================================
+:iniciar_instalador
 cd /d "%~dp0"
 set "PROJECT_ROOT=%CD%"
 
-if not exist "%PROJECT_ROOT%\package.json" (
-    echo [ERROR CRITICO] No se detecto package.json en: %PROJECT_ROOT%
-    echo Verifique que el archivo .ZIP se haya descomprimido completamente.
-    pause
-    exit /b 1
-)
+if exist "%PROJECT_ROOT%\package.json" goto :package_verificado
+echo [ERROR CRITICO] No se detecto package.json en: %PROJECT_ROOT%
+echo Verifique que el archivo se encuentre en la raiz del proyecto POS Llanomio.
+pause
+exit /b 1
 
+:package_verificado
 color 0B
 cls
 echo ===============================================================================
@@ -34,16 +31,16 @@ echo Ruta raiz del proyecto: %PROJECT_ROOT%
 echo.
 
 :: ===============================================================================
-:: 3. Verificacion y Elevacion a Permisos de Administrador (UAC)
+:: 2. Verificacion y Elevacion a Permisos de Administrador (UAC)
 :: ===============================================================================
 net session >nul 2>&1
-if %errorlevel% equ 0 goto :permisos_admin_ok
+if %errorlevel% equ 0 goto :admin_ok
 
 echo [AVISO] Solicitando permisos de Administrador de Windows...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process cmd -ArgumentList '/k \"\"%~f0\"\" --persistente' -Verb RunAs"
 exit /b
 
-:permisos_admin_ok
+:admin_ok
 echo [OK] Permisos de Administrador de Windows verificados.
 echo.
 
@@ -55,40 +52,52 @@ echo   [FASE 1/4] LIMPIEZA QUIRURGICA DE SERVICIOS Y LIBERACION DE PUERTOS
 echo ===============================================================================
 echo.
 
-:: 1. Detener y eliminar demonio PM2 e instancias previas
+:: 1. Purgar procesos y demonio PM2
 echo [PM2] Purgando procesos anteriores en PM2...
 where pm2 >nul 2>&1
-if %errorlevel% equ 0 (
-    call pm2 delete pos-llanomio >nul 2>&1
-    call pm2 delete pos-llanomio-mdns >nul 2>&1
-    call pm2 delete all >nul 2>&1
-    call pm2 kill >nul 2>&1
-) else (
-    if exist "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" (
-        call "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" delete pos-llanomio >nul 2>&1
-        call "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" delete pos-llanomio-mdns >nul 2>&1
-        call "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" delete all >nul 2>&1
-        call "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" kill >nul 2>&1
-    )
-)
+if %errorlevel% neq 0 goto :purgar_pm2_local
+call pm2 delete pos-llanomio >nul 2>&1
+call pm2 delete pos-llanomio-mdns >nul 2>&1
+call pm2 delete all >nul 2>&1
+call pm2 kill >nul 2>&1
+goto :pm2_limpio
+
+:purgar_pm2_local
+if not exist "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" goto :pm2_limpio
+call "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" delete pos-llanomio >nul 2>&1
+call "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" delete pos-llanomio-mdns >nul 2>&1
+call "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" delete all >nul 2>&1
+call "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" kill >nul 2>&1
+
+:pm2_limpio
 echo [OK] Procesos PM2 purgados.
 
-:: 2. Deteccion de Node.js para ejecutar el liberador quirurgico de puertos
-if exist "%PROJECT_ROOT%\runtime\node\node.exe" (
-    set "PATH=%PROJECT_ROOT%\runtime\node;%PROJECT_ROOT%\node_modules\.bin;%PATH%"
-    set "NODE_EXE=%PROJECT_ROOT%\runtime\node\node.exe"
-) else (
-    set "PATH=%PROJECT_ROOT%\node_modules\.bin;%PATH%;C:\Program Files\nodejs;%APPDATA%\npm;C:\Program Files (x86)\nodejs"
-    set "NODE_EXE=node"
-)
-
+:: 2. Deteccion de Node.js plano (sin bloques anidados con parentesis)
+if exist "%PROJECT_ROOT%\runtime\node\node.exe" goto :usar_node_portable
+set "NODE_EXE=node"
 where node >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [PUERTOS] Ejecutando liberacion segura de puertos (protegiendo navegador y nube)...
-    call "%NODE_EXE%" "%PROJECT_ROOT%\scripts\limpiar-servicios-y-puertos.js"
-) else (
-    echo [INFO] Node.js aun no detectado. Se instalara en la siguiente fase.
-)
+if %errorlevel% equ 0 goto :ejecutar_limpiador_puertos
+
+if exist "C:\Program Files\nodejs\node.exe" goto :usar_node_program_files
+goto :node_no_disponible_limpieza
+
+:usar_node_portable
+set "NODE_EXE=%PROJECT_ROOT%\runtime\node\node.exe"
+goto :ejecutar_limpiador_puertos
+
+:usar_node_program_files
+set "NODE_EXE=C:\Program Files\nodejs\node.exe"
+goto :ejecutar_limpiador_puertos
+
+:ejecutar_limpiador_puertos
+echo [PUERTOS] Ejecutando liberacion segura de puertos (protegiendo navegador y nube)...
+call "%NODE_EXE%" "%PROJECT_ROOT%\scripts\limpiar-servicios-y-puertos.js"
+goto :fin_limpieza_puertos
+
+:node_no_disponible_limpieza
+echo [INFO] Motor Node.js aun no detectado. Se instalara en la Fase 3.
+
+:fin_limpieza_puertos
 
 :: 3. Limpiar Auto-Arranques viejos y tareas programadas
 echo [INICIO] Purgando registros de inicio automatico obsoletos...
@@ -98,13 +107,13 @@ schtasks /Delete /TN "POS_LLANOMIO_AUTOSTART" /F >nul 2>&1
 set "STARTUP_USER=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "STARTUP_ALL=%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Startup"
 
-if exist "%STARTUP_USER%\AutoArranque_POS_Llanomio.vbs" del /f /q "%STARTUP_USER%\AutoArranque_POS_Llanomio.vbs" >nul 2>&1
-if exist "%STARTUP_USER%\Arranque_Automatico_POS_Llanomio.vbs" del /f /q "%STARTUP_USER%\Arranque_Automatico_POS_Llanomio.vbs" >nul 2>&1
-if exist "%STARTUP_USER%\POS_Llanomio_Autostart.vbs" del /f /q "%STARTUP_USER%\POS_Llanomio_Autostart.vbs" >nul 2>&1
-if exist "%STARTUP_USER%\Iniciar_LLANOMIO_Auto.bat" del /f /q "%STARTUP_USER%\Iniciar_LLANOMIO_Auto.bat" >nul 2>&1
+del /f /q "%STARTUP_USER%\AutoArranque_POS_Llanomio.vbs" >nul 2>&1
+del /f /q "%STARTUP_USER%\Arranque_Automatico_POS_Llanomio.vbs" >nul 2>&1
+del /f /q "%STARTUP_USER%\POS_Llanomio_Autostart.vbs" >nul 2>&1
+del /f /q "%STARTUP_USER%\Iniciar_LLANOMIO_Auto.bat" >nul 2>&1
 
-if exist "%STARTUP_ALL%\AutoArranque_POS_Llanomio.vbs" del /f /q "%STARTUP_ALL%\AutoArranque_POS_Llanomio.vbs" >nul 2>&1
-if exist "%STARTUP_ALL%\POS_Llanomio_Autostart.vbs" del /f /q "%STARTUP_ALL%\POS_Llanomio_Autostart.vbs" >nul 2>&1
+del /f /q "%STARTUP_ALL%\AutoArranque_POS_Llanomio.vbs" >nul 2>&1
+del /f /q "%STARTUP_ALL%\POS_Llanomio_Autostart.vbs" >nul 2>&1
 echo [OK] Registros de auto-arranque anteriores limpiados.
 
 :: 4. Limpieza de reglas antiguas en Firewall de Windows
@@ -142,9 +151,6 @@ echo.
 
 if "%OPC_MODO%"=="2" goto :MODO_PERSONALIZADO
 
-:: -------------------------------------------------------------------------------
-:: MODO 1: INSTALACION RAPIDA PREDETERMINADA
-:: -------------------------------------------------------------------------------
 :MODO_RAPIDO
 echo [MODO RAPIDO] Aplicando parametros estandar recomendados...
 set "PORT=3000"
@@ -152,7 +158,6 @@ set "HTTP_PORT=3000"
 set "INSTANCE_ID=pos-llanomio"
 set "LOCAL_DOMAIN=llanomio.local"
 
-:: Asegurar .env base
 if not exist "%PROJECT_ROOT%\.env" (
     (
         echo # Configuracion Oficial de Produccion POS Local
@@ -168,20 +173,18 @@ if not exist "%PROJECT_ROOT%\.env" (
 )
 goto :CONTINUAR_FASE_3
 
-:: -------------------------------------------------------------------------------
-:: MODO 2: INSTALACION PERSONALIZADA
-:: -------------------------------------------------------------------------------
 :MODO_PERSONALIZADO
 echo [MODO PERSONALIZADO] Iniciando asistente interactivo de puertos y dominio...
-
-:: Asegurar Node.js primero si falta
 where node >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [AUTO-INSTALADOR] Instalando Node.js LTS para ejecutar el asistente personalizado...
-    call winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements >nul 2>&1
-    set "PATH=C:\Program Files\nodejs;%APPDATA%\npm;%PROJECT_ROOT%\node_modules\.bin;%PATH%"
+if %errorlevel% equ 0 goto :ejecutar_asistente_personalizado
+
+where winget >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [AUTO-INSTALADOR] Instalando Node.js LTS mediante winget...
+    call winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
 )
 
+:ejecutar_asistente_personalizado
 if exist "%PROJECT_ROOT%\scripts\escanear-y-elegir-puertos.js" (
     call "%NODE_EXE%" "%PROJECT_ROOT%\scripts\escanear-y-elegir-puertos.js"
 )
@@ -206,52 +209,59 @@ echo   [FASE 3/4] VERIFICACION DE MOTOR, DEPENDENCIAS Y BASE DE DATOS
 echo ===============================================================================
 echo.
 
-:: 1. Verificacion de Node.js
+:: 1. Verificacion e instalacion de Node.js
 where node >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [AUTO-INSTALADOR] Descargando e instalando Node.js LTS oficial...
-    where winget >nul 2>&1
-    if !errorlevel! equ 0 (
-        call winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
-    ) else (
-        powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-          "$url = 'https://nodejs.org/dist/v22.14.0/node-v22.14.0-x64.msi'; " ^
-          "$dest = [System.IO.Path]::Combine($env:TEMP, 'nodejs_installer.msi'); " ^
-          "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; " ^
-          "Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing; " ^
-          "Start-Process msiexec.exe -ArgumentList '/i', ('\"' + $dest + '\"'), '/qn', '/norestart' -Wait;"
-    )
-    set "PATH=C:\Program Files\nodejs;%APPDATA%\npm;%PROJECT_ROOT%\node_modules\.bin;%PATH%"
-)
+if %errorlevel% equ 0 goto :node_ya_instalado
+if exist "C:\Program Files\nodejs\node.exe" goto :node_ya_instalado
+
+echo [AUTO-INSTALADOR] Descargando e instalando Node.js LTS oficial...
+where winget >nul 2>&1
+if %errorlevel% equ 0 goto :instalar_node_winget
+goto :instalar_node_powershell
+
+:instalar_node_winget
+echo [WINGET] Instalando Node.js LTS via Windows Package Manager...
+call winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
+goto :recargar_entorno_node
+
+:instalar_node_powershell
+echo [DESCARGA] Descargando instalador MSI de Node.js LTS desde nodejs.org...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $dest = [System.IO.Path]::Combine($env:TEMP, 'nodejs_setup.msi'); Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.14.0/node-v22.14.0-x64.msi' -OutFile $dest -UseBasicParsing; Start-Process msiexec.exe -ArgumentList '/i', $dest, '/qn', '/norestart' -Wait"
+
+:recargar_entorno_node
+for /f "tokens=2*" %%A in ('reg query "HKLM\System\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%B"
+for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do set "USR_PATH=%%B"
+set "PATH=%PROJECT_ROOT%\node_modules\.bin;%SYS_PATH%;%USR_PATH%;C:\Program Files\nodejs;%APPDATA%\npm;%PATH%"
+
+:node_ya_instalado
 echo [OK] Motor Node.js operativo:
-call "%NODE_EXE%" -v
+node -v
 
 :: 2. Dependencias npm
-set "REINSTALAR_DEPS=0"
-if not exist "%PROJECT_ROOT%\node_modules" set "REINSTALAR_DEPS=1"
-if not exist "%PROJECT_ROOT%\node_modules\.bin\next.cmd" set "REINSTALAR_DEPS=1"
-if not exist "%PROJECT_ROOT%\node_modules\.bin\prisma.cmd" set "REINSTALAR_DEPS=1"
+if not exist "%PROJECT_ROOT%\node_modules" goto :instalar_npm_deps
+if not exist "%PROJECT_ROOT%\node_modules\.bin\next.cmd" goto :instalar_npm_deps
+if not exist "%PROJECT_ROOT%\node_modules\.bin\prisma.cmd" goto :instalar_npm_deps
+echo [OK] Modulos locales verificados.
+goto :verificar_pm2_instalado
 
-if "%REINSTALAR_DEPS%"=="1" (
-    echo [DEPS] Instalando paquetes de produccion con npm...
-    call npm install --no-audit --no-fund
-    if !errorlevel! neq 0 (
-        echo [ERROR CRITICO] Fallo en npm install.
-        pause
-        exit /b 1
-    )
-) else (
-    echo [OK] Modulos locales verificados.
-)
-
-:: Asegurar PM2
-where pm2 >nul 2>&1
+:instalar_npm_deps
+echo [DEPS] Instalando paquetes de produccion con npm...
+call npm install --no-audit --no-fund
 if %errorlevel% neq 0 (
-    if not exist "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" (
-        echo [PM2] Instalando gestor de procesos PM2...
-        call npm install pm2 --save-dev --no-audit --no-fund >nul 2>&1
-    )
+    echo [ERROR CRITICO] Fallo en npm install.
+    pause
+    exit /b 1
 )
+
+:verificar_pm2_instalado
+where pm2 >nul 2>&1
+if %errorlevel% equ 0 goto :pm2_verificado
+if exist "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" goto :pm2_verificado
+
+echo [PM2] Instalando gestor de procesos PM2...
+call npm install pm2 --save-dev --no-audit --no-fund >nul 2>&1
+
+:pm2_verificado
 
 :: 3. Estructura de Directorios
 if not exist "%PROJECT_ROOT%\database" mkdir "%PROJECT_ROOT%\database" >nul 2>&1
@@ -267,11 +277,14 @@ if not exist "C:\POS_BACKUPS\gastos_operativos" mkdir "C:\POS_BACKUPS\gastos_ope
 if not exist "C:\POS_BACKUPS\salvaguarda_pre_actualizacion" mkdir "C:\POS_BACKUPS\salvaguarda_pre_actualizacion" >nul 2>&1
 
 :: 4. Carpeta de Nube (Google Drive / OneDrive / Dropbox)
-if "%OPC_MODO%"=="2" (
-    call "%NODE_EXE%" "%PROJECT_ROOT%\scripts\configurar-carpeta-nube.js"
-) else (
-    call "%NODE_EXE%" "%PROJECT_ROOT%\scripts\configurar-carpeta-nube.js" --auto
-)
+if "%OPC_MODO%"=="2" goto :config_nube_interactiva
+node "%PROJECT_ROOT%\scripts\configurar-carpeta-nube.js" --auto
+goto :fin_nube_config
+
+:config_nube_interactiva
+node "%PROJECT_ROOT%\scripts\configurar-carpeta-nube.js"
+
+:fin_nube_config
 
 :: 5. Base de Datos SQLite y Prisma ORM
 echo [PRISMA] Generando cliente tipado de Prisma...
@@ -279,53 +292,62 @@ call npx prisma generate --schema=database/schema.prisma
 echo [PRISMA] Sincronizando esquema relacional SQLite...
 call npx prisma db push --schema=database/schema.prisma --skip-generate
 
-if not exist "%PROJECT_ROOT%\database\llanomio.db" (
-    echo [BD] Sembrando estado limpio de fabrica (admin / admin123)...
-    call npx tsx database/seed.ts
-    echo [OK] Base de datos creada y sembrada exitosamente.
-) else (
-    if "%OPC_MODO%"=="2" (
-        echo.
-        echo Se detecto una base de datos existente en 'database\llanomio.db'.
-        echo   [1] Conservar datos actuales (Recomendado)
-        echo   [2] Restablecer a Estado Puro de Fabrica (Clean Slate - Elimina ventas y deja admin123)
-        echo.
-        set /p OPC_BD=">> Seleccione una opcion [1-2, Enter = 1]: "
-        if "!OPC_BD!"=="2" (
-            call npx tsx scripts/reset-db-fabrica.ts
-            echo [OK] Base de datos restablecida a Estado Puro de Fabrica.
-        ) else (
-            echo [OK] Base de datos existente respetada.
-        )
-    ) else (
-        echo [OK] Base de datos existente respetada e integrada.
-    )
-)
+if not exist "%PROJECT_ROOT%\database\llanomio.db" goto :sembrar_bd_fabrica
+if "%OPC_MODO%"=="2" goto :consultar_bd_existente
+echo [OK] Base de datos existente respetada e integrada.
+goto :fin_bd_config
+
+:sembrar_bd_fabrica
+echo [BD] Sembrando estado limpio de fabrica (admin / admin123)...
+call npx tsx database/seed.ts
+echo [OK] Base de datos creada y sembrada exitosamente.
+goto :fin_bd_config
+
+:consultar_bd_existente
+echo.
+echo Se detecto una base de datos existente en 'database\llanomio.db'.
+echo   [1] Conservar datos actuales (Recomendado)
+echo   [2] Restablecer a Estado Puro de Fabrica (Clean Slate - Elimina ventas y deja admin123)
+echo.
+set /p OPC_BD=">> Seleccione una opcion [1-2, Enter = 1]: "
+if "%OPC_BD%"=="2" goto :ejecutar_reset_fabrica
+echo [OK] Base de datos existente respetada.
+goto :fin_bd_config
+
+:ejecutar_reset_fabrica
+call npx tsx scripts/reset-db-fabrica.ts
+echo [OK] Base de datos restablecida a Estado Puro de Fabrica.
+
+:fin_bd_config
 
 :: 6. Compilacion Next.js
-set "RECONSTRUIR_BUILD=0"
-if not exist "%PROJECT_ROOT%\.next\BUILD_ID" set "RECONSTRUIR_BUILD=1"
+if not exist "%PROJECT_ROOT%\.next\BUILD_ID" goto :compilar_produccion
+echo [OK] Build de produccion preexistente verificado.
+goto :fin_build_next
 
-if "%RECONSTRUIR_BUILD%"=="1" (
-    echo [BUILD] Compilando aplicacion para produccion (npm run build)...
-    call npm run build
-    if !errorlevel! neq 0 (
-        echo [ERROR CRITICO] Fallo en la compilacion de Next.js.
-        pause
-        exit /b 1
-    )
-    echo [OK] Build de produccion generado exitosamente.
-) else (
-    echo [OK] Build de produccion preexistente verificado.
+:compilar_produccion
+echo [BUILD] Compilando aplicacion para produccion (npm run build)...
+set "NEXT_TELEMETRY_DISABLED=1"
+call npm run build
+if %errorlevel% neq 0 (
+    echo [ERROR CRITICO] Fallo en la compilacion de Next.js.
+    pause
+    exit /b 1
 )
+echo [OK] Build de produccion generado exitosamente.
+
+:fin_build_next
 
 :: 7. Reglas de Windows Defender Firewall
 echo [FIREWALL] Configurando reglas de entrada y salida para Red Local LAN...
-netsh advfirewall firewall add rule name="POS_LLANOMIO_PUERTOS_WEB_IN" dir=in action=allow protocol=TCP localport=!PORT!,!HTTP_PORT! profile=any description="Acceso Web Entrante para terminales POS en Red Local" >nul 2>&1
-netsh advfirewall firewall add rule name="POS_LLANOMIO_PUERTOS_WEB_OUT" dir=out action=allow protocol=TCP localport=!PORT!,!HTTP_PORT! profile=any description="Acceso Web Saliente para terminales POS en Red Local" >nul 2>&1
+netsh advfirewall firewall add rule name="POS_LLANOMIO_PUERTOS_WEB_IN" dir=in action=allow protocol=TCP localport=%PORT%,%HTTP_PORT% profile=any description="Acceso Web Entrante para terminales POS en Red Local" >nul 2>&1
+netsh advfirewall firewall add rule name="POS_LLANOMIO_PUERTOS_WEB_OUT" dir=out action=allow protocol=TCP localport=%PORT%,%HTTP_PORT% profile=any description="Acceso Web Saliente para terminales POS en Red Local" >nul 2>&1
 netsh advfirewall firewall add rule name="POS_LLANOMIO_MDNS_IN" dir=in action=allow protocol=UDP localport=5353 profile=any description="Resolucion de nombres Bonjour mDNS Entrante" >nul 2>&1
 netsh advfirewall firewall add rule name="POS_LLANOMIO_MDNS_OUT" dir=out action=allow protocol=UDP localport=5353 profile=any description="Resolucion de nombres Bonjour mDNS Saliente" >nul 2>&1
-netsh advfirewall firewall add rule name="POS_LLANOMIO_NODE" dir=in action=allow program="!NODE_EXE!" enable=yes profile=any description="Permite comunicacion a Node.js para POS Local" >nul 2>&1
+where node >nul 2>&1
+if %errorlevel% equ 0 for /f "tokens=*" %%i in ('where node 2^>nul') do (
+    netsh advfirewall firewall add rule name="POS_LLANOMIO_NODE" dir=in action=allow program="%%i" enable=yes profile=any description="Permite comunicacion a Node.js para POS Local" >nul 2>&1
+)
 echo [OK] Firewall configurado para trafico local y transmision en Red Local (LAN).
 echo.
 
@@ -340,38 +362,29 @@ echo.
 :: 1. Auto-Arranque permanente en Windows (Startup y Task Scheduler)
 echo [AUTO-ARRANQUE] Registrando arranque automatico de Windows...
 
-if exist "%STARTUP_USER%" (
-    (
-        echo Set WshShell = CreateObject^("WScript.Shell"^)
-        echo WshShell.Run Chr^(34^) ^& "%PROJECT_ROOT%\RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat" ^& Chr^(34^) ^& " --silencioso", 0, False
-    ) > "%STARTUP_USER%\AutoArranque_POS_Llanomio.vbs"
-    echo [OK] Lanzador registrado en Startup de Usuario.
-)
-if exist "%STARTUP_ALL%" (
-    (
-        echo Set WshShell = CreateObject^("WScript.Shell"^)
-        echo WshShell.Run Chr^(34^) ^& "%PROJECT_ROOT%\RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat" ^& Chr^(34^) ^& " --silencioso", 0, False
-    ) > "%STARTUP_ALL%\AutoArranque_POS_Llanomio.vbs"
-    echo [OK] Lanzador registrado en Startup Global de Windows.
-)
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$vbs = 'Set WshShell = CreateObject(\"WScript.Shell\")' + [Environment]::NewLine + 'WshShell.Run Chr(34) & \"%PROJECT_ROOT%\RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat\" & Chr(34) & \" --silencioso\", 0, False'; " ^
+  "if (Test-Path $env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup) { [IO.File]::WriteAllText(\"$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\AutoArranque_POS_Llanomio.vbs\", $vbs) }; " ^
+  "if (Test-Path $env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs\Startup) { try { [IO.File]::WriteAllText(\"$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs\Startup\AutoArranque_POS_Llanomio.vbs\", $vbs) } catch {} }" >nul 2>&1
+echo [OK] Lanzador registrado en Startup de Windows.
 
 schtasks /Delete /TN "POS_Llanomio_AutoArranque" /F >nul 2>&1
 schtasks /Create /TN "POS_Llanomio_AutoArranque" /TR "\"%PROJECT_ROOT%\RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat\" --silencioso" /SC ONLOGON /RL HIGHEST /F >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] Tarea Programada de Windows (Task Scheduler) asegurada.
-)
+if %errorlevel% equ 0 echo [OK] Tarea Programada de Windows (Task Scheduler) asegurada.
 
 :: 2. Iniciar y guardar servicios con PM2
 where pm2 >nul 2>&1
-if %errorlevel% equ 0 (
-    set "PM2_CMD=pm2"
-) else (
-    set "PM2_CMD=%PROJECT_ROOT%\node_modules\.bin\pm2.cmd"
-)
+if %errorlevel% equ 0 goto :pm2_global_lanzar
+set "PM2_CMD=%PROJECT_ROOT%\node_modules\.bin\pm2.cmd"
+goto :lanzar_pm2_ejecutable
 
+:pm2_global_lanzar
+set "PM2_CMD=pm2"
+
+:lanzar_pm2_ejecutable
 echo [PM2] Desplegando procesos de aplicacion y red...
-call !PM2_CMD! start "%PROJECT_ROOT%\ecosystem.config.js" --update-env >nul 2>&1
-call !PM2_CMD! save --force >nul 2>&1
+call "%PM2_CMD%" start "%PROJECT_ROOT%\ecosystem.config.js" --update-env >nul 2>&1
+call "%PM2_CMD%" save --force >nul 2>&1
 echo [OK] Servicios PM2 activos y guardados.
 
 :: 3. Accesos directos oficiales en el Escritorio
@@ -405,31 +418,30 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$s4.IconLocation = '%SystemRoot%\System32\shell32.dll,4'; " ^
   "$s4.Description = 'Boveda Central de Copias de Seguridad del POS'; " ^
   "$s4.Save();" >nul 2>&1
-
 echo [OK] Accesos directos generados exitosamente.
 
-:: 4. Sondeo y verificacion HTTP 200
-echo [SONDEO] Esperando confirmacion del servidor web en http://localhost:!PORT!/login...
+:: 4. Sondeo y verificacion HTTP 200 (sin bucles 'for' vulnerables)
+echo [SONDEO] Esperando confirmacion del servidor web en http://localhost:%PORT%/login...
 set "SERVIDOR_LISTO=0"
-for /L %%i in (1,1,25) do (
-    if "!SERVIDOR_LISTO!"=="0" (
-        powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-          "try { $r = Invoke-WebRequest -Uri 'http://localhost:!PORT!/login' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
-        if !errorlevel! equ 0 (
-            set "SERVIDOR_LISTO=1"
-            echo [OK] Servidor web respondiendo con exito (HTTP 200).
-        ) else (
-            ping 127.0.0.1 -n 2 >nul
-        )
-    )
-)
+set "INTENTO_SONDEO=0"
 
-:: Detectar IP LAN
-for /f "tokens=*" %%i in ('powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias 'Wi-Fi*','Ethernet*','Local*' -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notmatch '^(127|169\.254)' } | Select-Object -ExpandProperty IPAddress -First 1)"') do (
-    set "IP_LAN_DETECTADA=%%i"
+:bucle_sondeo_http
+set /a INTENTO_SONDEO+=1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { if ((Invoke-WebRequest -Uri 'http://localhost:%PORT%/login' -UseBasicParsing -TimeoutSec 1).StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+if %errorlevel% equ 0 goto :servidor_confirmado_ok
+ping 127.0.0.1 -n 2 >nul
+if %INTENTO_SONDEO% lss 25 goto :bucle_sondeo_http
+goto :mostrar_resumen_final
+
+:servidor_confirmado_ok
+set "SERVIDOR_LISTO=1"
+echo [OK] Servidor web respondiendo con exito (HTTP 200).
+
+:mostrar_resumen_final
+set "IP_LAN_DETECTADA=127.0.0.1"
+if exist "%PROJECT_ROOT%\scripts\detectar-ip-lan.js" (
+    for /f "tokens=*" %%i in ('node "%PROJECT_ROOT%\scripts\detectar-ip-lan.js"') do set "IP_LAN_DETECTADA=%%i"
 )
-if "!IP_LAN_DETECTADA!"=="" set "IP_LAN_DETECTADA=127.0.0.1"
 
 echo.
 echo ===============================================================================
@@ -439,11 +451,11 @@ echo.
 echo El sistema POS se encuentra completamente operativo y asegurado:
 echo.
 echo   [ACCESO EN ESTE COMPUTADOR]
-echo   - URL Local Principal:     http://localhost:!PORT!/login
+echo   - URL Local Principal:     http://localhost:%PORT%/login
 echo.
 echo   [ACCESO DESDE OTROS EQUIPOS EN RED LOCAL (WI-FI / LAN)]
-echo   - URL por Direccion IP:    http://!IP_LAN_DETECTADA!:!PORT!/login
-echo   - URL por Nombre Dominio:  http://!LOCAL_DOMAIN!:!PORT!/login
+echo   - URL por Direccion IP:    http://%IP_LAN_DETECTADA%:%PORT%/login
+echo   - URL por Nombre Dominio:  http://%LOCAL_DOMAIN%:%PORT%/login
 echo.
 echo   [CREDENCIALES DE FABRICA]
 echo   - Usuario Administrador:   admin

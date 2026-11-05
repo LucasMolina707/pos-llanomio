@@ -4267,3 +4267,35 @@ Blindaje transversal en `src/components/caja/BarraEstadoCajon.tsx` y `src/hooks/
 3. **Eliminación de Condiciones de Carrera (Queue Anti-Desincronización):**
    - Incorporación de `pendienteRef` en `useCajonSincronizado.ts`: cuando se emite una notificación de actualización (`caja_actualizada`, `pos_caja_actualizada`, `BroadcastChannel`) mientras una petición previa está en curso, la nueva solicitud no se descarta, sino que se encola para su ejecución inmediata en el bloque `finally`.
    - Limpieza determinista de la memoria local y caché de `sessionStorage` al confirmar `!data.hayTurnoAbierto`, impidiendo falsos positivos o saltos de estado al alternar entre Ventas (`/caja/pos`), Alquileres (`/caja/alquileres`) y Apartados (`/caja/apartados`).
+
+
+---
+
+## SECCIÓN 70: DEPURACIÓN INTEGRAL DE INSTALADORES OBSOLETOS Y BLINDAJE DE SINTAXIS BATCH PLANA
+
+### 1. Eliminación Definitiva de Instaladores Obsoletos
+Para evitar confusiones operativas y garantizar una única fuente de verdad para la instalación del sistema en cualquier equipo nuevo o formateado, se eliminaron los scripts obsoletos y duplicados:
+- `INSTALAR_SISTEMA_DESDE_CERO.bat` (Eliminado)
+- `INSTALAR_Y_CONFIGURAR_DESDE_AQUI.bat` (Eliminado)
+- `instalador_tienda/1_INSTALACIONES/1_INSTALADOR_MAESTRO_DESDE_CERO.bat` (Eliminado)
+
+El único instalador maestro oficial y centralizado es:
+**`INSTALADOR_MAESTRO_UNICO_POS.bat`** en la raíz del proyecto.
+
+### 2. Diagnóstico y Corrección de Causa Raíz de Sintaxis Batch ("no se esperaba en este momento")
+1. **Causa Raíz Identificada:**
+   - En Windows Command Prompt (`cmd.exe`), al utilizar bloques condicionales anidados con paréntesis `if (...) else (...)`:
+     - La variable `%PATH%` contiene rutas con paréntesis como `C:\Program Files (x86)\Common Files`. Al expandir `%PATH%` dentro de un bloque `( ... )`, el carácter `)` de `(x86)` cierra prematuramente el bloque de ejecución, provocando el fallo `"no se esperaba en este momento"` inmediatamente después de purgar PM2.
+     - En el bucle de sondeo y en la consulta de IP LAN con `for /f ... in ('powershell ...')`, las expresiones regulares con paréntesis `'^(127|169\.254)'` hacían que `cmd.exe` rompiera el análisis en el carácter punto `.`, arrojando `"No se esperaba . en este momento."`.
+2. **Arquitectura Procedural Plana (Zero-Block Batch Architecture):**
+   - Se refactorizó completamente `INSTALADOR_MAESTRO_UNICO_POS.bat` eliminando todos los bloques de código multi-línea entre paréntesis `( ... )`.
+   - Todas las bifurcaciones y decisiones condicionales se gestionan mediante saltos deterministas con etiquetas `goto :label`.
+   - La detección de la dirección IP de la Red Local (LAN) se delegó al script ultrarrápido y seguro [`scripts/detectar-ip-lan.js`](file:///d:/Proyectos%20IA/pos-llanomio/scripts/detectar-ip-lan.js) utilizando el módulo nativo `os.networkInterfaces()`, eliminando scripts inline de PowerShell con tuberías o expresiones regulares complejas dentro de la consola por lotes.
+   - El bucle de sondeo HTTP 200 en `http://localhost:%PORT%/login` se implementó mediante un contador plano `:bucle_sondeo_http` con `set /a INTENTO_SONDEO+=1`, sin bucles `for /L` anidados.
+
+### 3. Verificación de Ejecución Exitosa de las 4 Fases
+Se probó la ejecución completa en Windows con código de salida 0:
+- **Fase 1:** Purga PM2, limpieza quirúrgica de puertos (`scripts/limpiar-servicios-y-puertos.js`), saneamiento de tareas programadas y reglas de Firewall.
+- **Fase 2:** Selección de modo de instalación rápida o personalizada.
+- **Fase 3:** Node.js verificado, módulos verificados, triple espejo de copias de seguridad preparado (`C:\POS_BACKUPS`), sincronización de Prisma SQLite y compilación Next.js validada.
+- **Fase 4:** Registro redundante en Startup de Windows y Task Scheduler, persistencia PM2 con `pm2 save --force`, accesos directos en Escritorio, sondeo HTTP 200 OK y apertura en Modo Kiosco.
