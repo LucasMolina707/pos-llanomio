@@ -46,13 +46,21 @@ export default function BarraEstadoCajon({
   const [modalDetalleAbierto, setModalDetalleAbierto] = useState(false);
   const abrirModalHandler = onAbrirModal || onAbrirModalConexion;
 
-  // Turno activo efectivo (evaluado con tolerancia total a fallos)
-  const turnoEfectivo = cajonConectado || seguridadCaja?.turnoAbierto || null;
+  // Determinación estricta y sincronizada del estado del turno:
+  const esSinTurno =
+    estado === "SIN_TURNO" ||
+    (seguridadCaja?.estado === "SIN_TURNO" &&
+      (!seguridadCaja?.turnosAbiertosHoy || seguridadCaja.turnosAbiertosHoy.length === 0) &&
+      !cajonConectado);
+
+  const turnoEfectivo = !esSinTurno ? (cajonConectado || seguridadCaja?.turnoAbierto || null) : null;
+
   const hayTurnoActivo =
-    Boolean(turnoEfectivo) ||
-    estado === "ABIERTO_HOY" ||
-    seguridadCaja?.estado === "ABIERTO_HOY" ||
-    Boolean(seguridadCaja?.turnosAbiertosHoy && seguridadCaja.turnosAbiertosHoy.length > 0);
+    !esSinTurno &&
+    (Boolean(turnoEfectivo) ||
+      estado === "ABIERTO_HOY" ||
+      seguridadCaja?.estado === "ABIERTO_HOY" ||
+      Boolean(seguridadCaja?.turnosAbiertosHoy && seguridadCaja.turnosAbiertosHoy.length > 0));
 
   // Saldo efectivo en caja: toma el saldo actual o el arqueo del turno o la base inicial
   const saldoEfectivo =

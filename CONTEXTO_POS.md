@@ -4225,3 +4225,45 @@ Se consolido la suite oficial de despliegue para distribucion mediante archivo c
      1. Carpeta interna del proyecto: `database/backups_locales/`
      2. Boveda local en disco: `C:\POS_BACKUPS/`
      3. Carpeta compartida en la nube: `[CLOUD_BACKUP_PATH]/` (+ copia de seguridad `.env.backup`).
+
+
+---
+
+## SECCIÓN 69: INSTALADOR MAESTRO ÚNICO CON LIMPIEZA QUIRÚRGICA, PROTECCIÓN DE NAVEGADOR Y CONTROL DE CAJA SINCRONIZADO
+
+### 1. Instalador Maestro Único de Fábrica (`INSTALADOR_MAESTRO_UNICO_POS.bat`)
+Consolidación del instalador central en la raíz del proyecto, sincronizado con `instalador_tienda/1_INSTALACIONES/1_INSTALADOR_MAESTRO_DESDE_CERO.bat` e `INSTALAR_Y_CONFIGURAR_DESDE_AQUI.bat`:
+1. **Fase 1/4 - Limpieza Quirúrgica de Servicios y Liberación de Puertos:**
+   - Script auxiliar especializado `scripts/limpiar-servicios-y-puertos.js`.
+   - Inspección con `netstat -ano` de los puertos TCP `3000`, TCP `80`, UDP `5353` y TCP `10050`.
+   - Terminación controlada exclusivamente de procesos del servidor (`node.exe`, `pm2`) que retenían los puertos.
+   - **Regla Estricta de Protección:** Protección inmutable de procesos de usuario y nube (`chrome.exe`, `msedge.exe`, `OneDrive.exe`, `GoogleDriveFS.exe`, `Dropbox.exe`), garantizando que los navegadores y respaldos permanezcan abiertos y operativos.
+   - Purgado de tareas programadas obsoletas en Task Scheduler y accesos en Startup.
+   - Limpieza de reglas antiguas en Windows Defender Firewall para su recreación limpia.
+2. **Fase 2/4 - Modo de Configuración e Implementación:**
+   - **[1] Instalación Rápida Predeterminada (1 Clic):** Configuración automática en puerto 3000, mDNS `llanomio.local`, SQLite con credenciales de fábrica `admin` / `admin123` y auto-detección de carpeta de nube.
+   - **[2] Instalación Personalizada:** Asistente interactivo para asignación de puertos web, proxy LAN, dominio mDNS y restablecimiento opcional de fábrica de la base de datos.
+3. **Fase 3/4 - Verificación de Motor, Dependencias y Base de Datos:**
+   - Detección y auto-instalación de Node.js LTS vía `winget` o descarga oficial MSI silenciosa.
+   - Verificación e instalación de módulos npm (`npm install --no-audit --no-fund`).
+   - Sincronización de esquema relacional con Prisma ORM (`prisma generate` y `prisma db push`).
+   - Creación de estructura de directorios y triple espejo de respaldos (`database/backups_locales/`, `C:\POS_BACKUPS/`, `[CLOUD_BACKUP_PATH]/`).
+   - Compilación para producción Next.js (`npm run build`).
+   - Configuración de reglas en Windows Defender Firewall para tráfico TCP/UDP en Red Local (LAN).
+4. **Fase 4/4 - Despliegue de Servicios, Auto-Arranque y Modo Kiosco:**
+   - Registro de redundancia de inicio en Windows: Tarea Programada `POS_Llanomio_AutoArranque` (arranque con máximos privilegios al iniciar sesión) + Script VBS silencioso en Startup.
+   - Lanzamiento y persistencia en PM2 (`pm2 start ecosystem.config.js` y `pm2 save --force`).
+   - Generación de accesos directos oficiales en el Escritorio.
+   - Sondeo de verificación HTTP 200 OK en `http://localhost:[PORT]/login`.
+   - Apertura automática en Modo Pantalla Completa (Kiosco / App sin marcos de navegador).
+
+### 2. Sincronización Permanente del Turno de Caja y Saldo en Vivo
+Blindaje transversal en `src/components/caja/BarraEstadoCajon.tsx` y `src/hooks/useCajonSincronizado.ts`:
+1. **Estado Cuando NO Está Iniciado el Turno en Caja (`SIN_TURNO`):**
+   - Renderiza un botón interactivo conciso y sin textos redundantes con icono `Lock` y el rótulo exacto **`"Iniciar Turno en Caja"`** en tono ámbar suave (`bg-amber-50 hover:bg-amber-100 border-amber-300`).
+   - Al pulsar abre instantáneamente el modal de apertura rápida (`ModalConexionCajon`).
+2. **Estado Cuando YA Está Iniciado el Turno en Caja (`ABIERTO_HOY`):**
+   - Renderiza en tono esmeralda claro (`bg-emerald-50 border-emerald-300`) el indicador con punto verde pulsante **`"Turno Activo"`**, separador vertical y el saldo físico en tiempo real **`"Caja: $XX.XXX"`** acompañado de icono de billetera y botones compactos de refresco y auditoría rápida.
+3. **Eliminación de Condiciones de Carrera (Queue Anti-Desincronización):**
+   - Incorporación de `pendienteRef` en `useCajonSincronizado.ts`: cuando se emite una notificación de actualización (`caja_actualizada`, `pos_caja_actualizada`, `BroadcastChannel`) mientras una petición previa está en curso, la nueva solicitud no se descarta, sino que se encola para su ejecución inmediata en el bloque `finally`.
+   - Limpieza determinista de la memoria local y caché de `sessionStorage` al confirmar `!data.hayTurnoAbierto`, impidiendo falsos positivos o saltos de estado al alternar entre Ventas (`/caja/pos`), Alquileres (`/caja/alquileres`) y Apartados (`/caja/apartados`).

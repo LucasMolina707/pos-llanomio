@@ -151,6 +151,7 @@ export function useCajonSincronizado() {
   const [tipoModalRequerido, setTipoModalRequerido] = useState<TipoModalCajonRequerido>(null);
   const [errorAccionCaja, setErrorAccionCaja] = useState<string | null>(null);
   const actualizandoRef = useRef(false);
+  const pendienteRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   /**
@@ -159,7 +160,10 @@ export function useCajonSincronizado() {
    */
   const actualizarCajon = useCallback(
     async (silencioso = false) => {
-      if (actualizandoRef.current) return;
+      if (actualizandoRef.current) {
+        pendienteRef.current = true;
+        return;
+      }
       actualizandoRef.current = true;
 
       if (abortControllerRef.current) {
@@ -223,12 +227,13 @@ export function useCajonSincronizado() {
         }
 
         // CASO B: SIN TURNO ABIERTO HOY (La tienda no ha iniciado caja aún)
-        if (!data.hayTurnoAbierto && (verif.estado === "SIN_TURNO" || !data.turnoAbierto)) {
+        if (!data.hayTurnoAbierto) {
           setSeguridadCaja({
             estado: "SIN_TURNO",
             bloqueadoParaFacturar: true,
             motivoBloqueo: "Turno cerrado",
             turnoAbierto: null,
+            turnosAbiertosHoy: [],
           });
           setCajonConectado(null);
           setSaldoActualEnCajon(0);
@@ -247,7 +252,7 @@ export function useCajonSincronizado() {
         }
 
         // CASO C: TURNO ABIERTO ACTIVO (El turno ya fue iniciado en la tienda)
-        if (data.hayTurnoAbierto || data.turnoAbierto || verif.estado === "ABIERTO_HOY") {
+        if (data.hayTurnoAbierto) {
           const turno = (data.turnoAbierto ||
             verif.turnoAbierto ||
             data.turnosAbiertos?.[0]) as InfoTurnoGabinete;
@@ -267,6 +272,7 @@ export function useCajonSincronizado() {
             bloqueadoParaFacturar: false,
             motivoBloqueo: null,
             turnoAbierto: turno || null,
+            turnosAbiertosHoy: data.turnosAbiertos || (turno ? [turno] : []),
           });
 
           // Guardar en sessionStorage y localStorage para persistencia instantánea entre pestañas/vistas
@@ -302,6 +308,12 @@ export function useCajonSincronizado() {
       } finally {
         actualizandoRef.current = false;
         if (!silencioso) setCargandoCaja(false);
+        if (pendienteRef.current) {
+          pendienteRef.current = false;
+          setTimeout(() => {
+            actualizarCajon(true);
+          }, 30);
+        }
       }
     },
     [deviceId, usuarioSesion]
