@@ -15,7 +15,7 @@ if exist "%PROJECT_ROOT%\.env" (
 
 :: 1. Comprobar si el servidor esta activo
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "try { $r = Invoke-WebRequest -Uri 'http://localhost:!PORT!/login' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+  "try { $r = Invoke-WebRequest -Uri 'http://localhost:%PORT%/login' -UseBasicParsing -TimeoutSec 4; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
 
 if %errorlevel% neq 0 (
     echo [INFO] El servidor POS no responde. Levantando proceso en segundo plano...
@@ -37,7 +37,7 @@ if %errorlevel% neq 0 (
     :: Esperar hasta 10 segundos
     for /L %%i in (1,1,10) do (
         powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-          "try { $r = Invoke-WebRequest -Uri 'http://localhost:!PORT!/login' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+          "try { $r = Invoke-WebRequest -Uri 'http://localhost:%PORT%/login' -UseBasicParsing -TimeoutSec 2; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
         if !errorlevel! equ 0 goto :servidor_listo_para_abrir
         ping 127.0.0.1 -n 2 >nul
     )

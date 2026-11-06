@@ -431,7 +431,7 @@ set "INTENTO_SONDEO=0"
 
 :bucle_sondeo_http
 set /a INTENTO_SONDEO+=1
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { if ((Invoke-WebRequest -Uri 'http://localhost:%PORT%/login' -UseBasicParsing -TimeoutSec 1).StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { if ((Invoke-WebRequest -Uri 'http://localhost:%PORT%/login' -UseBasicParsing -TimeoutSec 3).StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
 if %errorlevel% equ 0 goto :servidor_confirmado_ok
 ping 127.0.0.1 -n 2 >nul
 if %INTENTO_SONDEO% lss 25 goto :bucle_sondeo_http
