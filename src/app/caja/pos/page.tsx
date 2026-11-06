@@ -1045,6 +1045,8 @@ export default function PosPage() {
           <IconButtonTooltip
             icon={ArrowLeft}
             label="Regresar al Panel Principal"
+            modulo="Navegación"
+            destino="Ruta: /"
             href="/"
             variant="neutral"
             size="md"
@@ -1064,7 +1066,9 @@ export default function PosPage() {
           <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200 shrink-0">
             <IconButtonTooltip
               icon={ShoppingCart}
-              label="Terminal POS (Ventas y Arreglos - Activa)"
+              label="Terminal POS Activa"
+              modulo="Mostrador"
+              destino="Ventas y facturación en mostrador"
               href="/caja/pos"
               active={true}
               variant="primary"
@@ -1073,6 +1077,8 @@ export default function PosPage() {
             <IconButtonTooltip
               icon={Shirt}
               label="Ir a Terminal de Alquileres"
+              modulo="Mostrador"
+              destino="Ruta: /caja/alquileres"
               href="/caja/alquileres"
               active={false}
               variant="neutral"
@@ -1080,7 +1086,9 @@ export default function PosPage() {
             />
             <IconButtonTooltip
               icon={CalendarClock}
-              label="Ir a Terminal de Apartados y Reservas"
+              label="Ir a Terminal de Apartados"
+              modulo="Mostrador"
+              destino="Ruta: /caja/apartados"
               href="/caja/apartados"
               active={false}
               variant="neutral"
@@ -1113,7 +1121,9 @@ export default function PosPage() {
 
           <IconButtonTooltip
             icon={PlusCircle}
-            label="Nueva Venta (Pasos 1 a 4)"
+            label="Nueva Venta en Blanco"
+            modulo="Mostrador"
+            destino="Inicia proceso de venta desde cero"
             active={vistaPrincipal === "NUEVA_FACTURA"}
             variant={vistaPrincipal === "NUEVA_FACTURA" ? "primary" : "neutral"}
             size="md"
@@ -1130,7 +1140,9 @@ export default function PosPage() {
 
           <IconButtonTooltip
             icon={History}
-            label="Ver Historial, Facturas por Cobrar y Moras"
+            label="Historial y Cartera Pendiente"
+            modulo="Facturación"
+            destino="Ver comprobantes emitidos, abonos y moras"
             badgeCount={estadisticasMonitoreo.totalEnMora + estadisticasMonitoreo.conteoPendientesAlDia}
             badgeVariant={estadisticasMonitoreo.totalEnMora > 0 ? "danger" : "amber"}
             active={vistaPrincipal === "HISTORIAL"}
@@ -1144,7 +1156,9 @@ export default function PosPage() {
 
           <IconButtonTooltip
             icon={RefreshCw}
-            label="Sincronizar caja y recargar inventario"
+            label="Sincronizar Mostrador"
+            modulo="Datos"
+            destino="Recarga catálogo, clientes y turno en caja"
             variant="neutral"
             size="md"
             onClick={() => {
@@ -1157,7 +1171,9 @@ export default function PosPage() {
 
           <IconButtonTooltip
             icon={RotateCcw}
-            label="Limpiar y Reiniciar Venta Actual"
+            label="Limpiar Mostrador"
+            modulo="Acción"
+            destino="Vacía el carrito y deselecciona el cliente actual"
             variant="danger"
             size="md"
             onClick={() => {

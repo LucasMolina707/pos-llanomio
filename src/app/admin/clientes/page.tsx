@@ -134,7 +134,9 @@ export default function DirectorioClientesPage() {
         <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-end flex-nowrap">
           <IconButtonTooltip
             icon={FileDown}
-            label="Descargar Plantilla Oficial Excel"
+            label="Descargar Plantilla Oficial"
+            modulo="Excel"
+            destino="Descarga formato .xlsx para carga masiva"
             size="md"
             variant="neutral"
             onClick={() => window.open("/api/clientes/excel?modo=plantilla", "_blank")}
@@ -142,7 +144,9 @@ export default function DirectorioClientesPage() {
 
           <IconButtonTooltip
             icon={Download}
-            label="Exportar Base de Datos a Excel"
+            label="Exportar Clientes a Excel"
+            modulo="Reportes"
+            destino="Descarga lista completa de clientes"
             size="md"
             variant="neutral"
             onClick={() => window.open("/api/clientes/excel?modo=exportar", "_blank")}
@@ -150,7 +154,9 @@ export default function DirectorioClientesPage() {
 
           <IconButtonTooltip
             icon={FileUp}
-            label="Importar Masivamente desde Excel"
+            label="Importar Clientes desde Excel"
+            modulo="Excel"
+            destino="Abre asistente de carga y validación"
             variant="emerald"
             size="md"
             onClick={() => setMostrarModalExcel(true)}
@@ -158,7 +164,9 @@ export default function DirectorioClientesPage() {
 
           <IconButtonTooltip
             icon={RefreshCw}
-            label="Actualizar listado de clientes"
+            label="Actualizar Directorio"
+            modulo="Clientes"
+            destino="Recarga listado en tiempo real"
             onClick={cargarClientes}
             disabled={cargando}
             iconClassName={cargando ? "animate-spin text-blue-600" : "text-blue-600"}
@@ -169,6 +177,8 @@ export default function DirectorioClientesPage() {
           <IconButtonTooltip
             icon={Plus}
             label="Crear Nuevo Cliente"
+            modulo="Clientes"
+            destino="Abre formulario para registrar cliente"
             variant="primary"
             size="md"
             onClick={abrirModalCrear}

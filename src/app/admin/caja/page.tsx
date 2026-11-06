@@ -123,10 +123,10 @@ interface TurnoCerradoItem {
 
 export interface VerificacionSeguridadAdmin {
   estado:
-    | "ABIERTO_HOY"
-    | "BLOQUEADO_DIA_ANTERIOR"
-    | "SIN_TURNO"
-    | "REQUIERE_DECISION_MODALIDAD";
+  | "ABIERTO_HOY"
+  | "BLOQUEADO_DIA_ANTERIOR"
+  | "SIN_TURNO"
+  | "REQUIERE_DECISION_MODALIDAD";
   bloqueadoParaFacturar: boolean;
   motivoBloqueo: string | null;
   fechaHoy: string;
@@ -318,8 +318,8 @@ export default function ControlCajaAdminPage() {
   // Obtener esperado en gaveta exacto entregado por el backend
   const esperadoGaveta = Number(
     gabineteSeleccionado?.arqueo?.efectivoEsperado ??
-      gabineteSeleccionado?.arqueo?.esperadoEnGavetaEfectivo ??
-      0
+    gabineteSeleccionado?.arqueo?.esperadoEnGavetaEfectivo ??
+    0
   );
 
   // Cálculo en vivo de diferencia durante el tipeo
@@ -388,11 +388,10 @@ export default function ControlCajaAdminPage() {
 
       setMensaje({
         tipo: "exito",
-        texto: `${data.mensaje}. ${
-          data.cuadre?.tieneDiferencia
-            ? `Diferencia auditada con novedad: $${Number(data.cuadre?.diferencia || 0).toLocaleString("es-CO")}`
-            : "Cuadre exacto sin diferencias."
-        }`,
+        texto: `${data.mensaje}. ${data.cuadre?.tieneDiferencia
+          ? `Diferencia auditada con novedad: $${Number(data.cuadre?.diferencia || 0).toLocaleString("es-CO")}`
+          : "Cuadre exacto sin diferencias."
+          }`,
       });
 
       setMostrarModalConfirmarCierre(false);
@@ -432,7 +431,9 @@ export default function ControlCajaAdminPage() {
           {hayTurnoAbierto && (
             <IconButtonTooltip
               icon={Plus}
-              label="Abrir Caja Dividida (Habilitar gabinete independiente)"
+              label="Abrir Caja Dividida"
+              modulo="Caja"
+              destino="Habilita un nuevo gabinete de efectivo independiente"
               variant="indigo"
               size="md"
               onClick={() => {
@@ -446,7 +447,9 @@ export default function ControlCajaAdminPage() {
 
           <IconButtonTooltip
             icon={RefreshCw}
-            label="Actualizar arqueo y sincronizar saldos"
+            label="Sincronizar Saldos y Arqueos"
+            modulo="Caja"
+            destino="Actualiza balance de efectivo en tiempo real"
             onClick={consultarEstadoCaja}
             disabled={cargando}
             iconClassName={cargando ? "animate-spin text-blue-600" : "text-blue-600"}
@@ -456,7 +459,9 @@ export default function ControlCajaAdminPage() {
 
           <IconButtonTooltip
             icon={Receipt}
-            label="Terminal POS (Abrir en nueva ventana)"
+            label="Ir a Terminal POS"
+            modulo="Mostrador"
+            destino="Ruta: /caja/pos"
             href="/caja/pos"
             size="md"
             variant="primary"
@@ -470,21 +475,19 @@ export default function ControlCajaAdminPage() {
           <button
             type="button"
             onClick={() => setPestanaActiva("TURNOS_ACTIVOS")}
-            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition cursor-pointer border ${
-              pestanaActiva === "TURNOS_ACTIVOS"
-                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition cursor-pointer border ${pestanaActiva === "TURNOS_ACTIVOS"
+              ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+              : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+              }`}
           >
             <Vault className="w-4 h-4" />
             <span>Control de Turnos Activos</span>
             {hayTurnoAbierto && (
               <span
-                className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold ${
-                  pestanaActiva === "TURNOS_ACTIVOS"
-                    ? "bg-blue-700 text-blue-100"
-                    : "bg-slate-200 text-slate-800"
-                }`}
+                className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold ${pestanaActiva === "TURNOS_ACTIVOS"
+                  ? "bg-blue-700 text-blue-100"
+                  : "bg-slate-200 text-slate-800"
+                  }`}
               >
                 {turnosAbiertos.length}
               </span>
@@ -494,11 +497,10 @@ export default function ControlCajaAdminPage() {
           <button
             type="button"
             onClick={() => setPestanaActiva("HISTORIAL_ARQUEOS")}
-            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition cursor-pointer border ${
-              pestanaActiva === "HISTORIAL_ARQUEOS"
-                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
-            }`}
+            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition cursor-pointer border ${pestanaActiva === "HISTORIAL_ARQUEOS"
+              ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+              : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+              }`}
           >
             <History className={`w-4 h-4 ${pestanaActiva === "HISTORIAL_ARQUEOS" ? "text-white" : "text-amber-600"}`} />
             <span>Historial de Arqueos & Novedades</span>
@@ -555,11 +557,10 @@ export default function ControlCajaAdminPage() {
       {/* 3. Mensaje de Alerta / Éxito */}
       {mensaje && (
         <div
-          className={`p-4 rounded-2xl border text-sm flex items-center justify-between gap-3 shadow-xs ${
-            mensaje.tipo === "exito"
-              ? "bg-emerald-50 border-emerald-300 text-emerald-950"
-              : "bg-rose-50 border-rose-300 text-rose-950"
-          }`}
+          className={`p-4 rounded-2xl border text-sm flex items-center justify-between gap-3 shadow-xs ${mensaje.tipo === "exito"
+            ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+            : "bg-rose-50 border-rose-300 text-rose-950"
+            }`}
         >
           <div className="flex items-center gap-2.5">
             {mensaje.tipo === "exito" ? (
@@ -591,1046 +592,1033 @@ export default function ControlCajaAdminPage() {
         <div className="space-y-6">
           {/* CASO 1: NO HAY NINGÚN TURNO ABIERTO (Apertura Inicial) */}
           {!hayTurnoAbierto ? (
-        <div className="bg-[#FCFDFE] rounded-2xl p-6 sm:p-8 shadow-xs border border-slate-200/90 max-w-2xl mx-auto space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shadow-xs">
-              <Unlock className="w-7 h-7" />
-            </div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Apertura de la Primera Caja del Día
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto font-medium">
-              Inaugura la jornada registrando la base inicial en efectivo para el Gabinete Principal.
-              Los demás cajeros podrán vincularse en Caja Compartida o abrir un gabinete dividido.
-            </p>
-          </div>
-
-          <form onSubmit={handleApertura} className="space-y-4 pt-2">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Nombre del Gabinete Inicial
-              </label>
-              <input
-                type="text"
-                required
-                value={nombreGabineteInput}
-                onChange={(e) => setNombreGabineteInput(e.target.value)}
-                placeholder="Gabinete #1 - Principal"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Base Inicial en Efectivo ($ COP) *
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
-                  $
+            <div className="bg-[#FCFDFE] rounded-2xl p-6 sm:p-8 shadow-xs border border-slate-200/90 max-w-2xl mx-auto space-y-6">
+              <div className="text-center space-y-2">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shadow-xs">
+                  <Unlock className="w-7 h-7" />
                 </div>
-                <input
-                  type="number"
-                  min="0"
-                  step="500"
-                  required
-                  placeholder="100000"
-                  value={baseInicialInput}
-                  onChange={(e) => setBaseInicialInput(e.target.value)}
-                  className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
-                />
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  Apertura de la Primera Caja del Día
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto font-medium">
+                  Inaugura la jornada registrando la base inicial en efectivo para el Gabinete Principal.
+                  Los demás cajeros podrán vincularse en Caja Compartida o abrir un gabinete dividido.
+                </p>
               </div>
-              <div className="flex gap-2 mt-2.5 flex-wrap">
-                {[50000, 100000, 150000, 200000].map((monto) => (
-                  <button
-                    key={monto}
-                    type="button"
-                    onClick={() => setBaseInicialInput(String(monto))}
-                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300/80 transition cursor-pointer"
-                  >
-                    ${monto.toLocaleString("es-CO")}
-                  </button>
-                ))}
+
+              <form onSubmit={handleApertura} className="space-y-4 pt-2">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Nombre del Gabinete Inicial
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={nombreGabineteInput}
+                    onChange={(e) => setNombreGabineteInput(e.target.value)}
+                    placeholder="Gabinete #1 - Principal"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Base Inicial en Efectivo ($ COP) *
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
+                      $
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="500"
+                      required
+                      placeholder="100000"
+                      value={baseInicialInput}
+                      onChange={(e) => setBaseInicialInput(e.target.value)}
+                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
+                    />
+                  </div>
+                  <div className="flex gap-2 mt-2.5 flex-wrap">
+                    {[50000, 100000, 150000, 200000].map((monto) => (
+                      <button
+                        key={monto}
+                        type="button"
+                        onClick={() => setBaseInicialInput(String(monto))}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300/80 transition cursor-pointer"
+                      >
+                        ${monto.toLocaleString("es-CO")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Observaciones de Apertura (Opcional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Ej. Billetes de 10.000 y 5.000 para cambio matutino"
+                    value={obsApertura}
+                    onChange={(e) => setObsApertura(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={procesando}
+                  className="w-full min-h-[46px] py-3.5 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-500/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                >
+                  {procesando ? (
+                    <>
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                      <span>Iniciando Turno...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-5 h-5" />
+                      <span>Abrir Primer Turno de Caja</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          ) : (
+            /* ========================================================= */
+            /* CASO B: HAY UNO O MÁS TURNOS ABIERTOS (GABINETES ACTIVOS) */
+            /* ========================================================= */
+            <div className="space-y-6">
+              {/* Selector de Gabinetes en Pestañas si hay 2 o más, o visualización clara si hay 1 */}
+              <div className="bg-[#FCFDFE] p-3 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-600 px-2">
+                    Gabinetes Activos:
+                  </span>
+                  {turnosAbiertos.map((t) => {
+                    const esSeleccionado = t.id === gabineteSeleccionado?.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          setGabineteSeleccionadoId(t.id);
+                          setEfectivoContadoInput("");
+                        }}
+                        className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition cursor-pointer border ${esSeleccionado
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                          : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
+                          }`}
+                      >
+                        {t.modalidad === "DIVIDIDA" ? (
+                          <Layers className={`w-4 h-4 ${esSeleccionado ? "text-white" : "text-indigo-600"}`} />
+                        ) : (
+                          <Users className={`w-4 h-4 ${esSeleccionado ? "text-white" : "text-emerald-600"}`} />
+                        )}
+                        <span>{t.nombreGabinete}</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold ${esSeleccionado
+                            ? "bg-blue-700 text-blue-100"
+                            : "bg-slate-100 text-slate-700"
+                            }`}
+                        >
+                          ${t.arqueo.totalRecaudado.toLocaleString("es-CO")}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNombreNuevaCajaDividida(`Gabinete #${turnosAbiertos.length + 1}`);
+                    setMostrarModalNuevaCajaDividida(true);
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Nuevo Gabinete Dividido</span>
+                </button>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Observaciones de Apertura (Opcional)
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Ej. Billetes de 10.000 y 5.000 para cambio matutino"
-                value={obsApertura}
-                onChange={(e) => setObsApertura(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={procesando}
-              className="w-full min-h-[46px] py-3.5 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-500/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-            >
-              {procesando ? (
+              {/* Ficha Informativa del Gabinete Seleccionado */}
+              {gabineteSeleccionado && (
                 <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  <span>Iniciando Turno...</span>
-                </>
-              ) : (
-                <>
-                  <Unlock className="w-5 h-5" />
-                  <span>Abrir Primer Turno de Caja</span>
-                </>
-              )}
-            </button>
-          </form>
-        </div>
-      ) : (
-        /* ========================================================= */
-        /* CASO B: HAY UNO O MÁS TURNOS ABIERTOS (GABINETES ACTIVOS) */
-        /* ========================================================= */
-        <div className="space-y-6">
-          {/* Selector de Gabinetes en Pestañas si hay 2 o más, o visualización clara si hay 1 */}
-          <div className="bg-[#FCFDFE] p-3 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 px-2">
-                Gabinetes Activos:
-              </span>
-              {turnosAbiertos.map((t) => {
-                const esSeleccionado = t.id === gabineteSeleccionado?.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => {
-                      setGabineteSeleccionadoId(t.id);
-                      setEfectivoContadoInput("");
-                    }}
-                    className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition cursor-pointer border ${
-                      esSeleccionado
-                        ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                        : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
-                    }`}
-                  >
-                    {t.modalidad === "DIVIDIDA" ? (
-                      <Layers className={`w-4 h-4 ${esSeleccionado ? "text-white" : "text-indigo-600"}`} />
-                    ) : (
-                      <Users className={`w-4 h-4 ${esSeleccionado ? "text-white" : "text-emerald-600"}`} />
-                    )}
-                    <span>{t.nombreGabinete}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold ${
-                        esSeleccionado
-                          ? "bg-blue-700 text-blue-100"
-                          : "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      ${t.arqueo.totalRecaudado.toLocaleString("es-CO")}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setNombreNuevaCajaDividida(`Gabinete #${turnosAbiertos.length + 1}`);
-                setMostrarModalNuevaCajaDividida(true);
-              }}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 flex items-center gap-1.5 transition cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>+ Nuevo Gabinete Dividido</span>
-            </button>
-          </div>
-
-          {/* Ficha Informativa del Gabinete Seleccionado */}
-          {gabineteSeleccionado && (
-            <>
-              <div
-                className={`rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm border ${
-                  verificacionSeguridad?.estado === "BLOQUEADO_DIA_ANTERIOR"
-                    ? "bg-amber-50/95 border-l-4 border-l-amber-600 border-amber-300"
-                    : "bg-emerald-50/90 border-l-4 border-l-emerald-600 border-emerald-200"
-                }`}
-              >
-                <div className="flex items-start sm:items-center gap-3.5 min-w-0">
                   <div
-                    className={`p-2.5 rounded-xl text-white shrink-0 shadow-xs ${
-                      gabineteSeleccionado.modalidad === "DIVIDIDA"
-                        ? "bg-indigo-600 text-white"
-                        : "bg-emerald-600 text-white"
-                    }`}
+                    className={`rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm border ${verificacionSeguridad?.estado === "BLOQUEADO_DIA_ANTERIOR"
+                      ? "bg-amber-50/95 border-l-4 border-l-amber-600 border-amber-300"
+                      : "bg-emerald-50/90 border-l-4 border-l-emerald-600 border-emerald-200"
+                      }`}
                   >
-                    {gabineteSeleccionado.modalidad === "DIVIDIDA" ? (
-                      <Layers className="w-5 h-5" />
-                    ) : (
-                      <Users className="w-5 h-5" />
-                    )}
+                    <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                      <div
+                        className={`p-2.5 rounded-xl text-white shrink-0 shadow-xs ${gabineteSeleccionado.modalidad === "DIVIDIDA"
+                          ? "bg-indigo-600 text-white"
+                          : "bg-emerald-600 text-white"
+                          }`}
+                      >
+                        {gabineteSeleccionado.modalidad === "DIVIDIDA" ? (
+                          <Layers className="w-5 h-5" />
+                        ) : (
+                          <Users className="w-5 h-5" />
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h2 className="text-base md:text-lg font-bold text-slate-900 tracking-tight">
+                            {gabineteSeleccionado.nombreGabinete}
+                            {" — "}
+                            <span className="font-semibold text-slate-800 text-sm">
+                              Abierto el{" "}
+                              {new Date(gabineteSeleccionado.fechaApertura).toLocaleString("es-CO", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
+                            </span>
+                          </h2>
+
+                          <span
+                            className={`px-3 py-0.5 rounded-full text-xs font-bold border ${gabineteSeleccionado.modalidad === "DIVIDIDA"
+                              ? "bg-indigo-100 text-indigo-900 border-indigo-300"
+                              : "bg-emerald-100 text-emerald-900 border-emerald-300"
+                              }`}
+                          >
+                            {gabineteSeleccionado.modalidad === "DIVIDIDA"
+                              ? "Caja Dividida (Independiente)"
+                              : "Caja Compartida (Un Solo Gabinete)"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm text-slate-700 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            <User className="w-4 h-4 text-slate-500 shrink-0" />
+                            <span>Aperturado por:</span>
+                          </div>
+                          <span className="text-slate-950 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
+                            {gabineteSeleccionado.usuarioCajero.nombre} (@
+                            {gabineteSeleccionado.usuarioCajero.username})
+                          </span>
+
+                          {/* Lista de Cajeros Participantes en modo compartido */}
+                          {gabineteSeleccionado.modalidad === "COMPARTIDA" &&
+                            gabineteSeleccionado.cajerosParticipantes.length > 0 && (
+                              <div className="flex items-center gap-1.5 flex-wrap ml-1">
+                                <span className="text-slate-600 font-bold">• Cajeros en este turno:</span>
+                                {gabineteSeleccionado.cajerosParticipantes.map((c) => (
+                                  <span
+                                    key={c.id}
+                                    className="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300"
+                                  >
+                                    {c.nombre}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-left sm:text-right sm:border-l sm:border-slate-300/80 sm:pl-5 shrink-0">
+                      <span className="text-xs uppercase font-bold text-slate-700 block tracking-wider">
+                        Base Inicial de este Gabinete
+                      </span>
+                      <span className="text-lg md:text-xl font-mono font-black text-emerald-800">
+                        ${Number(gabineteSeleccionado.baseInicialEfectivo).toLocaleString("es-CO")}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="space-y-1.5 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-base md:text-lg font-bold text-slate-900 tracking-tight">
-                        {gabineteSeleccionado.nombreGabinete}
-                        {" — "}
-                        <span className="font-semibold text-slate-800 text-sm">
-                          Abierto el{" "}
-                          {new Date(gabineteSeleccionado.fechaApertura).toLocaleString("es-CO", {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          })}
-                        </span>
-                      </h2>
+                  {/* Separación Contable Estricta: Dinero de la Tienda vs Dinero en Custodia */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Rubro A: Dinero de la Tienda (Ventas y Alquileres) */}
+                    <div className="bg-emerald-50/70 p-5 rounded-2xl border-2 border-emerald-300 shadow-xs relative overflow-hidden">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-black uppercase tracking-wider text-emerald-900 block">
+                            Dinero de la Tienda (Ventas y Alquileres)
+                          </span>
+                          <span className="text-[11px] text-emerald-700 font-medium">
+                            Ingresos reales facturados y cobrados por servicios de la tienda
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
+                          <DollarSign className="w-5 h-5" />
+                        </div>
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-black text-emerald-950 mt-3 font-mono">
+                        $
+                        {Number(
+                          gabineteSeleccionado.arqueo.dineroTienda ??
+                          ((gabineteSeleccionado.arqueo.efectivoVentasYAbonos || 0) + (gabineteSeleccionado.arqueo.totalDigital || 0))
+                        ).toLocaleString("es-CO")}
+                      </p>
+                      <p className="text-xs text-emerald-800 font-medium mt-1">
+                        Efectivo Tienda: ${Number(gabineteSeleccionado.arqueo.efectivoVentasYAbonos ?? gabineteSeleccionado.arqueo.totalEfectivo ?? 0).toLocaleString("es-CO")} &bull; Digital: ${Number(gabineteSeleccionado.arqueo.totalDigital || 0).toLocaleString("es-CO")}
+                      </p>
+                    </div>
 
-                      <span
-                        className={`px-3 py-0.5 rounded-full text-xs font-bold border ${
-                          gabineteSeleccionado.modalidad === "DIVIDIDA"
-                            ? "bg-indigo-100 text-indigo-900 border-indigo-300"
-                            : "bg-emerald-100 text-emerald-900 border-emerald-300"
-                        }`}
-                      >
-                        {gabineteSeleccionado.modalidad === "DIVIDIDA"
-                          ? "Caja Dividida (Independiente)"
-                          : "Caja Compartida (Un Solo Gabinete)"}
+                    {/* Rubro B: Dinero en Custodia (Depósitos Pendientes por Devolver) */}
+                    <div className="bg-amber-50/70 p-5 rounded-2xl border-2 border-amber-300 shadow-xs relative overflow-hidden">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-black uppercase tracking-wider text-amber-950 block">
+                            Dinero en Custodia (Depósitos en Garantía)
+                          </span>
+                          <span className="text-[11px] text-amber-800 font-medium">
+                            Depósitos en garantía pertenecientes a los clientes (permanece en gaveta física hasta la devolución del traje)
+                          </span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-amber-600 text-white shadow-xs shrink-0">
+                          <ShieldCheck className="w-5 h-5" />
+                        </div>
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-black text-amber-950 mt-3 font-mono">
+                        $
+                        {Number(
+                          gabineteSeleccionado.arqueo.dineroCustodia ??
+                          gabineteSeleccionado.arqueo.efectivoDepositosCustodia ??
+                          gabineteSeleccionado.arqueo.depositosEfectivoNetos ??
+                          0
+                        ).toLocaleString("es-CO")}
+                      </p>
+                      <p className="text-xs text-amber-900 font-medium mt-1">
+                        Recibidos: ${Number(gabineteSeleccionado.arqueo.depositosEfectivoRecibidos || 0).toLocaleString("es-CO")} &bull; Reintegrados: ${Number(gabineteSeleccionado.arqueo.depositosEfectivoDevueltos || 0).toLocaleString("es-CO")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Cuadrícula de Métricas de Arqueo en Vivo de este Gabinete */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* 1. Esperado en Gaveta Física */}
+                    <div className="bg-blue-50/80 p-5 rounded-2xl border-2 border-blue-300 shadow-xs relative overflow-hidden">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                          Esperado en Gaveta Física
+                        </span>
+                        <div className="p-2 rounded-xl bg-blue-100 text-blue-700 border border-blue-200">
+                          <Banknote className="w-5 h-5" />
+                        </div>
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-extrabold text-blue-950 mt-2 font-mono">
+                        $
+                        {Number(
+                          gabineteSeleccionado.arqueo.efectivoEsperado ??
+                          gabineteSeleccionado.arqueo.esperadoEnGavetaEfectivo ??
+                          0
+                        ).toLocaleString("es-CO")}
+                      </p>
+                      <p className="text-xs text-slate-700 font-medium mt-1">
+                        Base (${Number(gabineteSeleccionado.baseInicialEfectivo || 0).toLocaleString("es-CO")}) + Efectivo ($
+                        {Number(
+                          gabineteSeleccionado.arqueo.efectivoVentasYAbonos ??
+                          gabineteSeleccionado.arqueo.totalEfectivo ??
+                          0
+                        ).toLocaleString("es-CO")}) + Depósitos ($
+                        {Number(
+                          gabineteSeleccionado.arqueo.depositosEfectivoNetos ?? 0
+                        ).toLocaleString("es-CO")})
+                      </p>
+                    </div>
+
+                    {/* 2. Recaudo Canales Digitales */}
+                    <div className="bg-[#FCFDFE] p-5 rounded-2xl border border-slate-200/90 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-purple-800">
+                          Recaudo Canales Digitales
+                        </span>
+                        <div className="p-2 rounded-xl bg-purple-50 text-purple-700 border border-purple-200">
+                          <Smartphone className="w-5 h-5" />
+                        </div>
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-extrabold text-purple-950 mt-2 font-mono">
+                        $
+                        {Number(gabineteSeleccionado.arqueo.totalDigital || 0).toLocaleString("es-CO")}
+                      </p>
+                      <p className="text-xs text-slate-700 font-medium mt-1">
+                        Nequi: $
+                        {Number(gabineteSeleccionado.arqueo.totalNequi || 0).toLocaleString("es-CO")} |
+                        Daviplata: $
+                        {Number(gabineteSeleccionado.arqueo.totalDaviplata || 0).toLocaleString("es-CO")}
+                      </p>
+                    </div>
+
+                    {/* 3. Total Ventas y Abonos Recaudados */}
+                    <div className="bg-[#FCFDFE] p-5 rounded-2xl border border-slate-200/90 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+                          Total Recaudado en Gabinete
+                        </span>
+                        <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <Vault className="w-5 h-5" />
+                        </div>
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-extrabold text-emerald-950 mt-2 font-mono">
+                        $
+                        {Number(gabineteSeleccionado.arqueo.totalRecaudado || 0).toLocaleString("es-CO")}
+                      </p>
+                      <p className="text-xs text-slate-700 font-medium mt-1">
+                        {gabineteSeleccionado.arqueo.cantidadAbonos} pago(s) en{" "}
+                        {gabineteSeleccionado.arqueo.cantidadFacturas} factura(s)
+                      </p>
+                    </div>
+
+                    {/* 4. Desglose Transferencias */}
+                    <div className="bg-[#FCFDFE] p-5 rounded-2xl border border-slate-200/90 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-blue-800">
+                          Transferencias Bancarias
+                        </span>
+                        <div className="p-2 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
+                          <CreditCard className="w-5 h-5" />
+                        </div>
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-extrabold text-blue-950 mt-2 font-mono">
+                        $
+                        {Number(
+                          gabineteSeleccionado.arqueo.totalTransferencia || 0
+                        ).toLocaleString("es-CO")}
+                      </p>
+                      <p className="text-xs text-slate-700 font-medium mt-1">
+                        Comprobantes bancarios verificados
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Desglose de Recaudos por Cajero (Muy útil en Caja Compartida) */}
+                  {gabineteSeleccionado.arqueo.desgloseCajeros &&
+                    gabineteSeleccionado.arqueo.desgloseCajeros.length > 0 && (
+                      <div className="bg-[#FCFDFE] rounded-2xl p-5 shadow-xs border border-slate-200/90 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-emerald-600" />
+                            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-900">
+                              Desglose Informativo de Recaudo por Cajero en este Gabinete
+                            </h3>
+                          </div>
+                          <span className="text-xs text-slate-500 font-medium">
+                            Trazabilidad exacta por usuario
+                          </span>
+                        </div>
+
+                        <div className="overflow-x-auto rounded-xl border border-slate-200">
+                          <table className="w-full text-left text-xs sm:text-sm border-collapse">
+                            <thead className="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider border-b border-slate-200">
+                              <tr>
+                                <th className="px-4 py-2.5">Cajero</th>
+                                <th className="px-3 py-2.5 text-right">Efectivo Ingresado</th>
+                                <th className="px-3 py-2.5 text-right">Digital / Transf.</th>
+                                <th className="px-3 py-2.5 text-right">Total Facturado/Cobrado</th>
+                                <th className="px-3 py-2.5 text-center">N° Cobros</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 bg-white">
+                              {gabineteSeleccionado.arqueo.desgloseCajeros.map((c) => (
+                                <tr key={c.cajeroId} className="hover:bg-slate-50 transition">
+                                  <td className="px-4 py-2.5 font-bold text-slate-950">
+                                    {c.nombre}{" "}
+                                    <span className="text-xs text-slate-500 font-mono">
+                                      (@{c.username})
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900">
+                                    ${c.efectivo.toLocaleString("es-CO")}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right font-mono font-bold text-purple-800">
+                                    ${c.digital.toLocaleString("es-CO")}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right font-mono font-black text-emerald-800">
+                                    ${c.total.toLocaleString("es-CO")}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-center font-bold text-slate-700">
+                                    {c.cantidadAbonos}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Layout de Cierre Definitivo para este Gabinete */}
+                  <div className="bg-[#FCFDFE] rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200/90 space-y-5">
+                    <div className="flex items-center justify-between border-b border-slate-200/90 pb-3">
+                      <div className="flex items-center gap-2 text-slate-900 font-bold">
+                        <Lock className="w-5 h-5 text-amber-600" />
+                        <span>Arqueo y Cierre Definitivo de {gabineteSeleccionado.nombreGabinete}</span>
+                      </div>
+                      <span className="text-xs text-slate-600 font-medium">
+                        Cierre independiente con respaldo automático VACUUM INTO
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm text-slate-700 font-medium">
-                      <div className="flex items-center gap-1.5">
-                        <User className="w-4 h-4 text-slate-500 shrink-0" />
-                        <span>Aperturado por:</span>
-                      </div>
-                      <span className="text-slate-950 font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
-                        {gabineteSeleccionado.usuarioCajero.nombre} (@
-                        {gabineteSeleccionado.usuarioCajero.username})
-                      </span>
+                    <form
+                      onSubmit={handleSolicitarCierre}
+                      className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+                    >
+                      <div className="lg:col-span-6 space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
+                            Efectivo Físico Contado en la Gaveta de {gabineteSeleccionado.nombreGabinete}{" "}
+                            ($ COP) *
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
+                              $
+                            </div>
+                            <input
+                              type="number"
+                              min="0"
+                              step="100"
+                              required
+                              placeholder="Ingrese el conteo real de billetes y monedas..."
+                              value={efectivoContadoInput}
+                              onChange={(e) => setEfectivoContadoInput(e.target.value)}
+                              className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-950 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs font-mono"
+                            />
+                          </div>
+                        </div>
 
-                      {/* Lista de Cajeros Participantes en modo compartido */}
-                      {gabineteSeleccionado.modalidad === "COMPARTIDA" &&
-                        gabineteSeleccionado.cajerosParticipantes.length > 0 && (
-                          <div className="flex items-center gap-1.5 flex-wrap ml-1">
-                            <span className="text-slate-600 font-bold">• Cajeros en este turno:</span>
-                            {gabineteSeleccionado.cajerosParticipantes.map((c) => (
-                              <span
-                                key={c.id}
-                                className="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300"
-                              >
-                                {c.nombre}
-                              </span>
-                            ))}
+                        {/* Alerta Visual de Diferencia Detectada (Regla de Arqueo Sin Bloqueo) */}
+                        {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
+                          <div
+                            className={`p-3.5 rounded-xl border flex items-start gap-3 animate-in fade-in ${diferenciaEnVivo > 0
+                              ? "bg-amber-50 border-amber-300 text-amber-950"
+                              : "bg-rose-50 border-rose-300 text-rose-950"
+                              }`}
+                          >
+                            <AlertTriangle
+                              className={`w-5 h-5 shrink-0 mt-0.5 ${diferenciaEnVivo > 0 ? "text-amber-600" : "text-rose-600"
+                                }`}
+                            />
+                            <div className="text-xs sm:text-sm space-y-0.5">
+                              <p className="font-bold">
+                                Se ha detectado una diferencia de ${Math.abs(diferenciaEnVivo).toLocaleString("es-CO")}{" "}
+                                ({diferenciaEnVivo > 0 ? "Sobrante" : "Faltante"}) en el arqueo.
+                              </p>
+                              <p className="text-xs opacity-90">
+                                El cierre continúa operativo y habilitado. Por control financiero, justifique el motivo en el campo inferior.
+                              </p>
+                            </div>
                           </div>
                         )}
-                    </div>
-                  </div>
-                </div>
 
-                <div className="text-left sm:text-right sm:border-l sm:border-slate-300/80 sm:pl-5 shrink-0">
-                  <span className="text-xs uppercase font-bold text-slate-700 block tracking-wider">
-                    Base Inicial de este Gabinete
-                  </span>
-                  <span className="text-lg md:text-xl font-mono font-black text-emerald-800">
-                    ${Number(gabineteSeleccionado.baseInicialEfectivo).toLocaleString("es-CO")}
-                  </span>
-                </div>
-              </div>
-
-              {/* Separación Contable Estricta: Dinero de la Tienda vs Dinero en Custodia */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Rubro A: Dinero de la Tienda (Ventas y Alquileres) */}
-                <div className="bg-emerald-50/70 p-5 rounded-2xl border-2 border-emerald-300 shadow-xs relative overflow-hidden">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-black uppercase tracking-wider text-emerald-900 block">
-                        Dinero de la Tienda (Ventas y Alquileres)
-                      </span>
-                      <span className="text-[11px] text-emerald-700 font-medium">
-                        Ingresos reales facturados y cobrados por servicios de la tienda
-                      </span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
-                      <DollarSign className="w-5 h-5" />
-                    </div>
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-black text-emerald-950 mt-3 font-mono">
-                    $
-                    {Number(
-                      gabineteSeleccionado.arqueo.dineroTienda ??
-                      ((gabineteSeleccionado.arqueo.efectivoVentasYAbonos || 0) + (gabineteSeleccionado.arqueo.totalDigital || 0))
-                    ).toLocaleString("es-CO")}
-                  </p>
-                  <p className="text-xs text-emerald-800 font-medium mt-1">
-                    Efectivo Tienda: ${Number(gabineteSeleccionado.arqueo.efectivoVentasYAbonos ?? gabineteSeleccionado.arqueo.totalEfectivo ?? 0).toLocaleString("es-CO")} &bull; Digital: ${Number(gabineteSeleccionado.arqueo.totalDigital || 0).toLocaleString("es-CO")}
-                  </p>
-                </div>
-
-                {/* Rubro B: Dinero en Custodia (Depósitos Pendientes por Devolver) */}
-                <div className="bg-amber-50/70 p-5 rounded-2xl border-2 border-amber-300 shadow-xs relative overflow-hidden">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-black uppercase tracking-wider text-amber-950 block">
-                        Dinero en Custodia (Depósitos en Garantía)
-                      </span>
-                      <span className="text-[11px] text-amber-800 font-medium">
-                        Depósitos en garantía pertenecientes a los clientes (permanece en gaveta física hasta la devolución del traje)
-                      </span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-amber-600 text-white shadow-xs shrink-0">
-                      <ShieldCheck className="w-5 h-5" />
-                    </div>
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-black text-amber-950 mt-3 font-mono">
-                    $
-                    {Number(
-                      gabineteSeleccionado.arqueo.dineroCustodia ??
-                      gabineteSeleccionado.arqueo.efectivoDepositosCustodia ??
-                      gabineteSeleccionado.arqueo.depositosEfectivoNetos ??
-                      0
-                    ).toLocaleString("es-CO")}
-                  </p>
-                  <p className="text-xs text-amber-900 font-medium mt-1">
-                    Recibidos: ${Number(gabineteSeleccionado.arqueo.depositosEfectivoRecibidos || 0).toLocaleString("es-CO")} &bull; Reintegrados: ${Number(gabineteSeleccionado.arqueo.depositosEfectivoDevueltos || 0).toLocaleString("es-CO")}
-                  </p>
-                </div>
-              </div>
-
-              {/* Cuadrícula de Métricas de Arqueo en Vivo de este Gabinete */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* 1. Esperado en Gaveta Física */}
-                <div className="bg-blue-50/80 p-5 rounded-2xl border-2 border-blue-300 shadow-xs relative overflow-hidden">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-blue-900">
-                      Esperado en Gaveta Física
-                    </span>
-                    <div className="p-2 rounded-xl bg-blue-100 text-blue-700 border border-blue-200">
-                      <Banknote className="w-5 h-5" />
-                    </div>
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-extrabold text-blue-950 mt-2 font-mono">
-                    $
-                    {Number(
-                      gabineteSeleccionado.arqueo.efectivoEsperado ??
-                      gabineteSeleccionado.arqueo.esperadoEnGavetaEfectivo ??
-                      0
-                    ).toLocaleString("es-CO")}
-                  </p>
-                  <p className="text-xs text-slate-700 font-medium mt-1">
-                    Base (${Number(gabineteSeleccionado.baseInicialEfectivo || 0).toLocaleString("es-CO")}) + Efectivo ($
-                    {Number(
-                      gabineteSeleccionado.arqueo.efectivoVentasYAbonos ??
-                      gabineteSeleccionado.arqueo.totalEfectivo ??
-                      0
-                    ).toLocaleString("es-CO")}) + Depósitos ($
-                    {Number(
-                      gabineteSeleccionado.arqueo.depositosEfectivoNetos ?? 0
-                    ).toLocaleString("es-CO")})
-                  </p>
-                </div>
-
-                {/* 2. Recaudo Canales Digitales */}
-                <div className="bg-[#FCFDFE] p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-purple-800">
-                      Recaudo Canales Digitales
-                    </span>
-                    <div className="p-2 rounded-xl bg-purple-50 text-purple-700 border border-purple-200">
-                      <Smartphone className="w-5 h-5" />
-                    </div>
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-extrabold text-purple-950 mt-2 font-mono">
-                    $
-                    {Number(gabineteSeleccionado.arqueo.totalDigital || 0).toLocaleString("es-CO")}
-                  </p>
-                  <p className="text-xs text-slate-700 font-medium mt-1">
-                    Nequi: $
-                    {Number(gabineteSeleccionado.arqueo.totalNequi || 0).toLocaleString("es-CO")} |
-                    Daviplata: $
-                    {Number(gabineteSeleccionado.arqueo.totalDaviplata || 0).toLocaleString("es-CO")}
-                  </p>
-                </div>
-
-                {/* 3. Total Ventas y Abonos Recaudados */}
-                <div className="bg-[#FCFDFE] p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                      Total Recaudado en Gabinete
-                    </span>
-                    <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      <Vault className="w-5 h-5" />
-                    </div>
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-extrabold text-emerald-950 mt-2 font-mono">
-                    $
-                    {Number(gabineteSeleccionado.arqueo.totalRecaudado || 0).toLocaleString("es-CO")}
-                  </p>
-                  <p className="text-xs text-slate-700 font-medium mt-1">
-                    {gabineteSeleccionado.arqueo.cantidadAbonos} pago(s) en{" "}
-                    {gabineteSeleccionado.arqueo.cantidadFacturas} factura(s)
-                  </p>
-                </div>
-
-                {/* 4. Desglose Transferencias */}
-                <div className="bg-[#FCFDFE] p-5 rounded-2xl border border-slate-200/90 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-blue-800">
-                      Transferencias Bancarias
-                    </span>
-                    <div className="p-2 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
-                      <CreditCard className="w-5 h-5" />
-                    </div>
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-extrabold text-blue-950 mt-2 font-mono">
-                    $
-                    {Number(
-                      gabineteSeleccionado.arqueo.totalTransferencia || 0
-                    ).toLocaleString("es-CO")}
-                  </p>
-                  <p className="text-xs text-slate-700 font-medium mt-1">
-                    Comprobantes bancarios verificados
-                  </p>
-                </div>
-              </div>
-
-              {/* Desglose de Recaudos por Cajero (Muy útil en Caja Compartida) */}
-              {gabineteSeleccionado.arqueo.desgloseCajeros &&
-                gabineteSeleccionado.arqueo.desgloseCajeros.length > 0 && (
-                  <div className="bg-[#FCFDFE] rounded-2xl p-5 shadow-xs border border-slate-200/90 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-emerald-600" />
-                        <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-900">
-                          Desglose Informativo de Recaudo por Cajero en este Gabinete
-                        </h3>
-                      </div>
-                      <span className="text-xs text-slate-500 font-medium">
-                        Trazabilidad exacta por usuario
-                      </span>
-                    </div>
-
-                    <div className="overflow-x-auto rounded-xl border border-slate-200">
-                      <table className="w-full text-left text-xs sm:text-sm border-collapse">
-                        <thead className="bg-slate-100 text-slate-800 font-bold uppercase tracking-wider border-b border-slate-200">
-                          <tr>
-                            <th className="px-4 py-2.5">Cajero</th>
-                            <th className="px-3 py-2.5 text-right">Efectivo Ingresado</th>
-                            <th className="px-3 py-2.5 text-right">Digital / Transf.</th>
-                            <th className="px-3 py-2.5 text-right">Total Facturado/Cobrado</th>
-                            <th className="px-3 py-2.5 text-center">N° Cobros</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200 bg-white">
-                          {gabineteSeleccionado.arqueo.desgloseCajeros.map((c) => (
-                            <tr key={c.cajeroId} className="hover:bg-slate-50 transition">
-                              <td className="px-4 py-2.5 font-bold text-slate-950">
-                                {c.nombre}{" "}
-                                <span className="text-xs text-slate-500 font-mono">
-                                  (@{c.username})
-                                </span>
-                              </td>
-                              <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900">
-                                ${c.efectivo.toLocaleString("es-CO")}
-                              </td>
-                              <td className="px-3 py-2.5 text-right font-mono font-bold text-purple-800">
-                                ${c.digital.toLocaleString("es-CO")}
-                              </td>
-                              <td className="px-3 py-2.5 text-right font-mono font-black text-emerald-800">
-                                ${c.total.toLocaleString("es-CO")}
-                              </td>
-                              <td className="px-3 py-2.5 text-center font-bold text-slate-700">
-                                {c.cantidadAbonos}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-              {/* Layout de Cierre Definitivo para este Gabinete */}
-              <div className="bg-[#FCFDFE] rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200/90 space-y-5">
-                <div className="flex items-center justify-between border-b border-slate-200/90 pb-3">
-                  <div className="flex items-center gap-2 text-slate-900 font-bold">
-                    <Lock className="w-5 h-5 text-amber-600" />
-                    <span>Arqueo y Cierre Definitivo de {gabineteSeleccionado.nombreGabinete}</span>
-                  </div>
-                  <span className="text-xs text-slate-600 font-medium">
-                    Cierre independiente con respaldo automático VACUUM INTO
-                  </span>
-                </div>
-
-                <form
-                  onSubmit={handleSolicitarCierre}
-                  className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
-                >
-                  <div className="lg:col-span-6 space-y-4">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
-                        Efectivo Físico Contado en la Gaveta de {gabineteSeleccionado.nombreGabinete}{" "}
-                        ($ COP) *
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
-                          $
-                        </div>
-                        <input
-                          type="number"
-                          min="0"
-                          step="100"
-                          required
-                          placeholder="Ingrese el conteo real de billetes y monedas..."
-                          value={efectivoContadoInput}
-                          onChange={(e) => setEfectivoContadoInput(e.target.value)}
-                          className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-950 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Alerta Visual de Diferencia Detectada (Regla de Arqueo Sin Bloqueo) */}
-                    {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
-                      <div
-                        className={`p-3.5 rounded-xl border flex items-start gap-3 animate-in fade-in ${
-                          diferenciaEnVivo > 0
-                            ? "bg-amber-50 border-amber-300 text-amber-950"
-                            : "bg-rose-50 border-rose-300 text-rose-950"
-                        }`}
-                      >
-                        <AlertTriangle
-                          className={`w-5 h-5 shrink-0 mt-0.5 ${
-                            diferenciaEnVivo > 0 ? "text-amber-600" : "text-rose-600"
-                          }`}
-                        />
-                        <div className="text-xs sm:text-sm space-y-0.5">
-                          <p className="font-bold">
-                            Se ha detectado una diferencia de ${Math.abs(diferenciaEnVivo).toLocaleString("es-CO")}{" "}
-                            ({diferenciaEnVivo > 0 ? "Sobrante" : "Faltante"}) en el arqueo.
-                          </p>
-                          <p className="text-xs opacity-90">
-                            El cierre continúa operativo y habilitado. Por control financiero, justifique el motivo en el campo inferior.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Badge de Cuadre Exacto */}
-                    {efectivoContadoInput !== "" && diferenciaEnVivo === 0 && (
-                      <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs sm:text-sm flex items-center gap-2.5 animate-in fade-in">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                        <div>
-                          <p className="font-bold">Cuadre Exacto (Sin diferencias)</p>
-                          <p className="text-xs text-emerald-800">
-                            El efectivo contado coincide al 100% con lo esperado por el sistema ($0 de desviación).
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Campo Permanente y Unificado de Observaciones / Nota de Novedad */}
-                    <div className="space-y-1.5 animate-in fade-in">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center justify-between">
-                        <span className="flex items-center gap-1.5">
-                          <FileText className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Observaciones / Nota de Novedad o Justificación de Diferencia</span>
-                        </span>
-                        {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
-                          <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
-                            Requerido por desviación
-                          </span>
+                        {/* Badge de Cuadre Exacto */}
+                        {efectivoContadoInput !== "" && diferenciaEnVivo === 0 && (
+                          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs sm:text-sm flex items-center gap-2.5 animate-in fade-in">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                            <div>
+                              <p className="font-bold">Cuadre Exacto (Sin diferencias)</p>
+                              <p className="text-xs text-emerald-800">
+                                El efectivo contado coincide al 100% con lo esperado por el sistema ($0 de desviación).
+                              </p>
+                            </div>
+                          </div>
                         )}
-                      </label>
-                      <textarea
-                        rows={3}
-                        placeholder={
-                          diferenciaEnVivo !== 0 && efectivoContadoInput !== ""
-                            ? `Explique el motivo del ${diferenciaEnVivo > 0 ? "sobrante" : "faltante"} de $${Math.abs(diferenciaEnVivo).toLocaleString("es-CO")} (ej. Cambio dado de más/menos en hora pico, billete en custodia o ajuste contable autorizado)...`
-                            : "Observaciones del cierre del turno (opcional)..."
-                        }
-                        value={notaObservacionesInput}
-                        onChange={(e) => setNotaObservacionesInput(e.target.value)}
-                        className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 shadow-2xs leading-relaxed transition ${
-                          efectivoContadoInput !== "" && diferenciaEnVivo !== 0
-                            ? "border-amber-400 focus:ring-amber-500 bg-amber-50/30"
-                            : "border-slate-300 bg-white focus:ring-blue-500"
-                        }`}
-                      />
-                      {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
-                        <p className="text-xs font-medium text-amber-800 flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          <span>
-                            Hay una diferencia de ${Math.abs(diferenciaEnVivo).toLocaleString("es-CO")} ({diferenciaEnVivo > 0 ? "Sobrante" : "Faltante"}). Escriba brevemente el motivo en este campo para registrar en el arqueo.
-                          </span>
-                        </p>
-                      )}
-                    </div>
 
+                        {/* Campo Permanente y Unificado de Observaciones / Nota de Novedad */}
+                        <div className="space-y-1.5 animate-in fade-in">
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Observaciones / Nota de Novedad o Justificación de Diferencia</span>
+                            </span>
+                            {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
+                              <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
+                                Requerido por desviación
+                              </span>
+                            )}
+                          </label>
+                          <textarea
+                            rows={3}
+                            placeholder={
+                              diferenciaEnVivo !== 0 && efectivoContadoInput !== ""
+                                ? `Explique el motivo del ${diferenciaEnVivo > 0 ? "sobrante" : "faltante"} de $${Math.abs(diferenciaEnVivo).toLocaleString("es-CO")} (ej. Cambio dado de más/menos en hora pico, billete en custodia o ajuste contable autorizado)...`
+                                : "Observaciones del cierre del turno (opcional)..."
+                            }
+                            value={notaObservacionesInput}
+                            onChange={(e) => setNotaObservacionesInput(e.target.value)}
+                            className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 shadow-2xs leading-relaxed transition ${efectivoContadoInput !== "" && diferenciaEnVivo !== 0
+                              ? "border-amber-400 focus:ring-amber-500 bg-amber-50/30"
+                              : "border-slate-300 bg-white focus:ring-blue-500"
+                              }`}
+                          />
+                          {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
+                            <p className="text-xs font-medium text-amber-800 flex items-center gap-1">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>
+                                Hay una diferencia de ${Math.abs(diferenciaEnVivo).toLocaleString("es-CO")} ({diferenciaEnVivo > 0 ? "Sobrante" : "Faltante"}). Escriba brevemente el motivo en este campo para registrar en el arqueo.
+                              </span>
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
+                            Tipo de Cierre
+                          </label>
+                          <select
+                            value={tipoCierre}
+                            onChange={(e) =>
+                              setTipoCierre(e.target.value as "DIARIO" | "CONSOLIDADO_MENSUAL")
+                            }
+                            className="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                          >
+                            <option value="DIARIO">Cierre Diario</option>
+                            <option value="CONSOLIDADO_MENSUAL">Consolidado Mensual</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Tarjeta de Comparación y Diferencia de Alto Contraste */}
+                      <div className="lg:col-span-6 bg-slate-50 p-5 rounded-2xl border border-slate-200/90 space-y-3.5">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                          Resultado del Cuadre de Gaveta ({gabineteSeleccionado.nombreGabinete})
+                        </h3>
+
+                        <div className="space-y-2.5 text-xs sm:text-sm">
+                          <div className="flex justify-between items-center text-slate-700 font-medium">
+                            <span>Total Físico Esperado (Base + Efectivo + Depósitos):</span>
+                            <span className="font-mono font-bold text-slate-900 text-sm md:text-base">
+                              ${esperadoGaveta.toLocaleString("es-CO")}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center text-slate-700 font-medium">
+                            <span>Efectivo Físico Contado por Cajero:</span>
+                            <span className="font-mono font-bold text-slate-900 text-sm md:text-base">
+                              ${contadoNumerico.toLocaleString("es-CO")}
+                            </span>
+                          </div>
+
+                          <div
+                            className={`flex justify-between items-center p-3.5 rounded-xl border ${efectivoContadoInput === ""
+                              ? "bg-slate-100 text-slate-700 border-slate-300"
+                              : diferenciaEnVivo === 0
+                                ? "bg-emerald-50 text-emerald-950 border-emerald-300"
+                                : diferenciaEnVivo > 0
+                                  ? "bg-blue-50 text-blue-950 border-blue-300"
+                                  : "bg-rose-50 text-rose-950 border-rose-300"
+                              }`}
+                          >
+                            <span className="font-bold uppercase tracking-wider text-xs">
+                              {efectivoContadoInput === ""
+                                ? "Pendiente de Conteo"
+                                : diferenciaEnVivo === 0
+                                  ? "Cuadre Exacto"
+                                  : diferenciaEnVivo > 0
+                                    ? "Sobrante en Gaveta"
+                                    : "Faltante en Gaveta"}
+                            </span>
+                            <span className="text-base sm:text-lg font-black font-mono">
+                              {diferenciaEnVivo >= 0 ? "+" : ""}${diferenciaEnVivo.toLocaleString("es-CO")}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Botón para Abrir Modal Antifatiga */}
+                        <button
+                          type="submit"
+                          disabled={procesando || efectivoContadoInput === ""}
+                          className="w-full min-h-[48px] py-3.5 rounded-xl font-bold text-sm md:text-base text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                        >
+                          {procesando ? (
+                            <>
+                              <RefreshCw className="w-5 h-5 animate-spin" />
+                              <span>Consolidando Arqueo y Backup...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-5 h-5" />
+                              <span>Confirmar Cierre de {gabineteSeleccionado.nombreGabinete}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Modal de Confirmación Antifatiga de Cierre (Cero window.confirm) */}
+                  {mostrarModalConfirmarCierre && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+                      <div className="bg-[#FCFDFE] rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg p-6 sm:p-7 space-y-5 text-slate-800">
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
+                              <Lock className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-black text-slate-950">
+                                Confirmación de Cierre Definitivo
+                              </h3>
+                              <p className="text-xs text-slate-600">
+                                {gabineteSeleccionado.nombreGabinete} • {tipoCierre === "DIARIO" ? "Cierre Diario" : "Consolidado Mensual"}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setMostrarModalConfirmarCierre(false)}
+                            disabled={procesando}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+
+                        {/* Resumen Financiero 1:1 */}
+                        <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                          <div className="flex justify-between items-center text-xs sm:text-sm">
+                            <span className="text-slate-600 font-medium">Efectivo Físico Esperado:</span>
+                            <span className="font-mono font-bold text-slate-900 text-sm sm:text-base">
+                              ${esperadoGaveta.toLocaleString("es-CO")}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs sm:text-sm">
+                            <span className="text-slate-600 font-medium">Efectivo Físico Contado:</span>
+                            <span className="font-mono font-bold text-slate-900 text-sm sm:text-base">
+                              ${contadoNumerico.toLocaleString("es-CO")}
+                            </span>
+                          </div>
+                          <div
+                            className={`flex justify-between items-center p-3 rounded-xl border ${diferenciaEnVivo === 0
+                              ? "bg-emerald-50 text-emerald-950 border-emerald-300"
+                              : diferenciaEnVivo > 0
+                                ? "bg-blue-50 text-blue-950 border-blue-300"
+                                : "bg-rose-50 text-rose-950 border-rose-300"
+                              }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {diferenciaEnVivo === 0 ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              ) : (
+                                <AlertTriangle
+                                  className={`w-4 h-4 shrink-0 ${diferenciaEnVivo > 0 ? "text-blue-600" : "text-rose-600"
+                                    }`}
+                                />
+                              )}
+                              <span className="font-bold text-xs uppercase tracking-wider">
+                                {diferenciaEnVivo === 0
+                                  ? "Cuadre Exacto"
+                                  : diferenciaEnVivo > 0
+                                    ? "Sobrante"
+                                    : "Faltante"}
+                              </span>
+                            </div>
+                            <span className="font-mono font-black text-base sm:text-lg">
+                              {diferenciaEnVivo >= 0 ? "+" : ""}${diferenciaEnVivo.toLocaleString("es-CO")}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Campo de Nota / Observación en el Modal */}
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center justify-between">
+                            <span>Nota de Novedad / Justificación de la Diferencia</span>
+                            {diferenciaEnVivo !== 0 && (
+                              <span className="text-xs text-amber-700 font-semibold">Auditada en historial</span>
+                            )}
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={notaObservacionesInput}
+                            onChange={(e) => setNotaObservacionesInput(e.target.value)}
+                            placeholder={
+                              diferenciaEnVivo !== 0
+                                ? "Registre el motivo de la diferencia..."
+                                : "Observaciones del arqueo (opcional)..."
+                            }
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs leading-relaxed"
+                          />
+                        </div>
+
+                        {/* Acciones */}
+                        <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => setMostrarModalConfirmarCierre(false)}
+                            disabled={procesando}
+                            className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={ejecutarCierreDefinitivo}
+                            disabled={procesando}
+                            className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                          >
+                            {procesando ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                <span>Asentando Cierre & Respaldo...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="w-4 h-4" />
+                                <span>Ejecutar Cierre Definitivo de Caja</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Modal para Abrir Otra Caja Dividida */}
+          {mostrarModalNuevaCajaDividida && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+              <div className="bg-[#FCFDFE] rounded-3xl border border-slate-200 shadow-xl w-full max-w-lg p-6 sm:p-7 space-y-5 text-slate-800">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200">
+                      <Layers className="w-5 h-5" />
+                    </div>
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1.5">
-                        Tipo de Cierre
-                      </label>
-                      <select
-                        value={tipoCierre}
-                        onChange={(e) =>
-                          setTipoCierre(e.target.value as "DIARIO" | "CONSOLIDADO_MENSUAL")
-                        }
-                        className="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-800 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
-                      >
-                        <option value="DIARIO">Cierre Diario</option>
-                        <option value="CONSOLIDADO_MENSUAL">Consolidado Mensual</option>
-                      </select>
+                      <h3 className="text-lg font-black text-slate-950">
+                        Abrir Nueva Caja Dividida
+                      </h3>
+                      <p className="text-xs text-slate-600">
+                        Habilitar un gabinete de dinero independiente hoy
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarModalNuevaCajaDividida(false)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleAbrirOtraCajaDividida} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Nombre del Gabinete *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder={`Gabinete #${turnosAbiertos.length + 1}`}
+                      value={nombreNuevaCajaDividida}
+                      onChange={(e) => setNombreNuevaCajaDividida(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Base Inicial en Efectivo ($ COP) *
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
+                        $
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="500"
+                        required
+                        placeholder="50000"
+                        value={baseNuevaCajaDividida}
+                        onChange={(e) => setBaseNuevaCajaDividida(e.target.value)}
+                        className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-lg font-black focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs font-mono"
+                      />
+                    </div>
+                    <div className="flex gap-2 mt-2 flex-wrap">
+                      {[0, 50000, 100000, 150000].map((monto) => (
+                        <button
+                          key={monto}
+                          type="button"
+                          onClick={() => setBaseNuevaCajaDividida(String(monto))}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300/80 transition cursor-pointer"
+                        >
+                          ${monto.toLocaleString("es-CO")}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Tarjeta de Comparación y Diferencia de Alto Contraste */}
-                  <div className="lg:col-span-6 bg-slate-50 p-5 rounded-2xl border border-slate-200/90 space-y-3.5">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Resultado del Cuadre de Gaveta ({gabineteSeleccionado.nombreGabinete})
-                    </h3>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                      Observaciones (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Segundo punto de facturación para hora pico"
+                      value={obsNuevaCajaDividida}
+                      onChange={(e) => setObsNuevaCajaDividida(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                    />
+                  </div>
 
-                    <div className="space-y-2.5 text-xs sm:text-sm">
-                      <div className="flex justify-between items-center text-slate-700 font-medium">
-                        <span>Total Físico Esperado (Base + Efectivo + Depósitos):</span>
-                        <span className="font-mono font-bold text-slate-900 text-sm md:text-base">
-                          ${esperadoGaveta.toLocaleString("es-CO")}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center text-slate-700 font-medium">
-                        <span>Efectivo Físico Contado por Cajero:</span>
-                        <span className="font-mono font-bold text-slate-900 text-sm md:text-base">
-                          ${contadoNumerico.toLocaleString("es-CO")}
-                        </span>
-                      </div>
-
-                      <div
-                        className={`flex justify-between items-center p-3.5 rounded-xl border ${
-                          efectivoContadoInput === ""
-                            ? "bg-slate-100 text-slate-700 border-slate-300"
-                            : diferenciaEnVivo === 0
-                            ? "bg-emerald-50 text-emerald-950 border-emerald-300"
-                            : diferenciaEnVivo > 0
-                            ? "bg-blue-50 text-blue-950 border-blue-300"
-                            : "bg-rose-50 text-rose-950 border-rose-300"
-                        }`}
-                      >
-                        <span className="font-bold uppercase tracking-wider text-xs">
-                          {efectivoContadoInput === ""
-                            ? "Pendiente de Conteo"
-                            : diferenciaEnVivo === 0
-                            ? "Cuadre Exacto"
-                            : diferenciaEnVivo > 0
-                            ? "Sobrante en Gaveta"
-                            : "Faltante en Gaveta"}
-                        </span>
-                        <span className="text-base sm:text-lg font-black font-mono">
-                          {diferenciaEnVivo >= 0 ? "+" : ""}${diferenciaEnVivo.toLocaleString("es-CO")}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Botón para Abrir Modal Antifatiga */}
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setMostrarModalNuevaCajaDividida(false)}
+                      className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
                     <button
                       type="submit"
-                      disabled={procesando || efectivoContadoInput === ""}
-                      className="w-full min-h-[48px] py-3.5 rounded-xl font-bold text-sm md:text-base text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                      disabled={procesando}
+                      className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm shadow-indigo-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       {procesando ? (
-                        <>
-                          <RefreshCw className="w-5 h-5 animate-spin" />
-                          <span>Consolidando Arqueo y Backup...</span>
-                        </>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
                       ) : (
-                        <>
-                          <Lock className="w-5 h-5" />
-                          <span>Confirmar Cierre de {gabineteSeleccionado.nombreGabinete}</span>
-                        </>
+                        <Check className="w-4 h-4" />
                       )}
+                      <span>Habilitar Gabinete</span>
                     </button>
                   </div>
                 </form>
               </div>
-
-              {/* Modal de Confirmación Antifatiga de Cierre (Cero window.confirm) */}
-              {mostrarModalConfirmarCierre && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
-                  <div className="bg-[#FCFDFE] rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg p-6 sm:p-7 space-y-5 text-slate-800">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
-                          <Lock className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-black text-slate-950">
-                            Confirmación de Cierre Definitivo
-                          </h3>
-                          <p className="text-xs text-slate-600">
-                            {gabineteSeleccionado.nombreGabinete} • {tipoCierre === "DIARIO" ? "Cierre Diario" : "Consolidado Mensual"}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setMostrarModalConfirmarCierre(false)}
-                        disabled={procesando}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer disabled:opacity-50"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    {/* Resumen Financiero 1:1 */}
-                    <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                      <div className="flex justify-between items-center text-xs sm:text-sm">
-                        <span className="text-slate-600 font-medium">Efectivo Físico Esperado:</span>
-                        <span className="font-mono font-bold text-slate-900 text-sm sm:text-base">
-                          ${esperadoGaveta.toLocaleString("es-CO")}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs sm:text-sm">
-                        <span className="text-slate-600 font-medium">Efectivo Físico Contado:</span>
-                        <span className="font-mono font-bold text-slate-900 text-sm sm:text-base">
-                          ${contadoNumerico.toLocaleString("es-CO")}
-                        </span>
-                      </div>
-                      <div
-                        className={`flex justify-between items-center p-3 rounded-xl border ${
-                          diferenciaEnVivo === 0
-                            ? "bg-emerald-50 text-emerald-950 border-emerald-300"
-                            : diferenciaEnVivo > 0
-                            ? "bg-blue-50 text-blue-950 border-blue-300"
-                            : "bg-rose-50 text-rose-950 border-rose-300"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          {diferenciaEnVivo === 0 ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                          ) : (
-                            <AlertTriangle
-                              className={`w-4 h-4 shrink-0 ${
-                                diferenciaEnVivo > 0 ? "text-blue-600" : "text-rose-600"
-                              }`}
-                            />
-                          )}
-                          <span className="font-bold text-xs uppercase tracking-wider">
-                            {diferenciaEnVivo === 0
-                              ? "Cuadre Exacto"
-                              : diferenciaEnVivo > 0
-                              ? "Sobrante"
-                              : "Faltante"}
-                          </span>
-                        </div>
-                        <span className="font-mono font-black text-base sm:text-lg">
-                          {diferenciaEnVivo >= 0 ? "+" : ""}${diferenciaEnVivo.toLocaleString("es-CO")}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Campo de Nota / Observación en el Modal */}
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center justify-between">
-                        <span>Nota de Novedad / Justificación de la Diferencia</span>
-                        {diferenciaEnVivo !== 0 && (
-                          <span className="text-xs text-amber-700 font-semibold">Auditada en historial</span>
-                        )}
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={notaObservacionesInput}
-                        onChange={(e) => setNotaObservacionesInput(e.target.value)}
-                        placeholder={
-                          diferenciaEnVivo !== 0
-                            ? "Registre el motivo de la diferencia..."
-                            : "Observaciones del arqueo (opcional)..."
-                        }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs leading-relaxed"
-                      />
-                    </div>
-
-                    {/* Acciones */}
-                    <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-200">
-                      <button
-                        type="button"
-                        onClick={() => setMostrarModalConfirmarCierre(false)}
-                        disabled={procesando}
-                        className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={ejecutarCierreDefinitivo}
-                        disabled={procesando}
-                        className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                      >
-                        {procesando ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>Asentando Cierre & Respaldo...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="w-4 h-4" />
-                            <span>Ejecutar Cierre Definitivo de Caja</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
+            </div>
           )}
-        </div>
-      )}
 
-      {/* Modal para Abrir Otra Caja Dividida */}
-      {mostrarModalNuevaCajaDividida && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-[#FCFDFE] rounded-3xl border border-slate-200 shadow-xl w-full max-w-lg p-6 sm:p-7 space-y-5 text-slate-800">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200">
-                  <Layers className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-950">
-                    Abrir Nueva Caja Dividida
-                  </h3>
-                  <p className="text-xs text-slate-600">
-                    Habilitar un gabinete de dinero independiente hoy
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMostrarModalNuevaCajaDividida(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          {/* ========================================================= */}
+          {/* SECCIÓN 3: HISTORIAL DE TURNOS CERRADOS PREVIOS           */}
+          {/* ========================================================= */}
+          <div className="bg-[#FCFDFE] rounded-2xl shadow-xs border border-slate-200/90 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                <History className="w-4 h-4 text-amber-600" />
+                Historial de Turnos y Cierres Previos
+              </h2>
+              <span className="text-xs text-slate-600 font-medium">
+                Auditoría inmutable de gabinetes y cajeros
+              </span>
             </div>
 
-            <form onSubmit={handleAbrirOtraCajaDividida} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Nombre del Gabinete *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={`Gabinete #${turnosAbiertos.length + 1}`}
-                  value={nombreNuevaCajaDividida}
-                  onChange={(e) => setNombreNuevaCajaDividida(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Base Inicial en Efectivo ($ COP) *
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
-                    $
-                  </div>
-                  <input
-                    type="number"
-                    min="0"
-                    step="500"
-                    required
-                    placeholder="50000"
-                    value={baseNuevaCajaDividida}
-                    onChange={(e) => setBaseNuevaCajaDividida(e.target.value)}
-                    className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-lg font-black focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs font-mono"
-                  />
-                </div>
-                <div className="flex gap-2 mt-2 flex-wrap">
-                  {[0, 50000, 100000, 150000].map((monto) => (
-                    <button
-                      key={monto}
-                      type="button"
-                      onClick={() => setBaseNuevaCajaDividida(String(monto))}
-                      className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300/80 transition cursor-pointer"
-                    >
-                      ${monto.toLocaleString("es-CO")}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Observaciones (Opcional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej. Segundo punto de facturación para hora pico"
-                  value={obsNuevaCajaDividida}
-                  onChange={(e) => setObsNuevaCajaDividida(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setMostrarModalNuevaCajaDividida(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={procesando}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm shadow-indigo-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {procesando ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Check className="w-4 h-4" />
-                  )}
-                  <span>Habilitar Gabinete</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* SECCIÓN 3: HISTORIAL DE TURNOS CERRADOS PREVIOS           */}
-      {/* ========================================================= */}
-      <div className="bg-[#FCFDFE] rounded-2xl shadow-xs border border-slate-200/90 p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-            <History className="w-4 h-4 text-amber-600" />
-            Historial de Turnos y Cierres Previos
-          </h2>
-          <span className="text-xs text-slate-600 font-medium">
-            Auditoría inmutable de gabinetes y cajeros
-          </span>
-        </div>
-
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
-          {historialTurnos.length === 0 ? (
-            <p className="text-xs text-slate-500 font-medium text-center py-6">
-              No hay turnos cerrados registrados todavía en el historial.
-            </p>
-          ) : (
-            <table className="w-full text-left text-sm md:text-base border-collapse">
-              <thead className="bg-slate-100 text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-300">
-                <tr>
-                  <th className="px-4 py-3">Apertura / Cierre</th>
-                  <th className="px-3 py-3">Gabinete & Modalidad</th>
-                  <th className="px-3 py-3">Cajero</th>
-                  <th className="px-3 py-3 text-right">Base Inicial</th>
-                  <th className="px-3 py-3 text-right">Efectivo</th>
-                  <th className="px-3 py-3 text-right">Digital</th>
-                  <th className="px-3 py-3 text-right">Total Recaudado</th>
-                  <th className="px-3 py-3 text-center">Diferencia</th>
-                  <th className="px-3.5 py-3">Nota de Novedad</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
-                {historialTurnos.map((t) => (
-                  <tr key={t.id} className="hover:bg-blue-50/40 transition">
-                    <td className="px-4 py-3">
-                      <p className="font-bold text-slate-900 text-sm md:text-base">
-                        {new Date(t.fechaApertura).toLocaleDateString("es-CO")}
-                      </p>
-                      <span className="text-xs text-slate-700 font-mono block mt-0.5">
-                        {new Date(t.fechaApertura).toLocaleTimeString("es-CO", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}{" "}
-                        -{" "}
-                        {t.fechaCierre
-                          ? new Date(t.fechaCierre).toLocaleTimeString("es-CO", {
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              {historialTurnos.length === 0 ? (
+                <p className="text-xs text-slate-500 font-medium text-center py-6">
+                  No hay turnos cerrados registrados todavía en el historial.
+                </p>
+              ) : (
+                <table className="w-full text-left text-sm md:text-base border-collapse">
+                  <thead className="bg-slate-100 text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-300">
+                    <tr>
+                      <th className="px-4 py-3">Apertura / Cierre</th>
+                      <th className="px-3 py-3">Gabinete & Modalidad</th>
+                      <th className="px-3 py-3">Cajero</th>
+                      <th className="px-3 py-3 text-right">Base Inicial</th>
+                      <th className="px-3 py-3 text-right">Efectivo</th>
+                      <th className="px-3 py-3 text-right">Digital</th>
+                      <th className="px-3 py-3 text-right">Total Recaudado</th>
+                      <th className="px-3 py-3 text-center">Diferencia</th>
+                      <th className="px-3.5 py-3">Nota de Novedad</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {historialTurnos.map((t) => (
+                      <tr key={t.id} className="hover:bg-blue-50/40 transition">
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-slate-900 text-sm md:text-base">
+                            {new Date(t.fechaApertura).toLocaleDateString("es-CO")}
+                          </p>
+                          <span className="text-xs text-slate-700 font-mono block mt-0.5">
+                            {new Date(t.fechaApertura).toLocaleTimeString("es-CO", {
                               hour: "2-digit",
                               minute: "2-digit",
-                            })
-                          : "Abierto"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className="font-bold text-slate-900 block text-xs sm:text-sm">
-                        {t.nombreGabinete || "Gabinete Principal"}
-                      </span>
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mt-1 border ${
-                          t.modalidad === "DIVIDIDA"
-                            ? "bg-indigo-50 text-indigo-800 border-indigo-200"
-                            : "bg-emerald-50 text-emerald-800 border-emerald-200"
-                        }`}
-                      >
-                        {t.modalidad === "DIVIDIDA" ? "Dividida" : "Compartida"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 font-semibold text-slate-800 text-sm md:text-base">
-                      {t.usuarioCajero?.nombre}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono text-slate-800 font-medium text-sm md:text-base">
-                      ${Number(t.baseInicialEfectivo).toLocaleString("es-CO")}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono font-bold text-slate-900 text-sm md:text-base">
-                      ${Number(t.totalEfectivo).toLocaleString("es-CO")}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono font-bold text-purple-800 text-sm md:text-base">
-                      {(
-                        Number(t.totalNequi) +
-                        Number(t.totalDaviplata) +
-                        Number(t.totalTransferencia)
-                      ).toLocaleString("es-CO")}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono font-black text-emerald-800 text-sm md:text-base">
-                      ${Number(t.totalRecaudado).toLocaleString("es-CO")}
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold font-mono border ${
-                          t.diferenciaEfectivo === 0
-                            ? "bg-emerald-50 text-emerald-950 border-emerald-300"
-                            : t.diferenciaEfectivo > 0
-                            ? "bg-blue-50 text-blue-950 border-blue-300"
-                            : "bg-rose-50 text-rose-950 border-rose-300"
-                        }`}
-                      >
-                        {t.diferenciaEfectivo >= 0 ? "+" : ""}$
-                        {Number(t.diferenciaEfectivo).toLocaleString("es-CO")}
-                      </span>
-                    </td>
-                    <td className="px-3.5 py-3 max-w-xs">
-                      {t.diferenciaEfectivo === 0 ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>Exacto</span>
-                        </span>
-                      ) : t.notaNovedad ? (
-                        <div className="space-y-1">
-                          <p className="text-xs text-slate-800 font-medium line-clamp-1 bg-amber-50/70 p-1 rounded border border-amber-200">
-                            {t.notaNovedad}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setTurnoNovedadModal(t)}
-                            className="text-xs font-bold text-blue-700 hover:text-blue-900 underline cursor-pointer"
+                            })}{" "}
+                            -{" "}
+                            {t.fechaCierre
+                              ? new Date(t.fechaCierre).toLocaleTimeString("es-CO", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                              : "Abierto"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className="font-bold text-slate-900 block text-xs sm:text-sm">
+                            {t.nombreGabinete || "Gabinete Principal"}
+                          </span>
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mt-1 border ${t.modalidad === "DIVIDIDA"
+                              ? "bg-indigo-50 text-indigo-800 border-indigo-200"
+                              : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              }`}
                           >
-                            Ver novedad
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs font-semibold text-slate-500">
-                          Sin novedad
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+                            {t.modalidad === "DIVIDIDA" ? "Dividida" : "Compartida"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 font-semibold text-slate-800 text-sm md:text-base">
+                          {t.usuarioCajero?.nombre}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-slate-800 font-medium text-sm md:text-base">
+                          ${Number(t.baseInicialEfectivo).toLocaleString("es-CO")}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono font-bold text-slate-900 text-sm md:text-base">
+                          ${Number(t.totalEfectivo).toLocaleString("es-CO")}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono font-bold text-purple-800 text-sm md:text-base">
+                          {(
+                            Number(t.totalNequi) +
+                            Number(t.totalDaviplata) +
+                            Number(t.totalTransferencia)
+                          ).toLocaleString("es-CO")}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono font-black text-emerald-800 text-sm md:text-base">
+                          ${Number(t.totalRecaudado).toLocaleString("es-CO")}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold font-mono border ${t.diferenciaEfectivo === 0
+                              ? "bg-emerald-50 text-emerald-950 border-emerald-300"
+                              : t.diferenciaEfectivo > 0
+                                ? "bg-blue-50 text-blue-950 border-blue-300"
+                                : "bg-rose-50 text-rose-950 border-rose-300"
+                              }`}
+                          >
+                            {t.diferenciaEfectivo >= 0 ? "+" : ""}$
+                            {Number(t.diferenciaEfectivo).toLocaleString("es-CO")}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-3 max-w-xs">
+                          {t.diferenciaEfectivo === 0 ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>Exacto</span>
+                            </span>
+                          ) : t.notaNovedad ? (
+                            <div className="space-y-1">
+                              <p className="text-xs text-slate-800 font-medium line-clamp-1 bg-amber-50/70 p-1 rounded border border-amber-200">
+                                {t.notaNovedad}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setTurnoNovedadModal(t)}
+                                className="text-xs font-bold text-blue-700 hover:text-blue-900 underline cursor-pointer"
+                              >
+                                Ver novedad
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs font-semibold text-slate-500">
+                              Sin novedad
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

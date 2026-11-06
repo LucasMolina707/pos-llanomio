@@ -18,6 +18,8 @@ export type IconButtonVariant =
 export interface IconButtonTooltipProps {
   icon: LucideIcon | React.ComponentType<{ className?: string }>;
   label: string;
+  destino?: string;
+  modulo?: string;
   onClick?: (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => void;
   disabled?: boolean;
   active?: boolean;
@@ -38,6 +40,8 @@ export interface IconButtonTooltipProps {
 export default function IconButtonTooltip({
   icon: Icon,
   label,
+  destino,
+  modulo,
   onClick,
   disabled = false,
   active = false,
@@ -193,9 +197,16 @@ export default function IconButtonTooltip({
                   : "translate(-50%, 0)",
               transformOrigin: tooltipStyle.transformOrigin,
             }}
-            className="z-[9999] pointer-events-none px-2.5 py-1.5 rounded-lg bg-slate-900 text-white text-[11px] font-semibold tracking-wide shadow-xl border border-slate-700 whitespace-nowrap animate-in fade-in zoom-in-95 duration-100"
+            className="z-[9999] pointer-events-none px-3 py-1.5 rounded-xl bg-slate-900/95 text-white shadow-2xl border border-slate-700/80 backdrop-blur-xs whitespace-nowrap animate-in fade-in zoom-in-95 duration-100 flex flex-col items-center gap-0.5 text-center"
           >
-            {label}
+            <span className="text-[11.5px] font-bold text-white tracking-wide">{label}</span>
+            {(destino || modulo) && (
+              <span className="text-[10px] font-medium text-slate-300/90 leading-tight">
+                {modulo && <span className="text-blue-400 font-semibold">{modulo}</span>}
+                {modulo && destino && <span className="mx-1 text-slate-500">•</span>}
+                {destino && <span>{destino}</span>}
+              </span>
+            )}
           </div>,
           document.body
         )

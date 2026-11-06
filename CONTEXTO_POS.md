@@ -4299,3 +4299,53 @@ Se probó la ejecución completa en Windows con código de salida 0:
 - **Fase 2:** Selección de modo de instalación rápida o personalizada.
 - **Fase 3:** Node.js verificado, módulos verificados, triple espejo de copias de seguridad preparado (`C:\POS_BACKUPS`), sincronización de Prisma SQLite y compilación Next.js validada.
 - **Fase 4:** Registro redundante en Startup de Windows y Task Scheduler, persistencia PM2 con `pm2 save --force`, accesos directos en Escritorio, sondeo HTTP 200 OK y apertura en Modo Kiosco.
+
+
+---
+
+## SECCIÓN 71: INTERVENCIÓN MAESTRA EN 4 FASES - ICONOGRAFÍA PURA, BOTONERA CON ICONOS .ICO Y EMPAQUETADOR PORTABLE
+
+### 1. Resumen de la Intervención
+Bajo la supervisión técnica del Consejo de Agentes (Arquitecto Backend, Especialista UI/UX, Ingeniero de Infraestructura Windows y Auditora QA), se ejecutó una modernización radical y estandarización del Sistema POS Local LLANOMIO:
+
+### 2. Fase 1: Limpieza de Código y Depuración
+1. **Eliminación de Scripts Obsoletos:** Se purgaron de `scripts/` y de la raíz todos los archivos de prueba temporales (`test-qa-barra-estado-caja.ts`, `test-qa-circulacion-caja.ts`, `seed_seguridad_3_factores.ts`, `verificar-puertos.js`, `desbloquear-red-lan.ps1`, `sembrar-datos-demo.ts`, `server-mdns.js` duplicado en raíz).
+2. **Depuración de Tipos TypeScript:** Verificación rigurosa con `npx tsc --noEmit` resultando en **0 errores** de compilación en todo el proyecto.
+
+### 3. Fase 2: Armonía Visual de Botones con Tooltip Informativo (`<IconButtonTooltip />`)
+1. **Enriquecimiento del Componente Universal:** Se actualizó `src/components/ui/IconButtonTooltip.tsx` para aceptar `label` (acción principal en negrita), `destino` (ruta o función) y `modulo` (origen/atajo), renderizados vía `createPortal` en el `body` con auto-posicionamiento dinámico (`top`, `bottom`, `left`, `right`).
+2. **Reemplazo Masivo de Botones con Texto:**
+   - **Navbar Superior (`src/components/layout/Navbar.tsx`):** Conversión a botones cuadrados uniformes `w-9 h-9 rounded-xl` con tooltip explicativo al posar el mouse.
+   - **Terminales de Mostrador (`/caja/pos`, `/caja/alquileres`, `/caja/apartados`):** Cabeceras depuradas con botones de solo icono para navegación, conmutación de terminales, cajón monedero, nueva operación, sincronización y limpieza de filtros.
+   - **Vistas Administrativas:** Armonización de barras de herramientas en Clientes, Inventario, Gastos, Usuarios, Monitoreo, Caja, Dashboard y Configuración.
+
+### 4. Fase 3: Paquetes Portables (.ZIP / .TAR.GZ) y Asistente Autodescomprimible
+1. **Script Empaquetador (`scripts/empaquetar-instalador-zip-tar.js` / `npm run generar:instalador-portable`):**
+   - Asegura integridad de base de datos limpia de fábrica (`admin` / `admin123`).
+   - Inyecta runtime portable de Node.js en `runtime/node/node.exe`.
+   - Genera paquetes comprimidos utilizando el binario nativo `tar.exe` de Windows:
+     - `dist_instalador/INSTALADOR_POS_PORTABLE.zip` (41.17 MB)
+     - `dist_instalador/INSTALADOR_POS_PORTABLE.tar.gz` (40.28 MB)
+     - `dist_instalador/INSTALADOR_POS_AUTODESCOMPRIMIBLE.bat`: Asistente de extracción desatendida a `C:\POS_Llanomio` que ejecuta de inmediato el instalador maestro.
+     - `dist_instalador/LEEME_INSTRUCCIONES_INSTALACION.txt`.
+
+### 5. Fase 4: Botonera de 5 Controles con Iconos .ICO Binarios Personalizados
+1. **Generador de Iconos Nativos (`scripts/generar-iconos-control.js`):**
+   - Construcción binaria pura en Node.js de 5 archivos `.ico` de 48x48 píxeles RGBA (formato Windows DIB sin compresión PNG externa ni librerías pesadas):
+     1. `icono_iniciar_verde.ico` (Círculo Esmeralda con símbolo Play `▶` blanco)
+     2. `icono_detener_rojo.ico` (Círculo Coral/Rojo con símbolo Stop `■` blanco)
+     3. `icono_reiniciar_azul.ico` (Círculo Azul Cobalto con símbolo Refresh `↻` blanco)
+     4. `icono_autoarranque_ambar.ico` (Círculo Ámbar con símbolo Rayo `⚡` blanco)
+     5. `icono_pantalla_completa_indigo.ico` (Círculo Índigo con símbolo Monitor `🖥` blanco)
+2. **Scripts Batch en `instalador_tienda/2_INICIADORES_Y_ACTIVADORES/`:**
+   - `1_INICIALIZAR_SITIO_POS.bat`
+   - `2_DETENER_PAUSAR_SERVIDOR_POS.bat`
+   - `3_REINICIAR_SITIO_RAPIDO_POS.bat`
+   - `4_ACTIVAR_INICIO_AUTOMATICO_PC.bat`
+   - `5_ABRIR_POS_PANTALLA_COMPLETA.bat`
+3. **Creador de Accesos Directos (`scripts/crear-accesos-escritorio.js`):**
+   - Genera los 5 accesos directos `.lnk` en `%USERPROFILE%\Desktop`, vinculando cada script con su icono personalizado correspondiente.
+
+### 6. Fase 5: Auditoría QA y Estado de Conformidad
+- **Informe de Auditoría N° 002:** `AUDITORIAS/AUDITORIA_Nro_002_2026-11-06_00-03-20.md` registrado en el índice general.
+- **Resultado:** 0 Críticos, 0 Importantes, 0 Mejoras. Conformidad total en las 7 dimensiones técnicas y financieras.

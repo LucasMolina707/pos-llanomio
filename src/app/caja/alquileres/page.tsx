@@ -1300,6 +1300,8 @@ export default function TerminalAlquileresPage() {
           <IconButtonTooltip
             icon={ArrowLeft}
             label="Regresar al Panel Principal"
+            modulo="Navegación"
+            destino="Ruta: /"
             href="/"
             variant="neutral"
             size="md"
@@ -1322,7 +1324,9 @@ export default function TerminalAlquileresPage() {
           <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200">
             <IconButtonTooltip
               icon={ShoppingCart}
-              label="Ir a Terminal POS (Ventas y Arreglos)"
+              label="Ir a Terminal POS"
+              modulo="Mostrador"
+              destino="Ruta: /caja/pos"
               href="/caja/pos"
               variant="neutral"
               size="sm"
@@ -1330,6 +1334,8 @@ export default function TerminalAlquileresPage() {
             <IconButtonTooltip
               icon={Shirt}
               label="Terminal Actual: Sistema de Alquileres"
+              modulo="Mostrador"
+              destino="Control y liquidación de prendas alquiladas"
               href="/caja/alquileres"
               variant="emerald"
               active={true}
@@ -1337,7 +1343,9 @@ export default function TerminalAlquileresPage() {
             />
             <IconButtonTooltip
               icon={CalendarClock}
-              label="Ir a Sistema de Apartados y Reservas"
+              label="Ir a Sistema de Apartados"
+              modulo="Mostrador"
+              destino="Ruta: /caja/apartados"
               href="/caja/apartados"
               variant="neutral"
               size="sm"
@@ -1369,6 +1377,8 @@ export default function TerminalAlquileresPage() {
           <IconButtonTooltip
             icon={FolderDown}
             label="Tomar desde Apartados / Reservas"
+            modulo="Reserva"
+            destino="Carga prendas reservadas a un nuevo alquiler"
             variant="indigo"
             size="md"
             onClick={() => {
@@ -1379,7 +1389,9 @@ export default function TerminalAlquileresPage() {
 
           <IconButtonTooltip
             icon={PlusCircle}
-            label="Nuevo Alquiler (Pasos 1 a 4)"
+            label="Nuevo Alquiler en Blanco"
+            modulo="Alquileres"
+            destino="Inicia flujo de alquiler desde cero"
             variant="emerald"
             active={vistaPrincipal === "NUEVO_ALQUILER"}
             size="md"
@@ -1391,7 +1403,9 @@ export default function TerminalAlquileresPage() {
 
           <IconButtonTooltip
             icon={History}
-            label="Ver Historial, Devoluciones y Moras"
+            label="Historial, Devoluciones y Moras"
+            modulo="Alquileres"
+            destino="Ver alquileres activos, entregas y devoluciones"
             variant={enMora.length > 0 ? "amber" : "neutral"}
             active={vistaPrincipal === "HISTORIAL_CENTRO"}
             badgeCount={enMora.length > 0 ? enMora.length : activas.length > 0 ? activas.length : undefined}
@@ -1409,7 +1423,9 @@ export default function TerminalAlquileresPage() {
 
           <IconButtonTooltip
             icon={RefreshCw}
-            label="Sincronizar y Recargar Catálogo en Vivo"
+            label="Sincronizar Mostrador"
+            modulo="Datos"
+            destino="Recarga catálogo de prendas y clientes"
             variant="neutral"
             size="md"
             onClick={() => {
@@ -1421,7 +1437,9 @@ export default function TerminalAlquileresPage() {
 
           <IconButtonTooltip
             icon={RotateCcw}
-            label="Limpiar y Reiniciar Alquiler Actual"
+            label="Limpiar Alquiler Actual"
+            modulo="Acción"
+            destino="Reinicia prendas seleccionadas y cliente"
             variant="danger"
             size="md"
             onClick={reiniciarNuevoAlquiler}

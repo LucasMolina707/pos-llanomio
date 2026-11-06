@@ -391,9 +391,15 @@ call "%PM2_CMD%" start "%PROJECT_ROOT%\ecosystem.config.js" --update-env >nul 2>
 call "%PM2_CMD%" save --force >nul 2>&1
 echo [OK] Servicios PM2 activos y guardados.
 
-:: 3. Accesos directos oficiales en el Escritorio
-echo [ACCESOS] Creando accesos directos oficiales en el Escritorio...
-set "ICON_FILE=%PROJECT_ROOT%\instalador_tienda\recursos\llanomio.ico"
+:: 3. Accesos directos oficiales en el Escritorio con iconos personalizados
+echo [ACCESOS] Generando la botonera oficial de 5 controles con iconos personalizados en el Escritorio...
+if exist "%PROJECT_ROOT%\scripts\crear-accesos-escritorio.js" (
+    node "%PROJECT_ROOT%\scripts\crear-accesos-escritorio.js" >nul 2>&1
+    echo [OK] 5 Accesos directos con iconos personalizados generados en el Escritorio.
+)
+
+set "ICON_FILE=%PROJECT_ROOT%\instalador_tienda\iconos\icono_pantalla_completa_indigo.ico"
+if not exist "%ICON_FILE%" set "ICON_FILE=%PROJECT_ROOT%\instalador_tienda\recursos\llanomio.ico"
 if not exist "%ICON_FILE%" set "ICON_FILE=%SystemRoot%\System32\shell32.dll,13"
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^

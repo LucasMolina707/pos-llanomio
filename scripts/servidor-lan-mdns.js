@@ -65,14 +65,20 @@ const configEnv = cargarVariablesEnv();
 const PUERTO_DESTINO = parseInt(process.env.PORT || configEnv.PORT || "3000", 10);
 const PUERTO_PROXY = parseInt(
   process.env.HTTP_PORT ||
-    process.env.PORT_PROXY ||
-    configEnv.HTTP_PORT ||
-    configEnv.PORT_PROXY ||
-    String(PUERTO_DESTINO),
+  process.env.PORT_PROXY ||
+  configEnv.HTTP_PORT ||
+  configEnv.PORT_PROXY ||
+  "80",
   10
 );
-const DOMINIO_LOCAL = process.env.LOCAL_DOMAIN || configEnv.LOCAL_DOMAIN || "pos-local.local";
-const INSTANCIA_ID = process.env.INSTANCE_ID || configEnv.INSTANCE_ID || "pos-local";
+const PUERTO_HTTPS = parseInt(
+  process.env.HTTPS_PORT ||
+  configEnv.HTTPS_PORT ||
+  "3443",
+  10
+);
+const DOMINIO_LOCAL = process.env.LOCAL_DOMAIN || configEnv.LOCAL_DOMAIN || "llanomio.local";
+const INSTANCIA_ID = process.env.INSTANCE_ID || configEnv.INSTANCE_ID || "pos-llanomio";
 const nombreServicioBonjour = DOMINIO_LOCAL.replace(/\.local$/i, "");
 const ipLocal = obtenerIpLocal();
 
@@ -190,14 +196,14 @@ if (PUERTO_PROXY !== PUERTO_DESTINO) {
     console.log(`[PROXY] Escuchando en 0.0.0.0:${PUERTO_PROXY} -> Reenviando a 127.0.0.1:${PUERTO_DESTINO}`);
     console.log(`[URL]   Acceso local: http://localhost${PUERTO_PROXY === 80 ? "" : ":" + PUERTO_PROXY}`);
     console.log(`[URL]   Acceso Wi-Fi: http://${ipLocal}${PUERTO_PROXY === 80 ? "" : ":" + PUERTO_PROXY}`);
-    console.log(`[URL]   Dominio LAN:  http://pos-local.local${PUERTO_PROXY === 80 ? "" : ":" + PUERTO_PROXY}`);
+    console.log(`[URL]   Dominio LAN:  http://${DOMINIO_LOCAL}${PUERTO_PROXY === 80 ? "" : ":" + PUERTO_PROXY}`);
     console.log("===============================================================================");
   });
 } else {
   console.log(`[MODO NATIVO] El servidor opera directamente en el puerto ${PUERTO_DESTINO}.`);
   console.log(`[URL]         Acceso local: http://localhost:${PUERTO_DESTINO}`);
   console.log(`[URL]         Acceso Wi-Fi: http://${ipLocal}:${PUERTO_DESTINO}`);
-  console.log(`[URL]         Dominio LAN:  http://pos-local.local:${PUERTO_DESTINO}`);
+  console.log(`[URL]         Dominio LAN:  http://${DOMINIO_LOCAL}:${PUERTO_DESTINO}`);
   console.log("===============================================================================");
 }
 

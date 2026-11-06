@@ -252,7 +252,9 @@ export default function CentralMonitoreoPage() {
         <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-nowrap">
           <IconButtonTooltip
             icon={RefreshCw}
-            label={sincronizando ? "Sincronizando moras..." : "Recalcular moras y sincronizar estados en caliente"}
+            label={sincronizando ? "Sincronizando moras..." : "Recalcular Moras y Estados"}
+            modulo="Cartera"
+            destino="Actualiza moras en caliente y estados de cobro"
             onClick={() => cargarFacturas(true)}
             disabled={sincronizando || cargando}
             iconClassName={sincronizando ? "animate-spin text-amber-600" : "text-amber-600"}
@@ -262,7 +264,9 @@ export default function CentralMonitoreoPage() {
 
           <IconButtonTooltip
             icon={Receipt}
-            label="Abrir Terminal de Facturación POS en nueva ventana"
+            label="Abrir Terminal de Facturación POS"
+            modulo="Mostrador"
+            destino="Ruta: /caja/pos"
             href="/caja/pos"
             size="md"
             variant="primary"

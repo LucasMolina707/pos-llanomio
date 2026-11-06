@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import TarjetaConexionLAN from "@/components/red/TarjetaConexionLAN";
+import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import {
   Building2,
   FileText,
@@ -723,43 +724,47 @@ export default function ConfiguracionAdminPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
-          <Link
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-end flex-nowrap">
+          <IconButtonTooltip
+            icon={BarChart3}
+            label="Dashboard Gerencial"
+            modulo="Gerencia"
+            destino="Ruta: /admin/dashboard"
             href="/admin/dashboard"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-300/80 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition"
-            title="Ir a Métricas y Rendimiento"
-          >
-            <BarChart3 className="h-4 w-4 text-indigo-600" />
-            <span className="hidden sm:inline">Métricas</span>
-          </Link>
+            size="md"
+            variant="neutral"
+          />
 
-          <Link
+          <IconButtonTooltip
+            icon={ShoppingBag}
+            label="Terminal POS"
+            modulo="Mostrador"
+            destino="Ruta: /caja/pos"
             href="/caja/pos"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-300/80 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs transition"
-            title="Ir a Terminal POS"
-          >
-            <ShoppingBag className="h-4 w-4 text-blue-600" />
-            <span className="hidden sm:inline">Terminal POS</span>
-          </Link>
+            size="md"
+            variant="neutral"
+          />
 
-          <button
-            type="button"
-            onClick={() => router.push("/admin/usuarios")}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100/80 text-blue-800 text-xs font-bold shadow-xs transition cursor-pointer"
-          >
-            <UserCheck className="h-4 w-4 text-blue-700" />
-            <span>Usuarios y Permisos</span>
-          </button>
+          <IconButtonTooltip
+            icon={UserCheck}
+            label="Usuarios y Permisos"
+            modulo="Seguridad"
+            destino="Ruta: /admin/usuarios"
+            href="/admin/usuarios"
+            size="md"
+            variant="neutral"
+          />
 
-          <button
-            type="button"
+          <IconButtonTooltip
+            icon={Database}
+            label={respaldando ? "Generando respaldo..." : "Forzar Respaldo SQLite"}
+            modulo="Copias de Seguridad"
+            destino="Crea copia en caliente en boveda local y nube"
             onClick={handleForzarRespaldo}
             disabled={respaldando}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
-          >
-            <Database className="h-4 w-4 text-blue-600" />
-            <span>{respaldando ? "Respaldando..." : "Respaldo SQLite"}</span>
-          </button>
+            size="md"
+            variant="neutral"
+          />
         </div>
       </header>
 

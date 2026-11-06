@@ -375,9 +375,11 @@ export default function DashboardGerencialPage() {
             icon={enVivoActivo ? Pause : Play}
             label={
               enVivoActivo
-                ? `Sincronización activa en red local (Pulsos: ${totalPulsosRecibidos}). Clic para pausar.`
-                : "Sincronización en tiempo real en pausa. Clic para reanudar."
+                ? `Pausar Sincronización en Vivo (Pulsos: ${totalPulsosRecibidos})`
+                : "Reanudar Sincronización en Vivo"
             }
+            modulo="En Vivo"
+            destino="Transmisión SSE en tiempo real"
             onClick={() => setEnVivoActivo(!enVivoActivo)}
             size="md"
             variant={enVivoActivo ? "emerald" : "neutral"}
@@ -447,7 +449,9 @@ export default function DashboardGerencialPage() {
           {/* Botón de Refresco Manual */}
           <IconButtonTooltip
             icon={RefreshCw}
-            label={`Forzar actualización completa. Última: ${ultimaSincronizacion.toLocaleTimeString("es-CO")}`}
+            label="Actualizar Métricas y Balance"
+            modulo="Dashboard"
+            destino={`Recalcula ventas, cartera y moras (Última: ${ultimaSincronizacion.toLocaleTimeString("es-CO")})`}
             onClick={() => cargarMetricas(true)}
             disabled={cargandoInicial || actualizandoSilencioso}
             iconClassName={
@@ -478,7 +482,9 @@ export default function DashboardGerencialPage() {
             </span>
             <IconButtonTooltip
               icon={ArrowUpRight}
-              label="Ir a Control y Arqueo de Caja"
+              label="Control y Arqueo de Caja"
+              modulo="Operaciones"
+              destino="Ruta: /admin/caja"
               href="/admin/caja"
               size="md"
               variant="neutral"

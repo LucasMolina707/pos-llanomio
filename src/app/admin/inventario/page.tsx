@@ -282,7 +282,9 @@ export default function InventarioAdminPage() {
         <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-end flex-nowrap">
           <IconButtonTooltip
             icon={FileDown}
-            label="Descargar Plantilla Oficial Excel"
+            label="Descargar Plantilla Oficial"
+            modulo="Excel"
+            destino="Descarga formato .xlsx para carga masiva"
             size="md"
             variant="neutral"
             onClick={() => window.open("/api/inventario/excel?modo=plantilla", "_blank")}
@@ -290,7 +292,9 @@ export default function InventarioAdminPage() {
 
           <IconButtonTooltip
             icon={Download}
-            label="Exportar Base de Datos a Excel"
+            label="Exportar Catálogo a Excel"
+            modulo="Reportes"
+            destino="Descarga inventario y existencias"
             size="md"
             variant="neutral"
             onClick={() => window.open("/api/inventario/excel?modo=exportar", "_blank")}
@@ -298,7 +302,9 @@ export default function InventarioAdminPage() {
 
           <IconButtonTooltip
             icon={FileUp}
-            label="Importar Masivamente desde Excel"
+            label="Importar Inventario desde Excel"
+            modulo="Excel"
+            destino="Abre asistente de carga y validación"
             variant="emerald"
             size="md"
             onClick={() => setModalExcelAbierto(true)}
@@ -307,6 +313,8 @@ export default function InventarioAdminPage() {
           <IconButtonTooltip
             icon={Clock}
             label="Ir a Terminal de Alquileres"
+            modulo="Mostrador"
+            destino="Ruta: /caja/alquileres"
             href="/caja/alquileres"
             size="md"
             variant="neutral"
@@ -314,7 +322,9 @@ export default function InventarioAdminPage() {
 
           <IconButtonTooltip
             icon={ShoppingBag}
-            label="Ir a Terminal POS (Ventas)"
+            label="Ir a Terminal POS"
+            modulo="Mostrador"
+            destino="Ruta: /caja/pos"
             href="/caja/pos"
             size="md"
             variant="neutral"
@@ -322,7 +332,9 @@ export default function InventarioAdminPage() {
 
           <IconButtonTooltip
             icon={Plus}
-            label="Crear Nueva Prenda"
+            label="Crear Nueva Prenda o Producto"
+            modulo="Inventario"
+            destino="Abre formulario para registrar nuevo ítem"
             variant="primary"
             size="md"
             onClick={handleNuevoProducto}

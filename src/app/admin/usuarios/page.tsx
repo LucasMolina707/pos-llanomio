@@ -144,7 +144,7 @@ export default function GestionUsuariosPage() {
           setDocSeguridad(primerAdmin.documentoIdentidad || "0000000000");
           setPreguntaSeguridad(
             primerAdmin.preguntaSeguridad ||
-              "¿Cuál es la clave de seguridad de recuperación del sistema?"
+            "¿Cuál es la clave de seguridad de recuperación del sistema?"
           );
         }
       }
@@ -491,7 +491,9 @@ export default function GestionUsuariosPage() {
         <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-end flex-nowrap">
           <IconButtonTooltip
             icon={Settings}
-            label="Ir a Configuración General"
+            label="Configuración General"
+            modulo="Sistema"
+            destino="Ruta: /admin/configuracion"
             href="/admin/configuracion"
             size="md"
             variant="neutral"
@@ -500,6 +502,8 @@ export default function GestionUsuariosPage() {
           <IconButtonTooltip
             icon={ShoppingBag}
             label="Ir a Terminal POS"
+            modulo="Mostrador"
+            destino="Ruta: /caja/pos"
             href="/caja/pos"
             size="md"
             variant="neutral"
@@ -507,7 +511,9 @@ export default function GestionUsuariosPage() {
 
           <IconButtonTooltip
             icon={RefreshCw}
-            label="Actualizar listado de usuarios"
+            label="Actualizar Directorio"
+            modulo="Usuarios"
+            destino="Recarga lista de cuentas activas"
             onClick={consultarUsuarios}
             disabled={cargando}
             iconClassName={cargando ? "animate-spin text-blue-600" : "text-blue-600"}
@@ -517,7 +523,9 @@ export default function GestionUsuariosPage() {
 
           <IconButtonTooltip
             icon={KeyRound}
-            label="Configurar protocolo de 3 factores (seguridad)"
+            label="Seguridad de 3 Factores"
+            modulo="Seguridad"
+            destino="Abre panel de recuperación y protección"
             onClick={() => setMostrarCardSeguridad(!mostrarCardSeguridad)}
             active={mostrarCardSeguridad}
             size="md"
@@ -527,6 +535,8 @@ export default function GestionUsuariosPage() {
           <IconButtonTooltip
             icon={Plus}
             label="Crear Nuevo Usuario"
+            modulo="Usuarios"
+            destino="Abre formulario para registrar cuenta"
             variant="primary"
             size="md"
             onClick={() => {
@@ -551,11 +561,10 @@ export default function GestionUsuariosPage() {
       {/* 2. Banner de Mensajes */}
       {mensaje && (
         <div
-          className={`p-4 rounded-2xl border text-sm flex items-center justify-between gap-3 shadow-xs ${
-            mensaje.tipo === "exito"
+          className={`p-4 rounded-2xl border text-sm flex items-center justify-between gap-3 shadow-xs ${mensaje.tipo === "exito"
               ? "bg-emerald-50 border-emerald-300 text-emerald-950"
               : "bg-rose-50 border-rose-300 text-rose-950"
-          }`}
+            }`}
         >
           <div className="flex items-center gap-2.5">
             {mensaje.tipo === "exito" ? (
@@ -699,7 +708,7 @@ export default function GestionUsuariosPage() {
                       setDocSeguridad(sel.documentoIdentidad || "");
                       setPreguntaSeguridad(
                         sel.preguntaSeguridad ||
-                          "¿Cuál es la clave de seguridad de recuperación del sistema?"
+                        "¿Cuál es la clave de seguridad de recuperación del sistema?"
                       );
                     }
                   }}
@@ -851,11 +860,10 @@ export default function GestionUsuariosPage() {
               key={r}
               type="button"
               onClick={() => setFiltroRol(r)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
-                filtroRol === r
-                  ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                  : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${filtroRol === r
+                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                }`}
             >
               {r === "TODOS" ? "Todos" : r === "ADMIN" ? "Administradores" : "Cajeros"}
             </button>
@@ -906,11 +914,10 @@ export default function GestionUsuariosPage() {
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2.5">
                           <div
-                            className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 border ${
-                              u.rol === "ADMIN"
-                                ? "bg-blue-100 text-blue-800 border-blue-300"
-                                : "bg-emerald-100 text-emerald-800 border-emerald-300"
-                            }`}
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 border ${u.rol === "ADMIN"
+                              ? "bg-blue-100 text-blue-800 border-blue-300"
+                              : "bg-emerald-100 text-emerald-800 border-emerald-300"
+                              }`}
                           >
                             {u.nombre.charAt(0).toUpperCase()}
                           </div>
@@ -933,11 +940,10 @@ export default function GestionUsuariosPage() {
                       {/* Rol */}
                       <td className="px-3 py-3.5">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${
-                            u.rol === "ADMIN"
-                              ? "bg-blue-50 text-blue-900 border-blue-300"
-                              : "bg-emerald-50 text-emerald-900 border-emerald-300"
-                          }`}
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border ${u.rol === "ADMIN"
+                            ? "bg-blue-50 text-blue-900 border-blue-300"
+                            : "bg-emerald-50 text-emerald-900 border-emerald-300"
+                            }`}
                         >
                           {u.rol === "ADMIN" ? <Shield className="w-3 h-3" /> : <UserCheck className="w-3 h-3" />}
                           <span>{u.rol}</span>
@@ -951,11 +957,10 @@ export default function GestionUsuariosPage() {
                             type="button"
                             onClick={() => handleToggleActivo(u)}
                             disabled={procesando}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition border cursor-pointer ${
-                              u.activo
-                                ? "bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-rose-100 hover:text-rose-900 hover:border-rose-300"
-                                : "bg-slate-200 text-slate-700 border-slate-300 hover:bg-emerald-100 hover:text-emerald-900 hover:border-emerald-300"
-                            }`}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition border cursor-pointer ${u.activo
+                              ? "bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-rose-100 hover:text-rose-900 hover:border-rose-300"
+                              : "bg-slate-200 text-slate-700 border-slate-300 hover:bg-emerald-100 hover:text-emerald-900 hover:border-emerald-300"
+                              }`}
                             title={u.activo ? "Clic para desactivar cuenta" : "Clic para activar cuenta"}
                           >
                             <span
@@ -1018,10 +1023,10 @@ export default function GestionUsuariosPage() {
                       <td className="px-3 py-3.5 text-xs text-slate-600 font-medium">
                         {u.ultimaRestauracion
                           ? new Date(u.ultimaRestauracion).toLocaleDateString("es-CO", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric",
-                            })
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })
                           : "Inicial"}
                       </td>
 
@@ -1061,7 +1066,7 @@ export default function GestionUsuariosPage() {
                           {(() => {
                             const esPropioUsuario = currentUser
                               ? currentUser.id === u.id ||
-                                currentUser.username.toLowerCase() === u.username.toLowerCase()
+                              currentUser.username.toLowerCase() === u.username.toLowerCase()
                               : false;
 
                             if (esPropioUsuario) {
@@ -1209,11 +1214,10 @@ export default function GestionUsuariosPage() {
                   <button
                     type="button"
                     onClick={() => setRolCrear("CAJERO")}
-                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-                      rolCrear === "CAJERO"
-                        ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-xs"
-                        : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
-                    }`}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${rolCrear === "CAJERO"
+                      ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-xs"
+                      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <UserCheck className="w-4 h-4 text-emerald-600" />
@@ -1225,11 +1229,10 @@ export default function GestionUsuariosPage() {
                   <button
                     type="button"
                     onClick={() => setRolCrear("ADMIN")}
-                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-                      rolCrear === "ADMIN"
-                        ? "bg-blue-50 border-blue-400 text-blue-950 font-bold shadow-xs"
-                        : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
-                    }`}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${rolCrear === "ADMIN"
+                      ? "bg-blue-50 border-blue-400 text-blue-950 font-bold shadow-xs"
+                      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <Shield className="w-4 h-4 text-blue-600" />
@@ -1477,11 +1480,10 @@ export default function GestionUsuariosPage() {
                   <button
                     type="button"
                     onClick={() => setRolEditar("CAJERO")}
-                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-                      rolEditar === "CAJERO"
-                        ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-xs"
-                        : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
-                    }`}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${rolEditar === "CAJERO"
+                      ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-xs"
+                      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <UserCheck className="w-4 h-4 text-emerald-600" />
@@ -1492,11 +1494,10 @@ export default function GestionUsuariosPage() {
                   <button
                     type="button"
                     onClick={() => setRolEditar("ADMIN")}
-                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${
-                      rolEditar === "ADMIN"
-                        ? "bg-blue-50 border-blue-400 text-blue-950 font-bold shadow-xs"
-                        : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
-                    }`}
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${rolEditar === "ADMIN"
+                      ? "bg-blue-50 border-blue-400 text-blue-950 font-bold shadow-xs"
+                      : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <Shield className="w-4 h-4 text-blue-600" />
@@ -1611,11 +1612,10 @@ export default function GestionUsuariosPage() {
                     @{usuarioParaEliminar.username}
                   </span>
                   <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                      usuarioParaEliminar.rol === "ADMIN"
-                        ? "bg-blue-50 text-blue-900 border-blue-300"
-                        : "bg-emerald-50 text-emerald-900 border-emerald-300"
-                    }`}
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${usuarioParaEliminar.rol === "ADMIN"
+                      ? "bg-blue-50 text-blue-900 border-blue-300"
+                      : "bg-emerald-50 text-emerald-900 border-emerald-300"
+                      }`}
                   >
                     {usuarioParaEliminar.rol}
                   </span>
@@ -1686,11 +1686,10 @@ export default function GestionUsuariosPage() {
                     textoConfirmacionEliminar.trim().toLowerCase() !== "eliminar" ||
                     eliminandoUsuario
                   }
-                  className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition inline-flex items-center gap-1.5 cursor-pointer ${
-                    textoConfirmacionEliminar.trim().toLowerCase() === "eliminar" && !eliminandoUsuario
-                      ? "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200 cursor-pointer"
-                      : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
-                  }`}
+                  className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition inline-flex items-center gap-1.5 cursor-pointer ${textoConfirmacionEliminar.trim().toLowerCase() === "eliminar" && !eliminandoUsuario
+                    ? "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200 cursor-pointer"
+                    : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
+                    }`}
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>

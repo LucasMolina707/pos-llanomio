@@ -544,7 +544,9 @@ export default function GastosAdminPage() {
 
           <IconButtonTooltip
             icon={Download}
-            label="Exportar Base de Datos de Gastos a Excel (.xlsx)"
+            label="Exportar Gastos a Excel"
+            modulo="Reportes"
+            destino="Descarga archivo .xlsx con movimientos y nómina"
             variant="emerald"
             size="md"
             onClick={handleDescargarExcel}

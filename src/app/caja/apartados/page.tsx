@@ -695,6 +695,8 @@ export default function ApartadosPage() {
           <IconButtonTooltip
             icon={ArrowLeft}
             label="Regresar al Panel Principal"
+            modulo="Navegación"
+            destino="Ruta: /"
             href="/"
             variant="neutral"
             size="md"
@@ -717,7 +719,9 @@ export default function ApartadosPage() {
           <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200">
             <IconButtonTooltip
               icon={ShoppingCart}
-              label="Ir a Terminal POS (Ventas y Arreglos)"
+              label="Ir a Terminal POS"
+              modulo="Mostrador"
+              destino="Ruta: /caja/pos"
               href="/caja/pos"
               variant="neutral"
               size="sm"
@@ -725,6 +729,8 @@ export default function ApartadosPage() {
             <IconButtonTooltip
               icon={Shirt}
               label="Ir a Sistema de Alquileres"
+              modulo="Mostrador"
+              destino="Ruta: /caja/alquileres"
               href="/caja/alquileres"
               variant="neutral"
               size="sm"
@@ -732,6 +738,8 @@ export default function ApartadosPage() {
             <IconButtonTooltip
               icon={CalendarClock}
               label="Terminal Actual: Sistema de Apartados y Reservas"
+              modulo="Mostrador"
+              destino="Control de reservas y planes separe"
               href="/caja/apartados"
               variant="indigo"
               active={true}
@@ -763,7 +771,9 @@ export default function ApartadosPage() {
 
           <IconButtonTooltip
             icon={PlusCircle}
-            label="Nuevo Apartado / Reserva (Pasos 1 a 4)"
+            label="Nuevo Apartado en Blanco"
+            modulo="Apartados"
+            destino="Inicia proceso de reserva desde cero"
             variant="indigo"
             active={pestaña === "NUEVO"}
             size="md"
@@ -775,7 +785,9 @@ export default function ApartadosPage() {
 
           <IconButtonTooltip
             icon={History}
-            label="Ver Centro de Historial y Reservas"
+            label="Historial de Reservas"
+            modulo="Apartados"
+            destino="Ver reservas activas, abonos y vencimientos"
             variant={apartadosHistorial.filter((a) => a.tipoOperacion === "SEPARE" && a.estado !== "CERRADA").length > 0 ? "amber" : "neutral"}
             active={pestaña === "HISTORIAL"}
             badgeCount={apartadosHistorial.filter((a) => a.tipoOperacion === "SEPARE" && a.estado !== "CERRADA").length || undefined}
@@ -789,7 +801,9 @@ export default function ApartadosPage() {
 
           <IconButtonTooltip
             icon={RefreshCw}
-            label="Sincronizar y Recargar Catálogo en Vivo"
+            label="Sincronizar Mostrador"
+            modulo="Datos"
+            destino="Recarga catálogo y clientes"
             variant="neutral"
             size="md"
             onClick={() => {
@@ -801,7 +815,9 @@ export default function ApartadosPage() {
 
           <IconButtonTooltip
             icon={RotateCcw}
-            label="Limpiar y Reiniciar Apartado Actual"
+            label="Limpiar Operación Actual"
+            modulo="Acción"
+            destino="Reinicia productos seleccionados y cliente"
             variant="danger"
             size="md"
             onClick={reiniciarOperacionLimpia}

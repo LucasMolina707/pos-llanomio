@@ -149,7 +149,9 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
           <>
             <IconButtonTooltip
               icon={BarChart3}
-              label="Métricas y Rendimiento"
+              label="Dashboard Gerencial"
+              modulo="Módulo: Gerencia"
+              destino="Ruta: /admin/dashboard"
               href="/admin/dashboard"
               active={pathname === "/admin/dashboard"}
               size="md"
@@ -158,7 +160,9 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
 
             <IconButtonTooltip
               icon={Settings}
-              label="Configuración del Sistema"
+              label="Configuración de Tienda"
+              modulo="Módulo: Sistema"
+              destino="Ruta: /admin/configuracion"
               href="/admin/configuracion"
               active={pathname === "/admin/configuracion"}
               size="md"
@@ -170,7 +174,9 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
         {/* Acceso Rápido a Terminal POS */}
         <IconButtonTooltip
           icon={ShoppingBag}
-          label="Abrir Terminal POS (Ventas)"
+          label="Terminal de Facturación POS"
+          modulo="Mostrador"
+          destino="Ruta: /caja/pos"
           href="/caja/pos"
           active={pathname === "/caja/pos"}
           size="md"
@@ -180,17 +186,33 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
         {/* Sistema de Alquileres */}
         <IconButtonTooltip
           icon={Clock}
-          label="Abrir Sistema de Alquileres"
+          label="Control de Alquileres"
+          modulo="Mostrador"
+          destino="Ruta: /caja/alquileres"
           href="/caja/alquileres"
           active={pathname === "/caja/alquileres"}
           size="md"
           variant={pathname === "/caja/alquileres" ? "primary" : "neutral"}
         />
 
+        {/* Sistema de Apartados */}
+        <IconButtonTooltip
+          icon={CalendarClock}
+          label="Control de Apartados y Reservas"
+          modulo="Mostrador"
+          destino="Ruta: /caja/apartados"
+          href="/caja/apartados"
+          active={pathname === "/caja/apartados"}
+          size="md"
+          variant={pathname === "/caja/apartados" ? "primary" : "neutral"}
+        />
+
         {/* Red Local LAN */}
         <IconButtonTooltip
           icon={Wifi}
-          label="Conexión Red Local LAN (QR)"
+          label="Conexión LAN y Wi-Fi"
+          modulo="Red Local"
+          destino="Muestra código QR e IP para conectar celulares o tablets"
           onClick={() => setMostrarModalLAN(true)}
           size="md"
           variant="neutral"
@@ -215,7 +237,9 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
 
             <IconButtonTooltip
               icon={LogOut}
-              label="Cerrar Sesión y Respaldar"
+              label="Cerrar Sesión Segura"
+              modulo="Seguridad"
+              destino="Finaliza sesión activa y redirige a login"
               onClick={handleLogout}
               disabled={cerrandoSesion}
               size="md"
