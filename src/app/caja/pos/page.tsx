@@ -52,6 +52,7 @@ import {
   PackagePlus,
   UserCog,
   Minus,
+  LogOut,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
@@ -1318,6 +1319,30 @@ export default function PosPage() {
             onClick={() => {
               if (confirm("¿Limpiar la venta en curso y comenzar en blanco?")) {
                 reiniciarMostrador();
+              }
+            }}
+          />
+
+          <IconButtonTooltip
+            icon={LogOut}
+            label="Cerrar Sesión"
+            modulo="Seguridad y Respaldo"
+            destino="Sale del sistema y libera la cuenta"
+            variant="danger"
+            size="md"
+            onClick={async () => {
+              if (confirm("¿Desea cerrar la sesión y liberar la cuenta en este equipo?")) {
+                try {
+                  await fetch("/api/auth/logout", { method: "POST" });
+                } catch {} finally {
+                  if (typeof window !== "undefined") {
+                    try {
+                      sessionStorage.removeItem("pos_user");
+                      sessionStorage.removeItem("pos_llanomio_user");
+                    } catch {}
+                    window.location.href = "/login";
+                  }
+                }
               }
             }}
           />

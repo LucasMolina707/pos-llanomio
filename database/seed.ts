@@ -83,7 +83,11 @@ export async function seedBaseDeDatos(prismaClient: PrismaClient = prisma) {
       respuestaSeguridadHash: respuestaInicialHash,
       intentosFallidos: 0,
       bloqueadoHasta: null,
-      requiereCambioClave: true,
+      requiereCambioClave: false,
+      sesionActivaToken: null,
+      sesionDispositivoId: null,
+      sesionIp: null,
+      sesionUltimaActividad: null,
     },
   });
   console.log(`-> [OK] Administrador inicial configurado: @${adminUser.username} (Rol: ${adminUser.rol})`);

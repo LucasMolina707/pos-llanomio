@@ -59,6 +59,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Latido en segundo plano (Heartbeat cada 45s) y detección de sesión única activa
+  useEffect(() => {
+    if (pathname === "/login") return;
+
+    const enviarLatido = async () => {
+      try {
+        const res = await fetch("/api/auth/me?heartbeat=1", { cache: "no-store" });
+        if (res.status === 401) {
+          // Sesión invalidada o reemplazada por otro dispositivo
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.removeItem("pos_user");
+              sessionStorage.removeItem("pos_llanomio_user");
+            } catch {}
+            window.location.href = "/login";
+          }
+        }
+      } catch {}
+    };
+
+    // Disparar latido cada 45 segundos mientras la página esté abierta
+    const intervalId = setInterval(enviarLatido, 45 * 1000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [pathname]);
+
   // Cerrar menú móvil al navegar
   useEffect(() => {
     setIsMobileOpen(false);

@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
+import prisma from "@/lib/prisma";
 
 export interface TokenPayload {
   userId: string;
@@ -8,9 +9,16 @@ export interface TokenPayload {
   nombre: string;
   rol: "ADMIN" | "CAJERO";
   permisos?: string | null;
+  sessionToken?: string | null;
 }
 
 export const NOMBRE_COOKIE_SESION = "pos_session";
+
+/**
+ * Tiempo máximo de inactividad permitido sin latido (heartbeat) desde el navegador.
+ * 3 minutos (180,000 ms). El cliente envía un latido cada 45 segundos.
+ */
+export const TIEMPO_EXPIRACION_INACTIVIDAD_MS = 3 * 60 * 1000;
 
 /**
  * Opciones para la cookie HttpOnly de sesión del POS local.
@@ -55,6 +63,7 @@ export async function verificarTokenSesion(token: string): Promise<TokenPayload 
       nombre: payload.nombre as string,
       rol: payload.rol as "ADMIN" | "CAJERO",
       permisos: (payload.permisos as string) || null,
+      sessionToken: (payload.sessionToken as string) || null,
     };
   } catch {
     return null;
@@ -92,5 +101,93 @@ export async function obtenerSesionDesdeRequest(req: NextRequest | Request): Pro
     return await verificarTokenSesion(token);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Valida si la sesión del usuario sigue activa en SQLite (no reemplazada por otro dispositivo
+ * y dentro de la ventana de 3 minutos de actividad).
+ */
+export async function validarSesionActivaEnBD(
+  userId: string,
+  sessionToken?: string | null
+): Promise<{
+  valida: boolean;
+  motivo?: "TOKEN_INVALIDO" | "EXPIRADA_POR_INACTIVIDAD" | "USUARIO_NO_ENCONTRADO";
+}> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        sesionActivaToken: true,
+        sesionUltimaActividad: true,
+        activo: true,
+      },
+    });
+
+    if (!user || !user.activo) {
+      return { valida: false, motivo: "USUARIO_NO_ENCONTRADO" };
+    }
+
+    // Si no hay token en BD, la sesión fue cerrada
+    if (!user.sesionActivaToken) {
+      return { valida: false, motivo: "TOKEN_INVALIDO" };
+    }
+
+    // Si los tokens no coinciden, otra sesión fue iniciada en otro dispositivo
+    if (sessionToken && user.sesionActivaToken !== sessionToken) {
+      return { valida: false, motivo: "TOKEN_INVALIDO" };
+    }
+
+    // Verificar ventana de inactividad
+    if (user.sesionUltimaActividad) {
+      const transcurrido = Date.now() - new Date(user.sesionUltimaActividad).getTime();
+      if (transcurrido > TIEMPO_EXPIRACION_INACTIVIDAD_MS) {
+        return { valida: false, motivo: "EXPIRADA_POR_INACTIVIDAD" };
+      }
+    }
+
+    return { valida: true };
+  } catch (error) {
+    console.error("[AUTH] Error al validar sesión en SQLite:", error);
+    return { valida: false, motivo: "TOKEN_INVALIDO" };
+  }
+}
+
+/**
+ * Actualiza la marca de tiempo de última actividad (heartbeat) de un usuario en SQLite.
+ */
+export async function refrescarActividadSesion(userId: string): Promise<boolean> {
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { sesionUltimaActividad: new Date() },
+    });
+    return true;
+  } catch (error) {
+    console.error("[AUTH] Error al refrescar actividad de sesión:", error);
+    return false;
+  }
+}
+
+/**
+ * Libera de forma inmediata el candado de sesión de un usuario en SQLite.
+ */
+export async function liberarSesionUsuario(userId: string): Promise<boolean> {
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        sesionActivaToken: null,
+        sesionDispositivoId: null,
+        sesionIp: null,
+        sesionUltimaActividad: null,
+      },
+    });
+    return true;
+  } catch (error) {
+    console.error("[AUTH] Error al liberar sesión de usuario:", error);
+    return false;
   }
 }

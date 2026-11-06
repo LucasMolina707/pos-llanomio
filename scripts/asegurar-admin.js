@@ -62,7 +62,11 @@ async function asegurarCredencialesMaestras() {
         respuestaSeguridadHash: respHash,
         intentosFallidos: 0,
         bloqueadoHasta: null,
-        requiereCambioClave: true,
+        requiereCambioClave: false,
+        sesionActivaToken: null,
+        sesionDispositivoId: null,
+        sesionIp: null,
+        sesionUltimaActividad: null,
       },
     });
     console.log(`[OK] Cuenta maestra '@${ADMIN_USERNAME}' creada exitosamente.`);
@@ -80,6 +84,7 @@ async function asegurarCredencialesMaestras() {
       rol: "ADMIN",
       intentosFallidos: 0,
       bloqueadoHasta: null,
+      requiereCambioClave: false,
     };
 
     let huboCambios = false;

@@ -203,12 +203,14 @@ export default function Sidebar({
     try {
       setCerrandoSesion(true);
       await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/login");
-      router.refresh();
-    } catch {
-      router.push("/login");
-    } finally {
-      setCerrandoSesion(false);
+    } catch {} finally {
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.removeItem("pos_user");
+          sessionStorage.removeItem("pos_llanomio_user");
+        } catch {}
+        window.location.href = "/login";
+      }
     }
   };
 

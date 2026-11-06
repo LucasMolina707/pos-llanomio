@@ -92,12 +92,14 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
     try {
       setCerrandoSesion(true);
       await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/login");
-      router.refresh();
-    } catch {
-      router.push("/login");
-    } finally {
-      setCerrandoSesion(false);
+    } catch {} finally {
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.removeItem("pos_user");
+          sessionStorage.removeItem("pos_llanomio_user");
+        } catch {}
+        window.location.href = "/login";
+      }
     }
   };
 
@@ -237,14 +239,13 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
 
             <IconButtonTooltip
               icon={LogOut}
-              label="Cerrar Sesión Segura"
-              modulo="Seguridad"
-              destino="Finaliza sesión activa y redirige a login"
+              label="Cerrar Sesión"
+              modulo="Seguridad y Respaldo"
+              destino="Sale del sistema y libera la cuenta"
               onClick={handleLogout}
               disabled={cerrandoSesion}
               size="md"
-              variant="neutral"
-              iconClassName="text-slate-500 hover:text-rose-600"
+              variant="danger"
             />
           </div>
         ) : null}

@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import * as bcrypt from "bcryptjs";
-import { crearTokenSesion, NOMBRE_COOKIE_SESION, OPCIONES_COOKIE_SESION } from "@/lib/auth";
+import {
+  crearTokenSesion,
+  NOMBRE_COOKIE_SESION,
+  OPCIONES_COOKIE_SESION,
+  TIEMPO_EXPIRACION_INACTIVIDAD_MS,
+} from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { username, password } = body;
+    const { username, password, deviceId } = body;
 
     if (!username || !password) {
       return NextResponse.json(
@@ -43,7 +48,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verificar si la cuenta está bloqueada temporalmente
+    // Verificar si la cuenta está bloqueada temporalmente por intentos fallidos de recuperación
     if (user.bloqueadoHasta && new Date(user.bloqueadoHasta) > new Date()) {
       const msRestantes = new Date(user.bloqueadoHasta).getTime() - Date.now();
       const minutosRestantes = Math.ceil(msRestantes / (60 * 1000));
@@ -60,7 +65,6 @@ export async function POST(req: NextRequest) {
     const passwordValida = await bcrypt.compare(String(password), user.passwordHash);
 
     if (!passwordValida) {
-      // Registrar intento fallido en auditoría
       await prisma.auditoriaSesion.create({
         data: {
           userId: user.id,
@@ -77,43 +81,77 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Si tenía intentos fallidos o bloqueo vencido, resetear a cero
-    if (user.intentosFallidos > 0 || user.bloqueadoHasta) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { intentosFallidos: 0, bloqueadoHasta: null },
-      });
+    // 3. Regla de Sesión Única Activa por Usuario en Red Local (1 Cuenta = 1 Dispositivo a la vez)
+    const AHORA = Date.now();
+    const ultimaActividadMs = user.sesionUltimaActividad
+      ? new Date(user.sesionUltimaActividad).getTime()
+      : 0;
+
+    const sesionSigueActiva = Boolean(
+      user.sesionActivaToken &&
+      ultimaActividadMs > 0 &&
+      AHORA - ultimaActividadMs < TIEMPO_EXPIRACION_INACTIVIDAD_MS
+    );
+
+    const esMismoDispositivo = Boolean(
+      deviceId && user.sesionDispositivoId && user.sesionDispositivoId === deviceId
+    );
+
+    // Si la sesión sigue activa en OTRO equipo diferente, rechazar con HTTP 409
+    if (sesionSigueActiva && !esMismoDispositivo) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `No se puede iniciar sesión porque esta cuenta (@${user.username}) ya está abierta y activa en otro equipo o dispositivo. Cierre la sesión en el otro equipo primero o espere a que quede inactiva.`,
+          sesionBloqueada: true,
+        },
+        { status: 409 }
+      );
     }
 
-    // 3. Registrar auditoría de inicio de sesión exitoso
+    // 4. Generar nuevo identificador único de sesión y actualizar estado en SQLite
+    const sessionToken = crypto.randomUUID();
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        sesionActivaToken: sessionToken,
+        sesionDispositivoId: deviceId || "dispositivo-web",
+        sesionIp: ip,
+        sesionUltimaActividad: new Date(),
+        intentosFallidos: 0,
+        bloqueadoHasta: null,
+        requiereCambioClave: false,
+      },
+    });
+
+    // 5. Registrar auditoría de inicio de sesión exitoso
     await prisma.auditoriaSesion.create({
       data: {
         userId: user.id,
         accion: "LOGIN",
-        detalles: `Inicio de sesión exitoso como ${user.rol}`,
+        detalles: `Inicio de sesión exitoso como ${user.rol} (Dispositivo: ${deviceId || "web"})`,
         ip,
         userAgent,
       },
     });
 
-    // 4. Generar token de sesión firmado
+    // 6. Generar token de sesión firmado incluyendo sessionToken
     const token = await crearTokenSesion({
       userId: user.id,
       username: user.username,
       nombre: user.nombre,
       rol: user.rol,
       permisos: user.permisos,
+      sessionToken,
     });
 
-    // 5. Preparar respuesta con cookie HttpOnly segura
-    const esClaveFabrica = user.username.toLowerCase() === "admin" && String(password) === "admin123";
-    const requiereCambio = Boolean(user.requiereCambioClave || esClaveFabrica);
-
+    // 7. Preparar respuesta con cookie HttpOnly segura (NUNCA pedir datos privados en login)
     const destinoRedireccion = user.rol === "ADMIN" ? "/" : "/caja/pos";
     const respuesta = NextResponse.json({
       ok: true,
       mensaje: "Inicio de sesión exitoso",
-      requiereCambioClave: requiereCambio,
+      requiereCambioClave: false,
       user: {
         id: user.id,
         username: user.username,

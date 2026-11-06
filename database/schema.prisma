@@ -104,6 +104,12 @@ model User {
   intentosFallidos       Int          @default(0) // Contador de intentos fallidos de recuperación
   bloqueadoHasta         DateTime?    // Bloqueo temporal por exceso de intentos fallidos
   requiereCambioClave    Boolean      @default(false) // Obliga al usuario a cambiar contraseña en primer login
+
+  // Control de Sesión Única Activa por Dispositivo en Red Local
+  sesionActivaToken     String?
+  sesionDispositivoId   String?
+  sesionIp              String?
+  sesionUltimaActividad DateTime?
   
   fechaCreacion      DateTime         @default(now())
   updatedAt          DateTime         @updatedAt

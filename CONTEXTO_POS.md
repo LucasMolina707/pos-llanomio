@@ -4423,3 +4423,59 @@ Se implementaron 8 mejoras estructurales de nivel producción para blindar el fu
   - 22 pruebas unitarias y de integración ejecutadas: **22 PASADOS, 0 FALLIDOS**.
 - **Informe de Auditoría General N° 003 (`scripts/ejecutar-auditoria-sistema.ts`):**
   - Resultado: 0 Críticos, 0 Importantes, 0 Mejoras. Conformidad total del 100%.
+
+---
+
+## SECCIÓN 73: EXCLUSIVIDAD DE SESIÓN ÚNICA POR USUARIO EN RED LOCAL, LOGOUT UNIVERSAL Y ACCESO DIRECTO SIN FORMULARIO INTRUSIVO
+
+### 1. Resumen de la Implementación
+Bajo las directrices del Consejo Técnico Principal (Ciberseguridad, Sesiones Backend, UI/UX y Auditoría QA), se reestructuró de punta a punta el flujo de autenticación, control de concurrencia y cierre de sesión del Sistema POS:
+
+### 2. Bloque 1: Control de Sesión Única Activa por Dispositivo en Red Local (1 Cuenta = 1 Equipo Activo)
+1. **Ampliación del Esquema Relacional (`database/schema.prisma` y `prisma/schema.prisma`):**
+   - Campos añadidos al modelo `User`:
+     - `sesionActivaToken: String?` (UUID único de la sesión vigente).
+     - `sesionDispositivoId: String?` (identificador único del dispositivo cliente `pos_device_id`).
+     - `sesionIp: String?` (dirección IP del cliente en la red LAN).
+     - `sesionUltimaActividad: DateTime?` (marca de tiempo del último latido o interacción).
+     - `requiereCambioClave: Boolean @default(false)` (desactivado por defecto).
+2. **Validación Concurrente en `POST /api/auth/login` (`src/app/api/auth/login/route.ts`):**
+   - Detección de ventana de actividad de 3 minutos (`TIEMPO_EXPIRACION_INACTIVIDAD_MS = 180_000 ms`).
+   - Si la cuenta tiene una sesión con menos de 3 minutos de inactividad desde otro `deviceId`, el servidor rechaza con **HTTP 409 Conflict** y el mensaje: `"No se puede iniciar sesión porque esta cuenta (@usuario) ya está abierta y activa en otro equipo o dispositivo. Cierre la sesión en el otro equipo primero o espere a que quede inactiva."`
+   - Si es el mismo dispositivo reconectándose o la sesión previa superó la ventana de inactividad, se concede acceso sin fricción, generando un nuevo `sessionToken` y actualizando SQLite.
+
+### 3. Bloque 2: Latido de Actividad en Segundo Plano (Heartbeat cada 45s) y Detección de Sesiones Huérfanas
+1. **Monitoreo en `AppLayout.tsx` (`src/components/layout/AppLayout.tsx`):**
+   - Intervalo en segundo plano cada 45 segundos invocando `fetch('/api/auth/me?heartbeat=1', { cache: 'no-store' })` mientras la pestaña esté abierta.
+   - Si el endpoint responde `401 Unauthorized` (por ejemplo, si la cuenta fue asumida tras inactividad o cerrada por el administrador), el cliente limpia `sessionStorage` y redirige a `/login`.
+2. **Endpoint de Sesión `GET /api/auth/me` (`src/app/api/auth/me/route.ts`):**
+   - Verifica que el `sessionToken` del JWT coincida con `sesionActivaToken` en SQLite.
+   - Refresca en tiempo real `sesionUltimaActividad = new Date()` para mantener vivo el candado de sesión única.
+
+### 4. Bloque 3: Cierre de Sesión Universal y Liberación Inmediata de Cuenta
+1. **Endpoint `POST /api/auth/logout` (`src/app/api/auth/logout/route.ts`):**
+   - Limpia de forma atómica en SQLite: `sesionActivaToken = null`, `sesionDispositivoId = null`, `sesionIp = null` y `sesionUltimaActividad = null`.
+   - Invalida la cookie HttpOnly `pos_session` con `maxAge: 0` y `expires: new Date(0)`.
+   - Ejecuta respaldo en caliente `VACUUM INTO` (`ejecutarRespaldoEnCaliente("LOGOUT")`).
+   - Soporte para eventos de cierre de ventana mediante parámetro `beacon=1`.
+2. **Botón de Logout Homologado en Todas las Vistas:**
+   - `<IconButtonTooltip icon={LogOut} label="Cerrar Sesión" destino="Sale del sistema y libera la cuenta" modulo="Seguridad y Respaldo" variant="danger" />` disponible en:
+     - Barra de navegación principal (`src/components/layout/Navbar.tsx`).
+     - Barra lateral flotante (`src/components/layout/Sidebar.tsx`).
+     - Terminal POS (`src/app/caja/pos/page.tsx`).
+     - Terminal de Alquileres (`src/app/caja/alquileres/page.tsx`).
+     - Terminal de Apartados (`src/app/caja/apartados/page.tsx`).
+   - Limpieza inmediata de `sessionStorage.removeItem("pos_user")` y `pos_llanomio_user`, liberando la cuenta para cualquier otro dispositivo al instante.
+
+### 5. Bloque 4: Eliminación Total de Formularios Intrusivos al Iniciar Sesión
+1. **Acceso Directo en `/login` (`src/app/login/page.tsx`):**
+   - Se eliminó por completo el modal obligatorio de primer inicio y solicitud de datos privados (cédula, PIN, pregunta de seguridad, cambio de contraseña) tras autenticarse con `admin` o cualquier usuario.
+   - Al digitar Usuario y Contraseña válidos, el usuario ingresa de inmediato y sin escalas al mostrador o panel principal.
+   - Los 3 factores de recuperación permanecen activos y accesibles únicamente cuando el usuario hace clic voluntariamente en `"Restaurar contraseña mediante verificación de identidad"` o desde el módulo administrativo `/admin/usuarios`.
+
+### 6. Bloque 5: Auditoría y Control de Calidad QA
+- **Suite de Pruebas Automatizadas (`scripts/test-qa-sesion-unica-y-login.ts`):**
+  - Verificación de los 4 escenarios críticos (Login directo, bloqueo concurrente HTTP 409, transferencia por inactividad y liberación inmediata por logout): **19 PASADOS, 0 FALLIDOS**.
+- **Compilación de Producción:**
+  - `npx tsc --noEmit` completado con **0 errores de TypeScript**.
+  - `npm run build` completado exitosamente generando el paquete Standalone con las 23 rutas del sistema.
