@@ -63,6 +63,9 @@ import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
 import { calcularFechaDevolucionAlquiler, obtenerDescripcionReglaDevolucion } from "@/lib/fechas-alquiler";
+import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
+import { useMapaAtajosTeclado } from "@/hooks/useAtajoTeclado";
+import { ModalPinSupervisor } from "@/components/seguridad/ModalPinSupervisor";
 
 export interface ClienteAlquiler {
   id: string;
@@ -152,6 +155,11 @@ export interface FacturaAlquilerMonitoreo {
     esServicioLibre: boolean;
     descripcionLibre?: string | null;
     descripcionDetallada?: string | null;
+    devuelto?: boolean;
+    fechaDevolucionItem?: string | null;
+    estadoDevolucionItem?: string | null;
+    cargoAveria?: number;
+    notaAveria?: string | null;
     producto?: {
       id: string;
       codigo: string;
@@ -285,6 +293,41 @@ export default function TerminalAlquileresPage() {
   const [cobrarSaldoPendiente, setCobrarSaldoPendiente] = useState(true);
   const [metodoPagoSaldo, setMetodoPagoSaldo] = useState<MetodoPagoAlquiler>("EFECTIVO");
   const [procesandoLiquidacion, setProcesandoLiquidacion] = useState(false);
+
+  // Referencias para auto-foco
+  const inputBuscarClienteRef = useRef<HTMLInputElement | null>(null);
+  const inputBuscarPrendaRef = useRef<HTMLInputElement | null>(null);
+  const inputEfectivoRef = useRef<HTMLInputElement | null>(null);
+
+  // Estados de Autorización de Supervisor
+  const [mostrarModalSupervisor, setMostrarModalSupervisor] = useState(false);
+  const [motivoSupervisor, setMotivoSupervisor] = useState("");
+  const [accionSupervisorPendiente, setAccionSupervisorPendiente] = useState<(() => void) | null>(null);
+
+  // Checklist de recepción parcial por prenda
+  const [itemsDevolucionChecklist, setItemsDevolucionChecklist] = useState<
+    Array<{
+      id: string;
+      nombre: string;
+      devuelto: boolean;
+      estado: string;
+      cargoAveria: number;
+      notaAveria: string;
+    }>
+  >([]);
+
+  const requerirAutorizacionSupervisor = useCallback(
+    (motivo: string, accion: () => void) => {
+      if (usuarioSesion?.rol === "ADMIN") {
+        accion();
+        return;
+      }
+      setMotivoSupervisor(motivo);
+      setAccionSupervisorPendiente(() => accion);
+      setMostrarModalSupervisor(true);
+    },
+    [usuarioSesion]
+  );
 
   // Modal de Registro de Abonos Posteriores / Cobro de Saldo
   const [modalAbonarAbierto, setModalAbonarAbierto] = useState(false);
@@ -1143,6 +1186,17 @@ export default function TerminalAlquileresPage() {
     setMotivoRetencion("");
     setCobrarSaldoPendiente(factura.saldoPendiente > 0);
     setMetodoPagoSaldo("EFECTIVO");
+
+    const checklist = (factura.detalles || []).map((d) => ({
+      id: d.id,
+      nombre: d.producto?.nombre || d.descripcionLibre || "Prenda de Alquiler",
+      devuelto: d.devuelto !== undefined ? Boolean(d.devuelto) : true,
+      estado: d.estadoDevolucionItem || "BUEN_ESTADO",
+      cargoAveria: Number(d.cargoAveria || 0),
+      notaAveria: d.notaAveria || "",
+    }));
+    setItemsDevolucionChecklist(checklist);
+
     setModalLiquidarAbierto(true);
   };
 
@@ -1154,12 +1208,18 @@ export default function TerminalAlquileresPage() {
 
     if (!alquilerLiquidar) return;
 
+    const quedanPrendas = itemsDevolucionChecklist.some((i) => !i.devuelto);
+    const totalAverias = itemsDevolucionChecklist.reduce(
+      (sum, i) => sum + (i.devuelto ? Number(i.cargoAveria || 0) : 0),
+      0
+    );
+
     if (resolucionDeposito === "RETENIDO_PARCIAL") {
-      if (montoRetencion <= 0 || montoRetencion > alquilerLiquidar.montoDeposito) {
-        setMensajeError(`El valor a retener debe ser mayor a $0 y menor o igual a $${alquilerLiquidar.montoDeposito.toLocaleString("es-CO")}`);
+      if (montoRetencion <= 0 && totalAverias <= 0 && !quedanPrendas) {
+        setMensajeError(`El valor a retener debe ser mayor a $0 o indicar prendas pendientes/averiadas.`);
         return;
       }
-      if (!motivoRetencion.trim()) {
+      if (!motivoRetencion.trim() && !quedanPrendas && totalAverias <= 0) {
         setMensajeError("Debe ingresar la descripción obligatoria del daño o afectación.");
         return;
       }
@@ -1175,11 +1235,11 @@ export default function TerminalAlquileresPage() {
       setMensajeError(null);
 
       const montoRetenidoFinal =
-        resolucionDeposito === "DEVUELTO_COMPLETO"
+        resolucionDeposito === "DEVUELTO_COMPLETO" && !quedanPrendas && totalAverias <= 0
           ? 0
           : resolucionDeposito === "RETENIDO_TOTAL"
           ? alquilerLiquidar.montoDeposito
-          : montoRetencion;
+          : Math.max(montoRetencion, totalAverias);
 
       const montoDevueltoFinal = Math.max(0, alquilerLiquidar.montoDeposito - montoRetenidoFinal);
 
@@ -1188,11 +1248,14 @@ export default function TerminalAlquileresPage() {
         turnoCajaId: cajon.cajonConectado?.id || undefined,
         cobroSaldo: cobrarSaldoPendiente && alquilerLiquidar.saldoPendiente > 0 ? alquilerLiquidar.saldoPendiente : 0,
         metodoPago: metodoPagoSaldo,
-        estadoDeposito: resolucionDeposito,
+        estadoDeposito: quedanPrendas ? "RETENIDO_PARCIAL" : resolucionDeposito,
         montoRetenidoDeposito: montoRetenidoFinal,
         montoDevueltoDeposito: montoDevueltoFinal,
-        motivoRetencionDeposito: motivoRetencion.trim() || undefined,
-        notas: `Liquidación de alquiler. Depósito ${resolucionDeposito}: Devuelto $${montoDevueltoFinal.toLocaleString("es-CO")}, Retenido $${montoRetenidoFinal.toLocaleString("es-CO")}.`,
+        motivoRetencionDeposito: motivoRetencion.trim() || (quedanPrendas ? "Devolución parcial: faltan prendas" : undefined),
+        itemsDevolucion: itemsDevolucionChecklist,
+        notas: quedanPrendas
+          ? `Devolución parcial. Depósito preventivo retenido: $${montoRetenidoFinal.toLocaleString("es-CO")}.`
+          : `Liquidación de alquiler. Depósito ${resolucionDeposito}: Devuelto $${montoDevueltoFinal.toLocaleString("es-CO")}, Retenido $${montoRetenidoFinal.toLocaleString("es-CO")}.`,
       };
 
       const { ok, status, data, error } = await safeFetchJson<{ success?: boolean; error?: string; factura?: any }>(
@@ -1289,6 +1352,86 @@ export default function TerminalAlquileresPage() {
 
   const facturasHistorialPaginadas = useMemo(() => facturasHistorialVisibles.slice(0, 48), [facturasHistorialVisibles]);
 
+  // Enfoque automático según el paso de alquiler
+  useEffect(() => {
+    if (vistaPrincipal === "NUEVO_ALQUILER") {
+      const timer = setTimeout(() => {
+        if (pasoActual === 1) {
+          inputBuscarClienteRef.current?.focus();
+        } else if (pasoActual === 2) {
+          inputBuscarPrendaRef.current?.focus();
+        } else if (pasoActual === 3) {
+          inputEfectivoRef.current?.focus();
+        }
+      }, 70);
+      return () => clearTimeout(timer);
+    }
+  }, [pasoActual, vistaPrincipal]);
+
+  // Lector de código de barras USB (< 45ms) para prendas de alquiler
+  useBarcodeScanner({
+    onScan: (barcode) => {
+      if (vistaPrincipal !== "NUEVO_ALQUILER") return;
+      const codigoLimpio = barcode.trim().toLowerCase();
+      const prenda = prendas.find((p) => p.codigo.trim().toLowerCase() === codigoLimpio);
+      if (prenda) {
+        agregarPrendaAlCarrito(prenda);
+        if (pasoActual === 1 && clienteSeleccionado) {
+          setPasoActual(2);
+        }
+      }
+    },
+    enabled: vistaPrincipal === "NUEVO_ALQUILER",
+  });
+
+  // Atajos de teclado universales de mostrador
+  useMapaAtajosTeclado({
+    F2: () => {
+      safeFetchJson("/api/caja/abrir-cajon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ motivo: "Apertura rápida por atajo F2" }),
+      }).catch(() => {});
+    },
+    F4: () => {
+      if (vistaPrincipal === "NUEVO_ALQUILER") {
+        if (pasoActual === 1 && clienteSeleccionado) {
+          setPasoActual(2);
+        } else if (pasoActual === 2 && itemsCarrito.length > 0) {
+          setPasoActual(3);
+        } else if (pasoActual === 3) {
+          registrarNuevoAlquiler();
+        } else if (pasoActual === 4) {
+          reiniciarNuevoAlquiler();
+        }
+      }
+    },
+    F9: () => {
+      setModalCrearClienteAbierto(true);
+    },
+    Esc: () => {
+      if (modalLiquidarAbierto) {
+        setModalLiquidarAbierto(false);
+      } else if (modalAbonarAbierto) {
+        setModalAbonarAbierto(false);
+      } else if (modalCrearClienteAbierto) {
+        setModalCrearClienteAbierto(false);
+      } else if (modalCrearPrendaAbierto) {
+        setModalCrearPrendaAbierto(false);
+      } else if (modalComprobanteAbierto) {
+        setModalComprobanteAbierto(false);
+      } else if (modalCargarApartadoAbierto) {
+        setModalCargarApartadoAbierto(false);
+      } else if (mostrarModalSupervisor) {
+        setMostrarModalSupervisor(false);
+      } else if (busquedaCliente) {
+        setBusquedaCliente("");
+      } else if (busquedaPrenda) {
+        setBusquedaPrenda("");
+      }
+    },
+  });
+
   return (
     <div className="h-screen w-screen max-w-[100vw] max-h-[100vh] overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none antialiased font-sans">
       {/* ========================================================================= */}
@@ -1366,6 +1509,17 @@ export default function TerminalAlquileresPage() {
           />
 
           <BotonAbrirCajon soloIcono={true} size="md" />
+        </div>
+
+        {/* Guía visual de atajos de teclado de mostrador */}
+        <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-100/90 border border-slate-200 text-[11px] font-mono text-slate-600">
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F2</span> Cajón
+          <span className="text-slate-300">·</span>
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F4</span> Cobrar
+          <span className="text-slate-300">·</span>
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F9</span> Cliente
+          <span className="text-slate-300">·</span>
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">Esc</span> Cerrar
         </div>
 
         {/* Derecha: Herramientas de Operación */}
@@ -2021,6 +2175,7 @@ export default function TerminalAlquileresPage() {
                         <div className="relative">
                           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                           <input
+                            ref={inputBuscarClienteRef}
                             type="text"
                             placeholder="Buscar cliente por nombre, cédula, teléfono..."
                             value={busquedaCliente}
@@ -2191,6 +2346,7 @@ export default function TerminalAlquileresPage() {
                         <div className="relative">
                           <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                           <input
+                            ref={inputBuscarPrendaRef}
                             type="text"
                             placeholder="Buscar prenda por nombre, código, color o talla..."
                             value={busquedaPrenda}
@@ -2540,6 +2696,7 @@ export default function TerminalAlquileresPage() {
                                 </button>
                               </div>
                               <input
+                                ref={inputEfectivoRef}
                                 type="number"
                                 value={efectivoRecibidoCliente}
                                 onChange={(e) => setEfectivoRecibidoCliente(e.target.value)}
@@ -2957,6 +3114,95 @@ export default function TerminalAlquileresPage() {
                 </div>
               )}
 
+              {/* CHECKLIST DE RECEPCIÓN PARCIAL POR PRENDA */}
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-black text-slate-800 uppercase tracking-wider block text-[11px]">
+                    Prendas Entregadas en este Contrato:
+                  </label>
+                  <span className="text-[10.5px] font-mono px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-bold">
+                    {itemsDevolucionChecklist.filter((i) => i.devuelto).length} de {itemsDevolucionChecklist.length} recibidas
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 divide-y divide-slate-200/60">
+                  {itemsDevolucionChecklist.map((it, idx) => (
+                    <div key={it.id || idx} className="pt-1.5 first:pt-0 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800">
+                          <input
+                            type="checkbox"
+                            checked={it.devuelto}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setItemsDevolucionChecklist((prev) =>
+                                prev.map((item, i) => (i === idx ? { ...item, devuelto: checked } : item))
+                              );
+                            }}
+                            className="rounded text-amber-600 focus:ring-amber-500"
+                          />
+                          <span className={it.devuelto ? "text-slate-900" : "text-slate-400 line-through"}>
+                            {it.nombre}
+                          </span>
+                        </label>
+
+                        {it.devuelto && (
+                          <select
+                            value={it.estado}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setItemsDevolucionChecklist((prev) =>
+                                prev.map((item, i) => (i === idx ? { ...item, estado: val } : item))
+                              );
+                            }}
+                            className="text-[10.5px] px-2 py-0.5 rounded bg-white border border-slate-300 font-bold text-slate-700"
+                          >
+                            <option value="BUEN_ESTADO">Buen Estado</option>
+                            <option value="EN_ARREGLO">Averiada / Lavandería</option>
+                          </select>
+                        )}
+                      </div>
+
+                      {/* Cargo por daño/lavandería si la prenda está averiada */}
+                      {it.devuelto && it.estado === "EN_ARREGLO" && (
+                        <div className="ml-6 grid grid-cols-12 gap-1.5 bg-amber-50/80 p-2 rounded-xl border border-amber-200">
+                          <div className="col-span-5">
+                            <label className="text-[10px] font-bold text-amber-900 block">Deducción Daño ($):</label>
+                            <input
+                              type="number"
+                              value={it.cargoAveria || ""}
+                              placeholder="0"
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setItemsDevolucionChecklist((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, cargoAveria: val } : item))
+                                );
+                              }}
+                              className="w-full px-2 py-0.5 text-xs bg-white border border-amber-300 rounded font-mono font-bold"
+                            />
+                          </div>
+                          <div className="col-span-7">
+                            <label className="text-[10px] font-bold text-amber-900 block">Nota / Afectación:</label>
+                            <input
+                              type="text"
+                              value={it.notaAveria || ""}
+                              placeholder="Ej: Mancha / rasgadura"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setItemsDevolucionChecklist((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, notaAveria: val } : item))
+                                );
+                              }}
+                              className="w-full px-2 py-0.5 text-xs bg-white border border-amber-300 rounded"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* SELECCIÓN DE RESOLUCIÓN DEL DEPÓSITO */}
               <div>
                 <label className="font-black text-slate-800 uppercase tracking-wider block mb-2">
@@ -3118,7 +3364,11 @@ export default function TerminalAlquileresPage() {
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Finalizar y Generar Paz y Salvo</span>
+                    <span>
+                      {itemsDevolucionChecklist.some((i) => !i.devuelto)
+                        ? "Registrar Devolución Parcial"
+                        : "Finalizar y Generar Paz y Salvo"}
+                    </span>
                   </>
                 )}
               </button>
@@ -3625,6 +3875,21 @@ export default function TerminalAlquileresPage() {
         onConectarCompartida={cajon.conectarCajaCompartida}
         onAbrirNuevoCajon={cajon.abrirNuevoCajon}
         onCerrarModal={cajon.cerrarModal}
+      />
+
+      <ModalPinSupervisor
+        abierto={mostrarModalSupervisor}
+        motivo={motivoSupervisor}
+        onCerrar={() => {
+          setMostrarModalSupervisor(false);
+          setAccionSupervisorPendiente(null);
+        }}
+        onAutorizado={() => {
+          if (accionSupervisorPendiente) {
+            accionSupervisorPendiente();
+            setAccionSupervisorPendiente(null);
+          }
+        }}
       />
     </div>
   );

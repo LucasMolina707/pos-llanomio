@@ -5,6 +5,9 @@ color 05
 
 cd /d "%~dp0..\.."
 set "PROJECT_ROOT=%CD%"
+if not exist "%PROJECT_ROOT%\.tmp" mkdir "%PROJECT_ROOT%\.tmp" >nul 2>&1
+set "TEMP=%PROJECT_ROOT%\.tmp"
+set "TMP=%PROJECT_ROOT%\.tmp"
 
 :: Cargar puerto
 set "PORT=3000"

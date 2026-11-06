@@ -5,6 +5,9 @@ color 06
 
 cd /d "%~dp0..\.."
 set "PROJECT_ROOT=%CD%"
+if not exist "%PROJECT_ROOT%\.tmp" mkdir "%PROJECT_ROOT%\.tmp" >nul 2>&1
+set "TEMP=%PROJECT_ROOT%\.tmp"
+set "TMP=%PROJECT_ROOT%\.tmp"
 
 echo ===============================================================================
 echo          4. ACTIVAR Y REPARAR INICIO AUTOMATICO CON WINDOWS

@@ -75,11 +75,16 @@ console.log("      [OK] Limpieza de temporales completada.");
 // 2. Reseteo de fabrica de la base de datos SQLite
 console.log("\n[2/6] Restableciendo base de datos SQLite a estado puro de fabrica...");
 try {
-  execSync("npx tsx scripts/reset-db-fabrica.ts", {
+  const localTmp = path.join(PROJECT_ROOT, ".tmp");
+  if (!fs.existsSync(localTmp)) fs.mkdirSync(localTmp, { recursive: true });
+
+  execSync("node scripts/reset-db-fabrica.js", {
     cwd: PROJECT_ROOT,
     stdio: "inherit",
     env: {
       ...process.env,
+      TEMP: localTmp,
+      TMP: localTmp,
       DATABASE_URL: "file:./llanomio.db",
     },
   });
@@ -149,15 +154,33 @@ console.log("           - LOCAL_DOMAIN = llanomio.local");
 console.log("           - DATABASE_URL = file:./llanomio.db");
 console.log("           - HOSTNAME = 0.0.0.0");
 
-// 5. Verificacion del Build de Produccion (.next)
+// 5. Verificacion del Build de Produccion (.next) y Empaquetado Standalone
 console.log("\n[5/6] Verificando presencia de la compilacion de produccion (.next)...");
 const dirNext = path.join(PROJECT_ROOT, ".next");
 if (fs.existsSync(dirNext) && fs.existsSync(path.join(dirNext, "BUILD_ID"))) {
   const buildId = fs.readFileSync(path.join(dirNext, "BUILD_ID"), "utf-8").trim();
   console.log(`      [OK] Carpeta .next detectada y verificada (BUILD_ID: ${buildId}).`);
+
+  // Sincronizar activos para el bundle autonomo Standalone
+  const dirStandalone = path.join(dirNext, "standalone");
+  if (fs.existsSync(dirStandalone)) {
+    console.log("      [STANDALONE] Sincronizando estáticos y recursos públicos en .next/standalone...");
+    const srcStatic = path.join(dirNext, "static");
+    const dstStatic = path.join(dirStandalone, ".next", "static");
+    if (fs.existsSync(srcStatic)) {
+      fs.cpSync(srcStatic, dstStatic, { recursive: true, force: true });
+      console.log("      [OK] .next/static copiado a .next/standalone/.next/static.");
+    }
+    const srcPublic = path.join(PROJECT_ROOT, "public");
+    const dstPublic = path.join(dirStandalone, "public");
+    if (fs.existsSync(srcPublic)) {
+      fs.cpSync(srcPublic, dstPublic, { recursive: true, force: true });
+      console.log("      [OK] public/ copiado a .next/standalone/public.");
+    }
+  }
 } else {
   console.warn("      [ATENCION] No se detecto un build de produccion valido en .next.");
-  console.log("      Ejecute 'npm run build' antes de generar el instalador .exe final.");
+  console.log("      Ejecute 'npm run build' antes de generar el instalador final.");
 }
 
 // 6. Verificacion de scripts batch y permisos

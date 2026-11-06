@@ -44,6 +44,19 @@ export default function LoginPage() {
   const [recuperarError, setRecuperarError] = useState<string | null>(null);
   const [recuperarExito, setRecuperarExito] = useState<string | null>(null);
 
+  // Estados del modal de cambio obligatorio de clave inicial (Primer login de fábrica)
+  const [modalCambioInicialAbierto, setModalCambioInicialAbierto] = useState(false);
+  const [usuarioCambioInicial, setUsuarioCambioInicial] = useState<{ id: string; username: string } | null>(null);
+  const [destinoRedireccion, setDestinoRedireccion] = useState("/");
+  const [nuevaClaveInicial, setNuevaClaveInicial] = useState("");
+  const [confirmarClaveInicial, setConfirmarClaveInicial] = useState("");
+  const [docInicial, setDocInicial] = useState("0000000000");
+  const [pinInicial, setPinInicial] = useState("000000");
+  const [preguntaInicial, setPreguntaInicial] = useState("¿Cuál es la clave de seguridad de recuperación del sistema?");
+  const [respuestaInicial, setRespuestaInicial] = useState("");
+  const [guardandoInicial, setGuardandoInicial] = useState(false);
+  const [errorInicial, setErrorInicial] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -67,8 +80,19 @@ export default function LoginPage() {
         return;
       }
 
+      const destino = data.redirectTo || "/";
+      setDestinoRedireccion(destino);
+
+      // Si requiere cambio de credenciales de fabrica
+      if (data.requiereCambioClave) {
+        setUsuarioCambioInicial(data.user);
+        setModalCambioInicialAbierto(true);
+        setCargando(false);
+        return;
+      }
+
       // Redirigir según el rol
-      router.push(data.redirectTo || "/");
+      router.push(destino);
       router.refresh();
     } catch {
       setError("Error de conexión con el servidor local.");
@@ -182,6 +206,68 @@ export default function LoginPage() {
     setRecuperarConfirmPass("");
   };
 
+  const handleGuardarCredencialesIniciales = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorInicial(null);
+
+    if (nuevaClaveInicial.length < 6) {
+      setErrorInicial("La nueva contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    if (nuevaClaveInicial !== confirmarClaveInicial) {
+      setErrorInicial("Las contraseñas no coinciden.");
+      return;
+    }
+
+    if (!/^\d{6}$/.test(pinInicial)) {
+      setErrorInicial("El PIN de seguridad debe ser numérico de 6 dígitos.");
+      return;
+    }
+
+    if (!docInicial.trim() || !respuestaInicial.trim()) {
+      setErrorInicial("Todos los campos son obligatorios para el blindaje de seguridad.");
+      return;
+    }
+
+    setGuardandoInicial(true);
+
+    try {
+      const res = await fetch("/api/auth/cambiar-clave-inicial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: usuarioCambioInicial?.id,
+          nuevaPassword: nuevaClaveInicial,
+          documentoIdentidad: docInicial.trim(),
+          pinSeguridad: pinInicial.trim(),
+          preguntaSeguridad: preguntaInicial.trim(),
+          respuestaSeguridad: respuestaInicial.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setErrorInicial(data.error || "Error al actualizar credenciales.");
+        setGuardandoInicial(false);
+        return;
+      }
+
+      setModalCambioInicialAbierto(false);
+      router.push(destinoRedireccion);
+      router.refresh();
+    } catch {
+      setErrorInicial("Error de conexión al guardar credenciales iniciales.");
+      setGuardandoInicial(false);
+    }
+  };
+
+  const handleOmitirCambioInicial = () => {
+    setModalCambioInicialAbierto(false);
+    router.push(destinoRedireccion);
+    router.refresh();
+  };
+
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-[#F4F6F8] p-4 sm:p-6 overflow-x-hidden">
       <div className="max-w-md w-full">
@@ -289,6 +375,144 @@ export default function LoginPage() {
           Red Local LAN activa en <span className="font-semibold text-slate-700">Red Wi-Fi</span>
         </p>
       </div>
+
+      {/* Modal Obligatorio de Cambio de Clave Inicial de Fábrica */}
+      {modalCambioInicialAbierto && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FCFDFE] rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full p-6 text-slate-800 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center space-x-3 border-b border-slate-100 pb-3 mb-4">
+              <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Configuración Inicial de Seguridad
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Defina su contraseña personalizada y factores de recuperación
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
+              El sistema ha detectado el usuario maestro de fábrica. Por seguridad de su negocio, establezca una contraseña privada y guarde su PIN de 6 dígitos.
+            </p>
+
+            {errorInicial && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{errorInicial}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleGuardarCredencialesIniciales} className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Nueva Contraseña
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={nuevaClaveInicial}
+                    onChange={(e) => setNuevaClaveInicial(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Confirmar Contraseña
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={confirmarClaveInicial}
+                    onChange={(e) => setConfirmarClaveInicial(e.target.value)}
+                    placeholder="Repita contraseña"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Cédula o NIT Propietario
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={docInicial}
+                    onChange={(e) => setDocInicial(e.target.value)}
+                    placeholder="Número de documento"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    PIN Supervisor (6 dígitos)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={pinInicial}
+                    onChange={(e) => setPinInicial(e.target.value.replace(/\D/g, ""))}
+                    placeholder="000000"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 text-sm bg-white text-center tracking-widest font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Pregunta Secreta de Recuperación
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={preguntaInicial}
+                  onChange={(e) => setPreguntaInicial(e.target.value)}
+                  placeholder="Ej. ¿Cuál es el nombre de su primera mascota?"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Respuesta Secreta
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={respuestaInicial}
+                  onChange={(e) => setRespuestaInicial(e.target.value)}
+                  placeholder="Respuesta en minúsculas"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleOmitirCambioInicial}
+                  className="text-xs text-slate-500 hover:text-slate-800 hover:underline"
+                >
+                  Mantener credenciales de prueba por ahora
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoInicial}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm transition disabled:opacity-50 cursor-pointer"
+                >
+                  {guardandoInicial ? "Guardando..." : "Guardar Credenciales y Entrar"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Verificación de Identidad de 3 Factores */}
       {modalRecuperarAbierto && (

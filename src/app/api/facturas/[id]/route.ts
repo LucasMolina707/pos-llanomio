@@ -106,6 +106,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       notas,
       recargoMora = 0,
       confirmarDevolucionPrendas = false,
+      itemsDevolucion,
+      itemsDevueltos,
       estadoDeposito,
       montoRetenidoDeposito,
       montoDevueltoDeposito,
@@ -113,6 +115,10 @@ export async function POST(req: NextRequest, { params }: Params) {
       estadoPrendasDevueltas,
       turnoCajaId,
     } = body;
+
+    const listaItemsDevolucion = Array.isArray(itemsDevolucion)
+      ? itemsDevolucion
+      : (Array.isArray(itemsDevueltos) ? itemsDevueltos : null);
 
     // 1. Validar el monto del abono o cobro de saldo
     const valorEntrada = monto !== undefined ? monto : (body.cobroSaldo !== undefined ? body.cobroSaldo : 0);
@@ -478,59 +484,138 @@ export async function POST(req: NextRequest, { params }: Params) {
         }
       }
 
-      // C. Liberar prendas alquiladas y liquidar depósito si aplica
+      // C. Liberar prendas alquiladas y liquidar depósito si aplica (Soporte Devolución Parcial por Prenda)
       let fechaDevReal = facturaExistente.fechaDevolucionReal;
       let nuevoEstadoDeposito = facturaExistente.estadoDeposito;
       let nuevoMontoRetenido = facturaExistente.montoRetenidoDeposito;
       let nuevoMontoDevuelto = facturaExistente.montoDevueltoDeposito;
       let nuevoMotivoRetencion = facturaExistente.motivoRetencionDeposito;
 
-      const procesarDevolucion = Boolean(confirmarDevolucionPrendas || estadoDeposito);
+      let totalCargosAveriaItems = 0;
+      let todosItemsDevueltos = false;
+
+      const procesarDevolucion = Boolean(
+        confirmarDevolucionPrendas ||
+        estadoDeposito ||
+        (listaItemsDevolucion && listaItemsDevolucion.length > 0)
+      );
 
       if (procesarDevolucion) {
-        if (!fechaDevReal) {
-          fechaDevReal = new Date();
+        if (listaItemsDevolucion && listaItemsDevolucion.length > 0) {
+          // Procesar actualización granular de cada prenda individual
+          for (const it of listaItemsDevolucion) {
+            const idDetalle = it.detalleId || it.id;
+            if (!idDetalle) continue;
+            const esDevuelto = Boolean(it.devuelto);
+            const cargo = Math.max(0, Number(it.cargoAveria || 0));
+            totalCargosAveriaItems += cargo;
+
+            await tx.detalleFactura.update({
+              where: { id: idDetalle },
+              data: {
+                devuelto: esDevuelto,
+                fechaDevolucionItem: esDevuelto ? new Date() : null,
+                estadoDevolucionItem: it.estado || (esDevuelto ? "BUEN_ESTADO" : "PENDIENTE"),
+                cargoAveria: cargo,
+                notaAveria: it.notaAveria?.trim() || null,
+              },
+            });
+
+            const detOriginal = facturaExistente.detalles.find((d) => d.id === idDetalle);
+            if (detOriginal && detOriginal.productoId) {
+              if (esDevuelto) {
+                const esAveriada = it.estado === "EN_ARREGLO" || it.estado === "DANIADO" || cargo > 0;
+                const nuevoEstadoPrenda = esAveriada ? EstadoPrenda.EN_ARREGLO : EstadoPrenda.DISPONIBLE;
+                await tx.producto.update({
+                  where: { id: detOriginal.productoId },
+                  data: { estado: nuevoEstadoPrenda, estadoPrenda: nuevoEstadoPrenda },
+                });
+              } else {
+                await tx.producto.update({
+                  where: { id: detOriginal.productoId },
+                  data: { estado: EstadoPrenda.ALQUILADO, estadoPrenda: EstadoPrenda.ALQUILADO },
+                });
+              }
+            }
+          }
+
+          // Consultar estado actualizado de todos los ítems de alquiler de esta factura
+          const detallesPost = await tx.detalleFactura.findMany({
+            where: { facturaId: facturaExistente.id },
+          });
+          const prendasAlquiler = detallesPost.filter((d) => !d.esServicioLibre || d.productoId);
+          todosItemsDevueltos = prendasAlquiler.length > 0
+            ? prendasAlquiler.every((d) => d.devuelto)
+            : true;
+        } else {
+          // Devolución total global tradicional
+          todosItemsDevueltos = true;
+          await tx.detalleFactura.updateMany({
+            where: { facturaId: facturaExistente.id },
+            data: {
+              devuelto: true,
+              fechaDevolucionItem: new Date(),
+              estadoDevolucionItem: estadoPrendasDevueltas || "BUEN_ESTADO",
+            },
+          });
+
+          const productosAlquilerIds = facturaExistente.detalles
+            .filter((d) => Boolean(d.productoId) && (d.producto?.tipo === TipoProducto.ALQUILER || !d.esServicioLibre))
+            .map((d) => d.productoId as string);
+
+          if (productosAlquilerIds.length > 0) {
+            const esDaniado =
+              estadoPrendasDevueltas === "EN_ARREGLO" ||
+              estadoDeposito === "RETENIDO_PARCIAL" ||
+              estadoDeposito === "RETENIDO_TOTAL";
+            const estadoDestino = esDaniado ? EstadoPrenda.EN_ARREGLO : EstadoPrenda.DISPONIBLE;
+
+            await tx.producto.updateMany({
+              where: { id: { in: productosAlquilerIds } },
+              data: {
+                estado: estadoDestino,
+                estadoPrenda: estadoDestino,
+              },
+            });
+          }
         }
 
-        if (estadoDeposito === "DEVUELTO_COMPLETO") {
+        // Resolución de custodia del depósito
+        const retencionDirecta = Math.max(0, Number(montoRetenidoDeposito || 0));
+        const retencionTotalCalculada = Math.min(
+          facturaExistente.montoDeposito,
+          totalCargosAveriaItems > 0 ? (totalCargosAveriaItems + retencionDirecta) : retencionDirecta
+        );
+
+        if (facturaExistente.montoDeposito === 0) {
+          nuevoEstadoDeposito = "SIN_DEPOSITO";
+          nuevoMontoDevuelto = 0;
+          nuevoMontoRetenido = 0;
+        } else if (!todosItemsDevueltos) {
+          // Si faltan prendas por entregar, el depósito queda en retención parcial preventiva
+          nuevoEstadoDeposito = "RETENIDO_PARCIAL";
+          nuevoMontoRetenido = Math.max(retencionTotalCalculada, Math.round(facturaExistente.montoDeposito * 0.5));
+          nuevoMontoDevuelto = Math.max(0, facturaExistente.montoDeposito - nuevoMontoRetenido);
+          nuevoMotivoRetencion = motivoRetencionDeposito?.trim() || "Devolución parcial: faltan prendas por entregar";
+        } else if (retencionTotalCalculada >= facturaExistente.montoDeposito || estadoDeposito === "RETENIDO_TOTAL") {
+          nuevoEstadoDeposito = "RETENIDO_TOTAL";
+          nuevoMontoRetenido = facturaExistente.montoDeposito;
+          nuevoMontoDevuelto = 0;
+          nuevoMotivoRetencion = motivoRetencionDeposito?.trim() || "Daño irreparable o retención total pactada";
+        } else if (retencionTotalCalculada > 0 || estadoDeposito === "RETENIDO_PARCIAL") {
+          nuevoEstadoDeposito = "RETENIDO_PARCIAL";
+          nuevoMontoRetenido = retencionTotalCalculada > 0 ? retencionTotalCalculada : Math.min(facturaExistente.montoDeposito, retencionDirecta);
+          nuevoMontoDevuelto = Math.max(0, facturaExistente.montoDeposito - nuevoMontoRetenido);
+          nuevoMotivoRetencion = motivoRetencionDeposito?.trim() || "Deducción por daños/lavandería en prendas";
+        } else {
           nuevoEstadoDeposito = "DEVUELTO_COMPLETO";
           nuevoMontoDevuelto = facturaExistente.montoDeposito;
           nuevoMontoRetenido = 0;
           nuevoMotivoRetencion = null;
-        } else if (estadoDeposito === "RETENIDO_PARCIAL") {
-          nuevoEstadoDeposito = "RETENIDO_PARCIAL";
-          const ret = Math.min(facturaExistente.montoDeposito, Math.max(0, Number(montoRetenidoDeposito) || 0));
-          nuevoMontoRetenido = ret;
-          nuevoMontoDevuelto = Math.max(0, facturaExistente.montoDeposito - ret);
-          nuevoMotivoRetencion = motivoRetencionDeposito?.trim() || "Daño o pérdida parcial";
-        } else if (estadoDeposito === "RETENIDO_TOTAL") {
-          nuevoEstadoDeposito = "RETENIDO_TOTAL";
-          nuevoMontoRetenido = facturaExistente.montoDeposito;
-          nuevoMontoDevuelto = 0;
-          nuevoMotivoRetencion = motivoRetencionDeposito?.trim() || "Daño total o pérdida definitiva";
-        } else if (facturaExistente.montoDeposito === 0) {
-          nuevoEstadoDeposito = "SIN_DEPOSITO";
         }
 
-        // Si sufrieron daño o se eligió EN_ARREGLO, actualizar estado a EN_ARREGLO; de lo contrario DISPONIBLE
-        const esDaniado =
-          estadoPrendasDevueltas === "EN_ARREGLO" ||
-          nuevoEstadoDeposito === "RETENIDO_PARCIAL" ||
-          nuevoEstadoDeposito === "RETENIDO_TOTAL";
-        const estadoDestino = esDaniado ? EstadoPrenda.EN_ARREGLO : EstadoPrenda.DISPONIBLE;
-
-        const productosAlquilerIds = facturaExistente.detalles
-          .filter((d) => Boolean(d.productoId) && (d.producto?.tipo === TipoProducto.ALQUILER || !d.esServicioLibre))
-          .map((d) => d.productoId as string);
-
-        if (productosAlquilerIds.length > 0) {
-          await tx.producto.updateMany({
-            where: { id: { in: productosAlquilerIds } },
-            data: {
-              estado: estadoDestino,
-              estadoPrenda: estadoDestino,
-            },
-          });
+        if (todosItemsDevueltos) {
+          fechaDevReal = new Date();
         }
       }
 
@@ -555,7 +640,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
       let nuevoEstado: EstadoFactura = facturaExistente.estado;
       if (nuevoSaldoPendiente <= 0) {
-        if (tienePrendasAlquiler && !fechaDevReal && !procesarDevolucion) {
+        if (tienePrendasAlquiler && (!todosItemsDevueltos || !fechaDevReal)) {
           nuevoEstado = EstadoFactura.ACTIVA_ALQUILADA;
         } else {
           nuevoEstado = EstadoFactura.CERRADA;

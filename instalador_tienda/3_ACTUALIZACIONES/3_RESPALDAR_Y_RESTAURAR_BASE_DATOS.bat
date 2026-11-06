@@ -4,6 +4,9 @@ title Administrador de Copias de Seguridad y Restauracion - POS Llanomio
 
 cd /d "%~dp0..\.."
 set "PROJECT_ROOT=%CD%"
+if not exist "%PROJECT_ROOT%\.tmp" mkdir "%PROJECT_ROOT%\.tmp" >nul 2>&1
+set "TEMP=%PROJECT_ROOT%\.tmp"
+set "TMP=%PROJECT_ROOT%\.tmp"
 
 :MENU_BACKUP
 color 0B

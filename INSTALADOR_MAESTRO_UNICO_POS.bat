@@ -12,6 +12,9 @@ exit /b
 :iniciar_instalador
 cd /d "%~dp0"
 set "PROJECT_ROOT=%CD%"
+if not exist "%PROJECT_ROOT%\.tmp" mkdir "%PROJECT_ROOT%\.tmp" >nul 2>&1
+set "TEMP=%PROJECT_ROOT%\.tmp"
+set "TMP=%PROJECT_ROOT%\.tmp"
 
 if exist "%PROJECT_ROOT%\package.json" goto :package_verificado
 echo [ERROR CRITICO] No se detecto package.json en: %PROJECT_ROOT%
@@ -238,6 +241,10 @@ echo [OK] Motor Node.js operativo:
 node -v
 
 :: 2. Dependencias npm
+if exist "%PROJECT_ROOT%\.next\standalone\server.js" (
+    echo [STANDALONE] Servidor autonomo Standalone detectado. Omitiendo descarga de paquetes.
+    goto :verificar_pm2_instalado
+)
 if not exist "%PROJECT_ROOT%\node_modules" goto :instalar_npm_deps
 if not exist "%PROJECT_ROOT%\node_modules\.bin\next.cmd" goto :instalar_npm_deps
 if not exist "%PROJECT_ROOT%\node_modules\.bin\prisma.cmd" goto :instalar_npm_deps

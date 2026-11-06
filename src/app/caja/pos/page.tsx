@@ -66,6 +66,9 @@ import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
+import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
+import { useMapaAtajosTeclado } from "@/hooks/useAtajoTeclado";
+import { ModalPinSupervisor } from "@/components/seguridad/ModalPinSupervisor";
 
 export interface ProductoInventario {
   id: string;
@@ -245,7 +248,7 @@ export default function PosPage() {
   }), [cajon.estado, cajon.bloqueadoParaFacturar, cajon.motivoBloqueo, cajon.turnoAbierto, cajon.turnoParaCompartir, cajon.turnosAbiertosHoy, cajon.arqueoTurno]);
 
   const turnoAbierto = cajon.cajonConectado || cajon.turnoAbierto;
-  const [usuarioSesion, setUsuarioSesion] = useState<{ nombre: string; username: string } | null>(null);
+  const [usuarioSesion, setUsuarioSesion] = useState<{ id?: string; nombre: string; username: string; rol?: string } | null>(null);
 
   // Configuración de la Empresa
   const [empresaConfig, setEmpresaConfig] = useState<any>({
@@ -308,6 +311,26 @@ export default function PosPage() {
   const [modalDocInicial, setModalDocInicial] = useState("");
   const [modalNomInicial, setModalNomInicial] = useState("");
   const searchInputClienteRef = useRef<HTMLInputElement | null>(null);
+  const searchInputProductoRef = useRef<HTMLInputElement | null>(null);
+  const inputEfectivoRef = useRef<HTMLInputElement | null>(null);
+
+  // Estados de Autorización de Supervisor Requerida
+  const [mostrarModalSupervisor, setMostrarModalSupervisor] = useState(false);
+  const [motivoSupervisor, setMotivoSupervisor] = useState("");
+  const [accionSupervisorPendiente, setAccionSupervisorPendiente] = useState<(() => void) | null>(null);
+
+  const requerirAutorizacionSupervisor = useCallback(
+    (motivo: string, accion: () => void) => {
+      if (usuarioSesion?.rol === "ADMIN") {
+        accion();
+        return;
+      }
+      setMotivoSupervisor(motivo);
+      setAccionSupervisorPendiente(() => accion);
+      setMostrarModalSupervisor(true);
+    },
+    [usuarioSesion]
+  );
 
   // =========================================================
   // VISTA 2: PRODUCTOS / ALQUILER / SERVICIOS
@@ -650,59 +673,85 @@ export default function PosPage() {
   // HANDLERS DEL CARRITO (VISTA 2)
   // =========================================================
   const agregarItemVenta = (prod: ProductoInventario) => {
+    const pBase = prod.precioVenta || prod.precioBase || 0;
     const pUnit =
       productoVentaSeleccionado?.id === prod.id && precioVentaCustom !== ""
         ? Math.max(0, Number(precioVentaCustom) || 0)
-        : prod.precioVenta || prod.precioBase || 0;
+        : pBase;
 
     const cant =
       productoVentaSeleccionado?.id === prod.id ? Math.max(1, cantidadVenta) : 1;
 
-    const nuevoItem: ItemCarrito = {
-      idTemporal: `venta-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      productoId: prod.id,
-      codigo: prod.codigo,
-      nombre: prod.nombre,
-      tipo: "VENTA",
-      esServicioLibre: false,
-      cantidad: cant,
-      precioUnitario: pUnit,
-      subtotal: cant * pUnit,
+    const ejecutar = () => {
+      const nuevoItem: ItemCarrito = {
+        idTemporal: `venta-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        productoId: prod.id,
+        codigo: prod.codigo,
+        nombre: prod.nombre,
+        tipo: "VENTA",
+        esServicioLibre: false,
+        cantidad: cant,
+        precioUnitario: pUnit,
+        subtotal: cant * pUnit,
+      };
+
+      setItemsCarrito((prev) => [nuevoItem, ...prev]);
+      setProductoVentaSeleccionado(null);
+      setCantidadVenta(1);
+      setPrecioVentaCustom("");
     };
 
-    setItemsCarrito((prev) => [nuevoItem, ...prev]);
-    setProductoVentaSeleccionado(null);
-    setCantidadVenta(1);
-    setPrecioVentaCustom("");
+    if (pUnit < pBase && pBase > 0) {
+      requerirAutorizacionSupervisor(
+        `Modificación a la baja del precio unitario en '${prod.nombre}' (De $${pBase.toLocaleString("es-CO")} a $${pUnit.toLocaleString("es-CO")}).`,
+        ejecutar
+      );
+      return;
+    }
+
+    ejecutar();
   };
 
   const agregarItemAlquiler = (prod: ProductoInventario) => {
+    const pBase = prod.precioAlquilerBase || prod.precioBase || 0;
     const pUnit =
       productoAlquilerSeleccionado?.id === prod.id && precioAlquilerCustom !== ""
         ? Math.max(0, Number(precioAlquilerCustom) || 0)
-        : prod.precioAlquilerBase || prod.precioBase || 0;
+        : pBase;
 
     const cant =
       productoAlquilerSeleccionado?.id === prod.id ? Math.max(1, cantidadAlquiler) : 1;
 
-    const nuevoItem: ItemCarrito = {
-      idTemporal: `alquiler-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      productoId: prod.id,
-      codigo: prod.codigo,
-      nombre: prod.nombre,
-      tipo: "ALQUILER",
-      esServicioLibre: false,
-      cantidad: cant,
-      precioUnitario: pUnit,
-      subtotal: cant * pUnit,
-      fechaEntrega: fechaSalidaAlquiler,
-      fechaDevolucion: fechaDevolucionAlquiler,
+    const ejecutar = () => {
+      const nuevoItem: ItemCarrito = {
+        idTemporal: `alquiler-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        productoId: prod.id,
+        codigo: prod.codigo,
+        nombre: prod.nombre,
+        tipo: "ALQUILER",
+        esServicioLibre: false,
+        cantidad: cant,
+        precioUnitario: pUnit,
+        subtotal: cant * pUnit,
+        fechaEntrega: fechaSalidaAlquiler,
+        fechaDevolucion: fechaDevolucionAlquiler,
+      };
+
+      setItemsCarrito((prev) => [nuevoItem, ...prev]);
+      setProductoAlquilerSeleccionado(null);
+      setCantidadAlquiler(1);
+      setPrecioAlquilerCustom("");
     };
 
-    setItemsCarrito((prev) => [nuevoItem, ...prev]);
-    setProductoAlquilerSeleccionado(null);
-    setCantidadAlquiler(1);
-    setPrecioAlquilerCustom("");
+    if (pUnit < pBase && pBase > 0) {
+      requerirAutorizacionSupervisor(
+        `Modificación a la baja del canon de alquiler en '${prod.nombre}' (De $${pBase.toLocaleString("es-CO")} a $${pUnit.toLocaleString("es-CO")}).`,
+        ejecutar
+      );
+      return;
+    }
+
+    ejecutar();
   };
 
   const agregarItemArreglo = () => {
@@ -1034,6 +1083,86 @@ export default function PosPage() {
     setModalReimpresionAbierto(true);
   };
 
+  // Enfoque automático según el paso activo
+  useEffect(() => {
+    if (vistaPrincipal === "NUEVA_FACTURA") {
+      const timer = setTimeout(() => {
+        if (pasoActual === 1) {
+          searchInputClienteRef.current?.focus();
+        } else if (pasoActual === 2) {
+          searchInputProductoRef.current?.focus();
+        } else if (pasoActual === 3) {
+          inputEfectivoRef.current?.focus();
+        }
+      }, 70);
+      return () => clearTimeout(timer);
+    }
+  }, [pasoActual, vistaPrincipal]);
+
+  // Lector de código de barras USB de ráfaga rápida (< 45ms)
+  useBarcodeScanner({
+    onScan: (barcode) => {
+      if (vistaPrincipal !== "NUEVA_FACTURA") return;
+      const codigoLimpio = barcode.trim().toLowerCase();
+      const producto = catalogoInventario.find(
+        (p) => p.codigo.trim().toLowerCase() === codigoLimpio
+      );
+      if (producto) {
+        if (producto.tipo === "ALQUILER") {
+          agregarItemAlquiler(producto);
+        } else {
+          agregarItemVenta(producto);
+        }
+        if (pasoActual === 1 && clienteSeleccionado) {
+          setPasoActual(2);
+        }
+      }
+    },
+    enabled: vistaPrincipal === "NUEVA_FACTURA",
+  });
+
+  // Atajos de teclado universales de mostrador
+  useMapaAtajosTeclado({
+    F2: () => {
+      safeFetchJson("/api/caja/abrir-cajon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ motivo: "Apertura rápida por atajo F2" }),
+      }).catch(() => {});
+    },
+    F4: () => {
+      if (vistaPrincipal === "NUEVA_FACTURA") {
+        if (pasoActual === 1 && clienteSeleccionado) {
+          setPasoActual(2);
+        } else if (pasoActual === 2 && itemsCarrito.length > 0) {
+          setPasoActual(3);
+        } else if (pasoActual === 3) {
+          finalizarTransaccion();
+        } else if (pasoActual === 4) {
+          finalizarYCerrarOperacion();
+        }
+      }
+    },
+    F9: () => {
+      abrirModalCrearCliente();
+    },
+    Esc: () => {
+      if (mostrarModalSupervisor) {
+        setMostrarModalSupervisor(false);
+      } else if (mostrarModalCliente) {
+        setMostrarModalCliente(false);
+      } else if (mostrarModalProducto) {
+        setMostrarModalProducto(false);
+      } else if (facturaALiquidarId) {
+        setFacturaALiquidarId(null);
+      } else if (busquedaCliente) {
+        setBusquedaCliente("");
+      } else if (busquedaVenta) {
+        setBusquedaVenta("");
+      }
+    },
+  });
+
   return (
     <div className="h-screen w-screen max-w-[100vw] max-h-[100vh] overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none">
       {/* ========================================================================= */}
@@ -1109,8 +1238,18 @@ export default function PosPage() {
             compacto={true}
           />
 
-          {/* Botón Manual de Apertura de Cajón Uniforme */}
           <BotonAbrirCajon soloIcono={true} size="md" />
+        </div>
+
+        {/* Guía visual de atajos de teclado de mostrador */}
+        <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-100/90 border border-slate-200 text-[11px] font-mono text-slate-600">
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F2</span> Cajón
+          <span className="text-slate-300">·</span>
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F4</span> Cobrar
+          <span className="text-slate-300">·</span>
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F9</span> Cliente
+          <span className="text-slate-300">·</span>
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">Esc</span> Cerrar
         </div>
 
         {/* Derecha: Botón Recargar + Historial / Moras + Alternar Nueva Factura + Limpiar */}
@@ -1999,6 +2138,7 @@ export default function PosPage() {
                           <div className="relative">
                             <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                             <input
+                              ref={searchInputProductoRef}
                               type="text"
                               placeholder="Fuzzy: código, prenda, talla, color, precio..."
                               value={busquedaVenta}
@@ -2311,6 +2451,7 @@ export default function PosPage() {
                                 <div className="relative">
                                   <span className="absolute left-3 top-2 text-slate-400 font-mono font-bold">$</span>
                                   <input
+                                    ref={inputEfectivoRef}
                                     type="number"
                                     placeholder="0"
                                     value={efectivoRecibido}
@@ -2684,6 +2825,21 @@ export default function PosPage() {
         onConectarCompartida={cajon.conectarCajaCompartida}
         onAbrirNuevoCajon={cajon.abrirNuevoCajon}
         onCerrarModal={cajon.cerrarModal}
+      />
+
+      <ModalPinSupervisor
+        abierto={mostrarModalSupervisor}
+        motivo={motivoSupervisor}
+        onCerrar={() => {
+          setMostrarModalSupervisor(false);
+          setAccionSupervisorPendiente(null);
+        }}
+        onAutorizado={() => {
+          if (accionSupervisorPendiente) {
+            accionSupervisorPendiente();
+            setAccionSupervisorPendiente(null);
+          }
+        }}
       />
 
 

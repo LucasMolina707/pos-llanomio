@@ -62,6 +62,7 @@ async function asegurarCredencialesMaestras() {
         respuestaSeguridadHash: respHash,
         intentosFallidos: 0,
         bloqueadoHasta: null,
+        requiereCambioClave: true,
       },
     });
     console.log(`[OK] Cuenta maestra '@${ADMIN_USERNAME}' creada exitosamente.`);

@@ -4349,3 +4349,77 @@ Bajo la supervisión técnica del Consejo de Agentes (Arquitecto Backend, Especi
 ### 6. Fase 5: Auditoría QA y Estado de Conformidad
 - **Informe de Auditoría N° 002:** `AUDITORIAS/AUDITORIA_Nro_002_2026-11-06_00-03-20.md` registrado en el índice general.
 - **Resultado:** 0 Críticos, 0 Importantes, 0 Mejoras. Conformidad total en las 7 dimensiones técnicas y financieras.
+
+---
+
+## SECCIÓN 72: BLINDAJE DE ROBUSTEZ COMERCIAL, ERGONOMÍA DE MOSTRADOR, RESILIENCIA SQLITE Y SEGURIDAD OPERATIVA
+
+### 1. Resumen de la Implementación
+Se implementaron 8 mejoras estructurales de nivel producción para blindar el funcionamiento del sistema 100% Offline-First en entornos comerciales locales:
+
+### 2. Bloque 1: Despliegue Standalone Sin Dependencias Externas y Aislamiento de Variables Temporales
+1. **Next.js Standalone Mode (`next.config.mjs`):**
+   - Configuración `output: 'standalone'` que genera un paquete autónomo mínimo en `.next/standalone/` conteniendo únicamente los archivos de producción requeridos.
+2. **Empaquetado y Copia de Activos (`scripts/preparar-paquete-instalador.js`):**
+   - Rutina automatizada que copia `.next/static` hacia `.next/standalone/.next/static` y `public/` hacia `.next/standalone/public/`.
+3. **Resiliencia SQLite WAL y Checkpoint en Arranque (`start-pos.js`):**
+   - Ejecución previa de `PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000; PRAGMA wal_checkpoint(PASSIVE); PRAGMA optimize;` antes de levantar el servidor.
+   - Detección automática del servidor standalone (`.next/standalone/server.js`) con fallback a `next start`.
+4. **Aislamiento `.tmp` en Scripts `.bat`:**
+   - Inyección universal de `set "TEMP=%PROJECT_ROOT%\.tmp"` y `set "TMP=%PROJECT_ROOT%\.tmp"` en todos los 23 scripts `.bat` (raíz e `instalador_tienda/**`), evitando bloqueos `EPERM` o colisiones con discos RAM (`R:\`).
+
+### 3. Bloque 2: Ergonomía de Mostrador, Lector de Código de Barras y Atajos Universales
+1. **Detector de Pistola Láser USB (`src/hooks/useBarcodeScanner.ts`):**
+   - Hook con búfer de detección rápida por ráfaga (intervalo inferior a 45 ms entre teclas consecutivas terminadas en `Enter`).
+   - Captura autónoma a nivel de ventana sin necesidad de foco manual en campos de texto.
+2. **Mapa de Atajos Universales de Teclado (`src/hooks/useAtajoTeclado.ts`):**
+   - `F2`: Apertura remota del cajón monedero mediante `POST /api/caja/abrir-cajon`.
+   - `F4`: Cobro rápido / confirmación de transacción (POS, Alquileres, Apartados).
+   - `F9`: Apertura inmediata de modal de selección o creación de cliente.
+   - `Esc`: Cierre de modales flotantes y limpieza de búsquedas activas.
+3. **Integración en Terminales de Mostrador (`/caja/pos`, `/caja/alquileres`, `/caja/apartados`):**
+   - Auto-enfoque programático inmediato en el buscador principal al cargar la vista o cambiar de paso.
+   - Badge visible en cabecera con la leyenda: `[F2] Cajón · [F4] Cobrar · [F9] Cliente · [Esc] Cerrar`.
+
+### 4. Bloque 3: Devolución Parcial por Prenda en Alquileres y Liquidación de Depósito
+1. **Evolución del Esquema Relacional (`database/schema.prisma` y `prisma/schema.prisma`):**
+   - Campos incorporados en `DetalleFactura`:
+     - `devuelto: Boolean` (predeterminado `false`).
+     - `fechaDevolucionItem: DateTime?`.
+     - `estadoDevolucionItem: String?` (`BUEN_ESTADO`, `MANCHADO`, `ROTO`, `EXTRAVIADO`).
+     - `cargoAveria: Float` (predeterminado `0.0`).
+     - `notaAveria: String?`.
+2. **Lógica de Liquidación en Backend (`src/app/api/facturas/[id]/route.ts`):**
+   - Soporte de parámetro `itemsDevolucion` en `PATCH`.
+   - Reintegración selectiva al inventario: prendas en `BUEN_ESTADO` pasan a `DISPONIBLE`, mientras que prendas con daño pasan a `EN_ARREGLO`.
+   - Descuento automático de cargos por avería directamente del depósito en garantía en custodia.
+   - La factura solo transiciona a `CERRADA` cuando todas las prendas han sido devueltas y el saldo pendiente está en cero.
+3. **Checklist Interactivo en Interfaz (`src/app/caja/alquileres/page.tsx`):**
+   - Modal de devolución con lista de prendas pendientes de retorno, selector de estado por ítem y campo para cargo por daños/lavandería.
+
+### 5. Bloque 4: Copias de Seguridad SQLite Anti-Colisiones con OneDrive y Google Drive
+1. **Timestamp con Milisegundos y Reintentos Exponenciales (`src/lib/backup.ts`):**
+   - Generación de archivos únicos con formato `pos_backup_YYYYMMDD_HHmmss_SSS.db`.
+   - Función `copiarConReintento` con hasta 5 reintentos y retroceso exponencial con jitter aleatorio para sobreponerse a bloqueos temporales `EBUSY`/`EPERM` impuestos por clientes de sincronización en la nube.
+   - Copia secundaria sincronizada hacia `database/backups_locales/llanomio_ULTIMO.db`.
+
+### 6. Bloque 5: Detección y Cambio Obligatorio de Credenciales de Fábrica
+1. **Protección en Login (`src/app/api/auth/login/route.ts`):**
+   - Detección de contraseña inicial (`admin123`) o bandera `requiereCambioClave === true`.
+   - Respuesta con indicador `requiereCambioClave: true` para activar modal de primer inicio.
+2. **Modal de Primer Inicio (`src/app/login/page.tsx`):**
+   - Formulario obligatorio para que el propietario defina su propia contraseña confidencial y sus 3 factores de recuperación local (Cédula/NIT, PIN de 6 dígitos y Pregunta/Respuesta secreta).
+3. **Endpoint de Actualización Inicial (`src/app/api/auth/cambiar-clave-inicial/route.ts`):**
+   - Encripta con `bcrypt` (10 rondas), desactiva la bandera `requiereCambioClave` y sincroniza el documento maestro `USUARIOS_Y_CREDENCIALES_MAESTRAS.md`.
+
+### 7. Bloque 6: Autorización Instantánea de Supervisor con PIN de 6 Dígitos
+1. **Componente Modular (`src/components/seguridad/ModalPinSupervisor.tsx`):**
+   - Modal flotante con teclado virtual y campo de PIN para autorizar operaciones sensibles (descuentos, modificación manual de precios hacia abajo o anulación de comprobantes).
+2. **Endpoint Seguro (`src/app/api/auth/verificar-supervisor/route.ts`):**
+   - Valida el PIN de 6 dígitos contra el hash del Administrador (`pinSeguridadHash`), registra el evento en `AuditoriaSesion` y autoriza la acción al cajero.
+
+### 8. Bloque 7: Aseguramiento de Calidad y Auditoría del Sistema
+- **Suite de Pruebas Automatizadas (`scripts/test-qa-robustez-comercial.ts`):**
+  - 22 pruebas unitarias y de integración ejecutadas: **22 PASADOS, 0 FALLIDOS**.
+- **Informe de Auditoría General N° 003 (`scripts/ejecutar-auditoria-sistema.ts`):**
+  - Resultado: 0 Críticos, 0 Importantes, 0 Mejoras. Conformidad total del 100%.

@@ -8,6 +8,9 @@ title Panel de Control Maestro - Sistema POS Llanomio
 if "%~1"=="--iniciar-silencioso" (
     cd /d "%~dp0"
     set "PROJECT_ROOT=%CD%"
+if not exist "%PROJECT_ROOT%\.tmp" mkdir "%PROJECT_ROOT%\.tmp" >nul 2>&1
+set "TEMP=%PROJECT_ROOT%\.tmp"
+set "TMP=%PROJECT_ROOT%\.tmp"
     call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\3_ABRIR_POS_PANTALLA_COMPLETA_SIN_NAVEGADOR.bat"
     exit /b 0
 )

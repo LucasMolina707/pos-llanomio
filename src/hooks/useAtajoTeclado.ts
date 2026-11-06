@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 
-export type TeclaAtajo = "F2" | "F9" | "Escape" | "Enter" | string;
+export type TeclaAtajo = "F2" | "F4" | "F9" | "Escape" | "Enter" | string;
 
 export interface OpcionesAtajo {
   habilitado?: boolean;
@@ -10,9 +10,7 @@ export interface OpcionesAtajo {
 }
 
 /**
- * Hook reutilizable para registrar atajos de teclado globales en el navegador.
- * Compatible con teclas de función (F2, F9) y combinaciones.
- * Escucha eventos 'keydown' en window de forma segura.
+ * Hook universal para registrar atajos de teclado individuales en el navegador.
  */
 export function useAtajoTeclado(
   teclaOArray: TeclaAtajo | TeclaAtajo[],
@@ -26,7 +24,10 @@ export function useAtajoTeclado(
       if (!habilitado) return;
 
       const teclas = Array.isArray(teclaOArray) ? teclaOArray : [teclaOArray];
-      const coincide = teclas.some((t) => t.toLowerCase() === e.key.toLowerCase());
+      const coincide = teclas.some((t) => {
+        if (t.toLowerCase() === "esc" && e.key.toLowerCase() === "escape") return true;
+        return t.toLowerCase() === e.key.toLowerCase();
+      });
 
       if (coincide) {
         if (prevenirPorDefecto) {
@@ -45,5 +46,33 @@ export function useAtajoTeclado(
   }, [manejador, habilitado]);
 }
 
-export default useAtajoTeclado;
+/**
+ * Hook para registrar un mapa completo de atajos en una sola llamada (ej. { F2: abrirCajon, F4: cobrar, F9: cliente, Escape: cancelar }).
+ */
+export function useMapaAtajosTeclado(
+  mapaAtajos: Record<string, (e: KeyboardEvent) => void>,
+  habilitado = true
+) {
+  useEffect(() => {
+    if (!habilitado) return;
 
+    const handler = (e: KeyboardEvent) => {
+      for (const [tecla, callback] of Object.entries(mapaAtajos)) {
+        const esMatch =
+          tecla.toLowerCase() === e.key.toLowerCase() ||
+          (tecla.toLowerCase() === "esc" && e.key.toLowerCase() === "escape");
+
+        if (esMatch) {
+          e.preventDefault();
+          callback(e);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [mapaAtajos, habilitado]);
+}
+
+export default useAtajoTeclado;

@@ -7,6 +7,9 @@ title Arranque Automatico de Servicios - POS Llanomio
 :: ===============================================================================
 cd /d "%~dp0..\.."
 set "PROJECT_ROOT=%CD%"
+if not exist "%PROJECT_ROOT%\.tmp" mkdir "%PROJECT_ROOT%\.tmp" >nul 2>&1
+set "TEMP=%PROJECT_ROOT%\.tmp"
+set "TMP=%PROJECT_ROOT%\.tmp"
 
 :: Asegurar Node.js y npm en el PATH del entorno actual
 if exist "%PROJECT_ROOT%\runtime\node\node.exe" (

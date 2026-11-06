@@ -103,6 +103,7 @@ model User {
   respuestaSeguridadHash String?      // Hash bcrypt de la respuesta en minúsculas sin acentos
   intentosFallidos       Int          @default(0) // Contador de intentos fallidos de recuperación
   bloqueadoHasta         DateTime?    // Bloqueo temporal por exceso de intentos fallidos
+  requiereCambioClave    Boolean      @default(false) // Obliga al usuario a cambiar contraseña en primer login
   
   fechaCreacion      DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
@@ -293,6 +294,14 @@ model DetalleFactura {
   cantidad             Int       @default(1)
   precioUnitario   Float     @default(0)
   subtotal         Float     @default(0)
+  
+  // Control de Devolución Parcial y Averías / Daños por Prenda Individual
+  devuelto             Boolean   @default(false)
+  fechaDevolucionItem  DateTime?
+  estadoDevolucionItem String?   // BUEN_ESTADO | AVERIA_LAVANDERIA | PENDIENTE
+  cargoAveria          Float     @default(0)
+  notaAveria           String?
+
   fechaCreacion    DateTime  @default(now())
 
   @@index([facturaId])

@@ -29,7 +29,41 @@ export interface ResultadoRestauracion {
 }
 
 /**
- * Obtiene la fecha y hora actual en formato YYYYMMDD_HHmmss (hora local de Colombia/servidor).
+ * Copia segura con reintentos para evitar colisiones EBUSY/EPERM con OneDrive o Google Drive
+ */
+async function copiarConReintento(
+  origen: string,
+  destino: string,
+  maxIntentos = 3,
+  esperaMs = 800
+): Promise<boolean> {
+  for (let intento = 1; intento <= maxIntentos; intento++) {
+    try {
+      if (fs.existsSync(destino)) {
+        try {
+          fs.unlinkSync(destino);
+        } catch {
+          // Continuar e intentar sobrescritura directa
+        }
+      }
+      fs.copyFileSync(origen, destino);
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (intento === maxIntentos) {
+        console.warn(
+          `[BACKUP NUBE AVISO] Archivo '${path.basename(destino)}' retenido temporalmente por sincronizador cloud (OneDrive/Drive). El respaldo fechado unico permanece 100% seguro: ${msg}`
+        );
+        return false;
+      }
+      await new Promise((resolve) => setTimeout(resolve, esperaMs));
+    }
+  }
+  return false;
+}
+
+/**
+ * Obtiene la fecha y hora actual en formato YYYYMMDD_HHmmss_SSS (con precisión a milisegundos).
  */
 export function obtenerTimestamp(): string {
   const ahora = new Date();
@@ -39,7 +73,8 @@ export function obtenerTimestamp(): string {
   const horas = String(ahora.getHours()).padStart(2, "0");
   const minutos = String(ahora.getMinutes()).padStart(2, "0");
   const segundos = String(ahora.getSeconds()).padStart(2, "0");
-  return `${anio}${mes}${dia}_${horas}${minutos}${segundos}`;
+  const ms = String(ahora.getMilliseconds()).padStart(3, "0");
+  return `${anio}${mes}${dia}_${horas}${minutos}${segundos}_${ms}`;
 }
 
 /**
@@ -403,21 +438,13 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
     }
 
     // 6. Actualizar copia local maestra llanomio_ULTIMO.db en database/backups_locales
-    try {
-      if (fs.existsSync(rutaLocalUltimo)) {
-        fs.unlinkSync(rutaLocalUltimo);
-      }
-      fs.copyFileSync(rutaDestinoInicial, rutaLocalUltimo);
-    } catch {}
+    await copiarConReintento(rutaDestinoInicial, rutaLocalUltimo);
 
     // 7. Replicar a la bóveda local C:\POS_BACKUPS (llanomio_ULTIMO.db, pos_ULTIMO.db y subcarpeta historial)
     try {
       if (fs.existsSync(carpetaPrincipal)) {
-        if (fs.existsSync(rutaUltimo)) fs.unlinkSync(rutaUltimo);
-        fs.copyFileSync(rutaDestinoInicial, rutaUltimo);
-
-        if (fs.existsSync(rutaUltimoCompat)) fs.unlinkSync(rutaUltimoCompat);
-        fs.copyFileSync(rutaDestinoInicial, rutaUltimoCompat);
+        await copiarConReintento(rutaDestinoInicial, rutaUltimo);
+        await copiarConReintento(rutaDestinoInicial, rutaUltimoCompat);
 
         if (fs.existsSync(carpetaHistorial)) {
           fs.copyFileSync(rutaDestinoInicial, rutaHistorial);
@@ -438,11 +465,8 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
           fs.mkdirSync(carpetaNubeHistorial, { recursive: true });
         }
 
-        if (fs.existsSync(rutaNubeUltimo)) fs.unlinkSync(rutaNubeUltimo);
-        fs.copyFileSync(rutaDestinoInicial, rutaNubeUltimo);
-
-        if (fs.existsSync(rutaNubeUltimoCompat)) fs.unlinkSync(rutaNubeUltimoCompat);
-        fs.copyFileSync(rutaDestinoInicial, rutaNubeUltimoCompat);
+        await copiarConReintento(rutaDestinoInicial, rutaNubeUltimo);
+        await copiarConReintento(rutaDestinoInicial, rutaNubeUltimoCompat);
 
         fs.copyFileSync(rutaDestinoInicial, path.join(carpetaNubeHistorial, nombreArchivo));
 

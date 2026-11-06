@@ -106,10 +106,14 @@ export async function POST(req: NextRequest) {
     });
 
     // 5. Preparar respuesta con cookie HttpOnly segura
+    const esClaveFabrica = user.username.toLowerCase() === "admin" && String(password) === "admin123";
+    const requiereCambio = Boolean(user.requiereCambioClave || esClaveFabrica);
+
     const destinoRedireccion = user.rol === "ADMIN" ? "/" : "/caja/pos";
     const respuesta = NextResponse.json({
       ok: true,
       mensaje: "Inicio de sesión exitoso",
+      requiereCambioClave: requiereCambio,
       user: {
         id: user.id,
         username: user.username,

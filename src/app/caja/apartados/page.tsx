@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -56,6 +56,8 @@ import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
 import { calcularFechaDevolucionAlquiler, obtenerDescripcionReglaDevolucion } from "@/lib/fechas-alquiler";
+import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
+import { useMapaAtajosTeclado } from "@/hooks/useAtajoTeclado";
 
 // ---------------------------------------------------------------------------
 // Tipos e Interfaces
@@ -175,6 +177,11 @@ export default function ApartadosPage() {
   const [busquedaCliente, setBusquedaCliente] = useState("");
   const [mostrarModalCrearCliente, setMostrarModalCrearCliente] = useState(false);
   const [cargandoClientes, setCargandoClientes] = useState(false);
+
+  // Referencias para auto-foco inmediato
+  const inputBuscarClienteRef = useRef<HTMLInputElement | null>(null);
+  const inputBuscarProductoRef = useRef<HTMLInputElement | null>(null);
+  const inputEfectivoRef = useRef<HTMLInputElement | null>(null);
 
   // Paso 2: Catálogo de productos e ítems libres
   const [productos, setProductos] = useState<ProductoCatalogo[]>([]);
@@ -684,6 +691,78 @@ export default function ApartadosPage() {
 
   const apartadosHistorialPaginados = useMemo(() => apartadosHistorialFiltrados.slice(0, 48), [apartadosHistorialFiltrados]);
 
+  // Enfoque automático según el paso de apartados
+  useEffect(() => {
+    if (pestaña === "NUEVO") {
+      const timer = setTimeout(() => {
+        if (paso === 1) {
+          inputBuscarClienteRef.current?.focus();
+        } else if (paso === 2) {
+          inputBuscarProductoRef.current?.focus();
+        } else if (paso === 3) {
+          inputEfectivoRef.current?.focus();
+        }
+      }, 70);
+      return () => clearTimeout(timer);
+    }
+  }, [paso, pestaña]);
+
+  // Lector de código de barras USB (< 45ms) para apartados
+  useBarcodeScanner({
+    onScan: (barcode) => {
+      if (pestaña !== "NUEVO") return;
+      const codigoLimpio = barcode.trim().toLowerCase();
+      const producto = productos.find((p) => p.codigo.trim().toLowerCase() === codigoLimpio);
+      if (producto) {
+        agregarProductoDesdeCatalogo(producto);
+        if (paso === 1 && clienteSeleccionado) {
+          setPaso(2);
+        }
+      }
+    },
+    enabled: pestaña === "NUEVO",
+  });
+
+  // Atajos de teclado universales de mostrador
+  useMapaAtajosTeclado({
+    F2: () => {
+      safeFetchJson("/api/caja/abrir-cajon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ motivo: "Apertura rápida por atajo F2" }),
+      }).catch(() => {});
+    },
+    F4: () => {
+      if (pestaña === "NUEVO") {
+        if (paso === 1 && clienteSeleccionado) {
+          setPaso(2);
+        } else if (paso === 2 && itemsApartado.length > 0) {
+          setPaso(3);
+        } else if (paso === 3) {
+          procesarGuardadoApartado();
+        } else if (paso === 4) {
+          reiniciarOperacionLimpia();
+        }
+      }
+    },
+    F9: () => {
+      setMostrarModalCrearCliente(true);
+    },
+    Esc: () => {
+      if (mostrarModalCrearCliente) {
+        setMostrarModalCrearCliente(false);
+      } else if (mostrarModalCajon) {
+        setMostrarModalCajon(false);
+      } else if (apartadoParaAbonar) {
+        setApartadoParaAbonar(null);
+      } else if (busquedaCliente) {
+        setBusquedaCliente("");
+      } else if (busquedaProducto) {
+        setBusquedaProducto("");
+      }
+    },
+  });
+
   return (
     <div className="h-screen w-screen max-w-[100vw] max-h-[100vh] overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none antialiased font-sans">
       {/* ========================================================================= */}
@@ -728,7 +807,7 @@ export default function ApartadosPage() {
             />
             <IconButtonTooltip
               icon={Shirt}
-              label="Ir a Sistema de Alquileres"
+              label="Ir a Terminal de Alquileres"
               modulo="Mostrador"
               destino="Ruta: /caja/alquileres"
               href="/caja/alquileres"
@@ -737,9 +816,9 @@ export default function ApartadosPage() {
             />
             <IconButtonTooltip
               icon={CalendarClock}
-              label="Terminal Actual: Sistema de Apartados y Reservas"
+              label="Terminal Actual: Sistema de Apartados"
               modulo="Mostrador"
-              destino="Control de reservas y planes separe"
+              destino="Reservas y abonos en mostrador"
               href="/caja/apartados"
               variant="indigo"
               active={true}
@@ -761,6 +840,17 @@ export default function ApartadosPage() {
           />
 
           <BotonAbrirCajon soloIcono={true} size="md" />
+        </div>
+
+        {/* Guía visual de atajos de teclado de mostrador */}
+        <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-100/90 border border-slate-200 text-[11px] font-mono text-slate-600">
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F2</span> Cajón
+          <span className="text-slate-300">·</span>
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F4</span> Cobrar
+          <span className="text-slate-300">·</span>
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F9</span> Cliente
+          <span className="text-slate-300">·</span>
+          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">Esc</span> Cerrar
         </div>
 
         {/* Derecha: Herramientas de Operación */}
@@ -1003,6 +1093,7 @@ export default function ApartadosPage() {
                     <div className="relative">
                       <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
+                        ref={inputBuscarClienteRef}
                         type="text"
                         placeholder="Buscar cliente por nombre, cédula o celular..."
                         value={busquedaCliente}
@@ -1158,6 +1249,7 @@ export default function ApartadosPage() {
                     <div className="relative">
                       <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                       <input
+                        ref={inputBuscarProductoRef}
                         type="text"
                         placeholder="Buscar en catálogo de prendas por nombre o código..."
                         value={busquedaProducto}
@@ -1269,6 +1361,7 @@ export default function ApartadosPage() {
                           </span>
                         </div>
                         <input
+                          ref={inputEfectivoRef}
                           type="number"
                           value={abonoInicialInput}
                           onChange={(e) => {
