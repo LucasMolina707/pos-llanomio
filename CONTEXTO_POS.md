@@ -4479,3 +4479,71 @@ Bajo las directrices del Consejo Técnico Principal (Ciberseguridad, Sesiones Ba
 - **Compilación de Producción:**
   - `npx tsc --noEmit` completado con **0 errores de TypeScript**.
   - `npm run build` completado exitosamente generando el paquete Standalone con las 23 rutas del sistema.
+
+
+---
+
+## SECCIÓN 73: EJECUCIÓN DEL PLAN DE AUDITORÍA INTEGRAL — RESOLUCIÓN DE COMPILACIÓN, STANDALONE SPLIT-BRAIN, LANZADORES Y UI/UX
+
+### 1. Resumen de la Intervención Maestra
+Se ejecutaron de principio a fin las 4 fases del Plan de Acción derivado del Informe de Auditoría Técnica Integral, garantizando estabilidad absoluta, resiliencia de datos, ergonomía de mostrador y cero ruidos visuales o de compilación:
+
+### 2. Fase 1: Corrección de Sintaxis TypeScript y Hooks
+1. **Endpoint `POST /api/auth/login` (`src/app/api/auth/login/route.ts`):**
+   - Unificación de la lectura del cuerpo: `const { username, password, deviceId, forzarCierreRemoto, pinSupervisor } = body;`.
+   - Cierre correcto del bloque de reinicio de intentos fallidos `if (user.intentosFallidos > 0 || user.bloqueadoHasta)`.
+   - Soporte para parámetro `forzarCierreRemoto: true` que invalida la sesión remota previa y permite el acceso inmediato ante sesiones huérfanas.
+   - Eliminación de propiedades duplicadas en auditoría (`detalles`) y en la respuesta JSON (`requiereCambioClave`).
+2. **Endpoint `POST /api/auth/logout` (`src/app/api/auth/logout/route.ts`):**
+   - Estructuración limpia y defensiva del bloque `try/catch` para el respaldo en caliente distinguiendo peticiones estándar frente a eventos de baliza (`beacon=1`).
+   - Eliminación de propiedades duplicadas (`detalles`, `mensaje`).
+3. **Hook de Pistola Láser (`src/hooks/useBarcodeScanner.ts`):**
+   - Corrección del condicional en `useEffect` y en el arreglo de dependencias evaluando la variable normalizada `activo` en lugar de `habilitado`.
+4. **Sembrado Neutro (`database/seed.ts`):**
+   - Eliminación de la duplicación de `requiereCambioClave`, fijándolo en `false` por defecto.
+5. **Verificación Estática:**
+   - `npx tsc --noEmit` completado con **0 errores de TypeScript**.
+
+### 3. Fase 2: Erradicación del Riesgo Split-Brain SQLite y Advertencias NFT
+1. **Ruta Canónica de Base de Datos (`start-pos.js` y `src/lib/prisma.ts`):**
+   - Inyección de ruta absoluta dinámica: `process.env.DATABASE_URL = "file:" + path.resolve(__dirname, "database", "llanomio.db")`.
+   - Garantiza que cualquier proceso (PM2, scripts o servidor standalone) opere sobre el mismo archivo SQLite.
+   - Ejecución de PRAGMAs con `$queryRawUnsafe` para consultas que retornan valores.
+2. **Empaquetado y Sincronización (`scripts/preparar-paquete-instalador.js`):**
+   - Sincronización automática de `database/llanomio.db` hacia `.next/standalone/database/llanomio.db`, asegurando que ambos archivos presenten exactamente el mismo checksum MD5 tras la preparación.
+3. **Resolución Dinámica de Bóveda de Respaldos (`src/lib/backup.ts` y `src/app/api/backup/route.ts`):**
+   - Implementación de `obtenerDirectorioRespaldos()`, eliminando rutas literales absolutas `"C:\\POS_BACKUPS"`.
+   - Eliminación total de advertencias `ENOENT` en Node File Trace (NFT) durante `npm run build`.
+
+### 4. Fase 3: Limpieza de Lanzadores .bat y Menú General
+1. **Directorio `instalador_tienda/2_INICIADORES_Y_ACTIVADORES/`:**
+   - Eliminación definitiva de los 4 scripts heredados redundantes (`1_LEVANTAR_O_REINICIAR_SERVIDOR.bat`, `2_FINALIZAR_Y_DETENER_SERVIDOR.bat`, `3_ABRIR_POS_PANTALLA_COMPLETA_SIN_NAVEGADOR.bat` y `4_ESTADO_Y_DIAGNOSTICO_SERVIDOR.bat`).
+   - Consolidación del esquema moderno numerado del 1 al 5 con accesos directos e iconos `.ico`.
+2. **Panel de Control Maestro (`CONTROL_GENERAL_POS.bat`):**
+   - Actualización de los enlaces del menú para invocar los scripts modernos correspondientes (Opciones 1, 2, 3, 8 y 9).
+   - Inyección de `PM2_HOME=%PROJECT_ROOT%\.pm2` para aislar el daemon de PM2 dentro del espacio del proyecto sin requerir acceso a directorios de usuario del sistema.
+3. **Script de Rescate (`RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat`):**
+   - Inclusión de variable `PM2_HOME` local en la rutina de inicio.
+4. **Limpieza de Archivos Residuales:**
+   - Eliminación de `scripts/test-qa-robustez-comercial.ts` (0 bytes).
+
+### 5. Fase 4: Pulido Visual y Desbloqueo Rápido de Sesiones
+1. **Componente Universal `IconButtonTooltip` (`src/components/ui/IconButtonTooltip.tsx`):**
+   - Eliminación del atributo nativo `title={title || label}` en `<Link>` y `<button>`.
+   - Erradicación del doble tooltip: se mantiene la accesibilidad con `aria-label={label}` y el renderizado estético mediante React Portal.
+2. **Tarjeta de Asistencia de Sesión Activa (`src/app/login/page.tsx`):**
+   - Despliegue de tarjeta interactiva en tono ámbar ante respuestas HTTP 409 (`sesionBloqueada: true`).
+   - Inclusión del botón directo `"Liberar Sesión Anterior e Ingresar Aquí"`, que reintenta la autenticación con `forzarCierreRemoto: true` para desbloquear inmediatamente al operador en mostrador.
+
+### 6. Control de Calidad y Resultados de Auditoría
+- **Pruebas en Vivo de Sesiones (`test-qa-sesiones-en-vivo`):**
+  - Prueba 1 (Login directo admin/admin123): `200 OK`, cookie emitida, sin solicitud de datos privados.
+  - Prueba 2 (Concurrencia desde segundo dispositivo): `409 Conflict`, `sesionBloqueada: true`.
+  - Prueba 3 (Liberación forzada remota): `200 OK`, sesión anterior invalidada.
+  - Prueba 4 (Logout y respaldo triple espejo): `200 OK`, cuenta liberada.
+  - Prueba 5 (Estado en SQLite): `sesionActivaToken: null` y `sesionDispositivoId: null`.
+- **Auditoría Integral QA #004 (`AUDITORIA_Nro_004_2026-11-06_13-52-22.md`):**
+  - Hallazgos Críticos: **0**
+  - Hallazgos Importantes: **0**
+  - Hallazgos Menores / Mejoras: **0**
+  - Conformidad total en las 7 dimensiones del sistema.

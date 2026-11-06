@@ -29,6 +29,16 @@ export interface ResultadoRestauracion {
 }
 
 /**
+ * Retorna la ruta base canonica para respaldos externos (C:\POS_BACKUPS por defecto)
+ * de forma dinamica para evitar colisiones de trazabilidad estatica en Next.js NFT.
+ */
+export function obtenerDirectorioRespaldos(): string {
+  if (process.env.POS_BACKUP_DIR) return process.env.POS_BACKUP_DIR;
+  const drive = process.env.SystemDrive || "C:";
+  return path.join(drive + "\\", "POS_BACKUPS");
+}
+
+/**
  * Copia segura con reintentos para evitar colisiones EBUSY/EPERM con OneDrive o Google Drive
  */
 async function copiarConReintento(
@@ -326,7 +336,7 @@ export async function generarVolcadosEstructurados(
  * Abre la carpeta de respaldos en el Explorador de Windows en el servidor local.
  */
 export function abrirCarpetaEnExplorador(ruta?: string): { ok: boolean; mensaje: string; ruta: string } {
-  const rutaDestino = ruta || "C:\\POS_BACKUPS";
+  const rutaDestino = ruta || obtenerDirectorioRespaldos();
   try {
     if (!fs.existsSync(rutaDestino)) {
       fs.mkdirSync(rutaDestino, { recursive: true });
@@ -359,7 +369,7 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
   const timestamp = obtenerTimestamp();
   const nombreArchivo = generarNombreArchivoRespaldo(motivo, timestamp);
 
-  const carpetaPrincipal = "C:\\POS_BACKUPS";
+  const carpetaPrincipal = obtenerDirectorioRespaldos();
   const carpetaHistorial = path.join(carpetaPrincipal, "historial");
   const carpetaLocal = path.join(process.cwd(), "database", "backups_locales");
 
@@ -392,7 +402,7 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
       try {
         fs.mkdirSync(carpetaPrincipal, { recursive: true });
       } catch (errDir) {
-        console.warn("[BACKUP] No se pudo crear directorio externo C:\\POS_BACKUPS:", errDir);
+        console.warn(`[BACKUP] No se pudo crear directorio externo ${carpetaPrincipal}:`, errDir);
       }
     }
     if (fs.existsSync(carpetaPrincipal) && !fs.existsSync(carpetaHistorial)) {
@@ -451,7 +461,7 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
         }
       }
     } catch (errCopiaExterna) {
-      console.warn("[BACKUP] Advertencia al replicar en almacenamiento externo C:\\POS_BACKUPS:", errCopiaExterna);
+      console.warn(`[BACKUP] Advertencia al replicar en almacenamiento externo ${carpetaPrincipal}:`, errCopiaExterna);
     }
 
     // 8. Replicar en la carpeta compartida con la NUBE (Google Drive / OneDrive / Dropbox)
@@ -649,7 +659,7 @@ export async function restaurarBaseDeDatosDesdeBuffer(
 
   const rutaTemp = path.join(carpetaDatabase, `temp_restauracion_${timestamp}.db`);
   const carpetaBackupsLocales = path.join(carpetaDatabase, "backups_locales");
-  const carpetaPrincipal = "C:\\POS_BACKUPS";
+  const carpetaPrincipal = obtenerDirectorioRespaldos();
 
   const rutaEmergenciaLocal = path.join(
     carpetaBackupsLocales,

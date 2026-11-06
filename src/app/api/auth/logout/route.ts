@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { obtenerSesionDesdeRequest, NOMBRE_COOKIE_SESION, OPCIONES_COOKIE_SESION } from "@/lib/auth";
 import { ejecutarRespaldoEnCaliente, ResultadoRespaldo } from "@/lib/backup";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   let resultadoRespaldo: ResultadoRespaldo | null = null;
   const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
@@ -47,17 +49,15 @@ export async function POST(req: NextRequest) {
 
     // 2. Disparar el respaldo en caliente SQLite (VACUUM INTO) hacia C:\POS_BACKUPS
     // Try/catch robusto: un fallo en el disco secundario NUNCA debe bloquear el logout del cajero
-    if (!esBeacon) {
-      try {
-        const motivo = `LOGOUT_${sesion?.username || "DESCONOCIDO"}`;
+    try {
+      const motivo = `${esBeacon ? "BEACON" : "LOGOUT"}_${sesion?.username || "DESCONOCIDO"}`;
+      if (!esBeacon) {
         resultadoRespaldo = await ejecutarRespaldoEnCaliente(motivo);
-      } catch (errBackup) {
-        console.error("[RESPALDO LOGOUT] Fallo al ejecutar respaldo durante logout:", errBackup);
+      } else {
+        ejecutarRespaldoEnCaliente(motivo).catch(() => {});
       }
-    } else {
-      // Si fue por cierre de pestaña/navegador (sendBeacon), ejecutar en segundo plano sin bloquear
-      const motivo = `BEACON_${sesion?.username || "DESCONOCIDO"}`;
-      ejecutarRespaldoEnCaliente(motivo).catch(() => {});
+    } catch (errBackup) {
+      console.error("[LOGOUT_BACKUP_WARN]:", errBackup);
     }
 
     // 3. Preparar la respuesta y limpiar la cookie de sesión
@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
     const errorMensaje = error instanceof Error ? error.message : "Error inesperado al cerrar sesión";
     console.error("[ERROR GENERAL LOGOUT]", errorMensaje);
 
+    // Incluso si algo inesperado falla, garantizar que la cookie se elimine
     const respuestaEmergencia = NextResponse.json(
       {
         ok: true,

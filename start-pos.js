@@ -31,16 +31,29 @@ if (!fs.existsSync(localTmp)) fs.mkdirSync(localTmp, { recursive: true });
 process.env.TEMP = localTmp;
 process.env.TMP = localTmp;
 
+// Resolucion canonica y unificacion de SQLite para evitar Split-Brain entre root y standalone
+const dbFileName = (process.env.DATABASE_URL || envConfig.DATABASE_URL || "file:./llanomio.db")
+  .replace(/^file:(\.\/)?(database\/)?/, "");
+const canonicalDbPath = path.resolve(__dirname, "database", dbFileName);
+process.env.DATABASE_URL = `file:${canonicalDbPath}`;
+console.log(`[SQLITE] Base de datos canonica unificada: ${canonicalDbPath}`);
+
 // 1. Rutina de resiliencia SQLite ante cortes de energia (WAL Checkpoint pasivo y optimizacion)
 async function ejecutarRecuperacionSQLite() {
   try {
     const { PrismaClient } = require("@prisma/client");
-    const prisma = new PrismaClient();
-    await prisma.$executeRawUnsafe("PRAGMA journal_mode = WAL;");
-    await prisma.$executeRawUnsafe("PRAGMA synchronous = NORMAL;");
-    await prisma.$executeRawUnsafe("PRAGMA busy_timeout = 5000;");
-    await prisma.$executeRawUnsafe("PRAGMA wal_checkpoint(PASSIVE);");
-    await prisma.$executeRawUnsafe("PRAGMA optimize;");
+    const prisma = new PrismaClient({
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL,
+        },
+      },
+    });
+    await prisma.$queryRawUnsafe("PRAGMA journal_mode = WAL;");
+    await prisma.$queryRawUnsafe("PRAGMA synchronous = NORMAL;");
+    await prisma.$queryRawUnsafe("PRAGMA busy_timeout = 5000;");
+    await prisma.$queryRawUnsafe("PRAGMA wal_checkpoint(PASSIVE);");
+    await prisma.$queryRawUnsafe("PRAGMA optimize;");
     await prisma.$disconnect();
     console.log("[SQLITE] Resiliencia WAL y optimizacion completada con exito.");
   } catch (errDb) {

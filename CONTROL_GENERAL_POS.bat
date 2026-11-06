@@ -11,7 +11,12 @@ if "%~1"=="--iniciar-silencioso" (
 if not exist "%PROJECT_ROOT%\.tmp" mkdir "%PROJECT_ROOT%\.tmp" >nul 2>&1
 set "TEMP=%PROJECT_ROOT%\.tmp"
 set "TMP=%PROJECT_ROOT%\.tmp"
-    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\3_ABRIR_POS_PANTALLA_COMPLETA_SIN_NAVEGADOR.bat"
+if not exist "%PROJECT_ROOT%\.pm2" mkdir "%PROJECT_ROOT%\.pm2" >nul 2>&1
+set "PM2_HOME=%PROJECT_ROOT%\.pm2"
+if not exist "%PROJECT_ROOT%\.tmp" mkdir "%PROJECT_ROOT%\.tmp" >nul 2>&1
+set "TEMP=%PROJECT_ROOT%\.tmp"
+set "TMP=%PROJECT_ROOT%\.tmp"
+    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\5_ABRIR_POS_PANTALLA_COMPLETA.bat"
     exit /b 0
 )
 
@@ -28,6 +33,11 @@ if "%~1" NEQ "--persistente" (
 :: -------------------------------------------------------------------------------
 cd /d "%~dp0"
 set "PROJECT_ROOT=%CD%"
+if not exist "%PROJECT_ROOT%\.tmp" mkdir "%PROJECT_ROOT%\.tmp" >nul 2>&1
+set "TEMP=%PROJECT_ROOT%\.tmp"
+set "TMP=%PROJECT_ROOT%\.tmp"
+if not exist "%PROJECT_ROOT%\.pm2" mkdir "%PROJECT_ROOT%\.pm2" >nul 2>&1
+set "PM2_HOME=%PROJECT_ROOT%\.pm2"
 
 :MENU_MAESTRO
 color 0B
@@ -57,33 +67,34 @@ echo   - Red LAN:        http://!LOCAL_DOMAIN!:!PORT!/login
 echo   - Instancia:      !INSTANCE_ID!
 echo.
 echo [0] Instalacion y Despliegue Maestro desde Cero (Node.js, BD, Autoarranque)
-echo [1] Iniciar / Levantar Servidor POS (Abre Navegador Web)
-echo [2] Abrir POS en Modo Aplicacion Nativa (Pantalla Completa sin Navegador)
-echo [3] Diagnostico de Red, Puertos y Base de Datos en Tiempo Real
+echo [1] Iniciar / Levantar Servidor POS (1_INICIALIZAR_SITIO_POS)
+echo [2] Abrir Terminal POS Pantalla Completa (5_ABRIR_POS_PANTALLA_COMPLETA)
+echo [3] Reiniciar Sitio POS y Optimizar Velocidad (3_REINICIAR_SITIO_RAPIDO_POS)
 echo [4] Reconfigurar Puertos TCP y Dominio Local de Red
 echo [5] Copias de Seguridad y Restauracion de Base de Datos
 echo [6] Aplicar Actualizacion Segura (Parche .ZIP o GitHub)
 echo [7] Monitoreo y Servicio Zabbix Agent 2
-echo [8] Detener Todos los Procesos y Liberar Recursos
-echo [9] Salir
+echo [8] Detener y Pausar Servidor POS (2_DETENER_PAUSAR_SERVIDOR_POS)
+echo [9] Activar Inicio Automatico con Windows (4_ACTIVAR_INICIO_AUTOMATICO_PC)
+echo [X] Salir
 echo ===============================================================================
 echo.
-set /p OPC_MAE=">> Seleccione una opcion [0-9]: "
+set /p OPC_MAE=">> Seleccione una opcion [0-9 o X]: "
 
 if "%OPC_MAE%"=="0" (
     call "%PROJECT_ROOT%\INSTALADOR_MAESTRO_UNICO_POS.bat"
     goto :MENU_MAESTRO
 )
 if "%OPC_MAE%"=="1" (
-    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\1_LEVANTAR_O_REINICIAR_SERVIDOR.bat"
+    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\1_INICIALIZAR_SITIO_POS.bat"
     goto :MENU_MAESTRO
 )
 if "%OPC_MAE%"=="2" (
-    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\3_ABRIR_POS_PANTALLA_COMPLETA_SIN_NAVEGADOR.bat"
+    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\5_ABRIR_POS_PANTALLA_COMPLETA.bat"
     goto :MENU_MAESTRO
 )
 if "%OPC_MAE%"=="3" (
-    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\4_ESTADO_Y_DIAGNOSTICO_SERVIDOR.bat"
+    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\3_REINICIAR_SITIO_RAPIDO_POS.bat"
     goto :MENU_MAESTRO
 )
 if "%OPC_MAE%"=="4" (
@@ -103,10 +114,14 @@ if "%OPC_MAE%"=="7" (
     goto :MENU_MAESTRO
 )
 if "%OPC_MAE%"=="8" (
-    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\2_FINALIZAR_Y_DETENER_SERVIDOR.bat"
+    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\2_DETENER_PAUSAR_SERVIDOR_POS.bat"
     goto :MENU_MAESTRO
 )
-if "%OPC_MAE%"=="9" exit /b 0
+if "%OPC_MAE%"=="9" (
+    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\4_ACTIVAR_INICIO_AUTOMATICO_PC.bat"
+    goto :MENU_MAESTRO
+)
+if /i "%OPC_MAE%"=="X" exit /b 0
 
 echo.
 echo [ERROR] Opcion no valida. Seleccione un numero del 0 al 9.

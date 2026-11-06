@@ -177,6 +177,15 @@ if (fs.existsSync(dirNext) && fs.existsSync(path.join(dirNext, "BUILD_ID"))) {
       fs.cpSync(srcPublic, dstPublic, { recursive: true, force: true });
       console.log("      [OK] public/ copiado a .next/standalone/public.");
     }
+
+    // Sincronizar base de datos de fabrica saneada en standalone para evitar Split-Brain
+    const srcDb = path.join(PROJECT_ROOT, "database", "llanomio.db");
+    const dstDbDir = path.join(dirStandalone, "database");
+    if (fs.existsSync(srcDb)) {
+      if (!fs.existsSync(dstDbDir)) fs.mkdirSync(dstDbDir, { recursive: true });
+      fs.copyFileSync(srcDb, path.join(dstDbDir, "llanomio.db"));
+      console.log("      [OK] database/llanomio.db sincronizado en .next/standalone/database/llanomio.db.");
+    }
   }
 } else {
   console.warn("      [ATENCION] No se detecto un build de produccion valido en .next.");
@@ -187,14 +196,15 @@ if (fs.existsSync(dirNext) && fs.existsSync(path.join(dirNext, "BUILD_ID"))) {
 console.log("\n[6/6] Verificando scripts lanzadores y manuales...");
 const archivosCriticos = [
   "CONTROL_GENERAL_POS.bat",
-  "ABRIR_POS_PANTALLA_COMPLETA.bat",
+  "ABRIR_SISTEMA_PANTALLA_COMPLETA.bat",
   "instalador_tienda/1_INSTALACIONES/1_INSTALADOR_MAESTRO_DESDE_CERO.bat",
   "instalador_tienda/1_INSTALACIONES/2_CONFIGURAR_PUERTOS_Y_DOMINIO.bat",
   "instalador_tienda/1_INSTALACIONES/3_PREPARAR_LIMPIEZA_FABRICA_PARA_EXE.bat",
-  "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/1_LEVANTAR_O_REINICIAR_SERVIDOR.bat",
-  "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/2_FINALIZAR_Y_DETENER_SERVIDOR.bat",
-  "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/3_ABRIR_POS_PANTALLA_COMPLETA_SIN_NAVEGADOR.bat",
-  "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/4_ESTADO_Y_DIAGNOSTICO_SERVIDOR.bat",
+  "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/1_INICIALIZAR_SITIO_POS.bat",
+  "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/2_DETENER_PAUSAR_SERVIDOR_POS.bat",
+  "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/3_REINICIAR_SITIO_RAPIDO_POS.bat",
+  "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/4_ACTIVAR_INICIO_AUTOMATICO_PC.bat",
+  "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/5_ABRIR_POS_PANTALLA_COMPLETA.bat",
   "instalador_tienda/3_ACTUALIZACIONES/1_GENERAR_PARCHE_ACTUALIZACION_DEV.bat",
   "instalador_tienda/3_ACTUALIZACIONES/2_APLICAR_ACTUALIZACION_CLIENTE_SEGURO.bat",
   "instalador_tienda/3_ACTUALIZACIONES/3_RESPALDAR_Y_RESTAURAR_BASE_DATOS.bat",

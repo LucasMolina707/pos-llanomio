@@ -28,7 +28,9 @@ export async function GET(req: NextRequest) {
       searchParams.get("info") === "true" ||
       searchParams.get("metadata") === "true";
 
-    const carpetaPrincipal = "C:\\POS_BACKUPS";
+    const drive = process.env.SystemDrive || "C:";
+    const carpetaPrincipal =
+      process.env.POS_BACKUP_DIR || path.join(drive + "\\", "POS_BACKUPS");
     const carpetaHistorial = path.join(carpetaPrincipal, "historial");
     const carpetaLocal = path.join(process.cwd(), "database", "backups_locales");
 

@@ -16,6 +16,8 @@ import {
   CreditCard,
   HelpCircle,
   Hash,
+  ShieldAlert,
+  LogOut,
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 
@@ -28,6 +30,12 @@ export default function LoginPage() {
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sesionBloqueadaInfo, setSesionBloqueadaInfo] = useState<{
+    bloqueada: boolean;
+    ipActiva: string | null;
+    mensaje: string;
+  } | null>(null);
+  const [liberandoRemoto, setLiberandoRemoto] = useState(false);
 
   // Estados del modal de recuperación de 3 factores
   const [modalRecuperarAbierto, setModalRecuperarAbierto] = useState(false);
@@ -61,6 +69,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSesionBloqueadaInfo(null);
     setCargando(true);
 
     try {
@@ -77,6 +86,16 @@ export default function LoginPage() {
 
       const data = await res.json();
 
+      if (res.status === 409 && data.sesionBloqueada) {
+        setSesionBloqueadaInfo({
+          bloqueada: true,
+          ipActiva: data.ipActiva || null,
+          mensaje: data.error || "Esta cuenta ya tiene una sesión abierta y activa en otro equipo.",
+        });
+        setCargando(false);
+        return;
+      }
+
       if (!res.ok || !data.ok) {
         setError(data.error || "Credenciales incorrectas.");
         setCargando(false);
@@ -91,6 +110,42 @@ export default function LoginPage() {
     } catch {
       setError("Error de conexión con el servidor local.");
       setCargando(false);
+    }
+  };
+
+  const handleLiberarSesionAnterior = async () => {
+    setLiberandoRemoto(true);
+    setError(null);
+
+    try {
+      const deviceId = obtenerDeviceId();
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: username.trim(),
+          password,
+          deviceId,
+          forzarCierreRemoto: true,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        setError(data.error || "No se pudo liberar la sesión remota.");
+        setLiberandoRemoto(false);
+        return;
+      }
+
+      setSesionBloqueadaInfo(null);
+      const destino = data.redirectTo || "/";
+      router.push(destino);
+      router.refresh();
+    } catch {
+      setError("Error de conexión al forzar la liberación de sesión.");
+    } finally {
+      setLiberandoRemoto(false);
     }
   };
 
@@ -225,6 +280,48 @@ export default function LoginPage() {
             <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start space-x-2.5 text-rose-800 text-xs sm:text-sm font-semibold">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* Tarjeta de Conflicto de Sesion Activa en Otro Dispositivo */}
+          {sesionBloqueadaInfo && (
+            <div className="mb-5 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs sm:text-sm">
+              <div className="flex items-start space-x-2.5 mb-2.5">
+                <ShieldAlert className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-amber-900 leading-snug">
+                    Sesión Única Activa en Otro Dispositivo
+                  </h4>
+                  <p className="text-amber-800 text-xs mt-1 leading-relaxed">
+                    {sesionBloqueadaInfo.mensaje}
+                    {sesionBloqueadaInfo.ipActiva && (
+                      <span className="block mt-0.5 text-amber-900 font-semibold">
+                        Dirección IP activa: {sesionBloqueadaInfo.ipActiva}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 mt-3 pt-2.5 border-t border-amber-200/80">
+                <button
+                  type="button"
+                  disabled={liberandoRemoto}
+                  onClick={handleLiberarSesionAnterior}
+                  className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>
+                    {liberandoRemoto ? "Liberando cuenta..." : "Liberar Sesión Anterior e Ingresar Aquí"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSesionBloqueadaInfo(null)}
+                  className="px-3 py-2.5 rounded-xl bg-white hover:bg-amber-100/80 text-amber-900 font-medium text-xs border border-amber-300 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           )}
 

@@ -24,6 +24,8 @@ set "PROJECT_ROOT=%CD%"
 if not exist "%PROJECT_ROOT%\.tmp" mkdir "%PROJECT_ROOT%\.tmp" >nul 2>&1
 set "TEMP=%PROJECT_ROOT%\.tmp"
 set "TMP=%PROJECT_ROOT%\.tmp"
+if not exist "%PROJECT_ROOT%\.pm2" mkdir "%PROJECT_ROOT%\.pm2" >nul 2>&1
+set "PM2_HOME=%PROJECT_ROOT%\.pm2"
 
 color 0A
 if "%MODO_SILENCIOSO%"=="0" (

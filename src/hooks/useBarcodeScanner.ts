@@ -72,16 +72,16 @@ export function useBarcodeScanner({
         }
       }
     },
-    [habilitado, maxIntervaloMs, longitudMinima]
+    [activo, maxIntervaloMs, longitudMinima]
   );
 
   useEffect(() => {
-    if (!habilitado) return;
+    if (!activo) return;
     window.addEventListener("keydown", handleKeyDown, true);
     return () => {
       window.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [handleKeyDown, habilitado]);
+  }, [handleKeyDown, activo]);
 }
 
 export default useBarcodeScanner;

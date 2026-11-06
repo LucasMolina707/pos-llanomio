@@ -8,10 +8,12 @@ import {
   TIEMPO_EXPIRACION_INACTIVIDAD_MS,
 } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { username, password, deviceId } = body;
+    const { username, password, deviceId, forzarCierreRemoto, pinSupervisor } = body;
 
     if (!username || !password) {
       return NextResponse.json(
@@ -65,6 +67,7 @@ export async function POST(req: NextRequest) {
     const passwordValida = await bcrypt.compare(String(password), user.passwordHash);
 
     if (!passwordValida) {
+      // Registrar intento fallido en auditoría
       await prisma.auditoriaSesion.create({
         data: {
           userId: user.id,
@@ -79,6 +82,14 @@ export async function POST(req: NextRequest) {
         { ok: false, error: "Credenciales de acceso incorrectas." },
         { status: 401 }
       );
+    }
+
+    // Si tenía intentos fallidos o bloqueo vencido, resetear a cero
+    if (user.intentosFallidos > 0 || user.bloqueadoHasta) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { intentosFallidos: 0, bloqueadoHasta: null },
+      });
     }
 
     // 3. Regla de Sesión Única Activa por Usuario en Red Local (1 Cuenta = 1 Dispositivo a la vez)
@@ -97,16 +108,46 @@ export async function POST(req: NextRequest) {
       deviceId && user.sesionDispositivoId && user.sesionDispositivoId === deviceId
     );
 
-    // Si la sesión sigue activa en OTRO equipo diferente, rechazar con HTTP 409
+    // Si la sesión sigue activa en OTRO equipo diferente
     if (sesionSigueActiva && !esMismoDispositivo) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `No se puede iniciar sesión porque esta cuenta (@${user.username}) ya está abierta y activa en otro equipo o dispositivo. Cierre la sesión en el otro equipo primero o espere a que quede inactiva.`,
-          sesionBloqueada: true,
-        },
-        { status: 409 }
-      );
+      if (forzarCierreRemoto === true) {
+        // Si se envió pinSupervisor, verificar autorización adicional si se requiere
+        if (pinSupervisor && user.rol !== "ADMIN") {
+          const supervisor = await prisma.user.findFirst({
+            where: { rol: "ADMIN", activo: true },
+          });
+          if (supervisor && supervisor.pinSeguridadHash) {
+            const pinValido = await bcrypt.compare(String(pinSupervisor), supervisor.pinSeguridadHash);
+            if (!pinValido) {
+              return NextResponse.json(
+                { ok: false, error: "PIN de supervisor incorrecto para autorizar la liberación remota." },
+                { status: 403 }
+              );
+            }
+          }
+        }
+
+        // Registrar auditoría de liberación forzada
+        await prisma.auditoriaSesion.create({
+          data: {
+            userId: user.id,
+            accion: "LIBERACION_FORZADA",
+            detalles: `Sesión previa en IP ${user.sesionIp || "desconocida"} liberada forzosamente desde nuevo dispositivo (${deviceId || "web"})`,
+            ip,
+            userAgent,
+          },
+        });
+      } else {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `Esta cuenta (@${user.username}) ya tiene una sesión abierta y activa en otro equipo de la red local.`,
+            sesionBloqueada: true,
+            ipActiva: user.sesionIp || null,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // 4. Generar nuevo identificador único de sesión y actualizar estado en SQLite

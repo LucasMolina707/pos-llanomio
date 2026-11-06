@@ -245,7 +245,6 @@ export default function IconButtonTooltip({
           onBlur={ocultar}
           onTouchStart={handleTouchStart}
           aria-label={label}
-          title={title || label}
           className={sharedClasses}
         >
           {innerContent}
@@ -272,7 +271,6 @@ export default function IconButtonTooltip({
         onBlur={ocultar}
         onTouchStart={handleTouchStart}
         aria-label={label}
-        title={title || label}
         className={sharedClasses}
       >
         {innerContent}
