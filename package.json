@@ -25,7 +25,8 @@
     "generar:instalador-portable": "node scripts/empaquetar-instalador-zip-tar.js",
     "generar:iconos": "node scripts/generar-iconos-control.js",
     "generar:parche": "node scripts/generar-parche-actualizacion.js",
-    "actualizar:sistema": "node scripts/aplicar-actualizacion-segura.js"
+    "actualizar:sistema": "node scripts/aplicar-actualizacion-segura.js",
+    "build:instalador-exe": "node scripts/construir-instalador-grafico-exe.js"
   },
   "prisma": {
     "schema": "database/schema.prisma",

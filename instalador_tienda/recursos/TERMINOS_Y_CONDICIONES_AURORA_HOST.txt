@@ -1,0 +1,88 @@
+================================================================================
+           TÉRMINOS Y CONDICIONES DE LICENCIA Y USO DE SOFTWARE
+                           AURORA HOST POS
+================================================================================
+Versión Oficial de Producción 2026 - Licencia Comercial Local (Offline-First)
+Empresa Titular: AURORA HOST - Soluciones de Infraestructura & Software POS
+
+POR FAVOR, LEA DETENIDAMENTE ESTE CONTRATO DE LICENCIA DE SOFTWARE ANTES DE
+PROCEDER CON LA INSTALACIÓN. AL MARCAR LA CASILLA "HE LEÍDO Y ACEPTO LOS TÉRMINOS
+Y CONDICIONES" Y CONTINUAR CON EL ASISTENTE, USTED (EL "LICENCIATARIO") ACEPTA
+QUEDAR VINCULADO LEGALMENTE POR LAS DISPOSICIONES AQUÍ ESTABLECIDAS.
+
+--------------------------------------------------------------------------------
+1. OTORGAMIENTO DE LA LICENCIA
+--------------------------------------------------------------------------------
+Aurora Host concede al Licenciatario una licencia de uso de software comercial,
+no exclusiva, perpetua e intransferible, para la instalación y ejecución local
+del sistema "Aurora Host POS" en los equipos informáticos pertenecientes al
+establecimiento de comercio o sucursal autorizada.
+
+--------------------------------------------------------------------------------
+2. ARQUITECTURA 100% OFFLINE-FIRST Y PRIVACIDAD TOTAL DE DATOS
+--------------------------------------------------------------------------------
+2.1. El software opera bajo una filosofía estricta "Offline-First". Todas las
+     operaciones comerciales, catálogos de inventario, registro de clientes,
+     alquileres, facturación, arqueos de caja y auditorías residen de forma
+     exclusiva en el motor de base de datos local SQLite (database/llanomio.db).
+2.2. Aurora Host NO recopila, transmite, vende ni almacena información privada,
+     financiera, de ventas o de identidad de los clientes del establecimiento en
+     servidores externos o en la nube sin consentimiento expreso y configurado
+     por el propio Licenciatario.
+2.3. Las funciones de red local (mDNS Bonjour, red Wi-Fi y sincronización entre
+     terminales) operan estrictamente en la Red de Área Local (LAN) del negocio.
+
+--------------------------------------------------------------------------------
+3. PROTOCOLO DE SEGURIDAD, ROLES Y CONTROL DE ACCESO
+--------------------------------------------------------------------------------
+3.1. El sistema incorpora un modelo estricto de Control de Acceso Basado en
+     Roles (RBAC) con permisos diferenciados para Administradores y Cajeros.
+3.2. La cuenta principal de Administrador cuenta con un protocolo criptográfico
+     de restauración de 3 factores locales (Documento de Identidad registrado,
+     PIN numérico confidencial de 6 dígitos y Respuesta Secreta hasheados con
+     algoritmos seguros bcrypt).
+3.3. El Licenciatario es el único responsable de la custodia confidencial de las
+     contraseñas y credenciales asignadas a su personal operativo.
+
+--------------------------------------------------------------------------------
+4. POLÍTICA Y RESPONSABILIDAD SOBRE RESPALDOS (BACKUPS)
+--------------------------------------------------------------------------------
+4.1. El sistema integra un motor de respaldo atómico en caliente (VACUUM INTO)
+     que genera duplicados íntegros de la base de datos sin interrumpir las
+     ventas activas.
+4.2. Por diseño estándar, los respaldos se almacenan automáticamente en la
+     carpeta local "C:\POS_BACKUPS" en cada cierre de turno, arqueo o logout.
+4.3. Es responsabilidad exclusiva del Licenciatario mantener copias externas de
+     dicha carpeta en memorias USB, discos duros secundarios o carpetas de
+     sincronización en la nube (Google Drive, OneDrive o Dropbox). Aurora Host
+     no se hace responsable por pérdidas fortuitas de información derivadas de
+     fallas físicas de hardware, cortes abruptos de suministro eléctrico sin UPS
+     o formateo indebido del computador anfitrión.
+
+--------------------------------------------------------------------------------
+5. INTEGRIDAD Y PROPIEDAD INTELECTUAL
+--------------------------------------------------------------------------------
+5.1. Todos los derechos de propiedad intelectual, código fuente, componentes
+     visuales, algoritmos de facturación y marcas registradas asociadas a
+     Aurora Host pertenecen a la empresa titular.
+5.2. Queda prohibida la ingeniería inversa, descompilación, redistribución no
+     autorizada, sublicenciamiento o comercialización de este software a terceros
+     sin la previa autorización por escrito de Aurora Host.
+
+--------------------------------------------------------------------------------
+6. ACTUALIZACIONES SEGURAS Y MANTENIMIENTO
+--------------------------------------------------------------------------------
+6.1. Las actualizaciones oficiales de Aurora Host se distribuyen mediante
+     paquetes firmados y parches diferenciales acumulativos que respetan y
+     conservan intacta la base de datos comercial existente.
+6.2. Todo proceso de actualización ejecuta una salvaguarda previa antes de
+     reemplazar binarios de la aplicación.
+
+--------------------------------------------------------------------------------
+7. SOPORTE TÉCNICO Y ACEPTACIÓN
+--------------------------------------------------------------------------------
+Al hacer clic en "Siguiente" o "Instalar Ahora", usted declara que ha leído,
+entendido y aceptado íntegramente los presentes Términos y Condiciones de
+Licencia de Aurora Host POS.
+================================================================================
+

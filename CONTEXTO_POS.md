@@ -4547,3 +4547,43 @@ Se ejecutaron de principio a fin las 4 fases del Plan de Acción derivado del In
   - Hallazgos Importantes: **0**
   - Hallazgos Menores / Mejoras: **0**
   - Conformidad total en las 7 dimensiones del sistema.
+
+---
+
+## SECCIÓN 74: INSTALADOR GRÁFICO AUTODESCOMPRIMIBLE .EXE AUTÓNOMO — AURORA HOST POS SETUP (WINFORMS .NET + CSC.EXE + INNO SETUP)
+
+### 1. Visión y Propósito de Empaquetado
+Se implementó un empaquetador y generador de instalador gráfico autónomo `.EXE` para Windows bajo la marca corporativa **Aurora Host** (`dist_instalador/Aurora_Host_POS_Setup.exe`), eliminando cualquier dependencia de herramientas externas propietarias no instaladas. El instalador compila nativamente en cualquier máquina Windows utilizando el compilador C# del sistema (`C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe`) e incrusta el archivo ZIP del sistema de producción como recurso interno (`payload.zip`).
+
+### 2. Arquitectura del Asistente Gráfico de Instalación (4 Pantallas)
+El asistente interactivo fue programado en Windows Forms (`System.Windows.Forms`) con diseño moderno, tipografía Segoe UI, colores corporativos (Slate 900, Slate 700, Blue 600, Indigo 500) y ejecución en segundo plano (`BackgroundWorker`):
+1. **Pantalla 1 - Bienvenida y Términos Legales:** Presenta el contrato de licencia y términos comerciales oficiales de **Aurora Host** (`instalador_tienda/recursos/TERMINOS_Y_CONDICIONES_AURORA_HOST.txt`), con casilla obligatoria de aceptación para habilitar el avance.
+2. **Pantalla 2 - Selección de Directorio de Destino:** Ruta predeterminada `C:\Aurora_Host_POS` con selector visual de carpetas (`FolderBrowserDialog`), verificación de permisos y cálculo de espacio libre en disco.
+3. **Pantalla 3 - Extracción en Vivo y Configuración de Sistema:**
+   - Descompresión del recurso incrustado `payload.zip` archivo por archivo con barra de progreso porcentual y reporte en tiempo real.
+   - Creación de carpetas operativas esenciales: `C:\POS_BACKUPS`, `C:\POS_BACKUPS\historial`, `.tmp` y `.pm2`.
+   - Inyección de reglas de red en Windows Defender Firewall para TCP (puerto 3000) y UDP (puerto 5353 mDNS).
+   - Generación de la botonera oficial de accesos directos en el Escritorio con iconos `.ico` de alta resolución.
+4. **Pantalla 4 - Finalización Exitosa y Lanzamiento:**
+   - Resumen de los 5 accesos directos creados en el Escritorio.
+   - Opciones para arrancar el servidor PM2 en segundo plano e invocar inmediatamente la terminal de mostrador en pantalla completa (`5_ABRIR_POS_PANTALLA_COMPLETA.bat`).
+
+### 3. Componentes y Archivos Creados
+1. **Documento Legal de Términos:** `instalador_tienda/recursos/TERMINOS_Y_CONDICIONES_AURORA_HOST.txt` con cláusulas de uso offline, respaldo de base de datos SQLite y licenciamiento local.
+2. **Constructor Maestro de Empaquetado:** `scripts/construir-instalador-grafico-exe.js`, orquesta:
+   - Sincronización de base de datos pura de fábrica (`reset-db-fabrica.js`, credenciales `admin`/`admin123`).
+   - Sincronización de recursos estáticos en `.next/standalone`.
+   - Compresión recursiva del payload en `dist_instalador/payload_aurora_host.zip`.
+   - Generación del manifiesto UAC `app.manifest` con `requireAdministrator`.
+   - Compilación con `csc.exe` mediante archivo de opciones `.rsp`.
+3. **Script Inno Setup 6 (Respaldo Corporativo):** `instalador_tienda/1_INSTALACIONES/Aurora_Host_Setup.iss` configurado para compilar con `ISCC.exe` cuando esté disponible.
+4. **Generador de Accesos Directos:** `scripts/crear-accesos-escritorio.js` actualizado para recibir la ruta de instalación como argumento y generar la botonera corporativa **Aurora Host** con sus 5 iconos `.ico` asignados.
+5. **Script npm:** `"build:instalador-exe": "node scripts/construir-instalador-grafico-exe.js"` en `package.json`.
+
+### 4. Certificación Técnica del Ejecutable
+- **Ruta del Archivo:** `dist_instalador/Aurora_Host_POS_Setup.exe`
+- **Tamaño:** 42.75 MB (44,821,504 bytes)
+- **Cabecera PE:** MZ válida (Windows Portable Executable, Win32 / x64)
+- **Privilegios:** UAC Administrator requerido para Firewall y accesos globales
+- **Icono Oficial:** `instalador_tienda/recursos/llanomio.ico` incrustado
+

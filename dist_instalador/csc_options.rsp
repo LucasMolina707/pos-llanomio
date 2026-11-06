@@ -1,0 +1,9 @@
+/nologo
+/t:winexe
+/optimize+
+/out:"D:\Proyectos IA\pos-llanomio\dist_instalador\Aurora_Host_POS_Setup.exe"
+/win32icon:"D:\Proyectos IA\pos-llanomio\instalador_tienda\recursos\llanomio.ico"
+/win32manifest:"D:\Proyectos IA\pos-llanomio\dist_instalador\app.manifest"
+/resource:"D:\Proyectos IA\pos-llanomio\dist_instalador\payload_aurora_host.zip",payload.zip
+/reference:System.dll,System.Windows.Forms.dll,System.Drawing.dll,System.IO.Compression.dll,System.IO.Compression.FileSystem.dll,Microsoft.CSharp.dll
+"D:\Proyectos IA\pos-llanomio\dist_instalador\AuroraHostInstaller.cs"
