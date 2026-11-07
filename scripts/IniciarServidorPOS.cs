@@ -144,7 +144,8 @@ namespace AuroraHost.POS
                 {
                     ProcessStartInfo psi = new ProcessStartInfo();
                     psi.FileName = browserExe;
-                    psi.Arguments = "--app=" + url + " --start-fullscreen --disable-pinch --overscroll-history-navigation=0";
+                    // Modo aplicación nativa maximizada respetando la barra de tareas de Windows
+                    psi.Arguments = "--app=" + url + " --start-maximized --disable-pinch --overscroll-history-navigation=0";
                     psi.UseShellExecute = true;
                     Process.Start(psi);
                 }
@@ -161,3 +162,4 @@ namespace AuroraHost.POS
         }
     }
 }
+
