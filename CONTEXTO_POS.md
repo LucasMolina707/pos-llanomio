@@ -4625,4 +4625,45 @@ Para mejorar la experiencia en terminales de mostrador configuradas en pantalla 
 - **Paquetes Portables:** `INSTALADOR_POS_PORTABLE.zip` (44.51 MB) y `INSTALADOR_POS_PORTABLE.tar.gz` (43.28 MB) actualizados en `dist_instalador/`.
 - **Servidor Local PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` activos y operando en línea.
 
+---
+
+## SECCIÓN 76: HOMOLOGACIÓN 1:1 DE CABECERAS, STEPPER Y COLORIMETRÍA EXCLUSIVA EN LAS 3 TERMINALES DE CAJA
+
+### 1. Visión y Propósito Técnico
+Se completó la homologación visual, geométrica y funcional 1:1 en las tres terminales de mostrador (`/caja/pos`, `/caja/alquileres` y `/caja/apartados`), garantizando:
+- Misma arquitectura fija `100vw x 100vh` con franja superior ergonómica de `h-14` y barra stepper secuencial de `h-11`.
+- Mismo orden y distribución de herramientas operativas cuadradas uniformes (`w-9 h-9 rounded-xl`).
+- Título Propio visible en la parte superior e identidad cromática semántica exclusiva por cada módulo de atención.
+
+### 2. Matriz de Identidad Visual y Colorimetría por Ventana
+| Módulo | Ruta | Título Superior Visible | Badge | Color Principal Exclusivo | Variantes de Acento |
+|---|---|---|---|---|---|
+| **Ventas y Sastrería** | `/caja/pos` | `"CAJA DE VENTAS Y SASTRERÍA"` | `VENTAS POS` | **VERDE** (`emerald-600`) | Borde `border-emerald-300`, fondo suave `bg-emerald-50`, texto `text-emerald-900` |
+| **Alquileres y Depósitos** | `/caja/alquileres` | `"CAJA DE ALQUILERES Y DEPÓSITOS"` | `ALQUILERES` | **NARANJA** (`orange-600`) | Borde `border-orange-300`, fondo suave `bg-orange-50`, texto `text-orange-900` |
+| **Apartados y Reservas** | `/caja/apartados` | `"CAJA DE APARTADOS Y RESERVAS"` | `APARTADOS` | **MORADO AZULADO** (`indigo-600`) | Borde `border-indigo-300`, fondo suave `bg-indigo-50`, texto `text-indigo-900` |
+
+### 3. Componentes Creados y Modificados
+1. **`src/components/ui/IconButtonTooltip.tsx`:**
+   - Incorporación de soporte nativo para las variantes `orange` (`bg-orange-600 hover:bg-orange-700 text-white border-orange-700`) y `orangeSoft` (`bg-orange-50 hover:bg-orange-100 text-orange-800 border-orange-300`).
+2. **`src/components/caja/HeaderMostradorUnificado.tsx`:**
+   - Componente maestro unificado que renderiza la Franja Superior `h-14` con borde superior temático `border-t-4`, botón de regreso, logo, título con icono de módulo, conmutador de 3 terminales, estado en vivo del cajón sincronizado y botonera derecha uniforme.
+   - Componente `<StepperMostradorUnificado />` que renderiza la barra lineal compacta `h-11` con los 4 pasos secuenciales y la guía rápida de atajos de teclado (`F2`, `F4`, `F9`, `Esc`).
+3. **`src/app/caja/pos/page.tsx`:**
+   - Integración de `<HeaderMostradorUnificado modulo="VENTAS" />` y `<StepperMostradorUnificado modulo="VENTAS" />`.
+   - Homologación de acentos en tarjetas de selección de clientes, catálogo de prendas, botones de liquidación y totales hacia verde esmeralda (`emerald-600`).
+4. **`src/app/caja/alquileres/page.tsx`:**
+   - Integración de `<HeaderMostradorUnificado modulo="ALQUILERES" />` y `<StepperMostradorUnificado modulo="ALQUILERES" />`.
+   - Homologación de acentos en clientes, selector de trajes, liquidación de depósitos, checkboxes y botones hacia naranja cálido (`orange-600`).
+5. **`src/app/caja/apartados/page.tsx`:**
+   - Integración de `<HeaderMostradorUnificado modulo="APARTADOS" />` y `<StepperMostradorUnificado modulo="APARTADOS" />`.
+   - Homologación integral en color morado índigo (`indigo-600`).
+
+### 4. Ciclo de Auditoría, Compilación y Empaquetado
+- **TypeScript QA:** `npx tsc --noEmit` completado con 0 errores en todos los módulos.
+- **Build de Producción:** `npm run build` ejecutado exitosamente con empaquetado Next.js 15 Standalone.
+- **Instalador Oficial:** `dist_instalador/Aurora_Host_POS_Setup.exe` (42.49 MB) regenerado con cabecera PE válida (MZ) y base de datos limpia de fábrica.
+- **Paquetes Portables:** `INSTALADOR_POS_PORTABLE.zip` y `.tar.gz` sincronizados.
+- **Servidor PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` operativos en puerto 3000.
+
+
 
