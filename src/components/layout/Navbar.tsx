@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
 import TarjetaConexionLAN from "@/components/red/TarjetaConexionLAN";
 
 interface NavbarProps {
@@ -219,6 +220,9 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
           size="md"
           variant="neutral"
         />
+
+        {/* Minimizar Ventana */}
+        <BotonMinimizarVentana size="md" />
 
         {/* Perfil del Usuario y Cierre de Sesión */}
         {usuario ? (

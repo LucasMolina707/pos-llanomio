@@ -44,7 +44,8 @@ export async function middleware(req: NextRequest) {
     pathname === "/login" ||
     pathname.startsWith("/api/auth/login") ||
     pathname.startsWith("/api/auth/recuperar") ||
-    pathname.startsWith("/api/empresa/publico");
+    pathname.startsWith("/api/empresa/publico") ||
+    pathname.startsWith("/api/sistema/ventana");
 
   const token = req.cookies.get(NOMBRE_COOKIE_SESION)?.value;
   let sesionValida: { userId: string; username: string; rol: string } | null = null;

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import PlantillaImpresion from "@/components/impresion/PlantillaImpresion";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
+import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
 
 interface ImpresionPageProps {
   params: Promise<{
@@ -69,6 +70,7 @@ export default async function ImpresionFacturaPage({ params }: ImpresionPageProp
           >
             <span>Historial Facturas</span>
           </Link>
+          <BotonMinimizarVentana size="md" />
         </div>
       </header>
 

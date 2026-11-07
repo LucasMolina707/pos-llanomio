@@ -18,6 +18,7 @@ import {
   Scissors,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
 import {
   descargarPdfMediaCarta,
   abrirPdfMediaCarta,
@@ -2075,6 +2076,9 @@ export default function PlantillaImpresion({
 
           {/* Botón Abrir Cajón Monedero */}
           <BotonAbrirCajon soloIcono={true} size="md" />
+
+          {/* Botón Minimizar Ventana */}
+          <BotonMinimizarVentana size="md" />
 
           {onCerrar && (
             <IconButtonTooltip

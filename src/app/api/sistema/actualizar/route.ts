@@ -77,7 +77,7 @@ export async function GET() {
     parchesDisponibles.sort((a, b) => (a.fechaModificacion < b.fechaModificacion ? 1 : -1));
 
     // Consultar salvaguardas en C:\POS_BACKUPS\salvaguarda_pre_actualizacion
-    const dirSalvaguarda = path.join("C:\\POS_BACKUPS", "salvaguarda_pre_actualizacion");
+    const dirSalvaguarda = path.join(process.env.SystemDrive || "C:", "POS_BACKUPS", "salvaguarda_pre_actualizacion");
     const salvaguardasPrevias: SalvaguardaInfo[] = [];
 
     if (fs.existsSync(dirSalvaguarda)) {

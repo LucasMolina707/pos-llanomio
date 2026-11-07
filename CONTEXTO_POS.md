@@ -4582,8 +4582,47 @@ El asistente interactivo fue programado en Windows Forms (`System.Windows.Forms`
 
 ### 4. Certificación Técnica del Ejecutable
 - **Ruta del Archivo:** `dist_instalador/Aurora_Host_POS_Setup.exe`
-- **Tamaño:** 42.75 MB (44,821,504 bytes)
+- **Tamaño:** 42.59 MB (44,657,664 bytes)
 - **Cabecera PE:** MZ válida (Windows Portable Executable, Win32 / x64)
 - **Privilegios:** UAC Administrator requerido para Firewall y accesos globales
 - **Icono Oficial:** `instalador_tienda/recursos/llanomio.ico` incrustado
+
+---
+
+## SECCIÓN 75: BOTÓN UNIVERSAL DE MINIMIZAR VENTANA (API WIN32 SHOWWINDOWASYNC SW_MINIMIZE) Y RECOMPILACIÓN DEL INSTALADOR AURORA HOST
+
+### 1. Visión y Propósito Técnico
+Para mejorar la experiencia en terminales de mostrador configuradas en pantalla completa (modo quiosco `--app` / `--start-fullscreen`), donde el navegador no expone controles de ventana convencionales, se incorporó un mecanismo híbrido para minimizar la aplicación directamente hacia la barra de tareas de Windows sin requerir barras de título secundarias que reduzcan el espacio vertical de la interfaz.
+
+### 2. Implementación de la Solución Híbrida Win32
+1. **Endpoint de Control de Ventana (`src/app/api/sistema/ventana/route.ts`):**
+   - Invocación silenciosa (`windowsHide: true`) de la API nativa de Windows `user32.dll` mediante PowerShell:
+     - `GetForegroundWindow()`: Obtiene el identificador HWND de la ventana activa en primer plano.
+     - `ShowWindowAsync(hwnd, 6)`: Aplica el comando `SW_MINIMIZE (6)` para replegar la ventana en la barra de tareas.
+   - Respuesta JSON estandarizada `{ ok: true, mensaje: "Ventana minimizada en la barra de tareas" }`.
+2. **Componente Reutilizable `<BotonMinimizarVentana />` (`src/components/ui/BotonMinimizarVentana.tsx`):**
+   - Construido sobre `<IconButtonTooltip />` preservando el diseño cuadrado uniforme (`w-9 h-9 rounded-xl`).
+   - Icono vectorial `Minimize2` de `lucide-react`.
+   - Tooltip informativo flotante: *"Minimizar Ventana"* / *"Envía la pantalla a la barra de tareas de Windows"*.
+   - Rutina de salida de pantalla completa previa (`document.exitFullscreen()`) para compatibilidad entre navegadores antes de enviar la señal Win32.
+3. **Excepción de Seguridad en Middleware (`src/middleware.ts`):**
+   - Inclusión de `/api/sistema/ventana` dentro de las rutas públicas exentas de autenticación para permitir el repliegue de la ventana incluso desde la pantalla de inicio de sesión (`/login`).
+
+### 3. Cobertura en Todas las Vistas del Sistema (100% Pantallas)
+- **Panel Administrativo y Subpáginas (`src/components/layout/Navbar.tsx`):** Cubre `/`, `/admin/dashboard`, `/admin/caja`, `/admin/inventario`, `/admin/clientes`, `/admin/monitoreo`, `/admin/gastos`, `/admin/usuarios` y `/admin/configuracion`.
+- **Terminales de Mostrador a Pantalla Completa:**
+  - `src/app/caja/pos/page.tsx`: Barra superior fija `h-14` junto al botón de cerrar sesión.
+  - `src/app/caja/alquileres/page.tsx`: Barra superior fija `h-14` junto al botón de cerrar sesión.
+  - `src/app/caja/apartados/page.tsx`: Barra superior fija `h-14` junto al botón de cerrar sesión.
+- **Visor de Comprobantes e Impresión:**
+  - `src/components/impresion/PlantillaImpresion.tsx`: Barra de acciones junto al botón de cierre.
+  - `src/app/impresion/[id]/page.tsx`: Barra superior junto a los enlaces rápidos.
+- **Pantalla de Inicio de Sesión (`src/app/login/page.tsx`):** Botón flotante discreto en esquina superior derecha (`fixed top-4 right-4 z-50`).
+
+### 4. Ciclo de Empaquetado y Certificación
+- **Compilación de Producción:** `npm run build` completado exitosamente con 0 errores TypeScript y 0 advertencias NFT.
+- **Instalador Gráfico Regenerado:** `dist_instalador/Aurora_Host_POS_Setup.exe` (42.59 MB) con payload actualizado y cabecera PE MZ válida.
+- **Paquetes Portables:** `INSTALADOR_POS_PORTABLE.zip` (44.51 MB) y `INSTALADOR_POS_PORTABLE.tar.gz` (43.28 MB) actualizados en `dist_instalador/`.
+- **Servidor Local PM2:** Procesos `pos-llanomio` y `pos-llanomio-mdns` activos y operando en línea.
+
 

@@ -47,6 +47,7 @@ import {
   LogOut,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import PlantillaImpresion from "@/components/impresion/PlantillaImpresion";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
@@ -913,6 +914,8 @@ export default function ApartadosPage() {
             size="md"
             onClick={reiniciarOperacionLimpia}
           />
+
+          <BotonMinimizarVentana size="md" />
 
           <IconButtonTooltip
             icon={LogOut}

@@ -55,6 +55,7 @@ import {
   LogOut,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import ModalProducto, { ProductoData } from "@/components/inventario/ModalProducto";
 import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
@@ -1322,6 +1323,8 @@ export default function PosPage() {
               }
             }}
           />
+
+          <BotonMinimizarVentana size="md" />
 
           <IconButtonTooltip
             icon={LogOut}
