@@ -4627,6 +4627,39 @@ Para mejorar la experiencia en terminales de mostrador configuradas en pantalla 
 
 ---
 
+## SECCIÓN 77: EJECUTABLES NATIVOS .EXE PARA INICIAR Y DETENER EL SERVIDOR POS (MODO ADMINISTRADOR UAC Y AUTOARRANQUE MANUAL)
+
+### 1. Visión y Propósito Técnico
+Para facilitar el uso diario del usuario final y permitir que el instalador autodescomprimible (creado mediante Inno Setup u otras herramientas) disponga de ejecutables directos sin depender de ventanas de consola `.bat`:
+1. Se compilaron dos binarios ejecutables nativos de Windows (`.exe`) con elevación de privilegios UAC (`requireAdministrator`) e iconografía vectorial incrustada.
+2. Se eliminaron los scripts `.vbs` y `.bat` antiguos de autoarranque automático para permitir que el usuario coloque directamente el archivo `Iniciar_Servidor_POS.exe` en la carpeta de inicio de Windows (`shell:startup`).
+
+### 2. Especificación de los Nuevos Ejecutables Generados
+1. **`Iniciar_Servidor_POS.exe` (439 KB):**
+   - **Icono incrustado:** Verde Esmeralda (`icono_iniciar_verde.ico`).
+   - **Privilegio UAC:** `requireAdministrator` incrustado en manifiesto nativo.
+   - **Lógica Inteligente de Detección:**
+     - Lee dinámicamente el puerto configurado en `.env` (por defecto `3000`).
+     - Realiza una petición HTTP local (`http://127.0.0.1:PORT/login`).
+     - **Si el servidor ya está activo:** No duplica procesos ni reinicia nada; abre de inmediato la terminal en pantalla completa en el navegador nativo (Edge o Chrome con `--app=... --start-fullscreen`).
+     - **Si el servidor NO está activo:** Lo levanta en segundo plano de manera silenciosa, espera la confirmación de respuesta del puerto (polling de hasta 25s) y una vez listo abre la ventana en pantalla completa.
+     - **Ubicación:** Raíz del proyecto y en `instalador_tienda/2_INICIADORES_Y_ACTIVADORES/`.
+2. **`Detener_Servidor_POS.exe` (438 KB):**
+   - **Icono incrustado:** Rojo Coral (`icono_detener_rojo.ico`).
+   - **Privilegio UAC:** `requireAdministrator`.
+   - **Lógica de Apagado Limpio:** Ejecuta la rutina de detención y salvaguarda preventiva en caliente, invoca la detención de procesos PM2 y ejecuta la liberación de puertos TCP garantizando cero procesos colgados.
+   - **Ubicación:** Raíz del proyecto y en `instalador_tienda/2_INICIADORES_Y_ACTIVADORES/`.
+
+### 3. Depuración de Scripts Obsoletos de Autoarranque
+Fueron eliminados de forma definitiva:
+- `instalador_tienda/2_INICIADORES_Y_ACTIVADORES/4_ACTIVAR_INICIO_AUTOMATICO_PC.bat`
+- `instalador_tienda/2_INICIADORES_Y_ACTIVADORES/ARRANQUE_AUTOMATICO_SISTEMA.bat`
+- `instalador_tienda/2_INICIADORES_Y_ACTIVADORES/Arranque_Automatico_POS.vbs`
+- `instalador_tienda/2_INICIADORES_Y_ACTIVADORES/Aurora Host - Activar Inicio Automatico.lnk`
+
+
+---
+
 ## SECCIÓN 76: HOMOLOGACIÓN 1:1 DE CABECERAS, STEPPER Y COLORIMETRÍA EXCLUSIVA EN LAS 3 TERMINALES DE CAJA
 
 ### 1. Visión y Propósito Técnico
