@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
+import { HeaderMostradorUnificado, StepperMostradorUnificado } from "@/components/caja/HeaderMostradorUnificado";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import PlantillaImpresion from "@/components/impresion/PlantillaImpresion";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
@@ -768,253 +769,45 @@ export default function ApartadosPage() {
   return (
     <div className="h-screen w-screen max-w-[100vw] max-h-[100vh] overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none antialiased font-sans">
       {/* ========================================================================= */}
-      {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA HOMOLOGADO (h-14 shrink-0)          */}
+      {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA HOMOLOGADO 1:1 (h-14 shrink-0)     */}
       {/* ========================================================================= */}
-      <header className="h-14 shrink-0 w-full px-3 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2 flex-nowrap overflow-hidden">
-        {/* Izquierda: Botón Regresar, Logo Oficial, Badge de Terminal */}
-        <div className="flex items-center gap-2 min-w-0 shrink-0">
-          <IconButtonTooltip
-            icon={ArrowLeft}
-            label="Regresar al Panel Principal"
-            modulo="Navegación"
-            destino="Ruta: /"
-            href="/"
-            variant="neutral"
-            size="md"
-          />
-
-          <div className="shrink-0 hidden sm:block">
-            <LogoEmpresa size="sm" showText={false} />
-          </div>
-
-          <span className="px-2 py-0.5 rounded-lg text-xs font-black tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase truncate">
-            APARTADOS
-          </span>
-          <span className="text-xs text-slate-500 font-bold hidden md:inline truncate">
-            • {configuracionEmpresa?.nombreComercial || "Mi Empresa"}
-          </span>
-        </div>
-
-        {/* Centro: Conmutador de 3 Terminales + Estado en Vivo del Cajón Sincronizado */}
-        <div className="hidden lg:flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200">
-            <IconButtonTooltip
-              icon={ShoppingCart}
-              label="Ir a Terminal POS"
-              modulo="Mostrador"
-              destino="Ruta: /caja/pos"
-              href="/caja/pos"
-              variant="neutral"
-              size="sm"
-            />
-            <IconButtonTooltip
-              icon={Shirt}
-              label="Ir a Terminal de Alquileres"
-              modulo="Mostrador"
-              destino="Ruta: /caja/alquileres"
-              href="/caja/alquileres"
-              variant="neutral"
-              size="sm"
-            />
-            <IconButtonTooltip
-              icon={CalendarClock}
-              label="Terminal Actual: Sistema de Apartados"
-              modulo="Mostrador"
-              destino="Reservas y abonos en mostrador"
-              href="/caja/apartados"
-              variant="indigo"
-              active={true}
-              size="sm"
-            />
-          </div>
-
-          <BarraEstadoCajon
-            cargando={cajon.cargando}
-            cajonConectado={cajon.cajonConectado}
-            seguridadCaja={cajon.seguridadCaja}
-            saldoActualEnCajon={cajon.saldoActualEnCajon}
-            totalDigital={cajon.totalDigital}
-            estado={cajon.estado}
-            motivoBloqueo={cajon.motivoBloqueo}
-            onRefrescar={() => cajon.actualizarCajon(true)}
-            onAbrirModal={cajon.abrirModal}
-            compacto={true}
-          />
-
-          <BotonAbrirCajon soloIcono={true} size="md" />
-        </div>
-
-        {/* Guía visual de atajos de teclado de mostrador */}
-        <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-100/90 border border-slate-200 text-[11px] font-mono text-slate-600">
-          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F2</span> Cajón
-          <span className="text-slate-300">·</span>
-          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F4</span> Cobrar
-          <span className="text-slate-300">·</span>
-          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F9</span> Cliente
-          <span className="text-slate-300">·</span>
-          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">Esc</span> Cerrar
-        </div>
-
-        {/* Derecha: Herramientas de Operación */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="lg:hidden">
-            <BotonAbrirCajon soloIcono={true} size="md" />
-          </div>
-
-          <IconButtonTooltip
-            icon={PlusCircle}
-            label="Nuevo Apartado en Blanco"
-            modulo="Apartados"
-            destino="Inicia proceso de reserva desde cero"
-            variant="indigo"
-            active={pestaña === "NUEVO"}
-            size="md"
-            onClick={() => {
-              setPestaña("NUEVO");
-              if (paso === 4) reiniciarOperacionLimpia();
-            }}
-          />
-
-          <IconButtonTooltip
-            icon={History}
-            label="Historial de Reservas"
-            modulo="Apartados"
-            destino="Ver reservas activas, abonos y vencimientos"
-            variant={apartadosHistorial.filter((a) => a.tipoOperacion === "SEPARE" && a.estado !== "CERRADA").length > 0 ? "amber" : "neutral"}
-            active={pestaña === "HISTORIAL"}
-            badgeCount={apartadosHistorial.filter((a) => a.tipoOperacion === "SEPARE" && a.estado !== "CERRADA").length || undefined}
-            badgeVariant="indigo"
-            size="md"
-            onClick={() => {
-              setPestaña(pestaña === "HISTORIAL" ? "NUEVO" : "HISTORIAL");
-              if (pestaña !== "HISTORIAL") cargarHistorial();
-            }}
-          />
-
-          <IconButtonTooltip
-            icon={RefreshCw}
-            label="Sincronizar Mostrador"
-            modulo="Datos"
-            destino="Recarga catálogo y clientes"
-            variant="neutral"
-            size="md"
-            onClick={() => {
-              cargarClientes();
-              cargarProductos();
-              cargarHistorial();
-            }}
-          />
-
-          <IconButtonTooltip
-            icon={RotateCcw}
-            label="Limpiar Operación Actual"
-            modulo="Acción"
-            destino="Reinicia productos seleccionados y cliente"
-            variant="danger"
-            size="md"
-            onClick={reiniciarOperacionLimpia}
-          />
-
-          <BotonMinimizarVentana size="md" />
-
-          <IconButtonTooltip
-            icon={LogOut}
-            label="Cerrar Sesión"
-            modulo="Seguridad y Respaldo"
-            destino="Sale del sistema y libera la cuenta"
-            variant="danger"
-            size="md"
-            onClick={async () => {
-              if (confirm("¿Desea cerrar la sesión y liberar la cuenta en este equipo?")) {
-                try {
-                  await fetch("/api/auth/logout", { method: "POST" });
-                } catch {} finally {
-                  if (typeof window !== "undefined") {
-                    try {
-                      sessionStorage.removeItem("pos_user");
-                      sessionStorage.removeItem("pos_llanomio_user");
-                    } catch {}
-                    window.location.href = "/login";
-                  }
-                }
-              }
-            }}
-          />
-        </div>
-      </header>
+      <HeaderMostradorUnificado
+        modulo="APARTADOS"
+        cajon={cajon}
+        onNuevaOperacion={() => {
+          setPestaña("NUEVO");
+          if (paso === 4) reiniciarOperacionLimpia();
+        }}
+        nuevaOperacionActiva={pestaña === "NUEVO"}
+        onHistorial={() => {
+          setPestaña(pestaña === "HISTORIAL" ? "NUEVO" : "HISTORIAL");
+          if (pestaña !== "HISTORIAL") cargarHistorial();
+        }}
+        historialActivo={pestaña === "HISTORIAL"}
+        historialBadgeCount={apartadosHistorial.filter((a) => a.tipoOperacion === "SEPARE" && a.estado !== "CERRADA").length || undefined}
+        historialBadgeVariant="indigo"
+        onSincronizar={() => {
+          cargarClientes();
+          cargarProductos();
+          cargarHistorial();
+        }}
+        onLimpiar={reiniciarOperacionLimpia}
+        limpiarLabel="Limpiar Operación Actual"
+      />
 
       {/* ========================================================================= */}
-      {/* 2. BARRA DE PASOS LINEAL COMPACTA HOMOLOGADA (h-11 shrink-0)               */}
+      {/* 2. BARRA DE PASOS LINEAL COMPACTA HOMOLOGADA 1:1 (h-11 shrink-0)          */}
       {/* ========================================================================= */}
       {pestaña === "NUEVO" && (
-        <div className="h-11 shrink-0 w-full bg-slate-50 border-b border-slate-200 px-4 flex items-center justify-between z-20">
-          <div className="grid grid-cols-4 gap-2 w-full max-w-4xl mx-auto">
-            {/* Paso 1 */}
-            <button
-              type="button"
-              onClick={() => setPaso(1)}
-              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate ${
-                paso === 1
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : clienteSeleccionado
-                  ? "bg-white text-slate-800 hover:bg-slate-100 border border-slate-200"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <User className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">1. Cliente</span>
-              {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-            </button>
-
-            {/* Paso 2 */}
-            <button
-              type="button"
-              disabled={!clienteSeleccionado}
-              onClick={() => setPaso(2)}
-              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
-                paso === 2
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : itemsApartado.length > 0
-                  ? "bg-white text-slate-800 hover:bg-slate-100 border border-slate-200"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <Tag className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">2. Prendas ({itemsApartado.length})</span>
-              {itemsApartado.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-            </button>
-
-            {/* Paso 3 */}
-            <button
-              type="button"
-              disabled={itemsApartado.length === 0}
-              onClick={() => setPaso(3)}
-              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
-                paso === 3
-                  ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <DollarSign className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">3. Cobro y Abono</span>
-            </button>
-
-            {/* Paso 4 */}
-            <button
-              type="button"
-              disabled={!facturaFinalizada}
-              onClick={() => facturaFinalizada && setPaso(4)}
-              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
-                paso === 4
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <Printer className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">4. Comprobante</span>
-            </button>
-          </div>
-        </div>
+        <StepperMostradorUnificado
+          modulo="APARTADOS"
+          pasoActual={paso}
+          onSeleccionarPaso={setPaso}
+          clienteSeleccionado={!!clienteSeleccionado}
+          tieneItems={itemsApartado.length > 0}
+          conteoItems={itemsApartado.length}
+          puedeImprimir={!!facturaFinalizada}
+        />
       )}
 
       {/* ========================================================================= */}

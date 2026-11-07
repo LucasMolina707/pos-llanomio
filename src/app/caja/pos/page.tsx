@@ -56,6 +56,7 @@ import {
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
+import { HeaderMostradorUnificado, StepperMostradorUnificado } from "@/components/caja/HeaderMostradorUnificado";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
 import ModalProducto, { ProductoData } from "@/components/inventario/ModalProducto";
 import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
@@ -1168,262 +1169,55 @@ export default function PosPage() {
   return (
     <div className="h-screen w-screen max-w-[100vw] max-h-[100vh] overflow-hidden flex flex-col bg-[#F4F6F9] text-slate-900 select-none">
       {/* ========================================================================= */}
-      {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA HOMOLOGADO (h-14 shrink-0) */}
+      {/* 1. HEADER ERGONÓMICO CLARO ANTIFATIGA HOMOLOGADO 1:1 (h-14 shrink-0)     */}
       {/* ========================================================================= */}
-      <header className="h-14 shrink-0 w-full px-3 bg-white text-slate-800 flex items-center justify-between border-b border-slate-200 shadow-2xs z-30 gap-2 flex-nowrap overflow-hidden">
-        {/* Izquierda: Botón Regresar, Logo Oficial, Badge de Terminal */}
-        <div className="flex items-center gap-2 min-w-0 shrink-0">
-          <IconButtonTooltip
-            icon={ArrowLeft}
-            label="Regresar al Panel Principal"
-            modulo="Navegación"
-            destino="Ruta: /"
-            href="/"
-            variant="neutral"
-            size="md"
-          />
-
-          <div className="shrink-0 hidden sm:block">
-            <LogoEmpresa size="sm" showText={false} />
-          </div>
-
-          <span className="px-2 py-0.5 rounded-lg text-xs font-black tracking-wider bg-blue-50 text-blue-700 border border-blue-200 uppercase truncate">
-            POS
-          </span>
-        </div>
-
-        {/* Centro: Navegación Rápida entre las 3 Terminales + Estado en Vivo del Cajón Sincronizado */}
-        <div className="hidden sm:flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200 shrink-0">
-            <IconButtonTooltip
-              icon={ShoppingCart}
-              label="Terminal POS Activa"
-              modulo="Mostrador"
-              destino="Ventas y facturación en mostrador"
-              href="/caja/pos"
-              active={true}
-              variant="primary"
-              size="sm"
-            />
-            <IconButtonTooltip
-              icon={Shirt}
-              label="Ir a Terminal de Alquileres"
-              modulo="Mostrador"
-              destino="Ruta: /caja/alquileres"
-              href="/caja/alquileres"
-              active={false}
-              variant="neutral"
-              size="sm"
-            />
-            <IconButtonTooltip
-              icon={CalendarClock}
-              label="Ir a Terminal de Apartados"
-              modulo="Mostrador"
-              destino="Ruta: /caja/apartados"
-              href="/caja/apartados"
-              active={false}
-              variant="neutral"
-              size="sm"
-            />
-          </div>
-
-          <BarraEstadoCajon
-            cargando={cajon.cargando}
-            cajonConectado={cajon.cajonConectado}
-            seguridadCaja={cajon.seguridadCaja}
-            saldoActualEnCajon={cajon.saldoActualEnCajon}
-            totalDigital={cajon.totalDigital}
-            estado={cajon.estado}
-            motivoBloqueo={cajon.motivoBloqueo}
-            onRefrescar={() => cajon.actualizarCajon(true)}
-            onAbrirModal={cajon.abrirModal}
-            compacto={true}
-          />
-
-          <BotonAbrirCajon soloIcono={true} size="md" />
-        </div>
-
-        {/* Guía visual de atajos de teclado de mostrador */}
-        <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-100/90 border border-slate-200 text-[11px] font-mono text-slate-600">
-          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F2</span> Cajón
-          <span className="text-slate-300">·</span>
-          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F4</span> Cobrar
-          <span className="text-slate-300">·</span>
-          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F9</span> Cliente
-          <span className="text-slate-300">·</span>
-          <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">Esc</span> Cerrar
-        </div>
-
-        {/* Derecha: Botón Recargar + Historial / Moras + Alternar Nueva Factura + Limpiar */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="sm:hidden">
-            <BotonAbrirCajon soloIcono={true} size="md" />
-          </div>
-
-          <IconButtonTooltip
-            icon={PlusCircle}
-            label="Nueva Venta en Blanco"
-            modulo="Mostrador"
-            destino="Inicia proceso de venta desde cero"
-            active={vistaPrincipal === "NUEVA_FACTURA"}
-            variant={vistaPrincipal === "NUEVA_FACTURA" ? "primary" : "neutral"}
-            size="md"
-            onClick={() => {
-              if (vistaPrincipal === "HISTORIAL") {
-                setVistaPrincipal("NUEVA_FACTURA");
-              } else if (itemsCarrito.length > 0 || clienteSeleccionado) {
-                if (confirm("¿Deseas reiniciar la venta actual para comenzar una nueva factura en blanco?")) {
-                  reiniciarMostrador();
-                }
-              }
-            }}
-          />
-
-          <IconButtonTooltip
-            icon={History}
-            label="Historial y Cartera Pendiente"
-            modulo="Facturación"
-            destino="Ver comprobantes emitidos, abonos y moras"
-            badgeCount={estadisticasMonitoreo.totalEnMora + estadisticasMonitoreo.conteoPendientesAlDia}
-            badgeVariant={estadisticasMonitoreo.totalEnMora > 0 ? "danger" : "amber"}
-            active={vistaPrincipal === "HISTORIAL"}
-            variant={vistaPrincipal === "HISTORIAL" ? "amber" : "neutral"}
-            size="md"
-            onClick={() => {
-              setVistaPrincipal("HISTORIAL");
-              cargarMonitoreo(false);
-            }}
-          />
-
-          <IconButtonTooltip
-            icon={RefreshCw}
-            label="Sincronizar Mostrador"
-            modulo="Datos"
-            destino="Recarga catálogo, clientes y turno en caja"
-            variant="neutral"
-            size="md"
-            onClick={() => {
-              cargarSesionYTurno();
-              cargarClientes();
-              cargarInventario();
-              cargarMonitoreo(false);
-            }}
-          />
-
-          <IconButtonTooltip
-            icon={RotateCcw}
-            label="Limpiar Mostrador"
-            modulo="Acción"
-            destino="Vacía el carrito y deselecciona el cliente actual"
-            variant="danger"
-            size="md"
-            onClick={() => {
-              if (confirm("¿Limpiar la venta en curso y comenzar en blanco?")) {
-                reiniciarMostrador();
-              }
-            }}
-          />
-
-          <BotonMinimizarVentana size="md" />
-
-          <IconButtonTooltip
-            icon={LogOut}
-            label="Cerrar Sesión"
-            modulo="Seguridad y Respaldo"
-            destino="Sale del sistema y libera la cuenta"
-            variant="danger"
-            size="md"
-            onClick={async () => {
-              if (confirm("¿Desea cerrar la sesión y liberar la cuenta en este equipo?")) {
-                try {
-                  await fetch("/api/auth/logout", { method: "POST" });
-                } catch {} finally {
-                  if (typeof window !== "undefined") {
-                    try {
-                      sessionStorage.removeItem("pos_user");
-                      sessionStorage.removeItem("pos_llanomio_user");
-                    } catch {}
-                    window.location.href = "/login";
-                  }
-                }
-              }
-            }}
-          />
-        </div>
-      </header>
+      <HeaderMostradorUnificado
+        modulo="VENTAS"
+        cajon={cajon}
+        onNuevaOperacion={() => {
+          if (vistaPrincipal === "HISTORIAL") {
+            setVistaPrincipal("NUEVA_FACTURA");
+          } else if (itemsCarrito.length > 0 || clienteSeleccionado) {
+            if (confirm("¿Deseas reiniciar la venta actual para comenzar una nueva factura en blanco?")) {
+              reiniciarMostrador();
+            }
+          }
+        }}
+        nuevaOperacionActiva={vistaPrincipal === "NUEVA_FACTURA"}
+        onHistorial={() => {
+          setVistaPrincipal("HISTORIAL");
+          cargarMonitoreo(false);
+        }}
+        historialActivo={vistaPrincipal === "HISTORIAL"}
+        historialBadgeCount={estadisticasMonitoreo.totalEnMora + estadisticasMonitoreo.conteoPendientesAlDia}
+        historialBadgeVariant={estadisticasMonitoreo.totalEnMora > 0 ? "danger" : "amber"}
+        onSincronizar={() => {
+          cargarSesionYTurno();
+          cargarClientes();
+          cargarInventario();
+          cargarMonitoreo(false);
+        }}
+        onLimpiar={() => {
+          if (confirm("¿Limpiar la venta en curso y comenzar en blanco?")) {
+            reiniciarMostrador();
+          }
+        }}
+        limpiarLabel="Limpiar Mostrador"
+      />
 
       {/* ========================================================================= */}
-      {/* BARRA DE PASOS LINEAL COMPACTA HOMOLOGADA (h-11 shrink-0)                */}
+      {/* BARRA DE PASOS LINEAL COMPACTA HOMOLOGADA 1:1 (h-11 shrink-0)            */}
       {/* ========================================================================= */}
       {vistaPrincipal === "NUEVA_FACTURA" && (
-        <div className="h-11 shrink-0 w-full bg-slate-50 border-b border-slate-200 px-4 flex items-center justify-between z-20">
-          <div className="grid grid-cols-4 gap-2 w-full max-w-4xl mx-auto">
-            {/* Paso 1 */}
-            <button
-              type="button"
-              onClick={() => setPasoActual(1)}
-              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate ${
-                pasoActual === 1
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : clienteSeleccionado
-                  ? "bg-white text-slate-800 hover:bg-slate-100 border border-slate-200"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <User className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">1. Cliente</span>
-              {clienteSeleccionado && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-            </button>
-
-            {/* Paso 2 */}
-            <button
-              type="button"
-              disabled={!clienteSeleccionado}
-              onClick={() => setPasoActual(2)}
-              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
-                pasoActual === 2
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : itemsCarrito.length > 0
-                  ? "bg-white text-slate-800 hover:bg-slate-100 border border-slate-200"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">2. Productos ({itemsCarrito.length})</span>
-              {itemsCarrito.length > 0 && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-            </button>
-
-            {/* Paso 3 */}
-            <button
-              type="button"
-              disabled={itemsCarrito.length === 0}
-              onClick={() => setPasoActual(3)}
-              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
-                pasoActual === 3
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <Wallet className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">3. Cobro y Caja</span>
-            </button>
-
-            {/* Paso 4 */}
-            <button
-              type="button"
-              disabled={!datosImpresion}
-              onClick={() => datosImpresion && setPasoActual(4)}
-              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
-                pasoActual === 4
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <Printer className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">4. Comprobante</span>
-            </button>
-          </div>
-        </div>
+        <StepperMostradorUnificado
+          modulo="VENTAS"
+          pasoActual={pasoActual}
+          onSeleccionarPaso={setPasoActual}
+          clienteSeleccionado={!!clienteSeleccionado}
+          tieneItems={itemsCarrito.length > 0}
+          conteoItems={itemsCarrito.length}
+          puedeImprimir={!!datosImpresion}
+        />
       )}
 
       {/* ========================================================================= */}
@@ -1974,7 +1768,7 @@ export default function PosPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div>
                             <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-                              <User className="w-4 h-4 text-blue-600" />
+                              <User className="w-4 h-4 text-emerald-600" />
                               Paso 1: Directorio y Selección de Cliente
                             </h2>
                             <p className="text-xs text-slate-500">
@@ -1985,7 +1779,7 @@ export default function PosPage() {
                           <IconButtonTooltip
                             icon={UserPlus}
                             label="Crear Nuevo Cliente Rápido"
-                            variant="primary"
+                            variant="emerald"
                             size="md"
                             onClick={abrirModalCrearCliente}
                           />
@@ -2005,7 +1799,7 @@ export default function PosPage() {
                                 seleccionarCliente(clientesFiltrados[0]);
                               }
                             }}
-                            className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition"
+                            className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                             autoFocus
                           />
                           {busquedaCliente && (
@@ -2024,7 +1818,7 @@ export default function PosPage() {
                       <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3">
                         {cargandoClientesInicial ? (
                           <div className="p-8 text-center text-slate-400">
-                            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-blue-500 mb-2" />
+                            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-emerald-500 mb-2" />
                             <p className="text-xs font-semibold">Cargando catálogo de clientes...</p>
                           </div>
                         ) : clientesFiltrados.length === 0 ? (
@@ -2035,7 +1829,7 @@ export default function PosPage() {
                             <button
                               type="button"
                               onClick={abrirModalCrearCliente}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
                             >
                               <UserPlus className="w-3.5 h-3.5" />
                               <span>Registrar este cliente ahora</span>
@@ -2055,12 +1849,12 @@ export default function PosPage() {
                                     onClick={() => seleccionarCliente(cli)}
                                     className={`relative flex flex-col justify-between p-3 rounded-xl border transition-all text-left shadow-2xs group min-w-0 overflow-hidden cursor-pointer ${
                                       esSeleccionado
-                                        ? "bg-blue-50/80 border-blue-600 ring-2 ring-blue-600/20"
-                                        : "bg-white border-slate-200 hover:border-blue-400 hover:bg-slate-50/60"
+                                        ? "bg-emerald-50/80 border-emerald-600 ring-2 ring-emerald-600/20"
+                                        : "bg-white border-slate-200 hover:border-emerald-400 hover:bg-slate-50/60"
                                     }`}
                                   >
                                     <div className="flex items-start justify-between gap-1.5 w-full min-w-0">
-                                      <span className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-blue-600 transition truncate">
+                                      <span className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-emerald-600 transition truncate">
                                         {cli.nombre}
                                       </span>
                                       <div className="flex items-center gap-1 shrink-0">
@@ -2094,7 +1888,7 @@ export default function PosPage() {
                                       <span className="text-slate-400 font-medium truncate">
                                         {cli.direccion || "Sin dirección"}
                                       </span>
-                                      <span className="text-blue-600 font-bold shrink-0">
+                                      <span className="text-emerald-600 font-bold shrink-0">
                                         {esSeleccionado ? "Seleccionado" : "Elegir"}
                                       </span>
                                     </div>
@@ -2125,7 +1919,7 @@ export default function PosPage() {
                               onClick={() => setModuloActivo("VENTA")}
                               className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                                 moduloActivo === "VENTA"
-                                  ? "bg-blue-600 text-white shadow-xs"
+                                  ? "bg-emerald-600 text-white shadow-xs"
                                   : "text-slate-600 hover:text-slate-900"
                               }`}
                             >
@@ -2151,7 +1945,7 @@ export default function PosPage() {
                             <IconButtonTooltip
                               icon={PackagePlus}
                               label="Crear Nuevo Producto en Inventario"
-                              variant="primary"
+                              variant="emerald"
                               size="md"
                               onClick={() => {
                                 setTipoModalProducto("VENTA");
@@ -2171,7 +1965,7 @@ export default function PosPage() {
                               placeholder="Fuzzy: código, prenda, talla, color, precio..."
                               value={busquedaVenta}
                               onChange={(e) => setBusquedaVenta(e.target.value)}
-                              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition"
+                              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                             />
                           </div>
                         )}
@@ -2229,7 +2023,7 @@ export default function PosPage() {
                                   key={p.id}
                                   type="button"
                                   onClick={() => agregarItemVenta(p)}
-                                  className="relative flex flex-col justify-between p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 transition-colors text-left group shadow-2xs min-w-0 overflow-hidden cursor-pointer"
+                                  className="relative flex flex-col justify-between p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 transition-colors text-left group shadow-2xs min-w-0 overflow-hidden cursor-pointer"
                                 >
                                   <div className="flex items-center justify-between gap-1 w-full min-w-0">
                                     <span className="font-mono text-xs font-bold text-slate-500 truncate">
@@ -2239,14 +2033,14 @@ export default function PosPage() {
                                       Stock: {p.stockActual}
                                     </span>
                                   </div>
-                                  <strong className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-blue-600 truncate block my-1">
+                                  <strong className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-emerald-600 truncate block my-1">
                                     {p.nombre}
                                   </strong>
                                   <div className="flex items-center justify-between gap-1 w-full pt-1 border-t border-slate-100">
                                     <span className="text-[11px] text-slate-500 font-medium">
                                       Talla {p.talla || "U"}
                                     </span>
-                                    <strong className="text-xs sm:text-sm font-mono font-black text-blue-600 shrink-0">
+                                    <strong className="text-xs sm:text-sm font-mono font-black text-emerald-600 shrink-0">
                                       ${(p.precioVenta || p.precioBase || 0).toLocaleString("es-CO")}
                                     </strong>
                                   </div>
@@ -2282,7 +2076,7 @@ export default function PosPage() {
                       {/* Subcabecera Fija Paso 3 (shrink-0) */}
                       <div className="shrink-0 p-3 border-b border-slate-100 bg-white flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <div className="p-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shrink-0">
+                          <div className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">
                             <Banknote className="w-4 h-4" />
                           </div>
                           <div>
@@ -2290,7 +2084,7 @@ export default function PosPage() {
                               Paso 3: Cobro de Caja & Liquidación
                             </h2>
                             <p className="text-xs text-slate-500">
-                              Total: <strong className="text-blue-600 font-mono">${totalFactura.toLocaleString("es-CO")}</strong>
+                              Total: <strong className="text-emerald-600 font-mono">${totalFactura.toLocaleString("es-CO")}</strong>
                             </p>
                           </div>
                         </div>
@@ -2411,7 +2205,7 @@ export default function PosPage() {
                                         }}
                                         className={`p-2 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${
                                           esActivo
-                                            ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                                            ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
                                             : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                                         }`}
                                       >
@@ -2434,7 +2228,7 @@ export default function PosPage() {
                                 placeholder="Ej. Prenda separada para evento del fin de semana..."
                                 value={notasFactura}
                                 onChange={(e) => setNotasFactura(e.target.value)}
-                                className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600"
                               />
                             </div>
                           </div>
@@ -2455,7 +2249,7 @@ export default function PosPage() {
                               </div>
                               <div className="flex justify-between text-xs sm:text-sm font-black text-slate-900 pt-0.5 border-t border-slate-200">
                                 <span>A COBRAR HOY:</span>
-                                <strong className="font-mono text-blue-600 text-base sm:text-lg">
+                                <strong className="font-mono text-emerald-600 text-base sm:text-lg">
                                   ${valorACobrarHoy.toLocaleString("es-CO")}
                                 </strong>
                               </div>
@@ -2685,7 +2479,7 @@ export default function PosPage() {
                       )}
                       <div className="flex justify-between text-sm sm:text-base font-black text-slate-900 pt-1 border-t border-slate-200 font-mono items-center">
                         <span>TOTAL:</span>
-                        <span className="text-base sm:text-lg text-blue-600">
+                        <span className="text-base sm:text-lg text-emerald-600">
                           ${totalFactura.toLocaleString("es-CO")}
                         </span>
                       </div>
@@ -2708,7 +2502,7 @@ export default function PosPage() {
                           type="button"
                           disabled={!clienteSeleccionado}
                           onClick={() => setPasoActual(2)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         >
                           <span>Ir a Productos (Paso 2)</span>
                           <ArrowRight className="w-3.5 h-3.5" />
@@ -2720,7 +2514,7 @@ export default function PosPage() {
                           type="button"
                           disabled={itemsCarrito.length === 0}
                           onClick={() => setPasoActual(3)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         >
                           <span>Ir a Caja (Paso 3)</span>
                           <ArrowRight className="w-3.5 h-3.5" />
@@ -2808,7 +2602,7 @@ export default function PosPage() {
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
             <div className="shrink-0 p-3.5 bg-slate-50 text-slate-800 flex items-center justify-between border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <Printer className="w-4 h-4 text-blue-600" />
+                <Printer className="w-4 h-4 text-emerald-600" />
                 <span className="text-xs font-black text-slate-900">
                   Reimpresión de Factura / Paz y Salvo #{datosReimpresionModal.factura.numeroFactura}
                 </span>

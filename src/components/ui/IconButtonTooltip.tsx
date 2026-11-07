@@ -11,6 +11,8 @@ export type IconButtonVariant =
   | "primary"
   | "emerald"
   | "indigo"
+  | "orange"
+  | "orangeSoft"
   | "amber"
   | "danger"
   | "ghost";
@@ -26,7 +28,7 @@ export interface IconButtonTooltipProps {
   size?: IconButtonSize;
   variant?: IconButtonVariant;
   badgeCount?: number;
-  badgeVariant?: "danger" | "amber" | "blue" | "emerald" | "indigo";
+  badgeVariant?: "danger" | "amber" | "blue" | "emerald" | "indigo" | "orange";
   className?: string;
   iconClassName?: string;
   type?: "button" | "submit" | "reset";
@@ -163,6 +165,12 @@ export default function IconButtonTooltip({
     indigo: active
       ? "bg-indigo-700 text-white border-indigo-800 shadow-inner ring-2 ring-indigo-300"
       : "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700 shadow-2xs",
+    orange: active
+      ? "bg-orange-700 text-white border-orange-800 shadow-inner ring-2 ring-orange-300"
+      : "bg-orange-600 hover:bg-orange-700 text-white border-orange-700 shadow-2xs",
+    orangeSoft: active
+      ? "bg-orange-100 text-orange-950 border-orange-400 shadow-inner ring-2 ring-orange-300"
+      : "bg-orange-50 hover:bg-orange-100 text-orange-900 border-orange-300 shadow-2xs",
     amber: active
       ? "bg-amber-100 text-amber-950 border-amber-400 shadow-inner ring-2 ring-amber-300"
       : "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 shadow-2xs",
@@ -180,6 +188,7 @@ export default function IconButtonTooltip({
     blue: "bg-blue-600 text-white",
     emerald: "bg-emerald-600 text-white",
     indigo: "bg-indigo-600 text-white",
+    orange: "bg-orange-600 text-white",
   }[badgeVariant];
 
   const tooltipElement =
