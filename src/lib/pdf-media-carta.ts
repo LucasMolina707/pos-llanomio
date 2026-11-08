@@ -1341,18 +1341,19 @@ export function crearDocumentoPdfCarta(
 }
 
 /**
- * Dibuja un ejemplar de tirilla térmica 80mm en el lienzo
+ * Dibuja un ejemplar de tirilla térmica (80mm o 58mm) en el lienzo con proporciones vectoriales exactas
  */
 function dibujarContenidoTirilla(
   doc: jsPDF,
   datos: DatosImpresionFactura,
   startY: number,
-  tipoCopiaTexto: string
+  tipoCopiaTexto: string,
+  anchoMm: number = 80
 ): number {
   const { factura, empresa } = datos;
-  const anchoMm = 80;
-  const margen = 4;
-  const margenDer = anchoMm - 4;
+  const es58 = anchoMm <= 60;
+  const margen = es58 ? 2.5 : 4;
+  const margenDer = anchoMm - margen;
   const saldoPendiente = safeNum(factura.saldoPendiente);
   const esAlquiler = factura.tipoOperacion === "ALQUILER";
   const esApartado = factura.tipoOperacion === "SEPARE" || factura.tipoOperacion === "APARTADO";
@@ -1406,34 +1407,35 @@ function dibujarContenidoTirilla(
   let cursorY = startY;
 
   // Logo centrado si existe (recuadro cuadrado sin estirar)
-  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, (anchoMm - 22) / 2, cursorY, 22);
+  const ladoLogo = es58 ? 16 : 22;
+  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, (anchoMm - ladoLogo) / 2, cursorY, ladoLogo);
   if (tieneLogo) {
-    cursorY += 23;
+    cursorY += ladoLogo + 2;
   }
 
   // Cabecera Empresa
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
+  doc.setFontSize(es58 ? 9.5 : 11);
   doc.setTextColor(0, 0, 0);
   doc.text(empresa.nombreComercial.toUpperCase(), anchoMm / 2, cursorY, { align: "center" });
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
+  doc.setFontSize(es58 ? 6.5 : 7.5);
   if (empresa.eslogan) {
-    cursorY += 3.5;
+    cursorY += es58 ? 3 : 3.5;
     doc.text(empresa.eslogan, anchoMm / 2, cursorY, { align: "center" });
   }
-  cursorY += 3.5;
+  cursorY += es58 ? 3 : 3.5;
   doc.text(`NIT: ${empresa.nit}`, anchoMm / 2, cursorY, { align: "center" });
   if (empresa.regimenFiscal) {
-    cursorY += 3;
+    cursorY += es58 ? 2.6 : 3;
     doc.text(empresa.regimenFiscal, anchoMm / 2, cursorY, { align: "center" });
   }
-  cursorY += 3;
+  cursorY += es58 ? 2.6 : 3;
   doc.text(empresa.direccion, anchoMm / 2, cursorY, { align: "center" });
-  cursorY += 3;
+  cursorY += es58 ? 2.6 : 3;
   doc.text(`Tel: ${empresa.telefono}`, anchoMm / 2, cursorY, { align: "center" });
-  cursorY += 3.5;
+  cursorY += es58 ? 3 : 3.5;
   doc.setFont("helvetica", "bold");
   doc.text(`** ${tipoCopiaTexto} **`, anchoMm / 2, cursorY, { align: "center" });
 
@@ -1729,16 +1731,17 @@ function dibujarContenidoTirilla(
 }
 
 /**
- * Genera una instancia vectorial de jsPDF en formato POS Tirilla Térmica (80mm)
+ * Genera una instancia vectorial de jsPDF en formato POS Tirilla Térmica (80mm o 58mm)
  */
 export function crearDocumentoPdfTirilla(
   datos: DatosImpresionFactura,
-  opciones: OpcionesPdfMediaCarta = {}
+  opciones: OpcionesPdfMediaCarta = {},
+  anchoMm: number = 80
 ): jsPDF {
-  const altoBaseMm = Math.max(160, 110 + datos.factura.detalles.length * 8 + (datos.factura.abonos?.length || 0) * 7);
+  const es58 = anchoMm <= 60;
+  const altoBaseMm = Math.max(160, (es58 ? 120 : 110) + datos.factura.detalles.length * 8 + (datos.factura.abonos?.length || 0) * 7);
   const numCopias = opciones.numCopias || 1;
   const altoTotalMm = numCopias === 2 ? altoBaseMm * 2 + 15 : altoBaseMm;
-  const anchoMm = 80;
 
   const doc = new jsPDF({
     orientation: "portrait",
@@ -1748,19 +1751,19 @@ export function crearDocumentoPdfTirilla(
   });
 
   if (numCopias === 2) {
-    const yFin1 = dibujarContenidoTirilla(doc, datos, 4, "EJEMPLAR 1: COPIA CLIENTE");
+    const yFin1 = dibujarContenidoTirilla(doc, datos, 4, "EJEMPLAR 1: COPIA CLIENTE", anchoMm);
 
     // Línea de corte
     doc.setLineDashPattern([1.5, 1.5], 0);
-    doc.line(4, yFin1 + 3, 76, yFin1 + 3);
+    doc.line(anchoMm * 0.05, yFin1 + 3, anchoMm * 0.95, yFin1 + 3);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6);
+    doc.setFontSize(es58 ? 5.5 : 6);
     doc.text("- - - - - CORTE DE COPIA - - - - -", anchoMm / 2, yFin1 + 6, { align: "center" });
     doc.setLineDashPattern([], 0);
 
-    dibujarContenidoTirilla(doc, datos, yFin1 + 10, "EJEMPLAR 2: RESPALDO FÍSICO TIENDA / ARCHIVO");
+    dibujarContenidoTirilla(doc, datos, yFin1 + 10, "EJEMPLAR 2: RESPALDO FÍSICO TIENDA / ARCHIVO", anchoMm);
   } else {
-    dibujarContenidoTirilla(doc, datos, 4, opciones.tipoCopia || "COPIA CLIENTE");
+    dibujarContenidoTirilla(doc, datos, 4, opciones.tipoCopia || "COPIA CLIENTE", anchoMm);
   }
 
   return doc;
@@ -1790,8 +1793,10 @@ export function descargarPdfSegunFormato(
 ): void {
   const formatoEfectivo = formato || resolverFormatoPdfPredeterminado(datos.factura.tipoOperacion);
   let doc: jsPDF;
-  if (formatoEfectivo === "TIRILLA") {
-    doc = crearDocumentoPdfTirilla(datos, opciones);
+  if (formatoEfectivo === "TIRILLA_58") {
+    doc = crearDocumentoPdfTirilla(datos, opciones, 58);
+  } else if (formatoEfectivo === "TIRILLA") {
+    doc = crearDocumentoPdfTirilla(datos, opciones, 80);
   } else if (formatoEfectivo === "CARTA") {
     doc = crearDocumentoPdfCarta(datos, opciones);
   } else if (formatoEfectivo === "MEDIA_CARTA_DOBLE") {
@@ -1833,8 +1838,10 @@ export function abrirPdfMediaCarta(
 ): void {
   const formatoEfectivo = formato || resolverFormatoPdfPredeterminado(datos.factura.tipoOperacion);
   let doc: jsPDF;
-  if (formatoEfectivo === "TIRILLA") {
-    doc = crearDocumentoPdfTirilla(datos, opciones);
+  if (formatoEfectivo === "TIRILLA_58") {
+    doc = crearDocumentoPdfTirilla(datos, opciones, 58);
+  } else if (formatoEfectivo === "TIRILLA") {
+    doc = crearDocumentoPdfTirilla(datos, opciones, 80);
   } else if (formatoEfectivo === "CARTA") {
     doc = crearDocumentoPdfCarta(datos, opciones);
   } else if (formatoEfectivo === "MEDIA_CARTA_DOBLE") {

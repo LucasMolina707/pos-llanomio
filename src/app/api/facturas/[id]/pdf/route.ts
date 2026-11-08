@@ -86,6 +86,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     const formatoParam = searchParams.get("formato") as FormatoImpresionTipo | null;
     const formatoSeleccionado: FormatoImpresionTipo =
       formatoParam === "TIRILLA" ||
+      formatoParam === "TIRILLA_58" ||
       formatoParam === "CARTA" ||
       formatoParam === "MEDIA_CARTA" ||
       formatoParam === "MEDIA_CARTA_DOBLE"
@@ -170,8 +171,10 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     // 3. Generar documento PDF según formato
     let doc;
-    if (formatoSeleccionado === "TIRILLA") {
-      doc = crearDocumentoPdfTirilla(datosImpresion);
+    if (formatoSeleccionado === "TIRILLA_58") {
+      doc = crearDocumentoPdfTirilla(datosImpresion, {}, 58);
+    } else if (formatoSeleccionado === "TIRILLA") {
+      doc = crearDocumentoPdfTirilla(datosImpresion, {}, 80);
     } else if (formatoSeleccionado === "CARTA") {
       doc = crearDocumentoPdfCarta(datosImpresion);
     } else if (formatoSeleccionado === "MEDIA_CARTA_DOBLE") {

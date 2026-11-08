@@ -26,7 +26,12 @@ import {
 } from "@/lib/pdf-media-carta";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 
-export type FormatoImpresionTipo = "TIRILLA" | "MEDIA_CARTA" | "MEDIA_CARTA_DOBLE" | "CARTA";
+export type FormatoImpresionTipo =
+  | "TIRILLA"
+  | "TIRILLA_58"
+  | "MEDIA_CARTA"
+  | "MEDIA_CARTA_DOBLE"
+  | "CARTA";
 
 export interface DatosImpresionFactura {
   factura: {
@@ -310,7 +315,13 @@ export default function PlantillaImpresion({
     }
 
     let pageCss = "";
-    if (formato === "TIRILLA") {
+    if (formato === "TIRILLA_58") {
+      pageCss = `
+        @page { size: 58mm auto; margin: 0mm; }
+        html, body { width: 58mm !important; margin: 0 auto !important; padding: 0 !important; background: white !important; color: black !important; }
+        body { width: 54mm !important; }
+      `;
+    } else if (formato === "TIRILLA") {
       pageCss = `
         @page { size: 80mm auto; margin: 0mm; }
         html, body { width: 80mm !important; margin: 0 auto !important; padding: 0 !important; background: white !important; color: black !important; }
@@ -545,20 +556,25 @@ export default function PlantillaImpresion({
     }
 
     // -------------------------------------------------------------
-    // FORMATO 1: TIRILLA POS TÉRMICA (80mm)
+    // FORMATO 1: TIRILLA POS TÉRMICA (80mm o 58mm)
     // -------------------------------------------------------------
-    if (formato === "TIRILLA") {
+    if (formato === "TIRILLA" || formato === "TIRILLA_58") {
+      const es58 = formato === "TIRILLA_58";
+      const anchoClase = es58 ? "w-[58mm] max-w-[58mm] min-w-[58mm]" : "w-[80mm] max-w-[80mm] min-w-[80mm]";
+
       if (esSepare) {
         return (
-          <div className="w-[80mm] max-w-[80mm] min-w-[80mm] mx-auto p-3 bg-white text-black font-mono text-[11px] leading-tight select-none border border-slate-300">
+          <div className={`${anchoClase} mx-auto p-2 bg-white text-black font-mono ${es58 ? "text-[9.5px]" : "text-[11px]"} leading-tight select-none border border-slate-300`}>
             {/* Cabecera Empresa Dinámica */}
             <div className="text-center pb-2 border-b border-black space-y-0.5">
               {empresa.logoUrl && (
-                <img
-                  src={empresa.logoUrl}
-                  alt={empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
-                  className="max-h-20 w-auto max-w-[62mm] object-contain mx-auto mb-1.5"
-                />
+                <div className={`${es58 ? "w-14 h-14" : "w-16 h-16"} border border-slate-300 mx-auto p-0.5 mb-1.5 flex items-center justify-center overflow-hidden`}>
+                  <img
+                    src={empresa.logoUrl}
+                    alt={empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
               )}
               <h1 className="text-sm font-black font-sans tracking-tight uppercase">
                 {empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
@@ -699,15 +715,17 @@ export default function PlantillaImpresion({
         );
       }
       return (
-        <div className="w-[80mm] max-w-[80mm] min-w-[80mm] mx-auto p-2.5 bg-white text-slate-950 font-sans text-xs font-semibold leading-snug select-none border border-slate-300">
+        <div className={`${anchoClase} mx-auto p-2 bg-white text-slate-950 font-sans ${es58 ? "text-[10px]" : "text-xs"} font-semibold leading-snug select-none border border-slate-300`}>
           {/* Cabecera Empresa */}
           <div className="text-center pb-2 border-b border-black space-y-0.5">
             {empresa.logoUrl && (
-              <img
-                src={empresa.logoUrl}
-                alt={empresa.nombreComercial || "Mi Empresa"}
-                className="max-h-20 w-auto max-w-[62mm] object-contain mx-auto mb-1.5"
-              />
+              <div className={`${es58 ? "w-14 h-14" : "w-16 h-16"} border border-slate-300 mx-auto p-0.5 mb-1.5 flex items-center justify-center overflow-hidden`}>
+                <img
+                  src={empresa.logoUrl}
+                  alt={empresa.nombreComercial || "Mi Empresa"}
+                  className="w-full h-full object-contain"
+                />
+              </div>
             )}
             <h1 className="text-sm font-black font-sans tracking-tight uppercase text-black">
               {empresa.nombreComercial || "Mi Empresa"}
@@ -2002,6 +2020,14 @@ export default function PlantillaImpresion({
               onClick={() => setFormato("TIRILLA")}
             />
             <IconButtonTooltip
+              icon={Receipt}
+              label="Formato Tirilla Térmica Compacta (58mm)"
+              active={formato === "TIRILLA_58"}
+              variant={formato === "TIRILLA_58" ? "primary" : "neutral"}
+              size="sm"
+              onClick={() => setFormato("TIRILLA_58")}
+            />
+            <IconButtonTooltip
               icon={FileText}
               label="Formato Media Carta Individual"
               active={formato === "MEDIA_CARTA"}
@@ -2138,7 +2164,9 @@ export default function PlantillaImpresion({
           }
           @page {
             margin: ${
-              formato === "TIRILLA"
+              formato === "TIRILLA_58"
+                ? "2mm 1mm"
+                : formato === "TIRILLA"
                 ? "2mm 1mm"
                 : formato === "MEDIA_CARTA"
                 ? "6mm"
@@ -2147,7 +2175,9 @@ export default function PlantillaImpresion({
                 : "8mm"
             };
             size: ${
-              formato === "TIRILLA"
+              formato === "TIRILLA_58"
+                ? "58mm auto"
+                : formato === "TIRILLA"
                 ? "80mm auto"
                 : formato === "MEDIA_CARTA"
                 ? "215.9mm 139.7mm landscape"
