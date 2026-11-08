@@ -264,19 +264,6 @@ export function HeaderMostradorUnificado({
           <span className="hidden md:inline font-black tracking-tight whitespace-nowrap">
             {modulo === "ALQUILERES" ? "Devoluciones y Moras" : "Historial"}
           </span>
-          {typeof historialBadgeCount === "number" && (
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-black shrink-0 ${
-                historialActivo
-                  ? "bg-white text-orange-700"
-                  : historialBadgeVariant === "danger"
-                  ? "bg-rose-600 text-white"
-                  : "bg-orange-600 text-white"
-              }`}
-            >
-              {historialBadgeCount}
-            </span>
-          )}
         </button>
 
         {/* Tickets / Operaciones en Espera (Pausar y Reanudar) */}
@@ -290,8 +277,6 @@ export function HeaderMostradorUnificado({
             }
             modulo="Espera"
             destino="Pausa la orden actual o reanuda órdenes guardadas"
-            badgeCount={ticketsEnEsperaCount > 0 ? ticketsEnEsperaCount : undefined}
-            badgeVariant="amber"
             variant={ticketsEnEsperaCount > 0 ? "amber" : "neutral"}
             size="md"
             onClick={onTicketsEnEspera}
