@@ -72,6 +72,7 @@ import { safeFetchJson } from "@/lib/safe-fetch";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useMapaAtajosTeclado } from "@/hooks/useAtajoTeclado";
 import { ModalPinSupervisor } from "@/components/seguridad/ModalPinSupervisor";
+import ModalTicketsEnEspera, { TicketEnEspera } from "@/components/caja/ModalTicketsEnEspera";
 
 export interface ProductoInventario {
   id: string;
@@ -303,6 +304,37 @@ export default function PosPage() {
   // Modal Reimpresión Universal
   const [datosReimpresionModal, setDatosReimpresionModal] = useState<DatosImpresionFactura | null>(null);
   const [modalReimpresionAbierto, setModalReimpresionAbierto] = useState(false);
+
+  // Estados de Tickets en Espera (Pausar y Reanudar Ventas / POS)
+  const [modalTicketsEsperaAbierto, setModalTicketsEsperaAbierto] = useState(false);
+  const [conteoTicketsEspera, setConteoTicketsEspera] = useState(0);
+
+  const actualizarConteoTicketsEspera = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const data = localStorage.getItem("pos_tickets_en_espera");
+      if (data) {
+        const list: TicketEnEspera[] = JSON.parse(data);
+        const count = list.filter((t) => t.modulo === "VENTAS").length;
+        setConteoTicketsEspera(count);
+      } else {
+        setConteoTicketsEspera(0);
+      }
+    } catch {
+      setConteoTicketsEspera(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    actualizarConteoTicketsEspera();
+    const handleStorage = () => actualizarConteoTicketsEspera();
+    window.addEventListener("pos_tickets_actualizados", handleStorage);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("pos_tickets_actualizados", handleStorage);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [actualizarConteoTicketsEspera]);
 
   // =========================================================
   // VISTA 1: CLIENTE
@@ -1025,6 +1057,76 @@ export default function PosPage() {
     reiniciarMostrador();
   };
 
+  const guardarTicketActualEnEspera = (nota?: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      const ticketId = "tkt_pos_" + Date.now().toString(36) + "_" + Math.random().toString(36).substring(2, 6);
+      const totalEstimado = itemsCarrito.reduce((acc, it) => acc + (it.subtotal || it.precioUnitario * it.cantidad), 0);
+
+      const nuevoTicket: TicketEnEspera = {
+        id: ticketId,
+        fechaCreacion: new Date().toISOString(),
+        modulo: "VENTAS",
+        cliente: clienteSeleccionado
+          ? {
+              id: clienteSeleccionado.id,
+              nombre: clienteSeleccionado.nombre,
+              documento: clienteSeleccionado.documento || undefined,
+              telefono: clienteSeleccionado.telefono || undefined,
+            }
+          : null,
+        itemsConteo: itemsCarrito.reduce((acc, it) => acc + it.cantidad, 0),
+        resumenPrendas: itemsCarrito.map((it) => `${it.cantidad}x ${it.nombre}`).join(", "),
+        totalEstimado,
+        notaEspera: nota,
+        datosCompletos: {
+          clienteSeleccionado,
+          itemsCarrito,
+          modalidadPago,
+          metodoPagoPrincipal,
+          montoAbonoParcial,
+          efectivoRecibido,
+          referenciaPago,
+          notasFactura,
+        },
+      };
+
+      const prev = localStorage.getItem("pos_tickets_en_espera");
+      const list: TicketEnEspera[] = prev ? JSON.parse(prev) : [];
+      list.unshift(nuevoTicket);
+      localStorage.setItem("pos_tickets_en_espera", JSON.stringify(list));
+      window.dispatchEvent(new Event("pos_tickets_actualizados"));
+      actualizarConteoTicketsEspera();
+
+      reiniciarMostrador();
+    } catch (e) {
+      console.error("Error al pausar venta:", e);
+    }
+  };
+
+  const restaurarTicketEnEspera = (ticket: TicketEnEspera) => {
+    if (!ticket.datosCompletos) return;
+    const d = ticket.datosCompletos;
+    setClienteSeleccionado(d.clienteSeleccionado || null);
+    setItemsCarrito(d.itemsCarrito || []);
+    if (d.modalidadPago) setModalidadPago(d.modalidadPago);
+    if (d.metodoPagoPrincipal) setMetodoPagoPrincipal(d.metodoPagoPrincipal);
+    if (d.montoAbonoParcial) setMontoAbonoParcial(d.montoAbonoParcial);
+    if (d.efectivoRecibido) setEfectivoRecibido(d.efectivoRecibido);
+    if (d.referenciaPago) setReferenciaPago(d.referenciaPago);
+    if (d.notasFactura) setNotasFactura(d.notasFactura);
+
+    if (d.itemsCarrito && d.itemsCarrito.length > 0) {
+      setPasoActual(2);
+    } else if (d.clienteSeleccionado) {
+      setPasoActual(2);
+    } else {
+      setPasoActual(1);
+    }
+    setVistaPrincipal("NUEVA_FACTURA");
+    actualizarConteoTicketsEspera();
+  };
+
   // =========================================================
   // REIMPRESIÓN UNIVERSAL DESDE CUALQUIER PESTAÑA
   // =========================================================
@@ -1146,11 +1248,16 @@ export default function PosPage() {
         }
       }
     },
+    F8: () => {
+      setModalTicketsEsperaAbierto(true);
+    },
     F9: () => {
       abrirModalCrearCliente();
     },
     Esc: () => {
-      if (mostrarModalSupervisor) {
+      if (modalTicketsEsperaAbierto) {
+        setModalTicketsEsperaAbierto(false);
+      } else if (mostrarModalSupervisor) {
         setMostrarModalSupervisor(false);
       } else if (mostrarModalCliente) {
         setMostrarModalCliente(false);
@@ -1191,6 +1298,8 @@ export default function PosPage() {
         historialActivo={vistaPrincipal === "HISTORIAL"}
         historialBadgeCount={estadisticasMonitoreo.totalEnMora + estadisticasMonitoreo.conteoPendientesAlDia}
         historialBadgeVariant={estadisticasMonitoreo.totalEnMora > 0 ? "danger" : "amber"}
+        onTicketsEnEspera={() => setModalTicketsEsperaAbierto(true)}
+        ticketsEnEsperaCount={conteoTicketsEspera}
         onSincronizar={() => {
           cargarSesionYTurno();
           cargarClientes();
@@ -2664,9 +2773,15 @@ export default function PosPage() {
         }}
       />
 
-
-
-
+      {/* Modal de Tickets / Operaciones en Espera (Pausar y Reanudar Ventas / POS) */}
+      <ModalTicketsEnEspera
+        abierto={modalTicketsEsperaAbierto}
+        onCerrar={() => setModalTicketsEsperaAbierto(false)}
+        modulo="VENTAS"
+        operacionActualTieneDatos={!!clienteSeleccionado || itemsCarrito.length > 0}
+        onGuardarTicketActual={guardarTicketActualEnEspera}
+        onRestaurarTicket={restaurarTicketEnEspera}
+      />
     </div>
   );
 }

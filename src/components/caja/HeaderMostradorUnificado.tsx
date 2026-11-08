@@ -18,6 +18,7 @@ import {
   Printer,
   Check,
   Tag,
+  PauseCircle,
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import IconButtonTooltip, { IconButtonVariant } from "@/components/ui/IconButtonTooltip";
@@ -86,6 +87,8 @@ export interface HeaderMostradorUnificadoProps {
   historialLabel?: string;
   historialBadgeCount?: number;
   historialBadgeVariant?: "danger" | "amber" | "indigo" | "emerald" | "orange";
+  onTicketsEnEspera?: () => void;
+  ticketsEnEsperaCount?: number;
   onSincronizar: () => void;
   onLimpiar: () => void;
   limpiarLabel?: string;
@@ -104,6 +107,8 @@ export function HeaderMostradorUnificado({
   historialLabel,
   historialBadgeCount,
   historialBadgeVariant = "amber",
+  onTicketsEnEspera,
+  ticketsEnEsperaCount = 0,
   onSincronizar,
   onLimpiar,
   limpiarLabel = "Limpiar Mostrador",
@@ -252,6 +257,25 @@ export function HeaderMostradorUnificado({
           onClick={onHistorial}
         />
 
+        {/* Tickets / Operaciones en Espera (Pausar y Reanudar) */}
+        {onTicketsEnEspera && (
+          <IconButtonTooltip
+            icon={PauseCircle}
+            label={
+              ticketsEnEsperaCount > 0
+                ? `Operaciones en Espera (${ticketsEnEsperaCount} en pausa - Reanudar)`
+                : "Pausar Operación Actual / Ver Espera (F8)"
+            }
+            modulo="Espera"
+            destino="Pausa la orden actual o reanuda órdenes guardadas"
+            badgeCount={ticketsEnEsperaCount > 0 ? ticketsEnEsperaCount : undefined}
+            badgeVariant="amber"
+            variant={ticketsEnEsperaCount > 0 ? "amber" : "neutral"}
+            size="md"
+            onClick={onTicketsEnEspera}
+          />
+        )}
+
         {/* Sincronizar */}
         <IconButtonTooltip
           icon={RefreshCw}
@@ -398,6 +422,8 @@ export function StepperMostradorUnificado({
         <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F2</span> Cajón
         <span className="text-slate-300">·</span>
         <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F4</span> Cobrar
+        <span className="text-slate-300">·</span>
+        <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F8</span> Pausar
         <span className="text-slate-300">·</span>
         <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded shadow-2xs">F9</span> Cliente
         <span className="text-slate-300">·</span>
