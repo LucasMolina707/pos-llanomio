@@ -465,8 +465,8 @@ export default function PlantillaImpresion({
       safeNumber((factura as any).abonoPrevioApartado) > 0
         ? safeNumber((factura as any).abonoPrevioApartado)
         : (Array.isArray(factura.abonos) && factura.abonos.length > 1
-            ? factura.abonos.slice(1).reduce((acc: number, a: { monto?: number | string | null }) => acc + (safeNumber(a.monto) || 0), 0)
-            : 0);
+          ? factura.abonos.slice(1).reduce((acc: number, a: { monto?: number | string | null }) => acc + (safeNumber(a.monto) || 0), 0)
+          : 0);
 
     const efectivoRecibidoAlquiler =
       safeNumber(factura.efectivoRecibido) > 0
@@ -1137,21 +1137,21 @@ export default function PlantillaImpresion({
             {/* Bloque Financiero en Columnas: Alquiler, Depósito Custodia, Abono hoy y Falta por pagar */}
             <div className="space-y-1 my-0.5">
               <div className={`grid ${saldoPendienteTotalApartado > 0 ? "grid-cols-4" : "grid-cols-3"} gap-1.5 border-y-2 border-slate-900 py-1 text-center`}>
-                <div className="p-0.5 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="p-0.5 bg-slate-50 border border-slate-300">
                   <p className="text-[7.5px] uppercase font-bold text-slate-600">1. Valor Alquiler</p>
                   <p className="text-[11px] font-black font-mono">{formatCOP(totalOperacionAlquiler)}</p>
                 </div>
-                <div className="p-0.5 bg-amber-50 rounded-lg border border-amber-300">
+                <div className="p-0.5 bg-amber-50 border border-amber-400">
                   <p className="text-[7.5px] uppercase font-bold text-amber-900">2. Saldo Depósito (Custodia)</p>
                   <p className="text-[11px] font-black font-mono text-amber-950">{formatCOP(saldoDepositoAlRetirar)}</p>
                   <span className="text-[7px] text-amber-800 block">{depositoPagadoHoyApartado ? "Abonado hoy" : "Pagar al retirar"}</span>
                 </div>
-                <div className="p-0.5 bg-emerald-50 rounded-lg border border-emerald-300">
+                <div className="p-0.5 bg-emerald-50 border border-emerald-400">
                   <p className="text-[7.5px] uppercase font-bold text-emerald-800">3. Abono (Consigna hoy)</p>
                   <p className="text-[11px] font-black font-mono text-emerald-900">-{formatCOP(totalAbonadoAlquiler)}</p>
                 </div>
                 {saldoPendienteTotalApartado > 0 && (
-                  <div className="p-0.5 bg-rose-50 rounded-lg border border-rose-300">
+                  <div className="p-0.5 bg-rose-50 border border-rose-400">
                     <p className="text-[7.5px] uppercase font-bold text-rose-800">4. FALTA POR PAGAR AL RETIRAR</p>
                     <p className="text-[11px] font-black font-mono text-rose-900">{formatCOP(saldoPendienteTotalApartado)}</p>
                   </div>
@@ -1160,7 +1160,7 @@ export default function PlantillaImpresion({
             </div>
 
             {/* LEYENDA OFICIAL DE APARTADOS */}
-            <div className="p-1.5 bg-slate-100 rounded-lg border border-slate-900 text-center my-1 w-full">
+            <div className="p-1.5 bg-slate-100 border border-slate-900 text-center my-1 w-full">
               <p className="text-[10px] font-black tracking-tight text-slate-900 uppercase leading-snug">
                 PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
               </p>
@@ -1184,11 +1184,10 @@ export default function PlantillaImpresion({
       // Alquiler o Venta Comercial
       return (
         <div
-          className={`w-full bg-white text-slate-950 font-sans flex flex-col justify-between box-border h-full ${
-            esDoble
+          className={`w-full bg-white text-slate-950 font-sans flex flex-col justify-between box-border h-full ${esDoble
               ? "p-2 sm:p-2.5 text-[11px] sm:text-[11.5px] font-semibold leading-tight"
               : "p-3 sm:p-4 text-xs sm:text-[12.5px] font-medium leading-tight"
-          }`}
+            }`}
         >
           <div>
             {/* Cabecera Media Carta */}
@@ -1205,9 +1204,8 @@ export default function PlantillaImpresion({
                 )}
                 <div>
                   <h1
-                    className={`${
-                      esDoble ? "text-xs sm:text-sm" : "text-sm sm:text-base"
-                    } font-black tracking-tight text-slate-950 uppercase`}
+                    className={`${esDoble ? "text-xs sm:text-sm" : "text-sm sm:text-base"
+                      } font-black tracking-tight text-slate-950 uppercase`}
                   >
                     {empresa.nombreComercial || "Mi Empresa"}
                   </h1>
@@ -1231,9 +1229,8 @@ export default function PlantillaImpresion({
                     {tituloComprobante}
                   </span>
                   <span
-                    className={`${
-                      esDoble ? "text-xs sm:text-sm" : "text-sm sm:text-base"
-                    } font-black font-mono block text-slate-950`}
+                    className={`${esDoble ? "text-xs sm:text-sm" : "text-sm sm:text-base"
+                      } font-black font-mono block text-slate-950`}
                   >
                     N° {factura.numeroFactura}
                   </span>
@@ -1249,9 +1246,8 @@ export default function PlantillaImpresion({
 
             {/* Ficha Cliente & Operación */}
             <div
-              className={`grid grid-cols-2 gap-2 mb-1 p-1.5 bg-slate-50 border border-slate-300 ${
-                esDoble ? "text-[11px]" : "text-xs"
-              }`}
+              className={`grid grid-cols-2 gap-2 mb-1 p-1.5 bg-slate-50 border border-slate-300 ${esDoble ? "text-[11px]" : "text-xs"
+                }`}
             >
               <div>
                 <p className="font-bold uppercase text-slate-700 text-[9.5px]">DATOS DEL CLIENTE:</p>
@@ -1570,7 +1566,7 @@ export default function PlantillaImpresion({
               </div>
 
               <div className="text-right">
-                <div className="border-2 border-slate-900 rounded-xl px-4 py-2 bg-slate-50">
+                <div className="border-2 border-slate-900 px-4 py-2 bg-slate-50">
                   <span className="text-[11px] uppercase font-black tracking-wider block text-slate-900">
                     FORMATO DE APARTADO
                   </span>
@@ -1588,7 +1584,7 @@ export default function PlantillaImpresion({
             </div>
 
             {/* Ficha Cliente & Fechas */}
-            <div className="grid grid-cols-2 gap-4 mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-2 gap-4 mb-3 p-3 bg-slate-50 border border-slate-300">
               <div className="space-y-1">
                 <p className="text-xs"><strong className="text-slate-700">Nombre:</strong> <span className="font-bold text-sm text-slate-900">{(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}</span></p>
                 <p className="text-xs"><strong className="text-slate-700">C.C. / NIT:</strong> <span className="font-mono font-bold">{cliente.documento || "—"}</span></p>
@@ -1642,21 +1638,21 @@ export default function PlantillaImpresion({
             {/* Cuadrícula Financiera en Bloques: Alquiler, Depósito Custodia, Abono hoy y Falta por Pagar */}
             <div className="space-y-1.5 mb-4">
               <div className={`grid ${saldoPendienteTotalApartado > 0 ? "grid-cols-4" : "grid-cols-3"} gap-3 text-center`}>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="p-3 bg-slate-50 border border-slate-300">
                   <p className="text-[9px] font-bold uppercase text-slate-600">1. Valor Alquiler</p>
                   <p className="text-sm font-black font-mono text-slate-900 mt-1">{formatCOP(totalOperacionAlquiler)}</p>
                 </div>
-                <div className="p-3 bg-amber-50 rounded-xl border border-amber-300">
+                <div className="p-3 bg-amber-50 border border-amber-400">
                   <p className="text-[9px] font-bold uppercase text-amber-900">2. Saldo Depósito (Custodia)</p>
                   <p className="text-sm font-black font-mono text-amber-950 mt-1">{formatCOP(saldoDepositoAlRetirar)}</p>
                   <span className="text-[8.5px] text-amber-800 block mt-0.5">{depositoPagadoHoyApartado ? "Abonado hoy en custodia" : "A pagar al retirar"}</span>
                 </div>
-                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-300">
+                <div className="p-3 bg-emerald-50 border border-emerald-400">
                   <p className="text-[9px] font-bold uppercase text-emerald-800">3. Abono (Consigna hoy)</p>
                   <p className="text-sm font-black font-mono text-emerald-900 mt-1">-{formatCOP(totalAbonadoAlquiler)}</p>
                 </div>
                 {saldoPendienteTotalApartado > 0 && (
-                  <div className="p-3 bg-rose-50 rounded-xl border border-rose-300">
+                  <div className="p-3 bg-rose-50 border border-rose-400">
                     <p className="text-[9px] font-bold uppercase text-rose-800">4. FALTA POR PAGAR AL RETIRAR</p>
                     <p className="text-sm font-black font-mono text-rose-900 mt-1">{formatCOP(saldoPendienteTotalApartado)}</p>
                   </div>
@@ -1665,7 +1661,7 @@ export default function PlantillaImpresion({
             </div>
 
             {/* LEYENDA OFICIAL DE APARTADOS */}
-            <div className="p-3 bg-slate-100 rounded-xl border-2 border-slate-900 text-center mb-3 w-full">
+            <div className="p-3 bg-slate-100 border-2 border-slate-900 text-center mb-3 w-full">
               <p className="text-sm font-black tracking-wide text-slate-900 uppercase leading-snug">
                 PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
               </p>
@@ -1723,7 +1719,7 @@ export default function PlantillaImpresion({
             </div>
 
             <div className="text-right">
-              <div className="border-2 border-slate-900 rounded-xl px-4 py-2 bg-slate-50">
+              <div className="border-2 border-slate-900 px-4 py-2 bg-slate-50">
                 <span className="text-[10px] uppercase font-black tracking-wider block text-slate-800">
                   {tituloComprobante}
                 </span>
@@ -1741,7 +1737,7 @@ export default function PlantillaImpresion({
           </div>
 
           {/* Ficha Cliente & Operación */}
-          <div className="grid grid-cols-2 gap-4 mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-2 gap-4 mb-3 p-3 bg-slate-50 border border-slate-300">
             <div>
               <p className="font-bold uppercase text-slate-500 text-[9px] mb-1">DATOS DEL CLIENTE:</p>
               <p className="font-bold text-slate-900 text-sm">
@@ -1834,90 +1830,90 @@ export default function PlantillaImpresion({
           <div className="mb-3">
             {esAlquiler ? (
               <>
-              <div className="grid grid-cols-2 gap-3">
-                {/* COLUMNA 1: ETIQUETA AMARILLA LIMPIA (CUSTODIA Y FECHA LÍMITE) */}
-                <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 text-amber-950 space-y-1.5">
-                  <p className="font-black text-[10px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
-                    DEPÓSITO EN GARANTÍA (EN CUSTODIA)
-                  </p>
-                  <div className="flex justify-between font-black text-sm text-amber-950">
-                    <span>Depósito en Garantía:</span>
-                    <span className="font-mono text-emerald-950">{formatCOP(montoDepositoEfectivo)}</span>
-                  </div>
-                  <p className="text-[9.5px] text-amber-950 leading-snug">
-                    Custodia: Dinero en garantía a devolver al retornar las prendas completas y sin daños.
-                  </p>
-
-                  <div className="p-2 bg-amber-100 rounded-lg border border-amber-300 text-xs">
-                    <div className="flex justify-between font-black">
-                      <span className="uppercase text-amber-950">Fecha Límite Entrega Obligatoria:</span>
-                      <span className="font-mono text-rose-900 font-bold">
-                        {factura.fechaDevolucionPactada
-                          ? `${safeDate(factura.fechaDevolucionPactada)} hasta las 8:00 p.m. (20:00)`
-                          : "—"}
-                      </span>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* COLUMNA 1: ETIQUETA AMARILLA LIMPIA (CUSTODIA Y FECHA LÍMITE) */}
+                  <div className="p-3 bg-amber-50 border border-amber-300 text-amber-950 space-y-1.5">
+                    <p className="font-black text-[10px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
+                      DEPÓSITO EN GARANTÍA (EN CUSTODIA)
+                    </p>
+                    <div className="flex justify-between font-black text-sm text-amber-950">
+                      <span>Depósito en Garantía:</span>
+                      <span className="font-mono text-emerald-950">{formatCOP(montoDepositoEfectivo)}</span>
                     </div>
+                    <p className="text-[9.5px] text-amber-950 leading-snug">
+                      Custodia: Dinero en garantía a devolver al retornar las prendas completas y sin daños.
+                    </p>
+
+                    <div className="p-2 bg-amber-100 border border-amber-300 text-xs">
+                      <div className="flex justify-between font-black">
+                        <span className="uppercase text-amber-950">Fecha Límite Entrega Obligatoria:</span>
+                        <span className="font-mono text-rose-900 font-bold">
+                          {factura.fechaDevolucionPactada
+                            ? `${safeDate(factura.fechaDevolucionPactada)} hasta las 8:00 p.m. (20:00)`
+                            : "—"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* COLUMNA 2: CELDA DE TOTALES DE PAGO DE ALQUILER */}
+                  <div className="p-3 bg-slate-50 border-2 border-slate-400 space-y-1.5">
+                    <p className="font-black text-[10px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+                      TOTALES DE PAGO DE ALQUILER
+                    </p>
+                    <div className="flex justify-between text-xs font-bold">
+                      <span>Total Valor Alquiler:</span>
+                      <span className="font-mono text-sm">{formatCOP(totalOperacionPrincipal)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-bold">
+                      <span>Depósito en Garantía:</span>
+                      <span className="font-mono text-sm">{formatCOP(montoDepositoEfectivo)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-black text-slate-950 bg-slate-200/80 px-2 py-1 border border-slate-300">
+                      <span>Total (Alquiler + Depósito):</span>
+                      <span className="font-mono text-base">{formatCOP(totalAlquilerConDeposito)}</span>
+                    </div>
+                    {abonoPrevioApartado > 0 && (
+                      <div className="flex justify-between text-xs text-indigo-700 font-bold pt-1">
+                        <span>Abono Previo en Apartado:</span>
+                        <span className="font-mono text-sm">-{formatCOP(abonoPrevioApartado)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs text-slate-800 font-bold pt-1 border-t border-dashed border-slate-300">
+                      <span>Recibido:</span>
+                      <span className="font-mono text-sm">{formatCOP(efectivoRecibidoAlquiler)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-emerald-800 font-black pt-1">
+                      <span>Valor Pagado ({textoMedioPagoPrincipal}):</span>
+                      <span className="font-mono text-sm">{formatCOP(totalPagadoOperacionAlquiler)}</span>
+                    </div>
+                    <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-300 pt-1">
+                      <span>Vueltas:</span>
+                      <span className="font-mono">{formatCOP(vueltasAlquiler)}</span>
+                    </div>
+                    {saldoPendienteOperacion > 0 && (
+                      <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-1">
+                        <span>Falta por pagar:</span>
+                        <span className="text-rose-700">
+                          {formatCOP(saldoPendienteOperacion)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* COLUMNA 2: CELDA DE TOTALES DE PAGO DE ALQUILER */}
-                <div className="p-3 bg-slate-50 rounded-xl border-2 border-slate-400 space-y-1.5">
-                  <p className="font-black text-[10px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
-                    TOTALES DE PAGO DE ALQUILER
+                {/* BANNER OFICIAL DE OBSERVACIONES Y MORA */}
+                <div className="p-3 bg-amber-50/90 rounded-xl border border-amber-300 text-center text-xs text-amber-950 mt-2.5 w-full leading-relaxed space-y-1">
+                  <p className="font-black uppercase tracking-wider text-[11px] text-amber-900 border-b border-amber-200 pb-0.5">OBSERVACIONES</p>
+                  <p className="font-bold">
+                    A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.
                   </p>
-                  <div className="flex justify-between text-xs font-bold">
-                    <span>Total Valor Alquiler:</span>
-                    <span className="font-mono text-sm">{formatCOP(totalOperacionPrincipal)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs font-bold">
-                    <span>Depósito en Garantía:</span>
-                    <span className="font-mono text-sm">{formatCOP(montoDepositoEfectivo)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-black text-slate-950 bg-slate-200/80 px-2 py-1 rounded-lg border border-slate-300">
-                    <span>Total (Alquiler + Depósito):</span>
-                    <span className="font-mono text-base">{formatCOP(totalAlquilerConDeposito)}</span>
-                  </div>
-                  {abonoPrevioApartado > 0 && (
-                    <div className="flex justify-between text-xs text-indigo-700 font-bold pt-1">
-                      <span>Abono Previo en Apartado:</span>
-                      <span className="font-mono text-sm">-{formatCOP(abonoPrevioApartado)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-xs text-slate-800 font-bold pt-1 border-t border-dashed border-slate-300">
-                    <span>Recibido:</span>
-                    <span className="font-mono text-sm">{formatCOP(efectivoRecibidoAlquiler)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-emerald-800 font-black pt-1">
-                    <span>Valor Pagado ({textoMedioPagoPrincipal}):</span>
-                    <span className="font-mono text-sm">{formatCOP(totalPagadoOperacionAlquiler)}</span>
-                  </div>
-                  <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-300 pt-1">
-                    <span>Vueltas:</span>
-                    <span className="font-mono">{formatCOP(vueltasAlquiler)}</span>
-                  </div>
-                  {saldoPendienteOperacion > 0 && (
-                    <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-1">
-                      <span>Falta por pagar:</span>
-                      <span className="text-rose-700">
-                        {formatCOP(saldoPendienteOperacion)}
-                      </span>
-                    </div>
+                  {factura.observaciones && (
+                    <p className="italic text-slate-800 pt-1 border-t border-amber-200">
+                      Nota: {factura.observaciones}
+                    </p>
                   )}
                 </div>
-              </div>
-
-              {/* BANNER OFICIAL DE OBSERVACIONES Y MORA */}
-              <div className="p-3 bg-amber-50/90 rounded-xl border border-amber-300 text-center text-xs text-amber-950 mt-2.5 w-full leading-relaxed space-y-1">
-                <p className="font-black uppercase tracking-wider text-[11px] text-amber-900 border-b border-amber-200 pb-0.5">OBSERVACIONES</p>
-                <p className="font-bold">
-                  A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.
-                </p>
-                {factura.observaciones && (
-                  <p className="italic text-slate-800 pt-1 border-t border-amber-200">
-                    Nota: {factura.observaciones}
-                  </p>
-                )}
-              </div>
               </>
             ) : (
               /* VENTA COMERCIAL: CELDA DIRECTA DE TOTALES (CERO SECCIÓN A, CERO SECCIÓN B) */
@@ -2163,26 +2159,24 @@ export default function PlantillaImpresion({
             display: none !important;
           }
           @page {
-            margin: ${
-              formato === "TIRILLA_58"
-                ? "2mm 1mm"
-                : formato === "TIRILLA"
-                ? "2mm 1mm"
-                : formato === "MEDIA_CARTA"
-                ? "6mm"
-                : formato === "MEDIA_CARTA_DOBLE"
+            margin: ${formato === "TIRILLA_58"
+          ? "2mm 1mm"
+          : formato === "TIRILLA"
+            ? "2mm 1mm"
+            : formato === "MEDIA_CARTA"
+              ? "6mm"
+              : formato === "MEDIA_CARTA_DOBLE"
                 ? "4mm"
                 : "8mm"
-            };
-            size: ${
-              formato === "TIRILLA_58"
-                ? "58mm auto"
-                : formato === "TIRILLA"
-                ? "80mm auto"
-                : formato === "MEDIA_CARTA"
-                ? "215.9mm 139.7mm landscape"
-                : "letter portrait"
-            };
+        };
+            size: ${formato === "TIRILLA_58"
+          ? "58mm auto"
+          : formato === "TIRILLA"
+            ? "80mm auto"
+            : formato === "MEDIA_CARTA"
+              ? "215.9mm 139.7mm landscape"
+              : "letter portrait"
+        };
           }
         }
       `}</style>

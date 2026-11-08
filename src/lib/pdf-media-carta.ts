@@ -210,8 +210,8 @@ function dibujarPaginaMediaCarta(
   doc.text(`Tel: ${empresa.telefono}${empresa.email ? ` | ${empresa.email}` : ""}`, textoEmpresaX, yDetalle);
 
   // Recuadro derecho de Factura / Contrato
-  const anchoCajaFactura = 62;
-  const altoCajaFactura = 16.5;
+  const anchoCajaFactura = 68;
+  const altoCajaFactura = 17;
   const xCajaFactura = margenDerecho - anchoCajaFactura;
   const yCajaFactura = 5 + offsetY;
 
@@ -221,25 +221,29 @@ function dibujarPaginaMediaCarta(
   doc.rect(xCajaFactura, yCajaFactura, anchoCajaFactura, altoCajaFactura, "FD");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
+  doc.setFontSize(7.2);
   doc.setTextColor(15, 23, 42);
   let tituloCajaSuperior = "FACTURA DE VENTA";
   if (esApartado) {
     tituloCajaSuperior = "FORMATO DE APARTADO";
   } else if (esAlquiler) {
-    tituloCajaSuperior = "FACTURA DE ALQUILER";
+    tituloCajaSuperior = esPazYSalvo
+      ? "FACTURA / COMPROBANTE DE ALQUILER — PAGO COMPLETO"
+      : "FACTURA / COMPROBANTE DE ALQUILER — SALDO PENDIENTE";
+  } else if (esPazYSalvo) {
+    tituloCajaSuperior = "FACTURA DE VENTA (PAZ Y SALVO)";
   }
-  doc.text(tituloCajaSuperior, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4.2, { align: "center" });
+  doc.text(tituloCajaSuperior, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4, { align: "center" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(15, 23, 42);
-  doc.text(`N° ${factura.numeroFactura}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 9.8, { align: "center" });
+  doc.text(`N° ${factura.numeroFactura}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 9.5, { align: "center" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.5);
   doc.setTextColor(71, 85, 105);
-  doc.text(tipoCopiaTexto.toUpperCase(), xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 14.5, { align: "center" });
+  doc.text(tipoCopiaTexto.toUpperCase(), xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 14, { align: "center" });
 
   cursorY = Math.max(yDetalle + 2, yCajaFactura + altoCajaFactura + 2);
 
@@ -385,285 +389,366 @@ function dibujarPaginaMediaCarta(
     cursorY += altoFila;
   }
 
-  // 4. RECUADRO DE DEPÓSITO EN GARANTÍA (CUSTODIA) Y COMPROMISO DE ENTREGA (SOLO ALQUILER)
+  // 4. RESUMEN CONTABLE, POLÍTICAS Y FIRMAS SEGÚN OPERACIÓN (ALQUILER / APARTADO / VENTA)
   if (esAlquiler) {
-    cursorY += 1.2;
-    const altoDep = 11.5;
-    doc.setFillColor(254, 252, 232); // Fondo cálido sutil sin bordes redondeados
-    doc.setDrawColor(202, 138, 4);   // Borde recto ámbar
-    doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDep, "FD");
+    cursorY += 1.5;
+    const anchoCol = (margenDerecho - margenIzquierdo - 3) / 2;
+    const altoBloque = 28;
+    const xIzq = margenIzquierdo;
+    const xDer = margenIzquierdo + anchoCol + 3;
+    const yBloque = cursorY;
+
+    // COLUMNA 1: DEPÓSITO EN GARANTÍA (EN CUSTODIA)
+    doc.setFillColor(254, 252, 232); // Amber 50
+    doc.setDrawColor(217, 119, 6);   // Amber 600
+    doc.setLineWidth(0.3);
+    doc.rect(xIzq, yBloque, anchoCol, altoBloque, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
+    doc.setFontSize(7.2);
     doc.setTextColor(146, 64, 14); // Amber 800
-    doc.text("DEPÓSITO EN GARANTÍA (EN CUSTODIA):", margenIzquierdo + 3, cursorY + 3.2);
-    doc.text(`Depósito: ${formatCOP(montoDepositoEfectivo)}`, margenDerecho - 3, cursorY + 3.2, { align: "right" });
+    doc.text("DEPÓSITO EN GARANTÍA (EN CUSTODIA)", xIzq + 2.5, yBloque + 3.8);
+    doc.setDrawColor(217, 119, 6);
+    doc.line(xIzq, yBloque + 5.2, xIzq + anchoCol, yBloque + 5.2);
 
     doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(146, 64, 14);
+    doc.text("Depósito en Garantía:", xIzq + 2.5, yBloque + 9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(montoDepositoEfectivo), xIzq + anchoCol - 2.5, yBloque + 9.5, { align: "right" });
+
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(6.2);
-    doc.setTextColor(185, 28, 28); // Rose 700
+    doc.setTextColor(146, 64, 14);
+    doc.text("Custodia: Dinero en garantía a devolver al entregar las prendas completas.", xIzq + 2.5, yBloque + 14);
+
+    // Sub-recuadro Fecha Límite Entrega
+    const ySub = yBloque + 17;
+    doc.setFillColor(254, 243, 199);
+    doc.setDrawColor(217, 119, 6);
+    doc.rect(xIzq + 2, ySub, anchoCol - 4, 8, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(146, 64, 14);
+    doc.text("FECHA LÍMITE ENTREGA:", xIzq + 3.5, ySub + 5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(185, 28, 28);
     const devTexto = factura.fechaDevolucionPactada
-      ? `FECHA LÍMITE DE ENTREGA: ${new Date(factura.fechaDevolucionPactada).toLocaleDateString("es-CO")} hasta las 8:00 p.m. (20:00)`
-      : "FECHA LÍMITE DE ENTREGA: SEGÚN CONTRATO COMERCIAL";
-    doc.text(devTexto, margenIzquierdo + 3, cursorY + 6.5);
+      ? `${new Date(factura.fechaDevolucionPactada).toLocaleDateString("es-CO")} hasta 8:00 p.m. (20:00)`
+      : "SEGÚN CONTRATO";
+    doc.text(devTexto, xIzq + anchoCol - 3.5, ySub + 5, { align: "right" });
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(5.5);
-    doc.setTextColor(146, 64, 14);
-    doc.text(
-      `OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito.`,
-      margenIzquierdo + 3,
-      cursorY + 9.8
-    );
+    // COLUMNA 2: TOTALES DE PAGO DE ALQUILER
+    doc.setFillColor(248, 250, 252); // Slate 50
+    doc.setDrawColor(148, 163, 184); // Slate 400
+    doc.rect(xDer, yBloque, anchoCol, altoBloque, "FD");
 
-    cursorY += altoDep;
-  }
-
-  // 5. RESUMEN FINANCIERO Y FIRMAS (LADO A LADO)
-  cursorY += 2;
-  const anchoTotales = 72;
-  const xTotales = margenDerecho - anchoTotales;
-
-  // Políticas / Observaciones y Firmas a la izquierda
-  const anchoPoliticas = xTotales - margenIzquierdo - 4;
-  // Políticas / Observaciones a ancho completo debajo de la tabla en Venta
-  if (!esVenta) {
-    if (esAlquiler) {
-      doc.setFillColor(254, 243, 199); // Amber 100
-      doc.setDrawColor(217, 119, 6);   // Amber 600
-    } else if (esApartado) {
-      doc.setFillColor(254, 242, 242); // Rose 50
-      doc.setDrawColor(239, 68, 68);   // Rose 500
-    }
-    doc.rect(margenIzquierdo, cursorY, anchoPoliticas, 24, "FD");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
-    if (esAlquiler) {
-      doc.setTextColor(146, 64, 14);
-      doc.text("OBSERVACIONES:", margenIzquierdo + 2.5, cursorY + 3.4);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(5.8);
-      const obsMora = `A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.`;
-      const lineasObs = doc.splitTextToSize(obsMora, anchoPoliticas - 5);
-      doc.text(lineasObs.slice(0, 2), margenIzquierdo + 2.5, cursorY + 6.6);
-      if (factura.observaciones) {
-        doc.setFont("helvetica", "italic");
-        doc.setFontSize(5.5);
-        doc.setTextColor(71, 85, 105);
-        const lineaNota = `Nota: ${factura.observaciones}`;
-        doc.text(doc.splitTextToSize(lineaNota, anchoPoliticas - 5).slice(0, 1), margenIzquierdo + 2.5, cursorY + 13.5);
-      }
-    } else if (esApartado) {
-      doc.setTextColor(185, 28, 28);
-      doc.text("OBSERVACIÓN IMPORTANTE:", margenIzquierdo + 2.5, cursorY + 3.4);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", margenIzquierdo + 2.5, cursorY + 7.5);
-    }
-
-    // Firmas debajo de políticas u observaciones
-    doc.setFontSize(5.6);
-    doc.setTextColor(100, 116, 139);
-    doc.line(margenIzquierdo + 4, cursorY + 18.5, margenIzquierdo + 46, cursorY + 18.5);
-    doc.text("Firma Vendedor / Cajero Responsable", margenIzquierdo + 6, cursorY + 21.5);
-
-    doc.line(margenIzquierdo + 50, cursorY + 18.5, margenIzquierdo + 104, cursorY + 18.5);
-    doc.text("Firma y C.C. Cliente (Aceptación de Términos)", margenIzquierdo + 52, cursorY + 21.5);
-  }
-
-  // Cuadro de Totales Segregado a la derecha
-  let yTot = cursorY;
-  if (esApartado) {
-    // Conceptos de Apartados en orden estricto
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(71, 85, 105);
-    doc.text("1. Valor Alquiler:", xTotales, yTot + 3);
-    doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTot + 3, { align: "right" });
-
-    yTot += 3.8;
-    doc.setTextColor(71, 85, 105);
-    doc.text("2. Saldo Depósito (Custodia):", xTotales, yTot + 3);
-    doc.setTextColor(146, 64, 14);
-    doc.text(formatCOP(saldoDepositoAlRetirar), margenDerecho, yTot + 3, { align: "right" });
-
-    yTot += 3.8;
-    doc.setTextColor(71, 85, 105);
-    doc.text("3. Abono (Consigna hoy):", xTotales, yTot + 3);
-    doc.setTextColor(5, 150, 105);
-    doc.text(`-${formatCOP(totalAbonado)}`, margenDerecho, yTot + 3, { align: "right" });
-
-    if (saldoPendienteTotalApartado > 0) {
-      yTot += 4.2;
-      doc.setFillColor(255, 241, 242);
-      doc.setDrawColor(225, 29, 72);
-      doc.rect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6.5, "FD");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.2);
-      doc.setTextColor(225, 29, 72);
-      doc.text("4. FALTA POR PAGAR AL RETIRAR:", xTotales, yTot + 4.3);
-      doc.text(formatCOP(saldoPendienteTotalApartado), margenDerecho - 1, yTot + 4.3, { align: "right" });
-    }
-  } else if (esAlquiler) {
-    // Alquiler: Totales de Pago Completos y Enmarcados
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(71, 85, 105);
-    doc.text("Total Valor Alquiler:", xTotales, yTot + 2.8);
-    doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTot + 2.8, { align: "right" });
-
-    yTot += 3.4;
-    doc.setTextColor(71, 85, 105);
-    doc.text("Depósito en Garantía:", xTotales, yTot + 2.8);
-    doc.setTextColor(146, 64, 14);
-    doc.text(formatCOP(montoDepositoEfectivo), margenDerecho, yTot + 2.8, { align: "right" });
-
-    yTot += 3.6;
-    doc.setFillColor(241, 245, 249);
-    doc.setDrawColor(148, 163, 184);
-    doc.rect(xTotales - 1, yTot, anchoTotales + 1, 4.8, "FD");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.2);
     doc.setTextColor(15, 23, 42);
-    doc.text("Total (Alquiler + Depósito):", xTotales + 1, yTot + 3.4);
-    doc.text(formatCOP(totalAlquilerConDeposito), margenDerecho - 1, yTot + 3.4, { align: "right" });
+    doc.text("TOTALES DE PAGO DE ALQUILER", xDer + 2.5, yBloque + 3.8);
+    doc.setDrawColor(203, 213, 225);
+    doc.line(xDer, yBloque + 5.2, xDer + anchoCol, yBloque + 5.2);
 
-    if (abonoPrevioApartado > 0) {
-      yTot += 4.6;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.8);
-      doc.setTextColor(67, 56, 202);
-      doc.text("Abono Previo en Apartado:", xTotales, yTot + 2.8);
-      doc.text(`-${formatCOP(abonoPrevioApartado)}`, margenDerecho, yTot + 2.8, { align: "right" });
-    }
-
-    // 5. RECIBIDO (Va en la celda anterior a Valor Pagado)
-    yTot += 4.2;
+    let yTotAlq = yBloque + 8.8;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.8);
     doc.setTextColor(71, 85, 105);
-    doc.text("Recibido:", xTotales, yTot + 2.6);
+    doc.text("Total Valor Alquiler:", xDer + 2.5, yTotAlq);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(efectivoRecibidoAlquiler), margenDerecho, yTot + 2.6, { align: "right" });
+    doc.text(formatCOP(totalOperacionPrincipal), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
 
-    // 6. VALOR PAGADO (Suma alquiler + depósito)
-    yTot += 3.4;
-    doc.setFontSize(7);
-    doc.setTextColor(5, 150, 105);
-    const labelPag = `Valor Pagado (${textoMedioPagoPrincipal}):`;
-    doc.text(labelPag.substring(0, 24), xTotales, yTot + 2.8);
-    doc.text(formatCOP(totalPagadoOperacionAlquiler), margenDerecho, yTot + 2.8, { align: "right" });
+    yTotAlq += 3.2;
+    doc.setTextColor(71, 85, 105);
+    doc.text("Depósito en Garantía:", xDer + 2.5, yTotAlq);
+    doc.setTextColor(146, 64, 14);
+    doc.text(formatCOP(montoDepositoEfectivo), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
 
-    // 7. VUELTAS
-    yTot += 3.2;
+    // Franja resaltada Total (Alquiler + Depósito)
+    yTotAlq += 3.4;
+    doc.setFillColor(226, 232, 240); // Slate 200
+    doc.rect(xDer + 1, yTotAlq - 2.5, anchoCol - 2, 4.2, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
+    doc.setFontSize(7);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Total (Alquiler + Depósito):", xDer + 2.5, yTotAlq + 0.6);
+    doc.text(formatCOP(totalAlquilerConDeposito), xDer + anchoCol - 2.5, yTotAlq + 0.6, { align: "right" });
+
+    if (abonoPrevioApartado > 0) {
+      yTotAlq += 3.4;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(67, 56, 202);
+      doc.text("Abono Previo en Apartado:", xDer + 2.5, yTotAlq);
+      doc.text(`-${formatCOP(abonoPrevioApartado)}`, xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
+    }
+
+    yTotAlq += 3.2;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text("Recibido:", xDer + 2.5, yTotAlq);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(efectivoRecibidoAlquiler), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
+
+    yTotAlq += 3.1;
     doc.setTextColor(5, 150, 105);
-    doc.text("Vueltas:", xTotales, yTot + 2.6);
-    doc.text(formatCOP(vueltasAlquiler), margenDerecho, yTot + 2.6, { align: "right" });
+    doc.text(`Valor Pagado (${textoMedioPagoPrincipal}):`, xDer + 2.5, yTotAlq);
+    doc.text(formatCOP(totalPagadoOperacionAlquiler), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
+
+    yTotAlq += 3.1;
+    doc.setTextColor(5, 150, 105);
+    doc.text("Vueltas:", xDer + 2.5, yTotAlq);
+    doc.text(formatCOP(vueltasAlquiler), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
 
     if (saldoPendiente > 0) {
-      yTot += 3.6;
+      yTotAlq += 3.2;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(225, 29, 72);
+      doc.text("Falta por pagar:", xDer + 2.5, yTotAlq);
+      doc.text(formatCOP(saldoPendiente), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
+    }
+
+    // BANNER OFICIAL DE OBSERVACIONES Y MORA (ANCHO COMPLETO)
+    const yStrip = yBloque + altoBloque + 1.2;
+    doc.setFillColor(254, 252, 232); // Amber 50
+    doc.setDrawColor(217, 119, 6);   // Amber 600
+    doc.rect(margenIzquierdo, yStrip, margenDerecho - margenIzquierdo, 5.8, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(5.8);
+    doc.setTextColor(146, 64, 14);
+    const obsMora = `OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.`;
+    doc.text(obsMora, (margenIzquierdo + margenDerecho) / 2, yStrip + 3.8, { align: "center" });
+
+    // FIRMAS PARALELAS AL PIE DE PÁGINA
+    const yFirmas = yStrip + 10.5;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.setTextColor(15, 23, 42);
+    doc.setDrawColor(15, 23, 42);
+
+    // Firma Cliente
+    doc.line(margenIzquierdo + 15, yFirmas, margenIzquierdo + 80, yFirmas);
+    doc.text("Firma y C.C. del Cliente", margenIzquierdo + 47.5, yFirmas + 3.2, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.2);
+    doc.setTextColor(71, 85, 105);
+    doc.text("(Acepto estado de prendas y condiciones)", margenIzquierdo + 47.5, yFirmas + 5.8, { align: "center" });
+
+    // Firma Cajero
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.setTextColor(15, 23, 42);
+    doc.line(margenDerecho - 80, yFirmas, margenDerecho - 15, yFirmas);
+    doc.text("Firma Vendedor / Cajero Responsable", margenDerecho - 47.5, yFirmas + 3.2, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.2);
+    doc.setTextColor(71, 85, 105);
+    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 47.5, yFirmas + 5.8, { align: "center" });
+
+  } else if (esApartado) {
+    cursorY += 1.5;
+    const numCols = saldoPendienteTotalApartado > 0 ? 4 : 3;
+    const gap = 2;
+    const anchoCaja = (margenDerecho - margenIzquierdo - (numCols - 1) * gap) / numCols;
+    const altoCaja = 13;
+    const yCajas = cursorY;
+
+    // Caja 1: Valor Alquiler
+    let curX = margenIzquierdo;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.setTextColor(71, 85, 105);
+    doc.text("1. VALOR ALQUILER", curX + anchoCaja / 2, yCajas + 3.5, { align: "center" });
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalOperacionPrincipal), curX + anchoCaja / 2, yCajas + 9, { align: "center" });
+
+    // Caja 2: Saldo Depósito (Custodia)
+    curX += anchoCaja + gap;
+    doc.setFillColor(254, 252, 232);
+    doc.setDrawColor(217, 119, 6);
+    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.setTextColor(146, 64, 14);
+    doc.text("2. SALDO DEPÓSITO", curX + anchoCaja / 2, yCajas + 3.5, { align: "center" });
+    doc.setFontSize(8.5);
+    doc.setTextColor(146, 64, 14);
+    doc.text(formatCOP(saldoDepositoAlRetirar), curX + anchoCaja / 2, yCajas + 8.5, { align: "center" });
+    doc.setFontSize(5);
+    doc.text(depositoPagadoHoyApartado ? "Abonado hoy" : "Pagar al retirar", curX + anchoCaja / 2, yCajas + 11.2, { align: "center" });
+
+    // Caja 3: Abono hoy
+    curX += anchoCaja + gap;
+    doc.setFillColor(236, 253, 245);
+    doc.setDrawColor(5, 150, 105);
+    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.setTextColor(5, 150, 105);
+    doc.text("3. ABONO (HOY)", curX + anchoCaja / 2, yCajas + 3.5, { align: "center" });
+    doc.setFontSize(8.5);
+    doc.text(`-${formatCOP(totalAbonado)}`, curX + anchoCaja / 2, yCajas + 9, { align: "center" });
+
+    // Caja 4: Falta por pagar al retirar
+    if (saldoPendienteTotalApartado > 0) {
+      curX += anchoCaja + gap;
       doc.setFillColor(255, 241, 242);
       doc.setDrawColor(225, 29, 72);
-      doc.rect(xTotales - 1.5, yTot, anchoTotales + 1.5, 5, "FD");
+      doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(225, 29, 72);
-      doc.text("Falta por pagar:", xTotales + 1, yTot + 3.5);
-      doc.text(formatCOP(saldoPendiente), margenDerecho - 1, yTot + 3.5, { align: "right" });
+      doc.setFontSize(5.8);
+      doc.setTextColor(190, 18, 60);
+      doc.text("4. FALTA AL RETIRAR", curX + anchoCaja / 2, yCajas + 3.5, { align: "center" });
+      doc.setFontSize(8.5);
+      doc.text(formatCOP(saldoPendienteTotalApartado), curX + anchoCaja / 2, yCajas + 9, { align: "center" });
     }
+
+    // Franja Leyenda Oficial Apartados
+    const yStripAp = yCajas + altoCaja + 1.5;
+    doc.setFillColor(241, 245, 249);
+    doc.setDrawColor(15, 23, 42);
+    doc.rect(margenIzquierdo, yStripAp, margenDerecho - margenIzquierdo, 5.8, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", (margenIzquierdo + margenDerecho) / 2, yStripAp + 3.8, { align: "center" });
+
+    // FIRMAS PARALELAS AL PIE DE PÁGINA
+    const yFirmas = yStripAp + 10.5;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.setTextColor(15, 23, 42);
+    doc.setDrawColor(15, 23, 42);
+
+    // Firma Cliente
+    doc.line(margenIzquierdo + 15, yFirmas, margenIzquierdo + 80, yFirmas);
+    doc.text("Firma del Cliente", margenIzquierdo + 47.5, yFirmas + 3.2, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.2);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`C.C. ${factura.cliente.documento || "____________________"}`, margenIzquierdo + 47.5, yFirmas + 5.8, { align: "center" });
+
+    // Firma Cajero
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.setTextColor(15, 23, 42);
+    doc.line(margenDerecho - 80, yFirmas, margenDerecho - 15, yFirmas);
+    doc.text("Cajero Responsable", margenDerecho - 47.5, yFirmas + 3.2, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.2);
+    doc.setTextColor(71, 85, 105);
+    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 47.5, yFirmas + 5.8, { align: "center" });
+
   } else {
-    // Venta Comercial: Cero Sección A y B, Totales directos en recuadro limpio idéntico al visor
+    // Venta Comercial: Totales a la derecha, Franja de Políticas, Firmas paralelas
+    cursorY += 1.5;
+    const anchoTotVenta = 76;
+    const xTotVenta = margenDerecho - anchoTotVenta;
+    const altoTotVenta = 23;
+    const yTotVenta = cursorY;
+
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(203, 213, 225);
     doc.setLineWidth(0.3);
-    doc.rect(xTotales - 2, yTot, anchoTotales + 2, 24, "FD");
+    doc.rect(xTotVenta, yTotVenta, anchoTotVenta, altoTotVenta, "FD");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.2);
     doc.setTextColor(15, 23, 42);
-    doc.text("TOTALES DE VENTA", xTotales + 1, yTot + 3.8);
+    doc.text("TOTALES DE VENTA", xTotVenta + 2.5, yTotVenta + 3.8);
     doc.setDrawColor(203, 213, 225);
-    doc.line(xTotales - 2, yTot + 5, margenDerecho, yTot + 5);
+    doc.line(xTotVenta, yTotVenta + 5.2, margenDerecho, yTotVenta + 5.2);
 
-    yTot += 6;
+    let yRowVenta = yTotVenta + 8.8;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.2);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Total Cobro de Venta:", xTotales + 1, yTot + 3.2);
-    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho - 1, yTot + 3.2, { align: "right" });
-
-    yTot += 4.5;
     doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Total Cobro de Venta:", xTotVenta + 2.5, yRowVenta);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho - 2.5, yRowVenta, { align: "right" });
+
+    yRowVenta += 3.6;
+    doc.setFontSize(7);
     doc.setTextColor(5, 150, 105);
-    const labelCob = `Cobro Recibido (${textoMedioPagoPrincipal}):`;
-    doc.text(labelCob.substring(0, 24), xTotales + 1, yTot + 3.2);
-    doc.text(formatCOP(totalAbonado), margenDerecho - 1, yTot + 3.2, { align: "right" });
+    doc.text(`Cobro Recibido (${textoMedioPagoPrincipal}):`, xTotVenta + 2.5, yRowVenta);
+    doc.text(formatCOP(totalAbonado), margenDerecho - 2.5, yRowVenta, { align: "right" });
 
     if (vueltasEntregadas > 0 || efectivoRecibidoCliente > 0) {
-      yTot += 4.2;
+      yRowVenta += 3.4;
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.8);
+      doc.setFontSize(6.5);
       doc.setTextColor(71, 85, 105);
-      doc.text("Efectivo Recibido Cliente:", xTotales + 1, yTot + 3);
-      doc.text(formatCOP(efectivoRecibidoCliente > 0 ? efectivoRecibidoCliente : totalAbonado), margenDerecho - 1, yTot + 3, { align: "right" });
+      doc.text("Efectivo Recibido Cliente:", xTotVenta + 2.5, yRowVenta);
+      doc.text(formatCOP(efectivoRecibidoCliente > 0 ? efectivoRecibidoCliente : totalAbonado), margenDerecho - 2.5, yRowVenta, { align: "right" });
     }
 
     if (vueltasEntregadas > 0) {
-      yTot += 4;
+      yRowVenta += 3.4;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
+      doc.setFontSize(7);
       doc.setTextColor(5, 150, 105);
-      doc.text("Vueltos / Cambio Entregado:", xTotales + 1, yTot + 3);
-      doc.text(formatCOP(vueltasEntregadas), margenDerecho - 1, yTot + 3, { align: "right" });
+      doc.text("Vueltos / Cambio Final Entregado:", xTotVenta + 2.5, yRowVenta);
+      doc.text(formatCOP(vueltasEntregadas), margenDerecho - 2.5, yRowVenta, { align: "right" });
     }
 
     if (saldoPendiente > 0) {
-      yTot += 4.5;
-      doc.setFillColor(255, 241, 242);
-      doc.setDrawColor(225, 29, 72);
-      doc.rect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6, "FD");
+      yRowVenta += 3.4;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
+      doc.setFontSize(7);
       doc.setTextColor(225, 29, 72);
-      doc.text("FALTA POR PAGAR:", xTotales, yTot + 4.1);
-      doc.text(formatCOP(saldoPendiente), margenDerecho - 1, yTot + 4.1, { align: "right" });
+      doc.text("Falta por pagar:", xTotVenta + 2.5, yRowVenta);
+      doc.text(formatCOP(saldoPendiente), margenDerecho - 2.5, yRowVenta, { align: "right" });
     }
 
-    // Para venta: Normas y Políticas en franja completa inferior
-    const yPolVenta = yTot + 8;
+    // Franja de Normas y Políticas ancho completo
+    const yPolVenta = yTotVenta + altoTotVenta + 1.5;
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
-    doc.rect(margenIzquierdo, yPolVenta, margenDerecho - margenIzquierdo, 6.5, "FD");
+    doc.rect(margenIzquierdo, yPolVenta, margenDerecho - margenIzquierdo, 5.8, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(5.8);
+    doc.setTextColor(15, 23, 42);
+    doc.text("NORMAS Y POLÍTICAS:", margenIzquierdo + 2, yPolVenta + 3.8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.5);
+    doc.setTextColor(71, 85, 105);
+    const textoPolVenta = "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento.";
+    doc.text(textoPolVenta, margenIzquierdo + 30, yPolVenta + 3.8);
+
+    // FIRMAS PARALELAS AL PIE DE PÁGINA
+    const yFirmas = yPolVenta + 10.5;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.2);
     doc.setTextColor(15, 23, 42);
-    doc.text("NORMAS Y POLÍTICAS:", margenIzquierdo + 2, yPolVenta + 4.2);
+    doc.setDrawColor(15, 23, 42);
+
+    // Firma Cliente
+    doc.line(margenIzquierdo + 15, yFirmas, margenIzquierdo + 80, yFirmas);
+    doc.text("Firma y C.C. del Cliente", margenIzquierdo + 47.5, yFirmas + 3.2, { align: "center" });
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(5.8);
-    doc.setTextColor(71, 85, 105);
-    const textoPolVenta = "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento.";
-    doc.text(textoPolVenta, margenIzquierdo + 32, yPolVenta + 4.2);
-
-    // Firmas de venta
-    const yFirmasVenta = yPolVenta + 11.5;
-    doc.setFontSize(5.8);
-    doc.setTextColor(71, 85, 105);
-    doc.setDrawColor(100, 116, 139);
-    doc.line(margenIzquierdo + 12, yFirmasVenta, margenIzquierdo + 75, yFirmasVenta);
-    doc.text("Firma y C.C. del Cliente", margenIzquierdo + 28, yFirmasVenta + 3.2);
     doc.setFontSize(5.2);
-    doc.text("(Aceptación y recibido a conformidad)", margenIzquierdo + 24, yFirmasVenta + 5.8);
+    doc.setTextColor(71, 85, 105);
+    doc.text("(Aceptación y recibido a conformidad)", margenIzquierdo + 47.5, yFirmas + 5.8, { align: "center" });
 
-    doc.setFontSize(5.8);
-    doc.line(margenDerecho - 75, yFirmasVenta, margenDerecho - 12, yFirmasVenta);
-    doc.text("Firma Vendedor / Cajero Responsable", margenDerecho - 66, yFirmasVenta + 3.2);
+    // Firma Cajero
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.setTextColor(15, 23, 42);
+    doc.line(margenDerecho - 80, yFirmas, margenDerecho - 15, yFirmas);
+    doc.text("Firma Vendedor / Cajero Responsable", margenDerecho - 47.5, yFirmas + 3.2, { align: "center" });
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(5.2);
-    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 58, yFirmasVenta + 5.8);
+    doc.setTextColor(71, 85, 105);
+    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 47.5, yFirmas + 5.8, { align: "center" });
   }
 
   // Pie de cortesía sin QR
@@ -850,37 +935,24 @@ function dibujarPaginaCarta(
   const xCajaFactura = margenDerecho - anchoCajaFactura;
   const yCajaFactura = 10;
 
-  if (esPazYSalvo) {
-    doc.setFillColor(236, 253, 245);
-    doc.setDrawColor(5, 150, 105);
-  } else {
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(15, 23, 42);
-  }
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(15, 23, 42);
   doc.setLineWidth(0.4);
   doc.rect(xCajaFactura, yCajaFactura, anchoCajaFactura, altoCajaFactura, "FD");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
   if (esApartado) {
-    doc.setTextColor(15, 23, 42);
-    doc.text("FORMATO DE APARTADO - PRODUCTOS SEPARADOS", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+    doc.text("FORMATO DE APARTADO", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
   } else if (esAlquiler) {
-    if (factura.estado === "CERRADA") {
-      doc.setTextColor(5, 150, 105);
-      doc.text("CERTIFICADO DE PAZ Y SALVO DE ALQUILER Y DEPÓSITO", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
-    } else if (esPazYSalvo) {
-      doc.setTextColor(15, 23, 42);
-      doc.text("FACTURA DE ALQUILER — PAGO COMPLETO", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
-    } else {
-      doc.setTextColor(225, 29, 72);
-      doc.text(`ALQUILER — SALDO PENDIENTE: ${formatCOP(saldoPendiente)}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
-    }
+    const titAlq = esPazYSalvo
+      ? "FACTURA / COMPROBANTE DE ALQUILER — PAGO COMPLETO"
+      : `ALQUILER — SALDO PENDIENTE: ${formatCOP(saldoPendiente)}`;
+    doc.text(titAlq, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
   } else if (esPazYSalvo) {
-    doc.setTextColor(5, 150, 105);
-    doc.text("FACTURA DE VENTA — PAGO COMPLETO (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
+    doc.text("FACTURA DE VENTA (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
   } else {
-    doc.setTextColor(225, 29, 72);
     doc.text(`COMPROBANTE DE VENTA — SALDO: ${formatCOP(saldoPendiente)}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 5, { align: "center" });
   }
 
@@ -891,8 +963,8 @@ function dibujarPaginaCarta(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
-  doc.setTextColor(esPazYSalvo ? 5 : 37, esPazYSalvo ? 150 : 99, esPazYSalvo ? 105 : 235);
-  doc.text(`** ${tipoCopiaTexto} **`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 18.5, { align: "center" });
+  doc.setTextColor(71, 85, 105);
+  doc.text(tipoCopiaTexto.toUpperCase(), xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 18.5, { align: "center" });
 
   cursorY = Math.max(yDet + 3, yCajaFactura + altoCajaFactura + 3);
 
@@ -1066,243 +1138,360 @@ function dibujarPaginaCarta(
     cursorY += altoFila;
   }
 
-  // 5. RECUADRO DE DEPÓSITO EN GARANTÍA (CUSTODIA) Y COMPROMISO DE ENTREGA (SOLO ALQUILER)
+  // 5. RESUMEN CONTABLE, POLÍTICAS Y FIRMAS SEGÚN OPERACIÓN (CARTA COMPLETA)
   if (esAlquiler) {
-    cursorY += 2.5;
-    const altoDepCarta = 15;
-    doc.setFillColor(254, 243, 199);
+    cursorY += 3;
+    const anchoCol = (margenDerecho - margenIzquierdo - 5) / 2;
+    const altoBloque = 36;
+    const xIzq = margenIzquierdo;
+    const xDer = margenIzquierdo + anchoCol + 5;
+    const yBloque = cursorY;
+
+    // COLUMNA 1: DEPÓSITO EN GARANTÍA (EN CUSTODIA)
+    doc.setFillColor(254, 252, 232); // Amber 50
+    doc.setDrawColor(217, 119, 6);   // Amber 600
+    doc.setLineWidth(0.3);
+    doc.rect(xIzq, yBloque, anchoCol, altoBloque, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(146, 64, 14); // Amber 800
+    doc.text("DEPÓSITO EN GARANTÍA (EN CUSTODIA)", xIzq + 3.5, yBloque + 4.8);
     doc.setDrawColor(217, 119, 6);
-    doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDepCarta, "FD");
+    doc.line(xIzq, yBloque + 6.5, xIzq + anchoCol, yBloque + 6.5);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
     doc.setTextColor(146, 64, 14);
-    doc.text("DEPÓSITO EN GARANTÍA (EN CUSTODIA):", margenIzquierdo + 4, cursorY + 4);
-    doc.text(`Depósito: ${formatCOP(montoDepositoEfectivo)}`, margenDerecho - 4, cursorY + 4, { align: "right" });
+    doc.text("Depósito en Garantía:", xIzq + 3.5, yBloque + 12);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(montoDepositoEfectivo), xIzq + anchoCol - 3.5, yBloque + 12, { align: "right" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.2);
+    doc.setTextColor(146, 64, 14);
+    doc.text("Custodia: Dinero en garantía a devolver al entregar las prendas completas.", xIzq + 3.5, yBloque + 18);
+
+    // Sub-recuadro Fecha Límite Entrega
+    const ySub = yBloque + 22;
+    doc.setFillColor(254, 243, 199);
+    doc.setDrawColor(217, 119, 6);
+    doc.rect(xIzq + 2.5, ySub, anchoCol - 5, 10, "FD");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
+    doc.setTextColor(146, 64, 14);
+    doc.text("FECHA LÍMITE ENTREGA:", xIzq + 4.5, ySub + 6.2);
+    doc.setFont("helvetica", "bold");
     doc.setTextColor(185, 28, 28);
     const devTexto = factura.fechaDevolucionPactada
-      ? `FECHA LÍMITE DE ENTREGA: ${new Date(factura.fechaDevolucionPactada).toLocaleDateString("es-CO")} hasta las 8:00 p.m. (20:00)`
-      : "FECHA LÍMITE DE ENTREGA: SEGÚN CONTRATO COMERCIAL";
-    doc.text(devTexto, margenIzquierdo + 4, cursorY + 8);
+      ? `${new Date(factura.fechaDevolucionPactada).toLocaleDateString("es-CO")} hasta 8:00 p.m. (20:00)`
+      : "SEGÚN CONTRATO";
+    doc.text(devTexto, xIzq + anchoCol - 4.5, ySub + 6.2, { align: "right" });
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
-    doc.setTextColor(146, 64, 14);
-    doc.text(
-      `OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito.`,
-      margenIzquierdo + 4,
-      cursorY + 12
-    );
+    // COLUMNA 2: TOTALES DE PAGO DE ALQUILER
+    doc.setFillColor(248, 250, 252); // Slate 50
+    doc.setDrawColor(148, 163, 184); // Slate 400
+    doc.rect(xDer, yBloque, anchoCol, altoBloque, "FD");
 
-    cursorY += altoDepCarta;
-  }
-
-  // 6. TOTALES Y POLÍTICAS
-  cursorY += 3;
-  const anchoTotales = 80;
-  const xTotales = margenDerecho - anchoTotales;
-
-  // Políticas / Observaciones a la izquierda
-  const anchoPol = xTotales - margenIzquierdo - 8;
-  if (esAlquiler) {
-    doc.setFillColor(254, 243, 199); // Amber 100
-    doc.setDrawColor(217, 119, 6);   // Amber 600
-  } else if (esApartado) {
-    doc.setFillColor(254, 242, 242); // Rose 50
-    doc.setDrawColor(239, 68, 68);   // Rose 500
-  } else {
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-  }
-  doc.rect(margenIzquierdo, cursorY, anchoPol, 28, "FD");
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  if (esAlquiler) {
-    doc.setTextColor(146, 64, 14);
-    doc.text("OBSERVACIONES:", margenIzquierdo + 3, cursorY + 4.5);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
-    const obsMoraCarta = `A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.`;
-    const lineasObsCarta = doc.splitTextToSize(obsMoraCarta, anchoPol - 6);
-    doc.text(lineasObsCarta.slice(0, 2), margenIzquierdo + 3, cursorY + 9);
-    if (factura.observaciones) {
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(6.5);
-      doc.setTextColor(71, 85, 105);
-      const notaCarta = `Nota: ${factura.observaciones}`;
-      doc.text(doc.splitTextToSize(notaCarta, anchoPol - 6).slice(0, 1), margenIzquierdo + 3, cursorY + 16.5);
-    }
-  } else if (esApartado) {
-    doc.setTextColor(185, 28, 28);
-    doc.text("OBSERVACIÓN IMPORTANTE:", margenIzquierdo + 3, cursorY + 4.5);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", margenIzquierdo + 3, cursorY + 10);
-  } else {
-    doc.setTextColor(71, 85, 105);
-    doc.text("POLÍTICAS COMERCIALES Y DE GARANTÍA:", margenIzquierdo + 3, cursorY + 4.5);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(100, 116, 139);
-    const polTextoCarta = "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento.";
-    const lineasPol = doc.splitTextToSize(polTextoCarta, anchoPol - 6);
-    doc.text(lineasPol.slice(0, 3), margenIzquierdo + 3, cursorY + 8.5);
-  }
+    doc.setTextColor(15, 23, 42);
+    doc.text("TOTALES DE PAGO DE ALQUILER", xDer + 3.5, yBloque + 4.8);
+    doc.setDrawColor(203, 213, 225);
+    doc.line(xDer, yBloque + 6.5, xDer + anchoCol, yBloque + 6.5);
 
-  // Firmas
-  doc.setFontSize(6.5);
-  doc.setTextColor(100, 116, 139);
-  doc.line(margenIzquierdo + 6, cursorY + 22, margenIzquierdo + 52, cursorY + 22);
-  doc.text("Firma Vendedor / Cajero Responsable", margenIzquierdo + 8, cursorY + 25.5);
-
-  doc.line(margenIzquierdo + 60, cursorY + 22, margenIzquierdo + 120, cursorY + 22);
-  doc.text("Firma y C.C. del Cliente (Aceptación de Términos)", margenIzquierdo + 62, cursorY + 25.5);
-
-  // Cuadro de Totales Segregado
-  let yTotCarta = cursorY;
-  if (esApartado) {
-    // Conceptos de Apartados
+    let yTotAlq = yBloque + 11.2;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(71, 85, 105);
-    doc.text("1. Valor Alquiler:", xTotales, yTotCarta + 4);
+    doc.text("Total Valor Alquiler:", xDer + 3.5, yTotAlq);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTotCarta + 4, { align: "right" });
+    doc.text(formatCOP(totalOperacionPrincipal), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
 
-    yTotCarta += 5;
+    yTotAlq += 4;
     doc.setTextColor(71, 85, 105);
-    doc.text("2. Saldo Depósito (Custodia):", xTotales, yTotCarta + 4);
+    doc.text("Depósito en Garantía:", xDer + 3.5, yTotAlq);
     doc.setTextColor(146, 64, 14);
-    doc.text(formatCOP(saldoDepositoAlRetirar), margenDerecho, yTotCarta + 4, { align: "right" });
+    doc.text(formatCOP(montoDepositoEfectivo), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
 
-    yTotCarta += 5;
-    doc.setTextColor(71, 85, 105);
-    doc.text("3. Abono (Consigna hoy):", xTotales, yTotCarta + 4);
-    doc.setTextColor(5, 150, 105);
-    doc.text(`-${formatCOP(totalAbonado)}`, margenDerecho, yTotCarta + 4, { align: "right" });
-
-    if (saldoPendienteTotalApartado > 0) {
-      yTotCarta += 5.5;
-      doc.setFillColor(255, 241, 242);
-      doc.setDrawColor(225, 29, 72);
-      doc.rect(xTotales - 2, yTotCarta, anchoTotales + 2, 8, "FD");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(225, 29, 72);
-      doc.text("4. FALTA POR PAGAR AL RETIRAR:", xTotales, yTotCarta + 5.2);
-      doc.text(formatCOP(saldoPendienteTotalApartado), margenDerecho - 1, yTotCarta + 5.2, { align: "right" });
-    }
-  } else if (esAlquiler) {
-    // Alquiler: Totales de Pago Completos y Enmarcados
+    // Franja resaltada Total (Alquiler + Depósito)
+    yTotAlq += 4.2;
+    doc.setFillColor(226, 232, 240); // Slate 200
+    doc.rect(xDer + 1.5, yTotAlq - 3.2, anchoCol - 3, 5.2, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.setTextColor(71, 85, 105);
-    doc.text("Total Valor Alquiler:", xTotales, yTotCarta + 3.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTotCarta + 3.5, { align: "right" });
-
-    yTotCarta += 4.5;
-    doc.setTextColor(71, 85, 105);
-    doc.text("Depósito en Garantía:", xTotales, yTotCarta + 3.5);
-    doc.setTextColor(146, 64, 14);
-    doc.text(formatCOP(montoDepositoEfectivo), margenDerecho, yTotCarta + 3.5, { align: "right" });
-
-    yTotCarta += 4.8;
-    doc.setFillColor(241, 245, 249);
-    doc.setDrawColor(148, 163, 184);
-    doc.rect(xTotales - 1.5, yTotCarta, anchoTotales + 1.5, 6, "FD");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.2);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Total (Alquiler + Depósito):", xTotales + 1, yTotCarta + 4.2);
-    doc.text(formatCOP(totalAlquilerConDeposito), margenDerecho - 1, yTotCarta + 4.2, { align: "right" });
+    doc.text("Total (Alquiler + Depósito):", xDer + 3.5, yTotAlq + 0.6);
+    doc.text(formatCOP(totalAlquilerConDeposito), xDer + anchoCol - 3.5, yTotAlq + 0.6, { align: "right" });
 
     if (abonoPrevioApartado > 0) {
-      yTotCarta += 6;
+      yTotAlq += 4;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.8);
+      doc.setFontSize(7.2);
       doc.setTextColor(67, 56, 202);
-      doc.text("Abono Previo en Apartado:", xTotales, yTotCarta + 3.5);
-      doc.text(`-${formatCOP(abonoPrevioApartado)}`, margenDerecho, yTotCarta + 3.5, { align: "right" });
+      doc.text("Abono Previo en Apartado:", xDer + 3.5, yTotAlq);
+      doc.text(`-${formatCOP(abonoPrevioApartado)}`, xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
     }
 
-    // 5. RECIBIDO (Va en la celda anterior a Valor Pagado)
-    yTotCarta += 5.2;
+    yTotAlq += 4;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.8);
+    doc.setFontSize(7.2);
     doc.setTextColor(71, 85, 105);
-    doc.text("Recibido:", xTotales, yTotCarta + 3.5);
+    doc.text("Recibido:", xDer + 3.5, yTotAlq);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(efectivoRecibidoAlquiler), margenDerecho, yTotCarta + 3.5, { align: "right" });
+    doc.text(formatCOP(efectivoRecibidoAlquiler), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
 
-    // 6. VALOR PAGADO (Suma alquiler + depósito)
-    yTotCarta += 4.5;
-    doc.setFontSize(8);
+    yTotAlq += 3.8;
     doc.setTextColor(5, 150, 105);
-    const labelPagCarta = `Valor Pagado (${textoMedioPagoPrincipal}):`;
-    doc.text(labelPagCarta.substring(0, 26), xTotales, yTotCarta + 3.5);
-    doc.text(formatCOP(totalPagadoOperacionAlquiler), margenDerecho, yTotCarta + 3.5, { align: "right" });
+    doc.text(`Valor Pagado (${textoMedioPagoPrincipal}):`, xDer + 3.5, yTotAlq);
+    doc.text(formatCOP(totalPagadoOperacionAlquiler), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
 
-    // 7. VUELTAS
-    yTotCarta += 4;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.8);
+    yTotAlq += 3.8;
     doc.setTextColor(5, 150, 105);
-    doc.text("Vueltas:", xTotales, yTotCarta + 3.5);
-    doc.text(formatCOP(vueltasAlquiler), margenDerecho, yTotCarta + 3.5, { align: "right" });
+    doc.text("Vueltas:", xDer + 3.5, yTotAlq);
+    doc.text(formatCOP(vueltasAlquiler), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
 
     if (saldoPendiente > 0) {
-      yTotCarta += 4.8;
+      yTotAlq += 4;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(225, 29, 72);
+      doc.text("Falta por pagar:", xDer + 3.5, yTotAlq);
+      doc.text(formatCOP(saldoPendiente), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
+    }
+
+    // BANNER OBSERVACIONES Y MORA
+    const yStrip = yBloque + altoBloque + 2;
+    doc.setFillColor(254, 252, 232);
+    doc.setDrawColor(217, 119, 6);
+    doc.rect(margenIzquierdo, yStrip, margenDerecho - margenIzquierdo, 7.5, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.2);
+    doc.setTextColor(146, 64, 14);
+    const obsMora = `OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.`;
+    doc.text(obsMora, (margenIzquierdo + margenDerecho) / 2, yStrip + 4.8, { align: "center" });
+
+    // FIRMAS PARALELAS
+    const yFirmas = yStrip + 16;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
+    doc.setDrawColor(15, 23, 42);
+
+    doc.line(margenIzquierdo + 20, yFirmas, margenIzquierdo + 95, yFirmas);
+    doc.text("Firma y C.C. del Cliente", margenIzquierdo + 57.5, yFirmas + 4, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text("(Acepto estado de prendas y condiciones)", margenIzquierdo + 57.5, yFirmas + 7.5, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
+    doc.line(margenDerecho - 95, yFirmas, margenDerecho - 20, yFirmas);
+    doc.text("Firma Vendedor / Cajero Responsable", margenDerecho - 57.5, yFirmas + 4, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 57.5, yFirmas + 7.5, { align: "center" });
+
+  } else if (esApartado) {
+    cursorY += 3;
+    const numCols = saldoPendienteTotalApartado > 0 ? 4 : 3;
+    const gap = 3;
+    const anchoCaja = (margenDerecho - margenIzquierdo - (numCols - 1) * gap) / numCols;
+    const altoCaja = 16;
+    const yCajas = cursorY;
+
+    // Caja 1: Valor Alquiler
+    let curX = margenIzquierdo;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(203, 213, 225);
+    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.2);
+    doc.setTextColor(71, 85, 105);
+    doc.text("1. VALOR ALQUILER", curX + anchoCaja / 2, yCajas + 4.5, { align: "center" });
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalOperacionPrincipal), curX + anchoCaja / 2, yCajas + 11.5, { align: "center" });
+
+    // Caja 2: Saldo Depósito (Custodia)
+    curX += anchoCaja + gap;
+    doc.setFillColor(254, 252, 232);
+    doc.setDrawColor(217, 119, 6);
+    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.2);
+    doc.setTextColor(146, 64, 14);
+    doc.text("2. SALDO DEPÓSITO", curX + anchoCaja / 2, yCajas + 4.5, { align: "center" });
+    doc.setFontSize(10);
+    doc.setTextColor(146, 64, 14);
+    doc.text(formatCOP(saldoDepositoAlRetirar), curX + anchoCaja / 2, yCajas + 10.5, { align: "center" });
+    doc.setFontSize(6);
+    doc.text(depositoPagadoHoyApartado ? "Abonado hoy" : "Pagar al retirar", curX + anchoCaja / 2, yCajas + 14, { align: "center" });
+
+    // Caja 3: Abono hoy
+    curX += anchoCaja + gap;
+    doc.setFillColor(236, 253, 245);
+    doc.setDrawColor(5, 150, 105);
+    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.2);
+    doc.setTextColor(5, 150, 105);
+    doc.text("3. ABONO (HOY)", curX + anchoCaja / 2, yCajas + 4.5, { align: "center" });
+    doc.setFontSize(10);
+    doc.text(`-${formatCOP(totalAbonado)}`, curX + anchoCaja / 2, yCajas + 11.5, { align: "center" });
+
+    // Caja 4: Falta por pagar al retirar
+    if (saldoPendienteTotalApartado > 0) {
+      curX += anchoCaja + gap;
       doc.setFillColor(255, 241, 242);
       doc.setDrawColor(225, 29, 72);
-      doc.rect(xTotales - 2, yTotCarta, anchoTotales + 2, 6.8, "FD");
+      doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(225, 29, 72);
-      doc.text("Falta por pagar:", xTotales + 1, yTotCarta + 4.6);
-      doc.text(formatCOP(saldoPendiente), margenDerecho - 1, yTotCarta + 4.6, { align: "right" });
+      doc.setFontSize(6.8);
+      doc.setTextColor(190, 18, 60);
+      doc.text("4. FALTA AL RETIRAR", curX + anchoCaja / 2, yCajas + 4.5, { align: "center" });
+      doc.setFontSize(10);
+      doc.text(formatCOP(saldoPendienteTotalApartado), curX + anchoCaja / 2, yCajas + 11.5, { align: "center" });
     }
-  } else {
-    // Venta Comercial
+
+    // Franja Leyenda Oficial Apartados
+    const yStripAp = yCajas + altoCaja + 2;
+    doc.setFillColor(241, 245, 249);
+    doc.setDrawColor(15, 23, 42);
+    doc.rect(margenIzquierdo, yStripAp, margenDerecho - margenIzquierdo, 7.5, "FD");
+
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(71, 85, 105);
-    doc.text("TOTAL VENTA:", xTotales, yTotCarta + 4);
+    doc.setFontSize(7.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTotCarta + 4, { align: "right" });
+    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", (margenIzquierdo + margenDerecho) / 2, yStripAp + 4.8, { align: "center" });
 
-    yTotCarta += 5.5;
+    // FIRMAS PARALELAS
+    const yFirmas = yStripAp + 16;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
+    doc.setDrawColor(15, 23, 42);
+
+    doc.line(margenIzquierdo + 20, yFirmas, margenIzquierdo + 95, yFirmas);
+    doc.text("Firma del Cliente", margenIzquierdo + 57.5, yFirmas + 4, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`C.C. ${factura.cliente.documento || "____________________"}`, margenIzquierdo + 57.5, yFirmas + 7.5, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
+    doc.line(margenDerecho - 95, yFirmas, margenDerecho - 20, yFirmas);
+    doc.text("Cajero Responsable", margenDerecho - 57.5, yFirmas + 4, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 57.5, yFirmas + 7.5, { align: "center" });
+
+  } else {
+    // Venta Comercial Carta
+    cursorY += 3;
+    const anchoTotVenta = 90;
+    const xTotVenta = margenDerecho - anchoTotVenta;
+    const altoTotVenta = 28;
+    const yTotVenta = cursorY;
+
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.rect(xTotVenta, yTotVenta, anchoTotVenta, altoTotVenta, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(15, 23, 42);
+    doc.text("TOTALES DE VENTA", xTotVenta + 3.5, yTotVenta + 4.8);
+    doc.setDrawColor(203, 213, 225);
+    doc.line(xTotVenta, yTotVenta + 6.5, margenDerecho, yTotVenta + 6.5);
+
+    let yRowVenta = yTotVenta + 11.2;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Total Cobro de Venta:", xTotVenta + 3.5, yRowVenta);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho - 3.5, yRowVenta, { align: "right" });
+
+    yRowVenta += 4.5;
+    doc.setFontSize(8);
     doc.setTextColor(5, 150, 105);
-    const labelCobCarta = `Cobro Recibido (${textoMedioPagoPrincipal}):`;
-    doc.text(labelCobCarta.substring(0, 26), xTotales, yTotCarta + 4);
-    doc.text(formatCOP(totalAbonado), margenDerecho, yTotCarta + 4, { align: "right" });
+    doc.text(`Cobro Recibido (${textoMedioPagoPrincipal}):`, xTotVenta + 3.5, yRowVenta);
+    doc.text(formatCOP(totalAbonado), margenDerecho - 3.5, yRowVenta, { align: "right" });
 
-    if (vueltasEntregadas > 0) {
-      yTotCarta += 4.5;
+    if (vueltasEntregadas > 0 || efectivoRecibidoCliente > 0) {
+      yRowVenta += 4.2;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.5);
       doc.setTextColor(71, 85, 105);
-      doc.text("Vueltos / Cambio Final:", xTotales, yTotCarta + 3.8);
-      doc.text(formatCOP(vueltasEntregadas), margenDerecho, yTotCarta + 3.8, { align: "right" });
+      doc.text("Efectivo Recibido Cliente:", xTotVenta + 3.5, yRowVenta);
+      doc.text(formatCOP(efectivoRecibidoCliente > 0 ? efectivoRecibidoCliente : totalAbonado), margenDerecho - 3.5, yRowVenta, { align: "right" });
+    }
+
+    if (vueltasEntregadas > 0) {
+      yRowVenta += 4.2;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
+      doc.setFontSize(8);
+      doc.setTextColor(5, 150, 105);
+      doc.text("Vueltos / Cambio Final Entregado:", xTotVenta + 3.5, yRowVenta);
+      doc.text(formatCOP(vueltasEntregadas), margenDerecho - 3.5, yRowVenta, { align: "right" });
     }
 
     if (saldoPendiente > 0) {
-      yTotCarta += 5.5;
-      doc.setFillColor(255, 241, 242);
-      doc.setDrawColor(225, 29, 72);
-      doc.rect(xTotales - 2, yTotCarta, anchoTotales + 2, 7.5, "FD");
+      yRowVenta += 4.2;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
+      doc.setFontSize(8);
       doc.setTextColor(225, 29, 72);
-      doc.text("FALTA POR PAGAR:", xTotales, yTotCarta + 5.2);
-      doc.text(formatCOP(saldoPendiente), margenDerecho - 1, yTotCarta + 5.2, { align: "right" });
+      doc.text("Falta por pagar:", xTotVenta + 3.5, yRowVenta);
+      doc.text(formatCOP(saldoPendiente), margenDerecho - 3.5, yRowVenta, { align: "right" });
     }
+
+    // Franja de Normas y Políticas ancho completo
+    const yPolVenta = yTotVenta + altoTotVenta + 2;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(margenIzquierdo, yPolVenta, margenDerecho - margenIzquierdo, 7.5, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.2);
+    doc.setTextColor(15, 23, 42);
+    doc.text("NORMAS Y POLÍTICAS:", margenIzquierdo + 3, yPolVenta + 4.8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.8);
+    doc.setTextColor(71, 85, 105);
+    const textoPolVenta = "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento.";
+    doc.text(textoPolVenta, margenIzquierdo + 40, yPolVenta + 4.8);
+
+    // FIRMAS PARALELAS AL PIE DE PÁGINA
+    const yFirmas = yPolVenta + 16;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
+    doc.setDrawColor(15, 23, 42);
+
+    doc.line(margenIzquierdo + 20, yFirmas, margenIzquierdo + 95, yFirmas);
+    doc.text("Firma y C.C. del Cliente", margenIzquierdo + 57.5, yFirmas + 4, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text("(Aceptación y recibido a conformidad)", margenIzquierdo + 57.5, yFirmas + 7.5, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
+    doc.line(margenDerecho - 95, yFirmas, margenDerecho - 20, yFirmas);
+    doc.text("Firma Vendedor / Cajero Responsable", margenDerecho - 57.5, yFirmas + 4, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 57.5, yFirmas + 7.5, { align: "center" });
   }
 
   // 7. HISTORIAL DE ABONOS (SI HAY ESPACIO)
