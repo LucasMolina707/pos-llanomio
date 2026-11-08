@@ -60,3 +60,4 @@ namespace AuroraHost.POS
         }
     }
 }
+

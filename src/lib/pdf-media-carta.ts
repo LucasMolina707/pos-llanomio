@@ -17,14 +17,14 @@ export interface OpcionesPdfMediaCarta {
 
 /**
  * Inserta de manera segura un logo corporativo en Base64 en el lienzo jsPDF
+ * Optimizado para marco cuadrado contenedor proporcional sin estirar ni deformar la imagen
  */
 function insertarLogoSeguro(
   doc: jsPDF,
   logoUrl: string | null | undefined,
   x: number,
   y: number,
-  anchoMm: number,
-  altoMm: number
+  ladoCuadroMm: number
 ): boolean {
   if (!logoUrl || !logoUrl.startsWith("data:image/")) {
     return false;
@@ -33,7 +33,12 @@ function insertarLogoSeguro(
     const esPng = logoUrl.includes("image/png");
     const esWebp = logoUrl.includes("image/webp");
     const formato = esPng ? "PNG" : esWebp ? "WEBP" : "JPEG";
-    doc.addImage(logoUrl, formato, x, y, anchoMm, altoMm, undefined, "FAST");
+    // Margen sutil de recuadro limpio
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.rect(x, y, ladoCuadroMm, ladoCuadroMm, "S");
+    // Insertar imagen preservando aspecto dentro del contenedor cuadrado
+    doc.addImage(logoUrl, formato, x + 0.5, y + 0.5, ladoCuadroMm - 1, ladoCuadroMm - 1, undefined, "FAST");
     return true;
   } catch (err) {
     console.warn("Aviso: No se pudo renderizar el logo en el PDF, se usará tipografía vectorial:", err);
@@ -180,10 +185,9 @@ function dibujarPaginaMediaCarta(
       : Math.max(0, efectivoRecibidoAlquiler - Math.max(0, totalPagadoOperacionAlquiler - abonoPrevioApartado));
 
   // 1. ENCABEZADO: LOGO + DATOS DE EMPRESA + RECUADRO DE FACTURA
-  const anchoLogo = offsetY > 0 ? 30 : 34;
-  const altoLogo = offsetY > 0 ? 16 : 19;
-  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, anchoLogo, altoLogo);
-  const textoEmpresaX = tieneLogo ? margenIzquierdo + anchoLogo + 3 : margenIzquierdo;
+  const ladoLogo = offsetY > 0 ? 19 : 21;
+  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, ladoLogo);
+  const textoEmpresaX = tieneLogo ? margenIzquierdo + ladoLogo + 3.5 : margenIzquierdo;
 
   doc.setTextColor(15, 23, 42); // Slate 900
   doc.setFont("helvetica", "bold");
@@ -219,7 +223,7 @@ function dibujarPaginaMediaCarta(
     doc.setDrawColor(15, 23, 42);
   }
   doc.setLineWidth(0.4);
-  doc.roundedRect(xCajaFactura, yCajaFactura, anchoCajaFactura, altoCajaFactura, 2, 2, "FD");
+  doc.rect(xCajaFactura, yCajaFactura, anchoCajaFactura, altoCajaFactura, "FD");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
@@ -261,9 +265,9 @@ function dibujarPaginaMediaCarta(
   // 2. SECCIÓN DE CLIENTE Y OPERACIÓN
   const altoFichaCliente = 16.5;
   doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.2);
-  doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoFichaCliente, 1.5, 1.5, "FD");
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.3);
+  doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoFichaCliente, "FD");
 
   // Columna Izquierda: Cliente
   doc.setFont("helvetica", "bold");
@@ -404,9 +408,9 @@ function dibujarPaginaMediaCarta(
   if (esAlquiler) {
     cursorY += 1.2;
     const altoDep = 11.5;
-    doc.setFillColor(254, 243, 199); // Amber 100
-    doc.setDrawColor(217, 119, 6); // Amber 600
-    doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDep, 1, 1, "FD");
+    doc.setFillColor(254, 252, 232); // Fondo cálido sutil sin bordes redondeados
+    doc.setDrawColor(202, 138, 4);   // Borde recto ámbar
+    doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDep, "FD");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.8);
@@ -451,7 +455,7 @@ function dibujarPaginaMediaCarta(
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
   }
-  doc.roundedRect(margenIzquierdo, cursorY, anchoPoliticas, 24, 1, 1, "FD");
+  doc.rect(margenIzquierdo, cursorY, anchoPoliticas, 24, "FD");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.8);
@@ -523,7 +527,7 @@ function dibujarPaginaMediaCarta(
       yTot += 4.2;
       doc.setFillColor(255, 241, 242);
       doc.setDrawColor(225, 29, 72);
-      doc.roundedRect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6.5, 1, 1, "FD");
+      doc.rect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6.5, "FD");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7.2);
       doc.setTextColor(225, 29, 72);
@@ -548,7 +552,7 @@ function dibujarPaginaMediaCarta(
     yTot += 3.6;
     doc.setFillColor(241, 245, 249);
     doc.setDrawColor(148, 163, 184);
-    doc.roundedRect(xTotales - 1, yTot, anchoTotales + 1, 4.8, 0.8, 0.8, "FD");
+    doc.rect(xTotales - 1, yTot, anchoTotales + 1, 4.8, "FD");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.2);
     doc.setTextColor(15, 23, 42);
@@ -593,7 +597,7 @@ function dibujarPaginaMediaCarta(
       yTot += 3.6;
       doc.setFillColor(255, 241, 242);
       doc.setDrawColor(225, 29, 72);
-      doc.roundedRect(xTotales - 1.5, yTot, anchoTotales + 1.5, 5, 1, 1, "FD");
+      doc.rect(xTotales - 1.5, yTot, anchoTotales + 1.5, 5, "FD");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(225, 29, 72);
@@ -630,7 +634,7 @@ function dibujarPaginaMediaCarta(
       yTot += 4.5;
       doc.setFillColor(255, 241, 242);
       doc.setDrawColor(225, 29, 72);
-      doc.roundedRect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6, 1, 1, "FD");
+      doc.rect(xTotales - 1.5, yTot, anchoTotales + 1.5, 6, "FD");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7.5);
       doc.setTextColor(225, 29, 72);
@@ -676,7 +680,7 @@ export function crearDocumentoPdfMediaCartaDoble(
   // Etiqueta central de corte sin emojis
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(203, 213, 225); // Slate 300
-  doc.roundedRect(56, yCorte - 2.5, 104, 5, 1, 1, "FD");
+  doc.rect(56, yCorte - 2.5, 104, 5, "FD");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(5.8);
   doc.setTextColor(71, 85, 105);
@@ -794,8 +798,8 @@ function dibujarPaginaCarta(
       : Math.max(0, efectivoRecibidoAlquiler - Math.max(0, totalPagadoOperacionAlquiler - abonoPrevioApartado));
 
   // 1. ENCABEZADO: LOGO + DATOS FISCALES + RECUADRO DE FACTURA
-  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 42, 24);
-  const textoEmpresaX = tieneLogo ? margenIzquierdo + 45 : margenIzquierdo;
+  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 26);
+  const textoEmpresaX = tieneLogo ? margenIzquierdo + 30 : margenIzquierdo;
 
   doc.setTextColor(15, 23, 42);
   doc.setFont("helvetica", "bold");
@@ -831,7 +835,7 @@ function dibujarPaginaCarta(
     doc.setDrawColor(15, 23, 42);
   }
   doc.setLineWidth(0.4);
-  doc.roundedRect(xCajaFactura, yCajaFactura, anchoCajaFactura, altoCajaFactura, 2, 2, "FD");
+  doc.rect(xCajaFactura, yCajaFactura, anchoCajaFactura, altoCajaFactura, "FD");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
@@ -877,7 +881,7 @@ function dibujarPaginaCarta(
     } else {
       doc.setFillColor(15, 23, 42);
     }
-    doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 9.5, 1.5, 1.5, "F");
+    doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 9.5, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(255, 255, 255);
@@ -887,7 +891,7 @@ function dibujarPaginaCarta(
     cursorY += 12.5;
   } else if (esPazYSalvo) {
     doc.setFillColor(5, 150, 105);
-    doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 7.5, 1.5, 1.5, "F");
+    doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 7.5, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
     doc.setTextColor(255, 255, 255);
@@ -895,7 +899,7 @@ function dibujarPaginaCarta(
     cursorY += 10.5;
   } else {
     doc.setFillColor(15, 23, 42);
-    doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 7.5, 1.5, 1.5, "F");
+    doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 7.5, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
     doc.setTextColor(255, 255, 255);
@@ -907,7 +911,7 @@ function dibujarPaginaCarta(
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.3);
-  doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 24, 2, 2, "FD");
+  doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 24, "FD");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
@@ -1045,7 +1049,7 @@ function dibujarPaginaCarta(
     const altoDepCarta = 15;
     doc.setFillColor(254, 243, 199);
     doc.setDrawColor(217, 119, 6);
-    doc.roundedRect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDepCarta, 1.5, 1.5, "FD");
+    doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoDepCarta, "FD");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
@@ -1090,7 +1094,7 @@ function dibujarPaginaCarta(
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
   }
-  doc.roundedRect(margenIzquierdo, cursorY, anchoPol, 28, 1.5, 1.5, "FD");
+  doc.rect(margenIzquierdo, cursorY, anchoPol, 28, "FD");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
@@ -1162,7 +1166,7 @@ function dibujarPaginaCarta(
       yTotCarta += 5.5;
       doc.setFillColor(255, 241, 242);
       doc.setDrawColor(225, 29, 72);
-      doc.roundedRect(xTotales - 2, yTotCarta, anchoTotales + 2, 8, 1, 1, "FD");
+      doc.rect(xTotales - 2, yTotCarta, anchoTotales + 2, 8, "FD");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.setTextColor(225, 29, 72);
@@ -1187,7 +1191,7 @@ function dibujarPaginaCarta(
     yTotCarta += 4.8;
     doc.setFillColor(241, 245, 249);
     doc.setDrawColor(148, 163, 184);
-    doc.roundedRect(xTotales - 1.5, yTotCarta, anchoTotales + 1.5, 6, 1, 1, "FD");
+    doc.rect(xTotales - 1.5, yTotCarta, anchoTotales + 1.5, 6, "FD");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.2);
     doc.setTextColor(15, 23, 42);
@@ -1232,7 +1236,7 @@ function dibujarPaginaCarta(
       yTotCarta += 4.8;
       doc.setFillColor(255, 241, 242);
       doc.setDrawColor(225, 29, 72);
-      doc.roundedRect(xTotales - 2, yTotCarta, anchoTotales + 2, 6.8, 1, 1, "FD");
+      doc.rect(xTotales - 2, yTotCarta, anchoTotales + 2, 6.8, "FD");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.setTextColor(225, 29, 72);
@@ -1269,7 +1273,7 @@ function dibujarPaginaCarta(
       yTotCarta += 5.5;
       doc.setFillColor(255, 241, 242);
       doc.setDrawColor(225, 29, 72);
-      doc.roundedRect(xTotales - 2, yTotCarta, anchoTotales + 2, 7.5, 1, 1, "FD");
+      doc.rect(xTotales - 2, yTotCarta, anchoTotales + 2, 7.5, "FD");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8.5);
       doc.setTextColor(225, 29, 72);
@@ -1401,10 +1405,10 @@ function dibujarContenidoTirilla(
       : Math.max(0, efectivoRecibidoAlquiler - Math.max(0, totalPagadoOperacionAlquiler - abonoPrevioApartado));
   let cursorY = startY;
 
-  // Logo centrado si existe
-  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, (anchoMm - 28) / 2, cursorY, 28, 18);
+  // Logo centrado si existe (recuadro cuadrado sin estirar)
+  const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, (anchoMm - 22) / 2, cursorY, 22);
   if (tieneLogo) {
-    cursorY += 19;
+    cursorY += 23;
   }
 
   // Cabecera Empresa

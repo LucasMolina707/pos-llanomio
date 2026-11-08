@@ -550,7 +550,7 @@ export default function PlantillaImpresion({
     if (formato === "TIRILLA") {
       if (esSepare) {
         return (
-          <div className="w-[80mm] max-w-[80mm] min-w-[80mm] mx-auto p-3 bg-white text-black font-mono text-[11px] leading-tight select-none shadow-md border border-slate-300">
+          <div className="w-[80mm] max-w-[80mm] min-w-[80mm] mx-auto p-3 bg-white text-black font-mono text-[11px] leading-tight select-none border border-slate-300">
             {/* Cabecera Empresa Dinámica */}
             <div className="text-center pb-2 border-b border-black space-y-0.5">
               {empresa.logoUrl && (
@@ -699,7 +699,7 @@ export default function PlantillaImpresion({
         );
       }
       return (
-        <div className="w-[80mm] max-w-[80mm] min-w-[80mm] mx-auto p-2.5 bg-white text-slate-950 font-sans text-xs font-semibold leading-snug select-none shadow-md border border-slate-300">
+        <div className="w-[80mm] max-w-[80mm] min-w-[80mm] mx-auto p-2.5 bg-white text-slate-950 font-sans text-xs font-semibold leading-snug select-none border border-slate-300">
           {/* Cabecera Empresa */}
           <div className="text-center pb-2 border-b border-black space-y-0.5">
             {empresa.logoUrl && (
@@ -1017,11 +1017,13 @@ export default function PlantillaImpresion({
               <div className="flex items-start justify-between border-b-2 border-slate-900 pb-1.5 mb-1.5">
                 <div className="flex items-center gap-2.5">
                   {empresa.logoUrl && (
-                    <img
-                      src={empresa.logoUrl}
-                      alt={empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
-                      className={esDoble ? "h-16 max-h-[18mm] w-auto max-w-[44mm] object-contain" : "h-20 max-h-[22mm] w-auto max-w-[48mm] object-contain"}
-                    />
+                    <div className={esDoble ? "w-16 h-16 min-w-16 min-h-16 border border-slate-200 bg-white p-0.5 flex items-center justify-center overflow-hidden" : "w-20 h-20 min-w-20 min-h-20 border border-slate-200 bg-white p-0.5 flex items-center justify-center overflow-hidden"}>
+                      <img
+                        src={empresa.logoUrl}
+                        alt={empresa.nombreTienda || empresa.nombreComercial || "Mi Empresa"}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
                   )}
                   <div>
                     <h1 className={`${esDoble ? "text-sm" : "text-base"} font-black tracking-tight text-slate-900 uppercase`}>
@@ -1041,7 +1043,7 @@ export default function PlantillaImpresion({
 
                 {/* Recuadro de Título y Folio */}
                 <div className="text-right">
-                  <div className="border-2 border-slate-900 rounded-xl px-2.5 py-0.5 bg-slate-50">
+                  <div className="border-2 border-slate-900 px-2 py-0.5 bg-slate-50">
                     <span className="text-[9px] uppercase font-black tracking-wider block text-slate-900">
                       FORMATO DE APARTADO
                     </span>
@@ -1059,7 +1061,7 @@ export default function PlantillaImpresion({
               </div>
 
               {/* Ficha Estructurada del Cliente y Fechas */}
-              <div className="grid grid-cols-2 gap-2 mb-1.5 p-1.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+              <div className="grid grid-cols-2 gap-2 mb-1.5 p-1.5 bg-slate-50 border border-slate-300 text-xs">
                 <div className="space-y-0.5">
                   <p><strong className="text-slate-700">Nombre:</strong> <span className="font-bold text-slate-900">{(cliente.razonSocial || cliente.nombre || "CLIENTE GENERAL").toUpperCase()}</span></p>
                   <p><strong className="text-slate-700">C.C. / NIT:</strong> <span className="font-mono font-bold">{cliente.documento || "—"}</span></p>
@@ -1175,11 +1177,13 @@ export default function PlantillaImpresion({
             <div className="flex items-start justify-between border-b-2 border-slate-900 pb-1.5 mb-1">
               <div className="flex items-center gap-2.5">
                 {empresa.logoUrl && (
-                  <img
-                    src={empresa.logoUrl}
-                    alt={empresa.nombreComercial || "Mi Empresa"}
-                    className={esDoble ? "h-16 max-h-[18mm] w-auto max-w-[44mm] object-contain" : "h-20 max-h-[22mm] w-auto max-w-[48mm] object-contain"}
-                  />
+                  <div className={esDoble ? "w-16 h-16 min-w-16 min-h-16 border border-slate-200 bg-white p-0.5 flex items-center justify-center overflow-hidden" : "w-20 h-20 min-w-20 min-h-20 border border-slate-200 bg-white p-0.5 flex items-center justify-center overflow-hidden"}>
+                    <img
+                      src={empresa.logoUrl}
+                      alt={empresa.nombreComercial || "Mi Empresa"}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
                 )}
                 <div>
                   <h1
@@ -1204,7 +1208,7 @@ export default function PlantillaImpresion({
 
               {/* Recuadro de Título y Folio */}
               <div className="text-right">
-                <div className="border-2 border-slate-900 rounded-xl px-2.5 py-0.5 bg-slate-50">
+                <div className="border-2 border-slate-900 px-2 py-0.5 bg-slate-50">
                   <span className="text-[10px] uppercase font-black tracking-wider block text-slate-950">
                     {tituloComprobante}
                   </span>
@@ -1227,7 +1231,7 @@ export default function PlantillaImpresion({
 
             {/* Ficha Cliente & Operación */}
             <div
-              className={`grid grid-cols-2 gap-2 mb-1 p-1.5 bg-slate-50 rounded-xl border border-slate-200 ${
+              className={`grid grid-cols-2 gap-2 mb-1 p-1.5 bg-slate-50 border border-slate-300 ${
                 esDoble ? "text-[11px]" : "text-xs"
               }`}
             >
@@ -1333,7 +1337,7 @@ export default function PlantillaImpresion({
               <>
                 <div className={`grid grid-cols-2 gap-2 ${esDoble ? "text-[10px]" : "text-xs"}`}>
                   {/* COLUMNA 1: ETIQUETA AMARILLA LIMPIA (ÚNICAMENTE DEPÓSITO CUSTODIA Y FECHA LÍMITE) */}
-                  <div className="p-1.5 bg-amber-50 rounded-lg border border-amber-300 text-amber-950 space-y-1">
+                  <div className="p-1.5 bg-amber-50/60 border border-amber-300 text-amber-950 space-y-1">
                     <p className="font-black text-[9px] uppercase border-b border-amber-300 pb-0.5 text-amber-950">
                       DEPÓSITO EN GARANTÍA (EN CUSTODIA)
                     </p>
@@ -1345,7 +1349,7 @@ export default function PlantillaImpresion({
                       Custodia: Dinero en garantía a devolver al entregar las prendas completas.
                     </p>
 
-                    <div className="p-1 bg-amber-100 rounded border border-amber-300 text-[9.5px]">
+                    <div className="p-1 bg-amber-100/70 border border-amber-300 text-[9.5px]">
                       <div className="flex justify-between font-black">
                         <span className="uppercase text-amber-950">Fecha Límite Entrega:</span>
                         <span className="font-mono text-rose-900 font-bold">
@@ -1358,7 +1362,7 @@ export default function PlantillaImpresion({
                   </div>
 
                   {/* COLUMNA 2: CELDA DE TOTALES DE PAGO DE ALQUILER */}
-                  <div className="p-1.5 bg-slate-50 rounded-lg border-2 border-slate-400 space-y-1">
+                  <div className="p-1.5 bg-slate-50 border border-slate-400 space-y-1">
                     <p className="font-black text-[9px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
                       TOTALES DE PAGO DE ALQUILER
                     </p>
@@ -1370,7 +1374,7 @@ export default function PlantillaImpresion({
                       <span>Depósito en Garantía:</span>
                       <span className="font-mono">{formatCOP(montoDepositoEfectivo)}</span>
                     </div>
-                    <div className="flex justify-between font-black text-slate-950 text-[10px] bg-slate-200/70 px-1 py-0.5 rounded border border-slate-300">
+                    <div className="flex justify-between font-black text-slate-950 text-[10px] bg-slate-200/70 px-1 py-0.5 border border-slate-300">
                       <span>Total (Alquiler + Depósito):</span>
                       <span className="font-mono">{formatCOP(totalAlquilerConDeposito)}</span>
                     </div>
@@ -1404,7 +1408,7 @@ export default function PlantillaImpresion({
                 </div>
 
                 {/* BANNER OFICIAL DE OBSERVACIONES Y MORA */}
-                <div className="p-1.5 bg-amber-50/90 rounded-lg border border-amber-300 text-center text-[8.5px] sm:text-[9.5px] text-amber-950 my-1 w-full leading-snug space-y-0.5">
+                <div className="p-1.5 bg-amber-50/60 border border-amber-300 text-center text-[8.5px] sm:text-[9.5px] text-amber-950 my-1 w-full leading-snug space-y-0.5">
                   <div className="font-bold">
                     OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.
                   </div>
@@ -1417,7 +1421,7 @@ export default function PlantillaImpresion({
               </>
             ) : (
               /* VENTA COMERCIAL: CELDA DIRECTA DE TOTALES (CERO SECCIÓN A, CERO SECCIÓN B) */
-              <div className={`p-2 bg-slate-50 rounded-lg border border-slate-300 max-w-md ml-auto space-y-1 ${esDoble ? "text-[10px]" : "text-xs"}`}>
+              <div className={`p-2 bg-slate-50 border border-slate-300 max-w-md ml-auto space-y-1 ${esDoble ? "text-[10px]" : "text-xs"}`}>
                 <p className="font-black text-[9.5px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
                   TOTALES DE VENTA
                 </p>
@@ -1451,7 +1455,7 @@ export default function PlantillaImpresion({
 
           {/* Normas y Políticas Segregadas (Omitidas estrictamente en Alquiler) */}
           {!esAlquiler && textoPoliticas && (
-            <div className="p-1 bg-slate-50 rounded-lg border border-slate-200 text-[9px] sm:text-[10px] text-slate-800 leading-tight my-0.5">
+            <div className="p-1 bg-slate-50 border border-slate-200 text-[9px] sm:text-[10px] text-slate-800 leading-tight my-0.5">
               <span className="font-black uppercase text-[9px] sm:text-[10px] mr-1 text-slate-950">
                 NORMAS Y POLÍTICAS:
               </span>
@@ -1481,7 +1485,7 @@ export default function PlantillaImpresion({
     // -------------------------------------------------------------
     if (formato === "MEDIA_CARTA") {
       return (
-        <div className="hoja-media-carta-impresion w-full max-w-[215.9mm] min-h-[139.7mm] max-h-[139.7mm] mx-auto bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl flex flex-col justify-between box-border overflow-hidden">
+        <div className="hoja-media-carta-impresion w-full max-w-[215.9mm] min-h-[139.7mm] max-h-[139.7mm] mx-auto bg-white text-black font-sans border border-slate-300 flex flex-col justify-between box-border overflow-hidden">
           {renderContenidoMediaCarta(tipoCopiaTexto, false)}
         </div>
       );
@@ -1492,7 +1496,7 @@ export default function PlantillaImpresion({
     // -------------------------------------------------------------
     if (formato === "MEDIA_CARTA_DOBLE") {
       return (
-        <div className="hoja-media-carta-doble-impresion w-full max-w-[215.9mm] h-[270mm] max-h-[270mm] mx-auto p-2 sm:p-2.5 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border overflow-hidden">
+        <div className="hoja-media-carta-doble-impresion w-full max-w-[215.9mm] h-[270mm] max-h-[270mm] mx-auto p-2 sm:p-2.5 bg-white text-black font-sans border border-slate-300 text-xs flex flex-col justify-between box-border overflow-hidden">
           {/* Mitad Superior: ORIGINAL CLIENTE */}
           <div className="mitad-media-carta h-[129mm] max-h-[129mm] overflow-hidden flex flex-col justify-between border-b border-slate-100">
             {renderContenidoMediaCarta("EJEMPLAR 1: ORIGINAL CLIENTE", true)}
@@ -1519,7 +1523,7 @@ export default function PlantillaImpresion({
     // -------------------------------------------------------------
     if (esSepare) {
       return (
-        <div className="hoja-carta-impresion w-full max-w-[215.9mm] min-h-[255mm] max-h-[258mm] mx-auto p-6 sm:p-7 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border">
+        <div className="hoja-carta-impresion w-full max-w-[215.9mm] min-h-[255mm] max-h-[258mm] mx-auto p-6 sm:p-7 bg-white text-black font-sans border border-slate-300 text-xs flex flex-col justify-between box-border">
           <div>
             {/* Cabecera Carta */}
             <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3 mb-3">
@@ -1672,7 +1676,7 @@ export default function PlantillaImpresion({
     }
 
     return (
-      <div className="hoja-carta-impresion w-full max-w-[215.9mm] min-h-[255mm] max-h-[258mm] mx-auto p-6 sm:p-7 bg-white text-black font-sans border border-slate-300 shadow-md rounded-2xl text-xs flex flex-col justify-between box-border">
+      <div className="hoja-carta-impresion w-full max-w-[215.9mm] min-h-[255mm] max-h-[258mm] mx-auto p-6 sm:p-7 bg-white text-black font-sans border border-slate-300 text-xs flex flex-col justify-between box-border">
         <div>
           {/* Cabecera Carta */}
           <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3 mb-3">
