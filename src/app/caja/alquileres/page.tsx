@@ -2079,12 +2079,12 @@ export default function TerminalAlquileresPage() {
                 </div>
               </div>
             ) : (
-              /* PASOS 1, 2 Y 3: ARQUITECTURA DE CELDAS AISLADAS (8 COLUMNAS IZQ + 4 COLUMNAS DER) */
-              <div className="h-full min-h-0 min-w-0 w-full grid grid-cols-12 gap-3 overflow-hidden">
+              /* PASOS 1, 2 Y 3: ARQUITECTURA RESPONSIVA (12 COLS EN MOVIL / 8+4 EN ESCRITORIO) */
+              <div className="h-full min-h-0 min-w-0 w-full grid grid-cols-12 gap-3 overflow-y-auto lg:overflow-hidden">
                 {/* ======================================================================= */}
                 {/* PANEL IZQUIERDO DE TRABAJO (col-span-12 lg:col-span-8)                  */}
                 {/* ======================================================================= */}
-                <div className="col-span-12 lg:col-span-8 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+                <div className="col-span-12 lg:col-span-8 min-h-[460px] lg:h-full lg:min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
                   {/* --- SUB-VISTA PASO 1: DIRECTORIO DE CLIENTES --- */}
                   {pasoActual === 1 && (
                     <>
@@ -2697,7 +2697,7 @@ export default function TerminalAlquileresPage() {
                 {/* ======================================================================= */}
                 {/* PANEL DERECHO DE RESUMEN Y CARRITO PERMANENTE (col-span-12 lg:col-span-4)*/}
                 {/* ======================================================================= */}
-                <div className="col-span-12 lg:col-span-4 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+                <div className="col-span-12 lg:col-span-4 min-h-[420px] lg:h-full lg:min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
                   {/* Encabezado Cliente Asignado (shrink-0) */}
                   <div className="shrink-0 p-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2">
                     <div className="min-w-0">

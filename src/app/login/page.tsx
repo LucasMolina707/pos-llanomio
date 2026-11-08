@@ -258,11 +258,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-[#F4F6F8] p-4 sm:p-6 overflow-x-hidden relative">
-      {/* Botón flotante para minimizar ventana */}
-      <div className="fixed top-4 right-4 z-50">
-        <BotonMinimizarVentana size="md" />
-      </div>
-
       <div className="max-w-md w-full">
         {/* Cabecera / Identidad Oficial con LogoEmpresa */}
         <div className="text-center mb-6">

@@ -864,12 +864,12 @@ export default function ApartadosPage() {
             </div>
           </main>
         ) : (
-          /* PASOS 1, 2 Y 3: ARQUITECTURA DE CELDAS AISLADAS (8 COLS IZQ + 4 COLS DER) */
-          <main className="flex-1 min-h-0 grid grid-cols-12 gap-3 p-3 overflow-hidden bg-[#F4F6F9]">
+          /* PASOS 1, 2 Y 3: ARQUITECTURA RESPONSIVA (12 COLS EN MOVIL / 8+4 EN ESCRITORIO) */
+          <main className="flex-1 min-h-0 grid grid-cols-12 gap-3 p-3 overflow-y-auto lg:overflow-hidden bg-[#F4F6F9]">
             {/* ======================================================================= */}
             {/* COLUMNA IZQUIERDA / CENTRAL (lg:col-span-8)                             */}
             {/* ======================================================================= */}
-            <div className="col-span-12 lg:col-span-8 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="col-span-12 lg:col-span-8 flex flex-col min-h-[460px] lg:h-full lg:min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
               {/* Cabecera Interna de Columna Izquierda con Buscador y Acción */}
               <div className="h-12 shrink-0 px-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
                 <div className="flex items-center gap-2 min-w-0">
@@ -1343,7 +1343,7 @@ export default function ApartadosPage() {
             {/* ======================================================================= */}
             {/* COLUMNA DERECHA: RESUMEN PERMANENTE Y BOTONES DE AVANCE (lg:col-span-4)  */}
             {/* ======================================================================= */}
-            <div className="col-span-12 lg:col-span-4 flex flex-col min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="col-span-12 lg:col-span-4 flex flex-col min-h-[420px] lg:h-full lg:min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
               {/* Cabecera Derecha: Cliente Seleccionado y Fechas */}
               <div className="shrink-0 p-3 border-b border-slate-100 bg-slate-50/70">
                 <div className="flex items-center justify-between">

@@ -234,9 +234,6 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
           variant="neutral"
         />
 
-        {/* Minimizar Ventana */}
-        <BotonMinimizarVentana size="md" />
-
         {/* Perfil del Usuario y Cierre de Sesión */}
         {usuario ? (
           <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
