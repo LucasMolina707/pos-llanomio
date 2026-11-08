@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 580" width="100%" height="100%">
+  <defs>
+    <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="115%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#EA580C"/>
+      <stop offset="100%" stop-color="#EA580C" stop-opacity="0.8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fondo Lienzo -->
+  <rect width="1000" height="580" rx="28" fill="#F4F8F7"/>
+
+  <!-- Ventana Mockup -->
+  <g transform="translate(30, 25)" filter="url(#cardShadow)">
+    <rect width="940" height="530" rx="24" fill="#FFFFFF"/>
+    
+    <!-- Topbar del Software -->
+    <rect width="940" height="56" rx="24" fill="#FAFCFB"/>
+    <path d="M0 24 Q0 0 24 0 L916 0 Q940 0 940 24 L940 56 L0 56 Z" fill="#FFFFFF"/>
+    <line x1="0" y1="56" x2="940" y2="56" stroke="#E2EBE8" stroke-width="1.5"/>
+
+    <!-- Puntos de ventana estilo Mac/Win -->
+    <circle cx="35" cy="28" r="6" fill="#F43F5E"/>
+    <circle cx="55" cy="28" r="6" fill="#FBBF24"/>
+    <circle cx="75" cy="28" r="6" fill="#10B981"/>
+
+    <!-- Título y Badge en Topbar -->
+    <text x="110" y="34" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="15" fill="#0F172A">Caja de Alquileres y Depósitos</text>
+    <rect x="360" y="16" width="130" height="24" rx="12" fill="#FFF7ED"/>
+    <text x="425" y="32" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="11" fill="#EA580C">ALQUILERES</text>
+
+    <!-- Barra de búsqueda simulada -->
+    <rect x="680" y="14" width="230" height="28" rx="14" fill="#F1F5F4"/>
+    <text x="710" y="32" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="#94A3B8">Buscar en Aurora-POS...</text>
+
+    <!-- Sidebar Izquierda Verde Salvia Integrada -->
+    <g transform="translate(20, 75)">
+      <rect width="64" height="430" rx="20" fill="#3D8B7A"/>
+      <!-- Iconos menú vertical -->
+      <rect x="18" y="24" width="28" height="28" rx="8" fill="#52A190"/>
+      <circle cx="32" cy="85" r="7" fill="#8AC4B7"/>
+      <circle cx="32" cy="135" r="7" fill="#8AC4B7"/>
+      <circle cx="32" cy="185" r="7" fill="#8AC4B7"/>
+      <circle cx="32" cy="235" r="7" fill="#8AC4B7"/>
+      <circle cx="32" cy="380" r="7" fill="#52A190"/>
+    </g>
+
+    <!-- Contenido Principal: Grilla Limpia -->
+    <g transform="translate(104, 75)">
+      <!-- Tarjeta Hero Superior -->
+      <g filter="url(#cardShadow)">
+        <rect width="816" height="150" rx="20" fill="#FFF7ED"/>
+        <rect x="0" y="0" width="816" height="6" rx="3" fill="#EA580C"/>
+        
+        <text x="35" y="45" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="20" fill="#0F172A">Control de Trajes, Contratos y Depósito en Garantía</text>
+        <text x="35" y="75" font-family="'Plus Jakarta Sans', sans-serif" font-weight="500" font-size="13" fill="#475569">Módulo comercial optimizado con arquitectura reactiva, soporte táctil y offline-first.</text>
+
+        <!-- Chips interactivos -->
+        <g transform="translate(35, 95)">
+          <rect width="160" height="34" rx="17" fill="#FFFFFF"/>
+          <text x="80" y="21" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="12" fill="#EA580C">Acceso Rápido [F4]</text>
+
+          <rect x="175" width="160" height="34" rx="17" fill="#FFFFFF"/>
+          <text x="255" y="21" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="12" fill="#0F172A">Gaveta Cajón [F2]</text>
+
+          <rect x="350" width="160" height="34" rx="17" fill="#FFFFFF"/>
+          <text x="430" y="21" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="12" fill="#0F172A">Buscar Cliente [F9]</text>
+        </g>
+      </g>
+
+      <!-- 3 Tarjetas Inferiores de Trabajo -->
+      <g transform="translate(0, 175)">
+        <!-- Tarjeta 1 -->
+        <rect width="258" height="250" rx="18" fill="#FFFFFF" stroke="#E2EBE8" stroke-width="1.5"/>
+        <rect x="20" y="20" width="40" height="40" rx="12" fill="#FFF7ED"/>
+        <circle cx="40" cy="40" r="10" fill="#EA580C"/>
+        <text x="20" y="90" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="15" fill="#0F172A">Flujo Paso a Paso</text>
+        <text x="20" y="115" font-family="'Plus Jakarta Sans', sans-serif" font-weight="500" font-size="12" fill="#64748B">1. Selección Cliente</text>
+        <text x="20" y="135" font-family="'Plus Jakarta Sans', sans-serif" font-weight="500" font-size="12" fill="#64748B">2. Catálogo &amp; Prenda</text>
+        <text x="20" y="155" font-family="'Plus Jakarta Sans', sans-serif" font-weight="500" font-size="12" fill="#64748B">3. Cobro &amp; Liquidación</text>
+        <text x="20" y="175" font-family="'Plus Jakarta Sans', sans-serif" font-weight="500" font-size="12" fill="#64748B">4. Ticket Comprobante</text>
+        <rect x="20" y="200" width="218" height="32" rx="10" fill="#EA580C"/>
+        <text x="129" y="220" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="11" fill="#FFFFFF">Estado Validado</text>
+
+        <!-- Tarjeta 2 (Datos / Métricas) -->
+        <g transform="translate(278, 0)">
+          <rect width="258" height="250" rx="18" fill="#FFFFFF" stroke="#E2EBE8" stroke-width="1.5"/>
+          <text x="20" y="38" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="15" fill="#0F172A">Balance &amp; Auditoría</text>
+          <text x="20" y="60" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="#94A3B8">Control en tiempo real</text>
+          
+          <rect x="20" y="78" width="218" height="60" rx="14" fill="#F8FAFC"/>
+          <text x="35" y="102" font-family="'Plus Jakarta Sans', sans-serif" font-weight="600" font-size="11" fill="#64748B">Recaudado Hoy</text>
+          <text x="35" y="125" font-family="'JetBrains Mono', monospace" font-weight="800" font-size="18" fill="#0F172A">$1,450,000</text>
+
+          <rect x="20" y="150" width="218" height="80" rx="14" fill="#FFF7ED"/>
+          <text x="35" y="175" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="12" fill="#EA580C">Custodia de Efectivo</text>
+          <text x="35" y="200" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="#475569">Respaldo reintegrable al devolver prendas</text>
+        </g>
+
+        <!-- Tarjeta 3 (Acción y Resumen) -->
+        <g transform="translate(556, 0)">
+          <rect width="260" height="250" rx="18" fill="#FFFFFF" stroke="#E2EBE8" stroke-width="1.5"/>
+          <text x="20" y="38" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="15" fill="#0F172A">Acciones Directas</text>
+          
+          <rect x="20" y="60" width="220" height="42" rx="12" fill="#F1F5F4"/>
+          <text x="35" y="85" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="12" fill="#0F172A">Imprimir Comprobante</text>
+
+          <rect x="20" y="112" width="220" height="42" rx="12" fill="#F1F5F4"/>
+          <text x="35" y="137" font-family="'Plus Jakarta Sans', sans-serif" font-weight="700" font-size="12" fill="#0F172A">Enviar por WhatsApp</text>
+
+          <rect x="20" y="164" width="220" height="66" rx="14" fill="#EA580C"/>
+          <text x="130" y="195" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="13" fill="#FFFFFF">Operación Exitosa</text>
+          <text x="130" y="215" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" fill="#E2E8F0">Base de datos sincronizada</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
