@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   Clock,
   Wifi,
+  HelpCircle,
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
@@ -217,6 +218,18 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
           modulo="Red Local"
           destino="Muestra código QR e IP para conectar celulares o tablets"
           onClick={() => setMostrarModalLAN(true)}
+          size="md"
+          variant="neutral"
+        />
+
+        {/* Manual Interactivo de Usuario */}
+        <IconButtonTooltip
+          icon={HelpCircle}
+          label="Manual de Usuario y Guía Comercial"
+          modulo="Ayuda"
+          destino="Abre el manual interactivo paso a paso de Aurora-POS"
+          href="/manual/index.html"
+          target="_blank"
           size="md"
           variant="neutral"
         />

@@ -1511,15 +1511,57 @@ export default function ConfiguracionAdminPage() {
 
                   {/* Botón de Prueba en Vivo */}
                   <div className="flex flex-col justify-end">
-                    <button
-                      type="button"
-                      disabled={probandoCajon}
-                      onClick={probarAperturaCajon}
-                      className="w-full px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100/90 text-amber-900 border border-amber-300 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs transition active:scale-95 disabled:opacity-50 min-h-[42px]"
-                    >
-                      <LockOpen className="h-4 w-4 text-amber-700" />
-                      <span>{probandoCajon ? "Enviando pulso..." : "Probar Apertura de Cajón Ahora"}</span>
-                    </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        disabled={probandoCajon}
+                        onClick={probarAperturaCajon}
+                        className="w-full px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 disabled:opacity-50 min-h-[42px]"
+                      >
+                        <LockOpen className="h-4 w-4 text-amber-700" />
+                        <span>{probandoCajon ? "Probando..." : "Probar Apertura Cajón"}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const w = window.open("", "_blank", "width=380,height=500");
+                          if (w) {
+                            w.document.write(`
+                              <html>
+                                <head>
+                                  <title>Ticket de Prueba — Aurora-POS</title>
+                                  <style>
+                                    body { font-family: monospace; font-size: 12px; margin: 10px; text-align: center; }
+                                    .divider { border-top: 1px dashed #000; margin: 8px 0; }
+                                    .bold { font-weight: bold; font-size: 14px; }
+                                  </style>
+                                </head>
+                                <body>
+                                  <div class="bold">AURORA-POS</div>
+                                  <div>PRUEBA DE IMPRESIÓN TÉRMICA</div>
+                                  <div class="divider"></div>
+                                  <div>Estado: 100% OPERATIVO</div>
+                                  <div>Fecha: ${new Date().toLocaleString("es-CO")}</div>
+                                  <div>Terminal: Mostrador Principal</div>
+                                  <div class="divider"></div>
+                                  <div>¡Tu impresora térmica está configurada correctamente!</div>
+                                  <div class="divider"></div>
+                                  <div style="margin-top: 25px;">.</div>
+                                </body>
+                              </html>
+                            `);
+                            w.document.close();
+                            w.focus();
+                            setTimeout(() => { w.print(); w.close(); }, 500);
+                          }
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition active:scale-95 min-h-[42px]"
+                      >
+                        <Printer className="h-4 w-4 text-blue-700" />
+                        <span>Ticket de Prueba</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 

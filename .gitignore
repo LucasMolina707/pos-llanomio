@@ -31,6 +31,7 @@
 !/migracion_excel/excel_fuente/.gitkeep
 *.xlsx
 *.xls
+!/plantillas_excel/*.xlsx
 
 # Environment files
 .env

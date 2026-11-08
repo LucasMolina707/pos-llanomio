@@ -37,6 +37,7 @@ export interface IconButtonTooltipProps {
   title?: string;
   href?: string;
   prefetch?: boolean;
+  target?: string;
 }
 
 export default function IconButtonTooltip({
@@ -59,6 +60,7 @@ export default function IconButtonTooltip({
   title,
   href,
   prefetch = true,
+  target,
 }: IconButtonTooltipProps) {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -243,6 +245,7 @@ export default function IconButtonTooltip({
           ref={elementRef}
           href={href}
           prefetch={prefetch}
+          target={target}
           id={id}
           onClick={(e) => {
             ocultar();
