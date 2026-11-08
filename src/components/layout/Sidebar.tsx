@@ -38,6 +38,14 @@ interface MenuItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  accentColor?: {
+    bg: string;
+    text: string;
+    icon: string;
+    border: string;
+    hoverBg: string;
+    activeBg: string;
+  };
 }
 
 export default function Sidebar({
@@ -125,16 +133,40 @@ export default function Sidebar({
           name: "Terminal POS (Ventas)",
           href: "/caja/pos",
           icon: ShoppingBag,
+          accentColor: {
+            bg: "bg-emerald-50",
+            text: "text-emerald-800",
+            icon: "text-emerald-600",
+            border: "border-emerald-200",
+            hoverBg: "hover:bg-emerald-100/70",
+            activeBg: "bg-emerald-600 text-white",
+          },
         },
         {
           name: "Sistema de Alquileres",
           href: "/caja/alquileres",
           icon: Clock,
+          accentColor: {
+            bg: "bg-orange-50",
+            text: "text-orange-800",
+            icon: "text-orange-600",
+            border: "border-orange-200",
+            hoverBg: "hover:bg-orange-100/70",
+            activeBg: "bg-orange-600 text-white",
+          },
         },
         {
           name: "Apartados y Reservas",
           href: "/caja/apartados",
           icon: CalendarClock,
+          accentColor: {
+            bg: "bg-indigo-50",
+            text: "text-indigo-800",
+            icon: "text-indigo-600",
+            border: "border-indigo-200",
+            hoverBg: "hover:bg-indigo-100/70",
+            activeBg: "bg-indigo-600 text-white",
+          },
         },
         {
           name: "Control y Arqueo de Caja",
@@ -307,6 +339,21 @@ export default function Sidebar({
               {section.items.map((item) => {
                 const isActive = pathname === item.href;
                 const Icon = item.icon;
+                const accent = item.accentColor;
+
+                let linkClasses = "";
+                let iconClasses = "";
+
+                if (isActive) {
+                  linkClasses = accent ? `${accent.activeBg} font-bold shadow-xs` : "bg-blue-600 text-white font-semibold shadow-2xs";
+                  iconClasses = "text-white";
+                } else if (accent) {
+                  linkClasses = `${accent.bg} ${accent.text} border ${accent.border} ${accent.hoverBg} font-bold shadow-2xs`;
+                  iconClasses = accent.icon;
+                } else {
+                  linkClasses = "text-slate-700 hover:bg-slate-100/90 hover:text-slate-950 font-medium";
+                  iconClasses = "text-slate-500 group-hover:text-slate-800";
+                }
 
                 return (
                   <Link
@@ -315,16 +362,12 @@ export default function Sidebar({
                     prefetch={true}
                     onClick={() => isMobile && onCloseMobile && onCloseMobile()}
                     title={!isExpanded ? item.name : undefined}
-                    className={`h-10 px-2.5 rounded-xl flex items-center transition-colors duration-150 ${isActive
-                        ? "bg-blue-600 text-white font-semibold shadow-2xs"
-                        : "text-slate-700 hover:bg-slate-100/90 hover:text-slate-950 font-medium"
-                      } ${!isExpanded ? "justify-center" : "gap-3 justify-start"}`}
+                    className={`h-10 px-2.5 rounded-xl flex items-center transition-colors duration-150 ${linkClasses} ${
+                      !isExpanded ? "justify-center" : "gap-3 justify-start"
+                    }`}
                   >
                     <Icon
-                      className={`w-[18px] h-[18px] shrink-0 ${isActive
-                          ? "text-white"
-                          : "text-slate-500 group-hover:text-slate-800"
-                        } ${!isExpanded ? "mx-auto" : ""}`}
+                      className={`w-[18px] h-[18px] shrink-0 ${iconClasses} ${!isExpanded ? "mx-auto" : ""}`}
                     />
 
                     {isExpanded && (
