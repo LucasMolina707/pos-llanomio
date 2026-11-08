@@ -210,55 +210,36 @@ function dibujarPaginaMediaCarta(
   doc.text(`Tel: ${empresa.telefono}${empresa.email ? ` | ${empresa.email}` : ""}`, textoEmpresaX, yDetalle);
 
   // Recuadro derecho de Factura / Contrato
-  const anchoCajaFactura = 72;
+  const anchoCajaFactura = 62;
   const altoCajaFactura = 16.5;
   const xCajaFactura = margenDerecho - anchoCajaFactura;
   const yCajaFactura = 5 + offsetY;
 
-  if (esPazYSalvo) {
-    doc.setFillColor(236, 253, 245);
-    doc.setDrawColor(5, 150, 105);
-  } else {
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(15, 23, 42);
-  }
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(15, 23, 42); // Borde sobrio negro/slate
   doc.setLineWidth(0.4);
   doc.rect(xCajaFactura, yCajaFactura, anchoCajaFactura, altoCajaFactura, "FD");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  if (esApartado) {
-    doc.setTextColor(15, 23, 42);
-    doc.text("FORMATO DE APARTADO", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4.2, { align: "center" });
-  } else if (esAlquiler) {
-    const infoEst = obtenerInfoEstadosAlquiler(factura);
-    if (infoEst.estaCerrada) {
-      doc.setTextColor(5, 150, 105);
-      doc.text("PAZ Y SALVO ALQUILER Y DEPÓSITO", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4.2, { align: "center" });
-    } else if (infoEst.esPazYSalvo) {
-      doc.setTextColor(15, 23, 42);
-      doc.text("FACTURA ALQUILER (PAGO COMPLETO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4.2, { align: "center" });
-    } else {
-      doc.setTextColor(225, 29, 72);
-      doc.text(`ALQUILER — FALTANDO: ${formatCOP(saldoPendiente)}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4.2, { align: "center" });
-    }
-  } else if (esPazYSalvo) {
-    doc.setTextColor(5, 150, 105);
-    doc.text("FACTURA DE VENTA (PAZ Y SALVO)", xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4.2, { align: "center" });
-  } else {
-    doc.setTextColor(225, 29, 72);
-    doc.text(`VENTA — FALTANDO: ${formatCOP(saldoPendiente)}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4.2, { align: "center" });
-  }
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
+  doc.setFontSize(7.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(`N° ${factura.numeroFactura}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 10.2, { align: "center" });
+  let tituloCajaSuperior = "FACTURA DE VENTA";
+  if (esApartado) {
+    tituloCajaSuperior = "FORMATO DE APARTADO";
+  } else if (esAlquiler) {
+    tituloCajaSuperior = "FACTURA DE ALQUILER";
+  }
+  doc.text(tituloCajaSuperior, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 4.2, { align: "center" });
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.8);
-  doc.setTextColor(esPazYSalvo ? 5 : 37, esPazYSalvo ? 150 : 99, esPazYSalvo ? 105 : 235);
-  doc.text(`** ${tipoCopiaTexto} **`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 14.8, { align: "center" });
+  doc.setFontSize(11);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`N° ${factura.numeroFactura}`, xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 9.8, { align: "center" });
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text(tipoCopiaTexto.toUpperCase(), xCajaFactura + anchoCajaFactura / 2, yCajaFactura + 14.5, { align: "center" });
 
   cursorY = Math.max(yDetalle + 2, yCajaFactura + altoCajaFactura + 2);
 
@@ -445,60 +426,51 @@ function dibujarPaginaMediaCarta(
 
   // Políticas / Observaciones y Firmas a la izquierda
   const anchoPoliticas = xTotales - margenIzquierdo - 4;
-  if (esAlquiler) {
-    doc.setFillColor(254, 243, 199); // Amber 100
-    doc.setDrawColor(217, 119, 6);   // Amber 600
-  } else if (esApartado) {
-    doc.setFillColor(254, 242, 242); // Rose 50
-    doc.setDrawColor(239, 68, 68);   // Rose 500
-  } else {
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-  }
-  doc.rect(margenIzquierdo, cursorY, anchoPoliticas, 24, "FD");
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.8);
-  if (esAlquiler) {
-    doc.setTextColor(146, 64, 14);
-    doc.text("OBSERVACIONES:", margenIzquierdo + 2.5, cursorY + 3.4);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(5.8);
-    const obsMora = `A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.`;
-    const lineasObs = doc.splitTextToSize(obsMora, anchoPoliticas - 5);
-    doc.text(lineasObs.slice(0, 2), margenIzquierdo + 2.5, cursorY + 6.6);
-    if (factura.observaciones) {
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(5.5);
-      doc.setTextColor(71, 85, 105);
-      const lineaNota = `Nota: ${factura.observaciones}`;
-      doc.text(doc.splitTextToSize(lineaNota, anchoPoliticas - 5).slice(0, 1), margenIzquierdo + 2.5, cursorY + 13.5);
+  // Políticas / Observaciones a ancho completo debajo de la tabla en Venta
+  if (!esVenta) {
+    if (esAlquiler) {
+      doc.setFillColor(254, 243, 199); // Amber 100
+      doc.setDrawColor(217, 119, 6);   // Amber 600
+    } else if (esApartado) {
+      doc.setFillColor(254, 242, 242); // Rose 50
+      doc.setDrawColor(239, 68, 68);   // Rose 500
     }
-  } else if (esApartado) {
-    doc.setTextColor(185, 28, 28);
-    doc.text("OBSERVACIÓN IMPORTANTE:", margenIzquierdo + 2.5, cursorY + 3.4);
+    doc.rect(margenIzquierdo, cursorY, anchoPoliticas, 24, "FD");
+
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
-    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", margenIzquierdo + 2.5, cursorY + 7.5);
-  } else {
-    doc.setTextColor(71, 85, 105);
-    doc.text("POLÍTICAS COMERCIALES Y DE GARANTÍA:", margenIzquierdo + 2.5, cursorY + 3.4);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(5.8);
+    doc.setFontSize(6.8);
+    if (esAlquiler) {
+      doc.setTextColor(146, 64, 14);
+      doc.text("OBSERVACIONES:", margenIzquierdo + 2.5, cursorY + 3.4);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(5.8);
+      const obsMora = `A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.`;
+      const lineasObs = doc.splitTextToSize(obsMora, anchoPoliticas - 5);
+      doc.text(lineasObs.slice(0, 2), margenIzquierdo + 2.5, cursorY + 6.6);
+      if (factura.observaciones) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(5.5);
+        doc.setTextColor(71, 85, 105);
+        const lineaNota = `Nota: ${factura.observaciones}`;
+        doc.text(doc.splitTextToSize(lineaNota, anchoPoliticas - 5).slice(0, 1), margenIzquierdo + 2.5, cursorY + 13.5);
+      }
+    } else if (esApartado) {
+      doc.setTextColor(185, 28, 28);
+      doc.text("OBSERVACIÓN IMPORTANTE:", margenIzquierdo + 2.5, cursorY + 3.4);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", margenIzquierdo + 2.5, cursorY + 7.5);
+    }
+
+    // Firmas debajo de políticas u observaciones
+    doc.setFontSize(5.6);
     doc.setTextColor(100, 116, 139);
-    const textoPol = "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento.";
-    const lineasPoliticas = doc.splitTextToSize(textoPol, anchoPoliticas - 5);
-    doc.text(lineasPoliticas.slice(0, 3), margenIzquierdo + 2.5, cursorY + 6.6);
+    doc.line(margenIzquierdo + 4, cursorY + 18.5, margenIzquierdo + 46, cursorY + 18.5);
+    doc.text("Firma Vendedor / Cajero Responsable", margenIzquierdo + 6, cursorY + 21.5);
+
+    doc.line(margenIzquierdo + 50, cursorY + 18.5, margenIzquierdo + 104, cursorY + 18.5);
+    doc.text("Firma y C.C. Cliente (Aceptación de Términos)", margenIzquierdo + 52, cursorY + 21.5);
   }
-
-  // Firmas debajo de políticas u observaciones
-  doc.setFontSize(5.6);
-  doc.setTextColor(100, 116, 139);
-  doc.line(margenIzquierdo + 4, cursorY + 18.5, margenIzquierdo + 46, cursorY + 18.5);
-  doc.text("Firma Vendedor / Cajero Responsable", margenIzquierdo + 6, cursorY + 21.5);
-
-  doc.line(margenIzquierdo + 50, cursorY + 18.5, margenIzquierdo + 104, cursorY + 18.5);
-  doc.text("Firma y C.C. Cliente (Aceptación de Términos)", margenIzquierdo + 52, cursorY + 21.5);
 
   // Cuadro de Totales Segregado a la derecha
   let yTot = cursorY;
@@ -605,29 +577,49 @@ function dibujarPaginaMediaCarta(
       doc.text(formatCOP(saldoPendiente), margenDerecho - 1, yTot + 3.5, { align: "right" });
     }
   } else {
-    // Venta Comercial: Cero Sección A y B, Totales directos
+    // Venta Comercial: Cero Sección A y B, Totales directos en recuadro limpio idéntico al visor
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.rect(xTotales - 2, yTot, anchoTotales + 2, 24, "FD");
+
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.8);
-    doc.setTextColor(71, 85, 105);
-    doc.text("TOTAL VENTA:", xTotales, yTot + 3.2);
+    doc.setFontSize(7.2);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho, yTot + 3.2, { align: "right" });
+    doc.text("TOTALES DE VENTA", xTotales + 1, yTot + 3.8);
+    doc.setDrawColor(203, 213, 225);
+    doc.line(xTotales - 2, yTot + 5, margenDerecho, yTot + 5);
+
+    yTot += 6;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.2);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Total Cobro de Venta:", xTotales + 1, yTot + 3.2);
+    doc.text(formatCOP(totalOperacionPrincipal), margenDerecho - 1, yTot + 3.2, { align: "right" });
 
     yTot += 4.5;
+    doc.setFontSize(7.5);
     doc.setTextColor(5, 150, 105);
     const labelCob = `Cobro Recibido (${textoMedioPagoPrincipal}):`;
-    doc.text(labelCob.substring(0, 24), xTotales, yTot + 3.2);
-    doc.text(formatCOP(totalAbonado), margenDerecho, yTot + 3.2, { align: "right" });
+    doc.text(labelCob.substring(0, 24), xTotales + 1, yTot + 3.2);
+    doc.text(formatCOP(totalAbonado), margenDerecho - 1, yTot + 3.2, { align: "right" });
+
+    if (vueltasEntregadas > 0 || efectivoRecibidoCliente > 0) {
+      yTot += 4.2;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.8);
+      doc.setTextColor(71, 85, 105);
+      doc.text("Efectivo Recibido Cliente:", xTotales + 1, yTot + 3);
+      doc.text(formatCOP(efectivoRecibidoCliente > 0 ? efectivoRecibidoCliente : totalAbonado), margenDerecho - 1, yTot + 3, { align: "right" });
+    }
 
     if (vueltasEntregadas > 0) {
-      yTot += 3.8;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.5);
-      doc.setTextColor(71, 85, 105);
-      doc.text("Vueltos / Cambio:", xTotales, yTot + 3);
-      doc.text(formatCOP(vueltasEntregadas), margenDerecho, yTot + 3, { align: "right" });
+      yTot += 4;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.8);
+      doc.setFontSize(7.5);
+      doc.setTextColor(5, 150, 105);
+      doc.text("Vueltos / Cambio Entregado:", xTotales + 1, yTot + 3);
+      doc.text(formatCOP(vueltasEntregadas), margenDerecho - 1, yTot + 3, { align: "right" });
     }
 
     if (saldoPendiente > 0) {
@@ -641,6 +633,37 @@ function dibujarPaginaMediaCarta(
       doc.text("FALTA POR PAGAR:", xTotales, yTot + 4.1);
       doc.text(formatCOP(saldoPendiente), margenDerecho - 1, yTot + 4.1, { align: "right" });
     }
+
+    // Para venta: Normas y Políticas en franja completa inferior
+    const yPolVenta = yTot + 8;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(margenIzquierdo, yPolVenta, margenDerecho - margenIzquierdo, 6.5, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    doc.setTextColor(15, 23, 42);
+    doc.text("NORMAS Y POLÍTICAS:", margenIzquierdo + 2, yPolVenta + 4.2);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(5.8);
+    doc.setTextColor(71, 85, 105);
+    const textoPolVenta = "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento.";
+    doc.text(textoPolVenta, margenIzquierdo + 32, yPolVenta + 4.2);
+
+    // Firmas de venta
+    const yFirmasVenta = yPolVenta + 11.5;
+    doc.setFontSize(5.8);
+    doc.setTextColor(71, 85, 105);
+    doc.setDrawColor(100, 116, 139);
+    doc.line(margenIzquierdo + 12, yFirmasVenta, margenIzquierdo + 75, yFirmasVenta);
+    doc.text("Firma y C.C. del Cliente", margenIzquierdo + 28, yFirmasVenta + 3.2);
+    doc.setFontSize(5.2);
+    doc.text("(Aceptación y recibido a conformidad)", margenIzquierdo + 24, yFirmasVenta + 5.8);
+
+    doc.setFontSize(5.8);
+    doc.line(margenDerecho - 75, yFirmasVenta, margenDerecho - 12, yFirmasVenta);
+    doc.text("Firma Vendedor / Cajero Responsable", margenDerecho - 66, yFirmasVenta + 3.2);
+    doc.setFontSize(5.2);
+    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 58, yFirmasVenta + 5.8);
   }
 
   // Pie de cortesía sin QR
