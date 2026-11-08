@@ -12,14 +12,14 @@
   <style>
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      background-color: #EBF3F0; /* Tono menta suave del diseño de referencia */
+      background-color: #DDEBE6; /* Fondo exterior menta suave de la referencia */
     }
     code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
     
-    .nav-pill.active {
-      background-color: #3D8B7A;
-      color: #FFFFFF;
-      box-shadow: 0 4px 12px rgba(61, 139, 122, 0.25);
+    .sidebar-icon-btn.active {
+      background-color: #FFFFFF;
+      color: #2D6A5D;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
     }
 
     .card-neo {
@@ -32,593 +32,718 @@
     .card-neo:hover {
       box-shadow: 0 14px 35px -5px rgba(15, 23, 42, 0.07);
     }
-    html { scroll-behavior: smooth; }
+
+    /* Animación de cambio de vista (SPA pura) */
+    .view-content {
+      display: none;
+      animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .view-content.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
 <body class="text-slate-800 antialiased min-h-screen p-3 md:p-6 lg:p-8 flex justify-center selection:bg-[#3D8B7A] selection:text-white">
 
   <!-- ========================================================================= -->
-  <!-- LIENZO GENERAL PRINCIPAL (TIPO TABLET / DASHBOARD FLUIDO)                 -->
+  <!-- LIENZO GENERAL DE LA APLICACIÓN (IDÉNTICO A LA REFERENCIA)                 -->
   <!-- ========================================================================= -->
-  <div class="w-full max-w-7xl bg-[#F4F8F7] rounded-[32px] border border-[#D5E5E0] shadow-xl p-4 md:p-6 lg:p-8 flex flex-col gap-6">
+  <div class="w-full max-w-7xl bg-[#F4F8F7] rounded-[36px] border border-[#CDE0D9] shadow-2xl p-4 md:p-6 flex flex-col md:flex-row gap-5 min-h-[90vh]">
 
-    <!-- ========================================== -->
-    <!-- 1. HEADER INTEGRADO                        -->
-    <!-- ========================================== -->
-    <header class="flex flex-col md:flex-row items-center justify-between gap-4 pb-4 border-b border-[#E0EBE7]">
-      <!-- Logotipo & Título -->
-      <div class="flex items-center gap-3 w-full md:w-auto">
-        <div class="w-12 h-12 rounded-2xl bg-[#3D8B7A] flex items-center justify-center text-white shadow-sm font-black text-2xl">
+    <!-- ========================================================================= -->
+    <!-- BARRA LATERAL IZQUIERDA: ICONOS VERTICALES VERDE SALVIA                   -->
+    <!-- ========================================================================= -->
+    <aside class="w-full md:w-20 shrink-0 bg-[#3D8B7A] rounded-[28px] p-3.5 flex md:flex-col items-center justify-between gap-3 shadow-md">
+      <!-- Logo Superior -->
+      <div class="flex md:flex-col items-center gap-2">
+        <div class="w-11 h-11 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center text-white font-black text-xl shadow-xs">
           A
         </div>
-        <div>
+      </div>
+
+      <!-- Iconos Centrales de Navegación por Ventanas -->
+      <nav class="flex md:flex-col items-center gap-2.5 overflow-x-auto md:overflow-visible py-2">
+        <!-- 1. Descarga -->
+        <button 
+          onclick="cambiarVentana('descarga', this)" 
+          title="1. Descarga del Instalador .EXE"
+          class="sidebar-icon-btn active w-11 h-11 rounded-2xl flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+        >
+          <i data-lucide="download" class="w-5 h-5"></i>
+        </button>
+
+        <!-- 2. Instalación y Despliegue -->
+        <button 
+          onclick="cambiarVentana('instalacion', this)" 
+          title="2. Instalación y Despliegue en PC"
+          class="sidebar-icon-btn w-11 h-11 rounded-2xl flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+        >
+          <i data-lucide="hard-drive" class="w-5 h-5"></i>
+        </button>
+
+        <!-- 3. Botones Diarios -->
+        <button 
+          onclick="cambiarVentana('botones', this)" 
+          title="3. Botones Operativos Diarios (.EXE)"
+          class="sidebar-icon-btn w-11 h-11 rounded-2xl flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+        >
+          <i data-lucide="play-circle" class="w-5 h-5"></i>
+        </button>
+
+        <!-- 4. Ventas POS -->
+        <button 
+          onclick="cambiarVentana('ventas', this)" 
+          title="4. Caja de Ventas y Sastrería"
+          class="sidebar-icon-btn w-11 h-11 rounded-2xl flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+        >
+          <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+        </button>
+
+        <!-- 5. Alquileres -->
+        <button 
+          onclick="cambiarVentana('alquileres', this)" 
+          title="5. Caja de Alquileres y Depósitos"
+          class="sidebar-icon-btn w-11 h-11 rounded-2xl flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+        >
+          <i data-lucide="shirt" class="w-5 h-5"></i>
+        </button>
+
+        <!-- 6. Apartados -->
+        <button 
+          onclick="cambiarVentana('apartados', this)" 
+          title="6. Caja de Apartados y Reservas"
+          class="sidebar-icon-btn w-11 h-11 rounded-2xl flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+        >
+          <i data-lucide="calendar-clock" class="w-5 h-5"></i>
+        </button>
+
+        <!-- 7. Arqueo y Turnos -->
+        <button 
+          onclick="cambiarVentana('arqueo', this)" 
+          title="7. Control de Turnos y Arqueo Ciego"
+          class="sidebar-icon-btn w-11 h-11 rounded-2xl flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+        >
+          <i data-lucide="vault" class="w-5 h-5"></i>
+        </button>
+
+        <!-- 8. Plantillas Excel -->
+        <button 
+          onclick="cambiarVentana('plantillas', this)" 
+          title="8. Carga Masiva con Plantillas Excel"
+          class="sidebar-icon-btn w-11 h-11 rounded-2xl flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+        >
+          <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+        </button>
+
+        <!-- 9. Copias de Seguridad -->
+        <button 
+          onclick="cambiarVentana('backups', this)" 
+          title="9. Copias de Seguridad y Restauración"
+          class="sidebar-icon-btn w-11 h-11 rounded-2xl flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+        >
+          <i data-lucide="shield-check" class="w-5 h-5"></i>
+        </button>
+      </nav>
+
+      <!-- Botón Inferior de Ayuda -->
+      <div class="hidden md:flex flex-col items-center">
+        <div class="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white/70" title="Manual de Aurora-POS">
+          <i data-lucide="help-circle" class="w-4 h-4"></i>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ========================================================================= -->
+    <!-- PANEL PRINCIPAL DE VENTANAS (DASHBOARD AREA)                              -->
+    <!-- ========================================================================= -->
+    <main class="flex-1 min-w-0 flex flex-col gap-5 overflow-hidden">
+
+      <!-- ========================================== -->
+      <!-- TOPBAR TIPO DASHBOARD                      -->
+      <!-- ========================================== -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white rounded-2xl p-3.5 border border-[#E3ECE9] shadow-2xs">
+        <!-- Buscador integrado -->
+        <div class="relative w-full sm:w-80">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-2.5 text-slate-400"></i>
+          <input 
+            id="busquedaGlobal" 
+            type="text" 
+            placeholder="Buscar ventana o tema (ej. alquiler, arqueo)..."
+            class="w-full pl-10 pr-4 py-1.5 bg-[#F4F8F7] border border-[#D8E6E2] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#3D8B7A] transition"
+          >
+        </div>
+
+        <!-- Indicador de Ventana Activa + Acciones -->
+        <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
           <div class="flex items-center gap-2">
-            <h1 class="text-xl font-black text-slate-900 tracking-tight">Aurora-POS</h1>
-            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#E0EFEA] text-[#2D6A5D] border border-[#C1DFD7]">
-              v1.0 Producción
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="badgeVentanaActiva" class="text-xs font-bold text-slate-700">
+              Ventana 1: Descarga del Instalador .EXE
             </span>
           </div>
-          <p class="text-xs text-slate-500 font-medium">Manual Visual de Instalación, Despliegue y Control de Mostrador</p>
+
+          <a 
+            href="../dist_instalador/Aurora_Host_POS_Setup.exe" 
+            download 
+            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#3D8B7A] hover:bg-[#327364] text-white font-bold text-xs shadow-2xs transition"
+          >
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Instalador .EXE</span>
+          </a>
         </div>
       </div>
 
-      <!-- Buscador tipo Dashboard -->
-      <div class="relative w-full md:w-80">
-        <i data-lucide="search" class="w-4 h-4 absolute left-4 top-3 text-slate-400"></i>
-        <input 
-          id="busquedaManual" 
-          type="text" 
-          placeholder="Buscar tema (ej. arqueo, alquiler, copia)..."
-          class="w-full pl-11 pr-4 py-2 bg-white border border-[#D8E6E2] rounded-2xl text-xs focus:outline-none focus:ring-2 focus:ring-[#3D8B7A] shadow-2xs transition"
-        >
-      </div>
-
-      <!-- Botón de Descarga Principal -->
-      <div class="flex items-center gap-2 w-full md:w-auto justify-end">
-        <a 
-          href="#zona-descargas" 
-          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#3D8B7A] hover:bg-[#327364] text-white font-bold text-xs shadow-sm transition transform hover:-translate-y-0.5"
-        >
-          <i data-lucide="download" class="w-4 h-4"></i>
-          <span>Descargar Instalador .EXE</span>
-        </a>
-      </div>
-    </header>
-
-    <!-- ========================================== -->
-    <!-- 2. NAVEGACIÓN TIPO PÍLDORAS (HORIZONTAL)   -->
-    <!-- ========================================== -->
-    <nav class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs font-bold text-slate-600">
-      <a href="#zona-descargas" class="nav-pill active px-4 py-2 rounded-xl whitespace-nowrap transition">
-        1. Descarga .EXE
-      </a>
-      <a href="#instalacion-despliegue" class="nav-pill px-4 py-2 rounded-xl bg-white hover:bg-[#E3ECE9] whitespace-nowrap transition">
-        2. Despliegue en PC
-      </a>
-      <a href="#botones-operativos" class="nav-pill px-4 py-2 rounded-xl bg-white hover:bg-[#E3ECE9] whitespace-nowrap transition">
-        3. Botones Diarios
-      </a>
-      <a href="#caja-ventas" class="nav-pill px-4 py-2 rounded-xl bg-white hover:bg-[#E3ECE9] whitespace-nowrap transition">
-        4. Ventas POS
-      </a>
-      <a href="#caja-alquileres" class="nav-pill px-4 py-2 rounded-xl bg-white hover:bg-[#E3ECE9] whitespace-nowrap transition">
-        5. Alquileres
-      </a>
-      <a href="#caja-apartados" class="nav-pill px-4 py-2 rounded-xl bg-white hover:bg-[#E3ECE9] whitespace-nowrap transition">
-        6. Apartados
-      </a>
-      <a href="#arqueo-caja" class="nav-pill px-4 py-2 rounded-xl bg-white hover:bg-[#E3ECE9] whitespace-nowrap transition">
-        7. Arqueo y Turnos
-      </a>
-      <a href="#importacion-datos" class="nav-pill px-4 py-2 rounded-xl bg-white hover:bg-[#E3ECE9] whitespace-nowrap transition">
-        8. Plantillas Excel
-      </a>
-      <a href="#copias-seguridad" class="nav-pill px-4 py-2 rounded-xl bg-white hover:bg-[#E3ECE9] whitespace-nowrap transition">
-        9. Copias de Seguridad
-      </a>
-    </nav>
-
-    <!-- ========================================== -->
-    <!-- 3. CUERPO DE CONTENIDO EN TARJETAS MODERNAS -->
-    <!-- ========================================== -->
-    <main class="space-y-8">
-
       <!-- ========================================================================= -->
-      <!-- SECCIÓN 1: ZONA DE DESCARGA HERO                                          -->
+      <!-- CONTENEDOR DE VENTANAS INDEPENDIENTES                                     -->
       <!-- ========================================================================= -->
-      <section id="zona-descargas" class="card-neo p-6 md:p-8 bg-gradient-to-br from-[#3D8B7A] to-[#2B665A] text-white relative overflow-hidden">
-        <div class="relative z-10 max-w-2xl space-y-4">
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/15 text-emerald-100 border border-white/20">
-            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
-            100% Offline-First para Cualquier Negocio o Emprendimiento
-          </span>
-          <h2 class="text-2xl lg:text-3xl font-black tracking-tight leading-tight">
-            Descargar Aurora-POS para Windows
-          </h2>
-          <p class="text-emerald-50 text-xs md:text-sm leading-relaxed">
-            Instalador autodescomprimible listo para producción. No requiere dependencias externas ni conexión a internet obligatoria. Funciona de manera perpetua en tu computador local.
-          </p>
+      <div class="flex-1 min-h-0 overflow-y-auto pr-1">
 
-          <div class="pt-2 flex flex-wrap items-center gap-3">
-            <a 
-              href="../dist_instalador/Aurora_Host_POS_Setup.exe" 
-              download 
-              class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-[#2B665A] hover:bg-slate-100 font-black text-xs md:text-sm shadow-md transition transform hover:scale-[1.02]"
-            >
-              <i data-lucide="download" class="w-4 h-4 text-[#2B665A]"></i>
-              <span>Descargar Aurora_Host_POS_Setup.exe (42.5 MB)</span>
-            </a>
-
-            <a 
-              href="../dist_instalador/INSTALADOR_POS_PORTABLE.zip" 
-              download 
-              class="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs transition"
-            >
-              <i data-lucide="archive" class="w-4 h-4"></i>
-              <span>Versión Portable (.ZIP)</span>
-            </a>
-          </div>
-
-          <div class="flex items-center gap-4 text-xs text-emerald-200/90 pt-1 font-mono">
-            <span>Windows 10 / 11 (64-bit)</span>
-            <span>•</span>
-            <span>SQLite WAL Seguro</span>
-            <span>•</span>
-            <span>Admin de fábrica: admin / admin123</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================================================= -->
-      <!-- SECCIÓN 2: INSTALACIÓN Y DESPLIEGUE CON IMAGEN DEMO                       -->
-      <!-- ========================================================================= -->
-      <section id="instalacion-despliegue" class="card-neo p-6 md:p-8 space-y-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E3ECE9] pb-4">
-          <div>
-            <span class="text-[11px] font-black uppercase text-[#3D8B7A] tracking-wider">Paso 1 de 9</span>
-            <h2 class="text-xl font-black text-slate-900 tracking-tight">Instalación y Despliegue en Computador Nuevo</h2>
-          </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold bg-[#E0EFEA] text-[#2D6A5D] border border-[#C1DFD7] self-start md:self-auto">
-            Configuración Única
-          </span>
-        </div>
-
-        <!-- Layout Gráfico 2 Columnas -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          <div class="lg:col-span-5 space-y-4 text-xs text-slate-600">
-            <p class="leading-relaxed">
-              El instalador oficial se encarga de todo de manera automatizada: extrae los archivos en la ruta que elijas, configura el motor portable de Node.js, prepara la base de datos de fábrica y abre los puertos necesarios en el Firewall de Windows.
+        <!-- ========================================== -->
+        <!-- VENTANA 1: DESCARGA DEL INSTALADOR         -->
+        <!-- ========================================== -->
+        <div id="vista-descarga" class="view-content active space-y-5">
+          <!-- Tarjeta Banner Principal -->
+          <div class="card-neo p-6 md:p-8 bg-gradient-to-br from-[#3D8B7A] to-[#2B665A] text-white space-y-4">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/15 text-emerald-100 border border-white/20">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+              Distribución Comercial 100% Offline-First
+            </span>
+            <h2 class="text-2xl md:text-3xl font-black tracking-tight leading-tight">
+              Descargar Aurora-POS para Windows
+            </h2>
+            <p class="text-emerald-50 text-xs md:text-sm max-w-2xl leading-relaxed">
+              Instalador autodescomprimible listo para producción. No requiere dependencias externas ni conexión a internet obligatoria. Funciona de manera perpetua en tu computador local.
             </p>
 
-            <div class="space-y-2.5">
-              <div class="p-3.5 rounded-2xl bg-[#F7FAF9] border border-[#E3ECE9] flex items-start gap-3">
-                <span class="w-6 h-6 rounded-lg bg-[#3D8B7A] text-white flex items-center justify-center font-bold text-xs shrink-0">1</span>
-                <div>
-                  <strong class="text-slate-900 font-bold block">Ejecutar el Instalador</strong>
-                  <span>Haz doble clic en el archivo descargado y concede permisos de Administrador.</span>
+            <div class="pt-2 flex flex-wrap items-center gap-3">
+              <a 
+                href="../dist_instalador/Aurora_Host_POS_Setup.exe" 
+                download 
+                class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-[#2B665A] hover:bg-slate-100 font-black text-xs md:text-sm shadow-md transition transform hover:scale-[1.02]"
+              >
+                <i data-lucide="download" class="w-4 h-4 text-[#2B665A]"></i>
+                <span>Descargar Aurora_Host_POS_Setup.exe (42.5 MB)</span>
+              </a>
+
+              <a 
+                href="../dist_instalador/INSTALADOR_POS_PORTABLE.zip" 
+                download 
+                class="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold text-xs transition"
+              >
+                <i data-lucide="archive" class="w-4 h-4"></i>
+                <span>Versión Portable (.ZIP)</span>
+              </a>
+            </div>
+
+            <div class="flex items-center gap-4 text-xs text-emerald-200/90 pt-1 font-mono">
+              <span>Windows 10 / 11 (64-bit)</span>
+              <span>•</span>
+              <span>SQLite WAL Seguro</span>
+              <span>•</span>
+              <span>Usuario Admin: admin / admin123</span>
+            </div>
+          </div>
+
+          <!-- Grilla de 3 Tarjetas de Resumen Rápido -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="card-neo p-5 space-y-2">
+              <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                <i data-lucide="hard-drive" class="w-5 h-5"></i>
+              </div>
+              <h3 class="font-bold text-sm text-slate-900">1. Instalador Autónomo</h3>
+              <p class="text-xs text-slate-500 leading-relaxed">
+                Extrae el runtime, inicializa la base de datos de fábrica y configura las reglas de Firewall.
+              </p>
+            </div>
+
+            <div class="card-neo p-5 space-y-2">
+              <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
+                <i data-lucide="play" class="w-5 h-5"></i>
+              </div>
+              <h3 class="font-bold text-sm text-slate-900">2. Botones Operativos</h3>
+              <p class="text-xs text-slate-500 leading-relaxed">
+                Los archivos `.exe` te permiten encender, apagar y reiniciar el servidor en 1 solo clic.
+              </p>
+            </div>
+
+            <div class="card-neo p-5 space-y-2">
+              <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
+                <i data-lucide="store" class="w-5 h-5"></i>
+              </div>
+              <h3 class="font-bold text-sm text-slate-900">3. Las 3 Cajas</h3>
+              <p class="text-xs text-slate-500 leading-relaxed">
+                Terminales homologadas para Ventas POS (Verde), Alquileres (Naranja) y Apartados (Morado).
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VENTANA 2: INSTALACIÓN Y DESPLIEGUE        -->
+        <!-- ========================================== -->
+        <div id="vista-instalacion" class="view-content space-y-5">
+          <div class="card-neo p-6 md:p-8 space-y-6">
+            <div class="border-b border-[#E3ECE9] pb-3">
+              <span class="text-[11px] font-black uppercase text-[#3D8B7A] tracking-wider">Despliegue Técnico</span>
+              <h2 class="text-xl font-black text-slate-900">2. Instalación y Despliegue en Computador Nuevo</h2>
+              <p class="text-xs text-slate-500">Guía para configurar el sistema por primera vez en cualquier computador comercial.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              <div class="lg:col-span-5 space-y-3 text-xs text-slate-600">
+                <p class="leading-relaxed">
+                  El instalador oficial se encarga de todo de manera automatizada: extrae los archivos en la ruta que elijas, configura el motor portable de Node.js, prepara la base de datos de fábrica y abre los puertos necesarios en el Firewall de Windows.
+                </p>
+
+                <div class="space-y-2">
+                  <div class="p-3 rounded-xl bg-[#F7FAF9] border border-[#E3ECE9] flex items-start gap-2.5">
+                    <span class="w-6 h-6 rounded-lg bg-[#3D8B7A] text-white flex items-center justify-center font-bold text-xs shrink-0">1</span>
+                    <div>
+                      <strong class="text-slate-900 font-bold block">Ejecutar el Instalador</strong>
+                      <span>Haz doble clic en <code class="font-mono text-slate-800">Aurora_Host_POS_Setup.exe</code> y concede permisos de Administrador.</span>
+                    </div>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-[#F7FAF9] border border-[#E3ECE9] flex items-start gap-2.5">
+                    <span class="w-6 h-6 rounded-lg bg-[#3D8B7A] text-white flex items-center justify-center font-bold text-xs shrink-0">2</span>
+                    <div>
+                      <strong class="text-slate-900 font-bold block">Instalación Desatendida</strong>
+                      <span>El asistente descomprime el sistema y prepara las instancias sin intervención técnica.</span>
+                    </div>
+                  </div>
+
+                  <div class="p-3 rounded-xl bg-[#F7FAF9] border border-[#E3ECE9] flex items-start gap-2.5">
+                    <span class="w-6 h-6 rounded-lg bg-[#3D8B7A] text-white flex items-center justify-center font-bold text-xs shrink-0">3</span>
+                    <div>
+                      <strong class="text-slate-900 font-bold block">Botonera en Escritorio</strong>
+                      <span>Se crearán los accesos para Iniciar, Detener y Reiniciar el servidor con sus iconos.</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div class="p-3.5 rounded-2xl bg-[#F7FAF9] border border-[#E3ECE9] flex items-start gap-3">
-                <span class="w-6 h-6 rounded-lg bg-[#3D8B7A] text-white flex items-center justify-center font-bold text-xs shrink-0">2</span>
-                <div>
-                  <strong class="text-slate-900 font-bold block">Instalación Desatendida</strong>
-                  <span>El asistente descomprime el sistema y prepara las instancias sin intervención técnica.</span>
+              <!-- Imagen Demo SVG Local -->
+              <div class="lg:col-span-7">
+                <div class="rounded-2xl overflow-hidden border border-[#D5E5E0] shadow-sm bg-slate-50">
+                  <img src="img/demo_instalacion.svg" alt="Instalador Aurora-POS" class="w-full h-auto object-cover">
                 </div>
+                <p class="text-[11px] text-slate-400 text-center mt-2 font-mono">Figura 1: Asistente guiado de instalación de Aurora-POS</p>
               </div>
+            </div>
+          </div>
+        </div>
 
-              <div class="p-3.5 rounded-2xl bg-[#F7FAF9] border border-[#E3ECE9] flex items-start gap-3">
-                <span class="w-6 h-6 rounded-lg bg-[#3D8B7A] text-white flex items-center justify-center font-bold text-xs shrink-0">3</span>
-                <div>
-                  <strong class="text-slate-900 font-bold block">Acceso Directo</strong>
-                  <span>En tu Escritorio se crearán los botones para Iniciar, Detener y Reiniciar el servidor.</span>
+        <!-- ========================================== -->
+        <!-- VENTANA 3: BOTONES OPERATIVOS (.EXE)       -->
+        <!-- ========================================== -->
+        <div id="vista-botones" class="view-content space-y-5">
+          <div class="card-neo p-6 md:p-8 space-y-5">
+            <div class="border-b border-[#E3ECE9] pb-3">
+              <span class="text-[11px] font-black uppercase text-[#3D8B7A] tracking-wider">Operación Diaria</span>
+              <h2 class="text-xl font-black text-slate-900">3. Botones Operativos Diarios (.EXE)</h2>
+              <p class="text-xs text-slate-500">Ejecutables nativos de control para el cajero y usuario común.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <!-- Iniciar -->
+              <div class="card-neo p-5 border-emerald-200 bg-emerald-50/40 space-y-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black">
+                  <i data-lucide="play" class="w-5 h-5"></i>
                 </div>
+                <h3 class="font-bold text-sm text-slate-900">Iniciar_Servidor_POS.exe</h3>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  <strong>El botón diario:</strong> Si el servidor está apagado, lo enciende y abre la terminal maximizada respetando la barra de Windows. Si ya estaba encendido, solo abre la ventana sin duplicar procesos.
+                </p>
+                <span class="inline-block px-2.5 py-0.5 rounded-lg bg-emerald-200/80 text-emerald-900 font-mono text-[10px] font-bold">
+                  Colócalo en Inicio de Windows
+                </span>
+              </div>
+
+              <!-- Detener -->
+              <div class="card-neo p-5 border-rose-200 bg-rose-50/40 space-y-3">
+                <div class="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-black">
+                  <i data-lucide="square" class="w-5 h-5"></i>
+                </div>
+                <h3 class="font-bold text-sm text-slate-900">Detener_Servidor_POS.exe</h3>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  <strong>Control Financiero:</strong> Si la caja está abierta, te avisa y te lleva a cerrarla. Si la caja ya está cerrada, apaga el servidor y libera los puertos limpiamente.
+                </p>
+                <span class="inline-block px-2.5 py-0.5 rounded-lg bg-rose-200/80 text-rose-900 font-mono text-[10px] font-bold">
+                  Úsalo al terminar la jornada
+                </span>
+              </div>
+
+              <!-- Reiniciar -->
+              <div class="card-neo p-5 border-blue-200 bg-blue-50/40 space-y-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black">
+                  <i data-lucide="rotate-cw" class="w-5 h-5"></i>
+                </div>
+                <h3 class="font-bold text-sm text-slate-900">Reiniciar_Servidor_POS.exe</h3>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  <strong>Refresco Rápido:</strong> En caso de cambio de red Wi-Fi o lentitud, reinicia los servicios en menos de 4 segundos sin alterar tus datos de base de datos.
+                </p>
+                <span class="inline-block px-2.5 py-0.5 rounded-lg bg-blue-200/80 text-blue-900 font-mono text-[10px] font-bold">
+                  Optimización en 1 Clic
+                </span>
               </div>
             </div>
           </div>
-
-          <!-- Imagen Demo de la Vista -->
-          <div class="lg:col-span-7">
-            <div class="rounded-2xl overflow-hidden border border-[#D5E5E0] shadow-sm bg-slate-50 group">
-              <img 
-                src="img/demo_instalacion.svg" 
-                alt="Vista de Instalación de Aurora-POS" 
-                class="w-full h-auto object-cover transform group-hover:scale-[1.01] transition-transform duration-300"
-              >
-            </div>
-            <p class="text-[11px] text-slate-400 text-center mt-2 font-mono">Figura 1: Asistente guiado de instalación de Aurora-POS</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================================================= -->
-      <!-- SECCIÓN 3: BOTONES OPERATIVOS DIARIOS                                     -->
-      <!-- ========================================================================= -->
-      <section id="botones-operativos" class="card-neo p-6 md:p-8 space-y-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E3ECE9] pb-4">
-          <div>
-            <span class="text-[11px] font-black uppercase text-[#3D8B7A] tracking-wider">Operación del Cajero</span>
-            <h2 class="text-xl font-black text-slate-900 tracking-tight">Botones Operativos Diarios (.EXE)</h2>
-          </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold bg-[#EFF6FF] text-blue-800 border border-blue-200 self-start md:self-auto">
-            Sin Consolas ni Comandos
-          </span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <!-- Iniciar -->
-          <div class="p-5 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-3">
-            <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black">
-              <i data-lucide="play" class="w-5 h-5"></i>
-            </div>
-            <h3 class="font-bold text-sm text-slate-900">Iniciar_Servidor_POS.exe</h3>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              <strong>El botón de cada día:</strong> Si el servidor está apagado, lo enciende y abre la terminal maximizada (respetando la barra de Windows). Si ya estaba encendido, solo abre la ventana sin duplicar procesos.
-            </p>
-            <span class="inline-block px-2.5 py-0.5 rounded-lg bg-emerald-200/80 text-emerald-900 font-mono text-[10px] font-bold">
-              Colócalo en Inicio de Windows
-            </span>
-          </div>
-
-          <!-- Detener -->
-          <div class="p-5 rounded-2xl border border-rose-200 bg-rose-50/40 space-y-3">
-            <div class="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-black">
-              <i data-lucide="square" class="w-5 h-5"></i>
-            </div>
-            <h3 class="font-bold text-sm text-slate-900">Detener_Servidor_POS.exe</h3>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              <strong>Control Financiero:</strong> Si la caja está abierta, te avisa y te lleva a cerrarla. Si la caja ya está cerrada, apaga el servidor y libera los puertos limpiamente.
-            </p>
-            <span class="inline-block px-2.5 py-0.5 rounded-lg bg-rose-200/80 text-rose-900 font-mono text-[10px] font-bold">
-              Úsalo al terminar la jornada
-            </span>
-          </div>
-
-          <!-- Reiniciar -->
-          <div class="p-5 rounded-2xl border border-blue-200 bg-blue-50/40 space-y-3">
-            <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black">
-              <i data-lucide="rotate-cw" class="w-5 h-5"></i>
-            </div>
-            <h3 class="font-bold text-sm text-slate-900">Reiniciar_Servidor_POS.exe</h3>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              <strong>Refresco Rápido:</strong> En caso de cambio de red Wi-Fi o lentitud, reinicia los servicios en menos de 4 segundos sin alterar tus datos de base de datos.
-            </p>
-            <span class="inline-block px-2.5 py-0.5 rounded-lg bg-blue-200/80 text-blue-900 font-mono text-[10px] font-bold">
-              Optimización en 1 Clic
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================================================= -->
-      <!-- SECCIÓN 4: CAJA DE VENTAS POS                                             -->
-      <!-- ========================================================================= -->
-      <section id="caja-ventas" class="card-neo p-6 md:p-8 space-y-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E3ECE9] pb-4">
-          <div>
-            <span class="text-[11px] font-black uppercase text-emerald-600 tracking-wider">Terminal Verde</span>
-            <h2 class="text-xl font-black text-slate-900 tracking-tight">Caja de Ventas y Sastrería (/caja/pos)</h2>
-          </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 self-start md:self-auto">
-            VENTAS POS
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          <div class="lg:col-span-5 space-y-3 text-xs text-slate-600">
-            <p class="leading-relaxed">
-              Diseñada para facturación veloz en mostrador. Soporta lectores de código de barras USB/Bluetooth y un módulo exclusivo para arreglos o servicios de sastrería.
-            </p>
-            <ul class="space-y-2">
-              <li class="flex items-start gap-2">
-                <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
-                <span><strong>Búsqueda Difusa:</strong> Encuentra clientes y prendas instantáneamente por Cédula, Nombre o Código.</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
-                <span><strong>Multimétodos de Pago:</strong> Efectivo, Tarjetas Débito/Crédito, Transferencia, Nequi y Daviplata.</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
-                <span><strong>Comprobantes Rápidos:</strong> Impresión térmica inmediata y envío del recibo digital por WhatsApp.</span>
-              </li>
-            </ul>
-          </div>
-
-          <div class="lg:col-span-7">
-            <div class="rounded-2xl overflow-hidden border border-[#D5E5E0] shadow-sm bg-slate-50 group">
-              <img 
-                src="img/demo_ventas.svg" 
-                alt="Vista de Caja de Ventas POS" 
-                class="w-full h-auto object-cover transform group-hover:scale-[1.01] transition-transform duration-300"
-              >
-            </div>
-            <p class="text-[11px] text-slate-400 text-center mt-2 font-mono">Figura 2: Interfaz homologada de Ventas y Facturación</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================================================= -->
-      <!-- SECCIÓN 5: CAJA DE ALQUILERES                                             -->
-      <!-- ========================================================================= -->
-      <section id="caja-alquileres" class="card-neo p-6 md:p-8 space-y-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E3ECE9] pb-4">
-          <div>
-            <span class="text-[11px] font-black uppercase text-orange-600 tracking-wider">Terminal Naranja</span>
-            <h2 class="text-xl font-black text-slate-900 tracking-tight">Caja de Alquileres y Depósitos (/caja/alquileres)</h2>
-          </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-900 border border-orange-300 self-start md:self-auto">
-            ALQUILERES
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          <div class="lg:col-span-5 space-y-3 text-xs text-slate-600">
-            <p class="leading-relaxed">
-              Módulo integral para alquiler de trajes, vestidos, disfraces o herramientas con control de contratos y fechas límite de entrega.
-            </p>
-            <ul class="space-y-2">
-              <li class="flex items-start gap-2">
-                <i data-lucide="check-circle" class="w-4 h-4 text-orange-600 shrink-0 mt-0.5"></i>
-                <span><strong>Depósito Obligatorio en Efectivo:</strong> Custodia en gaveta física que se reintegra al recibir las prendas a tiempo.</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <i data-lucide="check-circle" class="w-4 h-4 text-orange-600 shrink-0 mt-0.5"></i>
-                <span><strong>Cálculo Automático de Retorno:</strong> Programa la fecha pactada y alerta automáticamente si hay prendas en mora.</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <i data-lucide="check-circle" class="w-4 h-4 text-orange-600 shrink-0 mt-0.5"></i>
-                <span><strong>Cargar desde Apartados:</strong> Botón directo para pasar reservas previas a contrato de alquiler formal.</span>
-              </li>
-            </ul>
-          </div>
-
-          <div class="lg:col-span-7">
-            <div class="rounded-2xl overflow-hidden border border-[#D5E5E0] shadow-sm bg-slate-50 group">
-              <img 
-                src="img/demo_alquileres.svg" 
-                alt="Vista de Caja de Alquileres" 
-                class="w-full h-auto object-cover transform group-hover:scale-[1.01] transition-transform duration-300"
-              >
-            </div>
-            <p class="text-[11px] text-slate-400 text-center mt-2 font-mono">Figura 3: Interfaz de Alquileres con Depósito en Custodia</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================================================= -->
-      <!-- SECCIÓN 6: CAJA DE APARTADOS                                              -->
-      <!-- ========================================================================= -->
-      <section id="caja-apartados" class="card-neo p-6 md:p-8 space-y-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E3ECE9] pb-4">
-          <div>
-            <span class="text-[11px] font-black uppercase text-indigo-600 tracking-wider">Terminal Morada</span>
-            <h2 class="text-xl font-black text-slate-900 tracking-tight">Caja de Apartados y Reservas (/caja/apartados)</h2>
-          </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-900 border border-indigo-300 self-start md:self-auto">
-            APARTADOS
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          <div class="lg:col-span-5 space-y-3 text-xs text-slate-600">
-            <p class="leading-relaxed">
-              Permite a los clientes reservar artículos con anticipación para bodas, grados o festividades, pagando un abono inicial y liquidando el saldo al retirar.
-            </p>
-            <ul class="space-y-2">
-              <li class="flex items-start gap-2">
-                <i data-lucide="check-circle" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
-                <span><strong>Bloqueo de Inventario:</strong> La prenda queda apartada en la fecha seleccionada para evitar alquileres cruzados.</span>
-              </li>
-              <li class="flex items-start gap-2">
-                <i data-lucide="check-circle" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
-                <span><strong>Historial de Abonos:</strong> Registro de cada anticipo con saldo pendiente exigible el día del evento.</span>
-              </li>
-            </ul>
-          </div>
-
-          <div class="lg:col-span-7">
-            <div class="rounded-2xl overflow-hidden border border-[#D5E5E0] shadow-sm bg-slate-50 group">
-              <img 
-                src="img/demo_apartados.svg" 
-                alt="Vista de Caja de Apartados" 
-                class="w-full h-auto object-cover transform group-hover:scale-[1.01] transition-transform duration-300"
-              >
-            </div>
-            <p class="text-[11px] text-slate-400 text-center mt-2 font-mono">Figura 4: Interfaz de Apartados y Control de Abonos</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================================================= -->
-      <!-- SECCIÓN 7: CONTROL DE TURNOS Y ARQUEOS                                    -->
-      <!-- ========================================================================= -->
-      <section id="arqueo-caja" class="card-neo p-6 md:p-8 space-y-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E3ECE9] pb-4">
-          <div>
-            <span class="text-[11px] font-black uppercase text-teal-600 tracking-wider">Auditoría Financiera</span>
-            <h2 class="text-xl font-black text-slate-900 tracking-tight">Control de Turnos, Arqueos y Cajón Monedero</h2>
-          </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold bg-teal-100 text-teal-900 border border-teal-300 self-start md:self-auto">
-            Cero Descuadres
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          <div class="lg:col-span-5 space-y-3 text-xs text-slate-600">
-            <p class="leading-relaxed">
-              El sistema audita cada movimiento de efectivo y transacciones digitales en tiempo real:
-            </p>
-            <div class="p-3.5 rounded-2xl bg-[#F7FAF9] border border-[#E3ECE9] font-mono text-[11px] space-y-1">
-              <div class="text-slate-500 font-bold uppercase">Fórmula de Cuadre:</div>
-              <div class="text-slate-900 font-bold">Esperado = Base + Ventas + Depósitos - Retiros</div>
-            </div>
-            <p>
-              El cierre de caja ejecuta un <strong>arqueo ciego</strong>, donde el cajero cuenta físicamente los billetes y el software certifica si hay cuadre exacto, sobrante o faltante.
-            </p>
-          </div>
-
-          <div class="lg:col-span-7">
-            <div class="rounded-2xl overflow-hidden border border-[#D5E5E0] shadow-sm bg-slate-50 group">
-              <img 
-                src="img/demo_arqueo.svg" 
-                alt="Vista de Arqueo y Control de Turnos" 
-                class="w-full h-auto object-cover transform group-hover:scale-[1.01] transition-transform duration-300"
-              >
-            </div>
-            <p class="text-[11px] text-slate-400 text-center mt-2 font-mono">Figura 5: Pantalla de Arqueo y Cierre de Turno</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================================================= -->
-      <!-- SECCIÓN 8: PLANTILLAS EXCEL PARA IMPORTACIÓN                              -->
-      <!-- ========================================================================= -->
-      <section id="importacion-datos" class="card-neo p-6 md:p-8 space-y-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E3ECE9] pb-4">
-          <div>
-            <span class="text-[11px] font-black uppercase text-purple-600 tracking-wider">Carga Rápida</span>
-            <h2 class="text-xl font-black text-slate-900 tracking-tight">Plantillas de Excel para Clientes e Inventario</h2>
-          </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-900 border border-purple-300 self-start md:self-auto">
-            Formatos Oficiales
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="p-5 rounded-2xl bg-[#F8F7FC] border border-purple-200 space-y-3">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold">
-                <i data-lucide="users" class="w-5 h-5"></i>
-              </div>
+        <!-- ========================================== -->
+        <!-- VENTANA 4: CAJA DE VENTAS POS              -->
+        <!-- ========================================== -->
+        <div id="vista-ventas" class="view-content space-y-5">
+          <div class="card-neo p-6 md:p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-[#E3ECE9] pb-3">
               <div>
-                <h3 class="font-bold text-sm text-slate-900">Plantilla_Carga_Clientes.xlsx</h3>
-                <span class="text-[11px] text-purple-700 font-semibold">Directorio de Contactos</span>
+                <span class="text-[11px] font-black uppercase text-emerald-600 tracking-wider">Terminal Verde</span>
+                <h2 class="text-xl font-black text-slate-900">4. Caja de Ventas y Sastrería (/caja/pos)</h2>
+              </div>
+              <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                VENTAS POS
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              <div class="lg:col-span-5 space-y-3 text-xs text-slate-600">
+                <p class="leading-relaxed">
+                  Diseñada para facturación veloz en mostrador. Soporta lectores de código de barras USB/Bluetooth y un módulo exclusivo para arreglos o servicios de sastrería.
+                </p>
+                <ul class="space-y-2">
+                  <li class="flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                    <span><strong>Búsqueda Difusa:</strong> Encuentra clientes y prendas instantáneamente por Cédula, Nombre o Código.</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                    <span><strong>Multimétodos de Pago:</strong> Efectivo, Tarjetas Débito/Crédito, Transferencia, Nequi y Daviplata.</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                    <span><strong>Comprobantes Rápidos:</strong> Impresión térmica inmediata y envío del recibo digital por WhatsApp.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="lg:col-span-7">
+                <div class="rounded-2xl overflow-hidden border border-[#D5E5E0] shadow-sm bg-slate-50">
+                  <img src="img/demo_ventas.svg" alt="Caja de Ventas POS" class="w-full h-auto object-cover">
+                </div>
+                <p class="text-[11px] text-slate-400 text-center mt-2 font-mono">Figura 2: Interfaz homologada de Ventas y Facturación</p>
               </div>
             </div>
-            <p class="text-xs text-slate-600">
-              Formato con columnas listas: Cédula, Nombre Completo, Teléfono 1, Teléfono 2, Dirección y Correo Electrónico.
-            </p>
-            <a 
-              href="../plantillas_excel/Plantilla_Carga_Clientes.xlsx" 
-              download 
-              class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-2xs transition"
-            >
-              <i data-lucide="download" class="w-3.5 h-3.5"></i>
-              <span>Descargar Plantilla de Clientes</span>
-            </a>
           </div>
+        </div>
 
-          <div class="p-5 rounded-2xl bg-[#F8F7FC] border border-purple-200 space-y-3">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold">
-                <i data-lucide="package" class="w-5 h-5"></i>
-              </div>
+        <!-- ========================================== -->
+        <!-- VENTANA 5: CAJA DE ALQUILERES              -->
+        <!-- ========================================== -->
+        <div id="vista-alquileres" class="view-content space-y-5">
+          <div class="card-neo p-6 md:p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-[#E3ECE9] pb-3">
               <div>
-                <h3 class="font-bold text-sm text-slate-900">Plantilla_Carga_Inventario.xlsx</h3>
-                <span class="text-[11px] text-purple-700 font-semibold">Catálogo y Prendas</span>
+                <span class="text-[11px] font-black uppercase text-orange-600 tracking-wider">Terminal Naranja</span>
+                <h2 class="text-xl font-black text-slate-900">5. Caja de Alquileres y Depósitos (/caja/alquileres)</h2>
+              </div>
+              <span class="px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-900 border border-orange-300">
+                ALQUILERES
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              <div class="lg:col-span-5 space-y-3 text-xs text-slate-600">
+                <p class="leading-relaxed">
+                  Módulo integral para alquiler de trajes, vestidos o herramientas con control de contratos y fechas límite de entrega.
+                </p>
+                <ul class="space-y-2">
+                  <li class="flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-orange-600 shrink-0 mt-0.5"></i>
+                    <span><strong>Depósito Obligatorio en Efectivo:</strong> Custodia en gaveta física que se reintegra al recibir las prendas a tiempo.</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-orange-600 shrink-0 mt-0.5"></i>
+                    <span><strong>Cálculo Automático de Retorno:</strong> Programa la fecha pactada y alerta automáticamente si hay prendas en mora.</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-orange-600 shrink-0 mt-0.5"></i>
+                    <span><strong>Cargar desde Apartados:</strong> Botón directo para pasar reservas previas a contrato de alquiler formal.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="lg:col-span-7">
+                <div class="rounded-2xl overflow-hidden border border-[#D5E5E0] shadow-sm bg-slate-50">
+                  <img src="img/demo_alquileres.svg" alt="Caja de Alquileres" class="w-full h-auto object-cover">
+                </div>
+                <p class="text-[11px] text-slate-400 text-center mt-2 font-mono">Figura 3: Interfaz de Alquileres con Depósito en Custodia</p>
               </div>
             </div>
-            <p class="text-xs text-slate-600">
-              Formato con columnas listas: Código, Prenda, Tipo (VENTA/ALQUILER), Categoría, Talla, Color, Stock y Precios.
-            </p>
-            <a 
-              href="../plantillas_excel/Plantilla_Carga_Inventario.xlsx" 
-              download 
-              class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-2xs transition"
-            >
-              <i data-lucide="download" class="w-3.5 h-3.5"></i>
-              <span>Descargar Plantilla de Inventario</span>
-            </a>
           </div>
         </div>
-      </section>
 
-      <!-- ========================================================================= -->
-      <!-- SECCIÓN 9: COPIAS DE SEGURIDAD                                            -->
-      <!-- ========================================================================= -->
-      <section id="copias-seguridad" class="card-neo p-6 md:p-8 space-y-6">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#E3ECE9] pb-4">
-          <div>
-            <span class="text-[11px] font-black uppercase text-rose-600 tracking-wider">Protección de Datos</span>
-            <h2 class="text-xl font-black text-slate-900 tracking-tight">Copias de Seguridad (Backups)</h2>
+        <!-- ========================================== -->
+        <!-- VENTANA 6: CAJA DE APARTADOS               -->
+        <!-- ========================================== -->
+        <div id="vista-apartados" class="view-content space-y-5">
+          <div class="card-neo p-6 md:p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-[#E3ECE9] pb-3">
+              <div>
+                <span class="text-[11px] font-black uppercase text-indigo-600 tracking-wider">Terminal Morada</span>
+                <h2 class="text-xl font-black text-slate-900">6. Caja de Apartados y Reservas (/caja/apartados)</h2>
+              </div>
+              <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-900 border border-indigo-300">
+                APARTADOS
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              <div class="lg:col-span-5 space-y-3 text-xs text-slate-600">
+                <p class="leading-relaxed">
+                  Permite a los clientes reservar artículos con anticipación para bodas, grados o eventos, pagando un abono inicial y liquidando el saldo al retirar.
+                </p>
+                <ul class="space-y-2">
+                  <li class="flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
+                    <span><strong>Bloqueo de Inventario:</strong> La prenda queda apartada en la fecha seleccionada para evitar alquileres cruzados.</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
+                    <span><strong>Historial de Abonos:</strong> Registro de cada anticipo con saldo pendiente exigible el día del evento.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="lg:col-span-7">
+                <div class="rounded-2xl overflow-hidden border border-[#D5E5E0] shadow-sm bg-slate-50">
+                  <img src="img/demo_apartados.svg" alt="Caja de Apartados" class="w-full h-auto object-cover">
+                </div>
+                <p class="text-[11px] text-slate-400 text-center mt-2 font-mono">Figura 4: Interfaz de Apartados y Control de Abonos</p>
+              </div>
+            </div>
           </div>
-          <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-900 border border-rose-300 self-start md:self-auto">
-            SQLite Seguro
-          </span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600">
-          <div class="p-4 rounded-2xl bg-[#FAF6F6] border border-rose-200 space-y-1.5">
-            <strong class="text-slate-900 font-bold block text-sm">Respaldo Automático</strong>
-            <p>Se genera una copia de seguridad en caliente en <code class="font-mono text-[10.5px] bg-white px-1 py-0.5 rounded border border-rose-200">C:\POS_BACKUPS\</code> cada vez que el cajero cierra turno o se apaga el servidor.</p>
-          </div>
+        <!-- ========================================== -->
+        <!-- VENTANA 7: CONTROL DE TURNOS Y ARQUEOS     -->
+        <!-- ========================================== -->
+        <div id="vista-arqueo" class="view-content space-y-5">
+          <div class="card-neo p-6 md:p-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-[#E3ECE9] pb-3">
+              <div>
+                <span class="text-[11px] font-black uppercase text-teal-600 tracking-wider">Auditoría Financiera</span>
+                <h2 class="text-xl font-black text-slate-900">7. Control de Turnos, Arqueos y Cajón Monedero</h2>
+              </div>
+              <span class="px-3 py-1 rounded-full text-xs font-bold bg-teal-100 text-teal-900 border border-teal-300">
+                Cero Descuadres
+              </span>
+            </div>
 
-          <div class="p-4 rounded-2xl bg-[#FAF6F6] border border-rose-200 space-y-1.5">
-            <strong class="text-slate-900 font-bold block text-sm">Respaldo Manual en USB</strong>
-            <p>Desde <strong class="text-slate-900">Configuración &gt; Copia de Seguridad</strong> puedes hacer clic en <em>"Generar Respaldo Ahora"</em> y guardar el archivo en una memoria externa.</p>
-          </div>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              <div class="lg:col-span-5 space-y-3 text-xs text-slate-600">
+                <p class="leading-relaxed">
+                  El sistema audita cada movimiento de efectivo y transacciones digitales en tiempo real:
+                </p>
+                <div class="p-3.5 rounded-2xl bg-[#F7FAF9] border border-[#E3ECE9] font-mono text-[11px] space-y-1">
+                  <div class="text-slate-500 font-bold uppercase">Fórmula de Cuadre:</div>
+                  <div class="text-slate-900 font-bold">Esperado = Base + Ventas + Depósitos - Retiros</div>
+                </div>
+                <p>
+                  El cierre de caja ejecuta un <strong>arqueo ciego</strong>, donde el cajero cuenta físicamente los billetes y el software certifica si hay cuadre exacto, sobrante o faltante.
+                </p>
+              </div>
 
-          <div class="p-4 rounded-2xl bg-[#FAF6F6] border border-rose-200 space-y-1.5">
-            <strong class="text-slate-900 font-bold block text-sm">Restauración en 1 Clic</strong>
-            <p>Si cambias de computador o formateas el equipo, seleccionas tu archivo de respaldo y recuperas el 100% de tus clientes, facturas y deudas.</p>
+              <div class="lg:col-span-7">
+                <div class="rounded-2xl overflow-hidden border border-[#D5E5E0] shadow-sm bg-slate-50">
+                  <img src="img/demo_arqueo.svg" alt="Arqueo de Caja" class="w-full h-auto object-cover">
+                </div>
+                <p class="text-[11px] text-slate-400 text-center mt-2 font-mono">Figura 5: Pantalla de Arqueo y Cierre de Turno</p>
+              </div>
+            </div>
           </div>
         </div>
-      </section>
+
+        <!-- ========================================== -->
+        <!-- VENTANA 8: PLANTILLAS EXCEL                -->
+        <!-- ========================================== -->
+        <div id="vista-plantillas" class="view-content space-y-5">
+          <div class="card-neo p-6 md:p-8 space-y-5">
+            <div class="border-b border-[#E3ECE9] pb-3">
+              <span class="text-[11px] font-black uppercase text-purple-600 tracking-wider">Carga Rápida</span>
+              <h2 class="text-xl font-black text-slate-900">8. Plantillas de Excel para Clientes e Inventario</h2>
+              <p class="text-xs text-slate-500">Formatos oficiales para importar datos masivos sin errores de formato.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="p-5 rounded-2xl bg-[#F8F7FC] border border-purple-200 space-y-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h3 class="font-bold text-sm text-slate-900">Plantilla_Carga_Clientes.xlsx</h3>
+                    <span class="text-[11px] text-purple-700 font-semibold">Directorio de Contactos</span>
+                  </div>
+                </div>
+                <p class="text-xs text-slate-600">
+                  Formato con columnas listas: Cédula, Nombre Completo, Teléfono 1, Teléfono 2, Dirección y Correo Electrónico.
+                </p>
+                <a 
+                  href="../plantillas_excel/Plantilla_Carga_Clientes.xlsx" 
+                  download 
+                  class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-2xs transition"
+                >
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                  <span>Descargar Plantilla de Clientes</span>
+                </a>
+              </div>
+
+              <div class="p-5 rounded-2xl bg-[#F8F7FC] border border-purple-200 space-y-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold">
+                    <i data-lucide="package" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h3 class="font-bold text-sm text-slate-900">Plantilla_Carga_Inventario.xlsx</h3>
+                    <span class="text-[11px] text-purple-700 font-semibold">Catálogo y Prendas</span>
+                  </div>
+                </div>
+                <p class="text-xs text-slate-600">
+                  Formato con columnas listas: Código, Prenda, Tipo (VENTA/ALQUILER), Categoría, Talla, Color, Stock y Precios.
+                </p>
+                <a 
+                  href="../plantillas_excel/Plantilla_Carga_Inventario.xlsx" 
+                  download 
+                  class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-2xs transition"
+                >
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                  <span>Descargar Plantilla de Inventario</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VENTANA 9: COPIAS DE SEGURIDAD             -->
+        <!-- ========================================== -->
+        <div id="vista-backups" class="view-content space-y-5">
+          <div class="card-neo p-6 md:p-8 space-y-5">
+            <div class="border-b border-[#E3ECE9] pb-3">
+              <span class="text-[11px] font-black uppercase text-rose-600 tracking-wider">Protección de Datos</span>
+              <h2 class="text-xl font-black text-slate-900">9. Copias de Seguridad (Backups) y Restauración</h2>
+              <p class="text-xs text-slate-500">Mecanismos automáticos y manuales para respaldar tu negocio.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600">
+              <div class="p-4 rounded-2xl bg-[#FAF6F6] border border-rose-200 space-y-1.5">
+                <strong class="text-slate-900 font-bold block text-sm">Respaldo Automático</strong>
+                <p>Se genera una copia de seguridad en caliente en <code class="font-mono text-[10.5px] bg-white px-1 py-0.5 rounded border border-rose-200">C:\POS_BACKUPS\</code> cada vez que el cajero cierra turno o se apaga el servidor.</p>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-[#FAF6F6] border border-rose-200 space-y-1.5">
+                <strong class="text-slate-900 font-bold block text-sm">Respaldo Manual en USB</strong>
+                <p>Desde <strong class="text-slate-900">Configuración &gt; Copia de Seguridad</strong> puedes hacer clic en <em>"Generar Respaldo Ahora"</em> y guardar el archivo en una memoria externa.</p>
+              </div>
+
+              <div class="p-4 rounded-2xl bg-[#FAF6F6] border border-rose-200 space-y-1.5">
+                <strong class="text-slate-900 font-bold block text-sm">Restauración en 1 Clic</strong>
+                <p>Si cambias de computador o formateas el equipo, seleccionas tu archivo de respaldo y recuperas el 100% de tus clientes, facturas y deudas.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer Integrado -->
+      <footer class="pt-3 border-t border-[#E0EBE7] text-center text-[11px] text-slate-400">
+        Aurora-POS — Manual Dinámico por Ventanas • Diseñado para operar 100% Offline-First
+      </footer>
 
     </main>
-
-    <!-- ========================================== -->
-    <!-- FOOTER MODERNO                             -->
-    <!-- ========================================== -->
-    <footer class="pt-6 border-t border-[#E0EBE7] text-center text-xs text-slate-500 space-y-1">
-      <p class="font-bold text-slate-700">Aurora-POS — Sistema de Punto de Venta, Alquileres y Control Comercial</p>
-      <p>Diseñado para operar 100% de forma local, offline y autónoma en cualquier tienda, boutique o emprendimiento.</p>
-    </footer>
-
   </div>
 
   <!-- ========================================== -->
-  <!-- SCRIPT JS INTERACTIVO                      -->
+  <!-- SCRIPT JS DE CONTROL DE VENTANAS (SPA)     -->
   <!-- ========================================== -->
   <script>
     lucide.createIcons();
 
-    // Filtro de Búsqueda Dinámica
-    const inputBusqueda = document.getElementById('busquedaManual');
+    const titulosVentanas = {
+      'descarga': 'Ventana 1: Descarga del Instalador .EXE',
+      'instalacion': 'Ventana 2: Instalación y Despliegue en PC',
+      'botones': 'Ventana 3: Botones Operativos Diarios (.EXE)',
+      'ventas': 'Ventana 4: Caja de Ventas y Sastrería (/caja/pos)',
+      'alquileres': 'Ventana 5: Caja de Alquileres y Depósitos (/caja/alquileres)',
+      'apartados': 'Ventana 6: Caja de Apartados y Reservas (/caja/apartados)',
+      'arqueo': 'Ventana 7: Control de Turnos y Arqueo Ciego',
+      'plantillas': 'Ventana 8: Plantillas de Excel para Clientes e Inventario',
+      'backups': 'Ventana 9: Copias de Seguridad y Restauración'
+    };
+
+    function cambiarVentana(idVista, btnElement) {
+      // 1. Ocultar todas las vistas
+      document.querySelectorAll('.view-content').forEach(view => {
+        view.classList.remove('active');
+      });
+
+      // 2. Mostrar la vista seleccionada
+      const targetView = document.getElementById('vista-' + idVista);
+      if (targetView) {
+        targetView.classList.add('active');
+      }
+
+      // 3. Actualizar clase activa en los botones laterales
+      document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      if (btnElement) {
+        btnElement.classList.add('active');
+      }
+
+      // 4. Actualizar título en el Topbar
+      const badge = document.getElementById('badgeVentanaActiva');
+      if (badge && titulosVentanas[idVista]) {
+        badge.innerText = titulosVentanas[idVista];
+      }
+    }
+
+    // Buscador interactivo que salta automáticamente a la ventana relevante
+    const inputBusqueda = document.getElementById('busquedaGlobal');
     inputBusqueda.addEventListener('input', function(e) {
-      const termino = e.target.value.toLowerCase().trim();
-      const secciones = document.querySelectorAll('main > section');
+      const q = e.target.value.toLowerCase().trim();
+      if (!q) return;
 
-      secciones.forEach(sec => {
-        const texto = sec.innerText.toLowerCase();
-        if (termino === "" || texto.includes(termino)) {
-          sec.style.display = 'block';
-        } else {
-          sec.style.display = 'none';
-        }
-      });
+      if (q.includes('descarga') || q.includes('exe') || q.includes('zip')) {
+        cambiarVentanaPorId('descarga');
+      } else if (q.includes('instal') || q.includes('despliegue') || q.includes('puerto')) {
+        cambiarVentanaPorId('instalacion');
+      } else if (q.includes('boton') || q.includes('iniciar') || q.includes('detener') || q.includes('reiniciar')) {
+        cambiarVentanaPorId('botones');
+      } else if (q.includes('venta') || q.includes('pos') || q.includes('sastreria') || q.includes('codigo')) {
+        cambiarVentanaPorId('ventas');
+      } else if (q.includes('alquiler') || q.includes('deposito') || q.includes('traje') || q.includes('mora')) {
+        cambiarVentanaPorId('alquileres');
+      } else if (q.includes('apartado') || q.includes('reserva') || q.includes('abono')) {
+        cambiarVentanaPorId('apartados');
+      } else if (q.includes('arqueo') || q.includes('caja') || q.includes('turno') || q.includes('gaveta')) {
+        cambiarVentanaPorId('arqueo');
+      } else if (q.includes('plantilla') || q.includes('excel') || q.includes('inventario') || q.includes('cliente')) {
+        cambiarVentanaPorId('plantillas');
+      } else if (q.includes('copia') || q.includes('backup') || q.includes('seguridad') || q.includes('restaurar')) {
+        cambiarVentanaPorId('backups');
+      }
     });
 
-    // Píldoras de Navegación Activas al hacer Scroll
-    window.addEventListener('scroll', () => {
-      const sections = document.querySelectorAll('main > section');
-      const scrollPos = window.scrollY + 120;
-
-      sections.forEach(sec => {
-        const top = sec.offsetTop;
-        const height = sec.offsetHeight;
-        const id = sec.getAttribute('id');
-        if (scrollPos >= top && scrollPos < top + height) {
-          document.querySelectorAll('.nav-pill').forEach(pill => {
-            pill.classList.remove('active');
-            if (pill.getAttribute('href') === `#${id}`) {
-              pill.classList.add('active');
-            }
-          });
-        }
-      });
-    });
+    function cambiarVentanaPorId(id) {
+      const btn = document.querySelector(`button[onclick*="'${id}'"]`);
+      cambiarVentana(id, btn);
+    }
   </script>
 </body>
 </html>

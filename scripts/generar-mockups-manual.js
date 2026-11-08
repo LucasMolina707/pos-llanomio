@@ -194,3 +194,4 @@ mockups.forEach(m => {
   fs.writeFileSync(path.join(dir2, m.archivo), contenido, 'utf8');
   console.log('[OK] Mockup generado:', m.archivo);
 });
+
