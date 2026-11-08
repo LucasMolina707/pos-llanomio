@@ -34,9 +34,25 @@ export default function ErrorBoundary({ error, reset }: ErrorProps) {
           Ha Ocurrido un Problema Inesperado
         </h1>
 
-        <p className="text-xs sm:text-sm text-slate-600 mb-6 leading-relaxed">
+        <p className="text-xs sm:text-sm text-slate-600 mb-4 leading-relaxed">
           Se presentó una inconsistencia al procesar los datos de esta pantalla. Puede reintentar la operación o regresar al panel principal.
         </p>
+
+        {error?.message && (
+          <details className="mb-5 text-left p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700">
+            <summary className="cursor-pointer font-bold text-slate-800 select-none">
+              Ver detalle técnico
+            </summary>
+            <p className="mt-2 font-mono text-[11px] text-rose-700 break-words leading-tight">
+              {error.message}
+            </p>
+            {error.digest && (
+              <p className="mt-1 font-mono text-[10px] text-slate-400">
+                Código: {error.digest}
+              </p>
+            )}
+          </details>
+        )}
 
         <div className="space-y-2.5">
           <button
