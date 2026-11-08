@@ -12,6 +12,7 @@
 /dist
 /dist_instalador/*.zip
 /dist_instalador/*.tar.gz
+/dist_instalador/PAQUETE_LISTO_PARA_EXE/
 !/dist_instalador/.gitkeep
 !/dist_instalador/INSTALADOR_POS_AUTODESCOMPRIMIBLE.bat
 !/dist_instalador/LEEME_INSTRUCCIONES_INSTALACION.txt

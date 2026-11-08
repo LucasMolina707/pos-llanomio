@@ -147,7 +147,6 @@ if (fs.existsSync(dirIniciadores)) {
 // Copiar instaladores y lanzadores principales
 const exesPrincipales = [
   "Instalador_Maestro_Unico_POS.exe",
-  "Instalar_Servidor_POS.exe",
   "Iniciar_Servidor_POS.exe",
   "Detener_Servidor_POS.exe",
   "Reiniciar_Servidor_POS.exe",
