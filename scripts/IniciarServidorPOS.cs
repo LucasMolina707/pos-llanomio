@@ -93,17 +93,13 @@ namespace AuroraHost.POS
         {
             try
             {
-                // Buscar script recuperador o iniciador maestro
+                // 1. Ejecutar preparacion de base de datos e integridad
                 string scriptRecuperar = Path.Combine(baseDir, "RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat");
-                string scriptIniciar = Path.Combine(baseDir, "instalador_tienda\\2_INICIADORES_Y_ACTIVADORES\\1_INICIALIZAR_SITIO_POS.bat");
-
-                string targetScript = File.Exists(scriptRecuperar) ? scriptRecuperar : (File.Exists(scriptIniciar) ? scriptIniciar : "");
-
-                if (!string.IsNullOrEmpty(targetScript))
+                if (File.Exists(scriptRecuperar))
                 {
                     ProcessStartInfo psi = new ProcessStartInfo();
                     psi.FileName = "cmd.exe";
-                    psi.Arguments = "/c \"\"" + targetScript + "\" --silencioso\"";
+                    psi.Arguments = "/c \"\"" + scriptRecuperar + "\" --silencioso\"";
                     psi.WorkingDirectory = baseDir;
                     psi.WindowStyle = ProcessWindowStyle.Hidden;
                     psi.CreateNoWindow = true;
@@ -111,8 +107,26 @@ namespace AuroraHost.POS
                     Process p = Process.Start(psi);
                     if (p != null)
                     {
-                        p.WaitForExit(8000);
+                        p.WaitForExit(10000);
                     }
+                }
+
+                // 2. Garantizar que el servidor Node este activo si el script anterior no lo dejo en segundo plano
+                string nodeExe = "node";
+                string portableNode = Path.Combine(baseDir, "runtime\\node\\node.exe");
+                if (File.Exists(portableNode)) nodeExe = portableNode;
+
+                string startScript = Path.Combine(baseDir, "start-pos.js");
+                if (File.Exists(startScript))
+                {
+                    ProcessStartInfo psiNode = new ProcessStartInfo();
+                    psiNode.FileName = nodeExe;
+                    psiNode.Arguments = "\"" + startScript + "\"";
+                    psiNode.WorkingDirectory = baseDir;
+                    psiNode.WindowStyle = ProcessWindowStyle.Hidden;
+                    psiNode.CreateNoWindow = true;
+                    psiNode.UseShellExecute = false;
+                    Process.Start(psiNode);
                 }
             }
             catch { }

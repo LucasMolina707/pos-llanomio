@@ -75,3 +75,4 @@ desktop.ini
 !/actualizaciones/.gitkeep
 manifest_actualizacion.json
 *.bak
+.pm2*

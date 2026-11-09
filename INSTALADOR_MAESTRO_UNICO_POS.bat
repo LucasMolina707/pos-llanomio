@@ -383,20 +383,24 @@ schtasks /Delete /TN "POS_Llanomio_AutoArranque" /F >nul 2>&1
 schtasks /Create /TN "POS_Llanomio_AutoArranque" /TR "\"%PROJECT_ROOT%\RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat\" --silencioso" /SC ONLOGON /RL HIGHEST /F >nul 2>&1
 if %errorlevel% equ 0 echo [OK] Tarea Programada de Windows (Task Scheduler) asegurada.
 
-:: 2. Iniciar y guardar servicios con PM2
+:: 2. Iniciar y guardar servicios con PM2 o Arranque Nativo
+set "USAR_PM2=0"
 where pm2 >nul 2>&1
-if %errorlevel% equ 0 goto :pm2_global_lanzar
-set "PM2_CMD=%PROJECT_ROOT%\node_modules\.bin\pm2.cmd"
-goto :lanzar_pm2_ejecutable
+if %errorlevel% equ 0 (
+    call pm2 ping >nul 2>&1
+    if !errorlevel! equ 0 set "USAR_PM2=1"
+)
 
-:pm2_global_lanzar
-set "PM2_CMD=pm2"
-
-:lanzar_pm2_ejecutable
-echo [PM2] Desplegando procesos de aplicacion y red...
-call "%PM2_CMD%" start "%PROJECT_ROOT%\ecosystem.config.js" --update-env >nul 2>&1
-call "%PM2_CMD%" save --force >nul 2>&1
-echo [OK] Servicios PM2 activos y guardados.
+if "%USAR_PM2%"=="1" (
+    echo [PM2] Desplegando procesos de aplicacion y red con PM2...
+    call pm2 start "%PROJECT_ROOT%\ecosystem.config.js" --update-env >nul 2>&1
+    call pm2 save --force >nul 2>&1
+    echo [OK] Servicios PM2 activos y guardados.
+) else (
+    echo [SERVIDOR] Iniciando servidor de produccion nativo en segundo plano...
+    start "Servidor_POS_Llanomio" /min "%NODE_EXE%" "%PROJECT_ROOT%\start-pos.js"
+    echo [OK] Servidor de produccion levantado en segundo plano.
+)
 
 :: 3. Accesos directos oficiales en el Escritorio con iconos personalizados
 echo [ACCESOS] Generando la botonera oficial de 5 controles con iconos personalizados en el Escritorio...

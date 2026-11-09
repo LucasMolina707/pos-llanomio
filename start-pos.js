@@ -64,6 +64,16 @@ async function ejecutarRecuperacionSQLite() {
 async function arrancarServidor() {
   await ejecutarRecuperacionSQLite();
 
+  // Iniciar servicio mDNS en segundo plano si existe
+  try {
+    const mdnsScript = path.join(__dirname, "scripts", "servidor-lan-mdns.js");
+    if (fs.existsSync(mdnsScript)) {
+      require(mdnsScript);
+    }
+  } catch (errMdns) {
+    console.warn("[mDNS AVISO] No se pudo cargar servicio mDNS en proceso principal:", errMdns.message);
+  }
+
   const standaloneServer = path.join(__dirname, ".next", "standalone", "server.js");
   if (fs.existsSync(standaloneServer)) {
     console.log(`[INICIO] Desplegando en modo Standalone autonomo en puerto ${puerto}...`);

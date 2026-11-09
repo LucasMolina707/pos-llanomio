@@ -78,37 +78,34 @@ if %errorlevel% neq 0 (
 call "%NODE_EXE%" "%PROJECT_ROOT%\scripts\asegurar-admin.js" >nul 2>&1
 
 :: ===============================================================================
-:: 5. PASO 2: Gestion de Procesos con PM2 o Arranque Nativo
+:: 5. PASO 2: Gestion de Procesos del Servidor
 :: ===============================================================================
-if "%MODO_SILENCIOSO%"=="0" echo [PASO 2/3] Levantando orquestador de procesos...
+if "%MODO_SILENCIOSO%"=="0" echo [PASO 2/3] Levantando servidor de produccion...
 
+:: Liberar puerto en caso de bloqueo previo
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$c = Get-NetTCPConnection -LocalPort !PORT! -ErrorAction SilentlyContinue; if ($c) { $c.OwningProcess | Sort-Object -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }" >nul 2>&1
+
+:: Comprobar si PM2 global esta disponible y operativo
 set "USAR_PM2=0"
 where pm2 >nul 2>&1
 if %errorlevel% equ 0 (
-    set "PM2_CMD=pm2"
-    set "USAR_PM2=1"
-) else (
-    if exist "%PROJECT_ROOT%\node_modules\.bin\pm2.cmd" (
-        set "PM2_CMD=%PROJECT_ROOT%\node_modules\.bin\pm2.cmd"
-        set "USAR_PM2=1"
-    )
+    call pm2 ping >nul 2>&1
+    if !errorlevel! equ 0 set "USAR_PM2=1"
 )
 
 if "%USAR_PM2%"=="1" (
-    call !PM2_CMD! ping >nul 2>&1
-    call !PM2_CMD! describe "!INSTANCE_ID!" >nul 2>&1
+    call pm2 describe "!INSTANCE_ID!" >nul 2>&1
     if !errorlevel! equ 0 (
-        call !PM2_CMD! restart "%PROJECT_ROOT%\ecosystem.config.js" --update-env >nul 2>&1
+        call pm2 restart "%PROJECT_ROOT%\ecosystem.config.js" --update-env >nul 2>&1
     ) else (
-        call !PM2_CMD! start "%PROJECT_ROOT%\ecosystem.config.js" --update-env >nul 2>&1
+        call pm2 start "%PROJECT_ROOT%\ecosystem.config.js" --update-env >nul 2>&1
     )
-    call !PM2_CMD! save --force >nul 2>&1
-    if "%MODO_SILENCIOSO%"=="0" echo [OK] Procesos asegurados y reiniciados en PM2.
+    call pm2 save --force >nul 2>&1
+    if "%MODO_SILENCIOSO%"=="0" echo [OK] Procesos asegurados en PM2.
 ) else (
-    :: Liberar puerto en caso de bloqueo
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-      "$c = Get-NetTCPConnection -LocalPort !PORT! -ErrorAction SilentlyContinue; if ($c) { $c.OwningProcess | Sort-Object -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }" >nul 2>&1
-    start "Servidor_POS_Llanomio" /min "%NODE_EXE%" "%PROJECT_ROOT%\start-pos.js"
+    :: Arranque directo y resiliente con Node.js en ventana minimizada
+    start "" /min "%NODE_EXE%" "%PROJECT_ROOT%\start-pos.js"
     if "%MODO_SILENCIOSO%"=="0" echo [OK] Servidor de produccion levantado en segundo plano.
 )
 
