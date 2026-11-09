@@ -520,15 +520,20 @@ namespace AuroraHost.POS.Instalador
             try
             {
                 string startupUser = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Microsoft\\Windows\\Start Menu\\Programs\\Startup");
-                string scriptRecuperar = Path.Combine(baseDir, "Recuperar_Servidor_POS.exe");
+                string scriptRecuperar = Path.Combine(baseDir, "RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat");
                 
+                // VBScript invisible que ejecuta silenciosamente la recuperación y levanta el servidor al encender el PC
                 string vbsContent = "Set WshShell = CreateObject(\"WScript.Shell\")\r\n" +
-                                   "WshShell.Run Chr(34) & \"" + scriptRecuperar + "\" & Chr(34), 0, False\r\n";
+                                   "WshShell.Run Chr(34) & \"" + scriptRecuperar.Replace("\\", "\\\\") + "\" & Chr(34) & \" --silencioso\", 0, False\r\n";
 
                 if (Directory.Exists(startupUser))
                 {
-                    File.WriteAllText(Path.Combine(startupUser, "AutoArranque_POS_Llanomio.vbs"), vbsContent);
+                    File.WriteAllText(Path.Combine(startupUser, "AutoArranque_POS_Llanomio.vbs"), vbsContent, Encoding.Default);
                 }
+
+                // Tarea programada en Task Scheduler como mecanismo de contingencia reforzado al iniciar sesión
+                EjecutarComandoSilencioso("schtasks.exe", "/Delete /TN \"POS_Llanomio_AutoArranque\" /F");
+                EjecutarComandoSilencioso("schtasks.exe", "/Create /TN \"POS_Llanomio_AutoArranque\" /TR \"\\\"" + scriptRecuperar + "\\\" --silencioso\" /SC ONLOGON /RL HIGHEST /F");
             }
             catch {}
         }
@@ -538,75 +543,73 @@ namespace AuroraHost.POS.Instalador
             try
             {
                 string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                string oneDriveDesktop = Path.Combine(userProfile, "OneDrive", "Desktop");
+                
+                List<string> escritorios = new List<string>();
+                if (Directory.Exists(desktop)) escritorios.Add(desktop);
+                if (Directory.Exists(oneDriveDesktop) && !escritorios.Contains(oneDriveDesktop)) escritorios.Add(oneDriveDesktop);
+
                 string iconosDir = Path.Combine(baseDir, "instalador_tienda", "iconos");
 
                 string icoVerde = Path.Combine(iconosDir, "icono_iniciar_verde.ico");
                 string icoRojo = Path.Combine(iconosDir, "icono_detener_rojo.ico");
-                string icoAzul = Path.Combine(iconosDir, "icono_reiniciar_azul.ico");
                 string icoAurora = Path.Combine(baseDir, "aurora.ico");
 
                 if (!File.Exists(icoVerde)) icoVerde = icoAurora;
                 if (!File.Exists(icoRojo)) icoRojo = icoAurora;
-                if (!File.Exists(icoAzul)) icoAzul = icoAurora;
 
                 Type shellType = Type.GetTypeFromProgID("WScript.Shell");
                 if (shellType == null) return;
                 dynamic shell = Activator.CreateInstance(shellType);
 
-                // 1. Iniciar Servidor POS
                 string exeIniciar = Path.Combine(baseDir, "Iniciar_Servidor_POS.exe");
-                if (File.Exists(exeIniciar))
-                {
-                    dynamic sc1 = shell.CreateShortcut(Path.Combine(desktop, "Iniciar Servidor POS.lnk"));
-                    sc1.TargetPath = exeIniciar;
-                    sc1.WorkingDirectory = baseDir;
-                    sc1.IconLocation = icoVerde;
-                    sc1.Description = "Iniciar Servidor Local Aurora POS y Abrir Sistema";
-                    sc1.Save();
-                }
-
-                // 2. Detener Servidor POS
                 string exeDetener = Path.Combine(baseDir, "Detener_Servidor_POS.exe");
-                if (File.Exists(exeDetener))
-                {
-                    dynamic sc2 = shell.CreateShortcut(Path.Combine(desktop, "Detener Servidor POS.lnk"));
-                    sc2.TargetPath = exeDetener;
-                    sc2.WorkingDirectory = baseDir;
-                    sc2.IconLocation = icoRojo;
-                    sc2.Description = "Detener y Pausar de forma segura el Servidor Aurora POS";
-                    sc2.Save();
-                }
 
-                // 3. Reiniciar Servidor POS
-                string exeReiniciar = Path.Combine(baseDir, "Reiniciar_Servidor_POS.exe");
-                if (File.Exists(exeReiniciar))
+                foreach (string rutaEscritorio in escritorios)
                 {
-                    dynamic sc3 = shell.CreateShortcut(Path.Combine(desktop, "Reiniciar Servidor POS.lnk"));
-                    sc3.TargetPath = exeReiniciar;
-                    sc3.WorkingDirectory = baseDir;
-                    sc3.IconLocation = icoAzul;
-                    sc3.Description = "Reiniciar y Optimizar Servidor Aurora POS";
-                    sc3.Save();
-                }
+                    // 1. Iniciar Servidor POS (Único botón para iniciar o abrir si ya está activo)
+                    if (File.Exists(exeIniciar))
+                    {
+                        dynamic sc1 = shell.CreateShortcut(Path.Combine(rutaEscritorio, "Iniciar Servidor POS.lnk"));
+                        sc1.TargetPath = exeIniciar;
+                        sc1.WorkingDirectory = baseDir;
+                        sc1.IconLocation = icoVerde;
+                        sc1.Description = "Iniciar Servidor y Abrir Sistema POS Llanomio";
+                        sc1.Save();
+                    }
 
-                // 4. POS Llanomio - Recuperar y Levantar Servidor
-                string exeRecuperar = Path.Combine(baseDir, "Recuperar_Servidor_POS.exe");
-                if (File.Exists(exeRecuperar))
-                {
-                    dynamic sc4 = shell.CreateShortcut(Path.Combine(desktop, "POS Llanomio - Recuperar y Levantar Servidor.lnk"));
-                    sc4.TargetPath = exeRecuperar;
-                    sc4.WorkingDirectory = baseDir;
-                    sc4.IconLocation = icoAurora;
-                    sc4.Description = "Rescate Rapido y Verificacion de Integridad del Servidor POS";
-                    sc4.Save();
-                }
+                    // 2. Detener Servidor POS (Único botón para pausar y detener)
+                    if (File.Exists(exeDetener))
+                    {
+                        dynamic sc2 = shell.CreateShortcut(Path.Combine(rutaEscritorio, "Detener Servidor POS.lnk"));
+                        sc2.TargetPath = exeDetener;
+                        sc2.WorkingDirectory = baseDir;
+                        sc2.IconLocation = icoRojo;
+                        sc2.Description = "Detener Servidor Local Aurora POS";
+                        sc2.Save();
+                    }
 
-                // 5. Boveda Respaldos
-                dynamic sc5 = shell.CreateShortcut(Path.Combine(desktop, "POS Llanomio - Carpeta Respaldos.lnk"));
-                sc5.TargetPath = "C:\\POS_BACKUPS";
-                sc5.IconLocation = "shell32.dll,4";
-                sc5.Description = "Boveda Central de Copias de Seguridad del POS";
-                sc5.Save();
+                    // Eliminar accesos directos anteriores innecesarios para dejar únicamente los 2 solicitados
+                    string[] obsoletos = new string[] {
+                        "Reiniciar Servidor POS.lnk",
+                        "POS Llanomio - Recuperar y Levantar Servidor.lnk",
+                        "POS Llanomio - Carpeta Respaldos.lnk",
+                        "POS Llanomio - Panel de Control.lnk",
+                        "POS Llanomio - Pantalla Completa.lnk",
+                        "Aurora Host - Iniciar Servidor.lnk",
+                        "Aurora Host - Vista Pantalla Completa.lnk",
+                        "Aurora Host - Apagar o Pausar Servidor.lnk",
+                        "Aurora Host - Relanzar o Reconectar Servidor.lnk",
+                        "Aurora Host - Activar Inicio Automatico.lnk"
+                    };
+
+                    foreach (string obs in obsoletos)
+                    {
+                        string p = Path.Combine(rutaEscritorio, obs);
+                        if (File.Exists(p)) { try { File.Delete(p); } catch {} }
+                    }
+                }
             }
             catch {}
         }

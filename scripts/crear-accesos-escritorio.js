@@ -33,34 +33,18 @@ function obtenerRutasEscritorio() {
 
 const DEFINICIONES_BOTONES_AURORA = [
   {
-    nombreLnk: "Aurora Host - Iniciar Servidor.lnk",
+    nombreLnk: "Iniciar Servidor POS.lnk",
+    scriptExe: "Iniciar_Servidor_POS.exe",
     scriptBat: "1_INICIALIZAR_SITIO_POS.bat",
     iconoIco: "icono_iniciar_verde.ico",
-    descripcion: "Levanta e inicializa el servidor local Aurora Host POS",
+    descripcion: "Iniciar Servidor y Abrir Sistema POS Llanomio",
   },
   {
-    nombreLnk: "Aurora Host - Vista Pantalla Completa.lnk",
-    scriptBat: "5_ABRIR_POS_PANTALLA_COMPLETA.bat",
-    iconoIco: "icono_pantalla_completa_indigo.ico",
-    descripcion: "Abre Aurora Host POS en primera pantalla completa sin navegador",
-  },
-  {
-    nombreLnk: "Aurora Host - Apagar o Pausar Servidor.lnk",
+    nombreLnk: "Detener Servidor POS.lnk",
+    scriptExe: "Detener_Servidor_POS.exe",
     scriptBat: "2_DETENER_PAUSAR_SERVIDOR_POS.bat",
     iconoIco: "icono_detener_rojo.ico",
-    descripcion: "Ejecuta respaldo en caliente y detiene o pausa el servidor",
-  },
-  {
-    nombreLnk: "Aurora Host - Relanzar o Reconectar Servidor.lnk",
-    scriptBat: "3_REINICIAR_SITIO_RAPIDO_POS.bat",
-    iconoIco: "icono_reiniciar_azul.ico",
-    descripcion: "Relanza, reconecta y optimiza el servidor en su último estado",
-  },
-  {
-    nombreLnk: "Aurora Host - Activar Inicio Automatico.lnk",
-    scriptBat: "4_ACTIVAR_INICIO_AUTOMATICO_PC.bat",
-    iconoIco: "icono_autoarranque_ambar.ico",
-    descripcion: "Configura el auto-arranque silencioso del servidor al encender el PC",
+    descripcion: "Detener Servidor Local Aurora POS",
   },
 ];
 
@@ -79,20 +63,42 @@ function crearAccesosDirectos(directorioRaiz = null) {
   for (const escritorio of escritorios) {
     console.log(`[ESCRITORIO] Generando accesos en: ${escritorio}`);
 
+    // Limpiar accesos viejos u obsoletos en el escritorio
+    const obsoletos = [
+      "Reiniciar Servidor POS.lnk",
+      "POS Llanomio - Recuperar y Levantar Servidor.lnk",
+      "POS Llanomio - Carpeta Respaldos.lnk",
+      "POS Llanomio - Panel de Control.lnk",
+      "POS Llanomio - Pantalla Completa.lnk",
+      "Aurora Host - Iniciar Servidor.lnk",
+      "Aurora Host - Vista Pantalla Completa.lnk",
+      "Aurora Host - Apagar o Pausar Servidor.lnk",
+      "Aurora Host - Relanzar o Reconectar Servidor.lnk",
+      "Aurora Host - Activar Inicio Automatico.lnk"
+    ];
+    for (const obs of obsoletos) {
+      const rutaObs = path.join(escritorio, obs);
+      if (fs.existsSync(rutaObs)) {
+        try { fs.unlinkSync(rutaObs); } catch {}
+      }
+    }
+
     for (const btn of DEFINICIONES_BOTONES_AURORA) {
       const rutaLnk = path.join(escritorio, btn.nombreLnk);
-      const rutaBat = path.join(dirIniciadores, btn.scriptBat);
+      const targetExe = btn.scriptExe ? path.join(root, btn.scriptExe) : null;
+      const targetBat = path.join(dirIniciadores, btn.scriptBat);
+      const rutaFinalTarget = (targetExe && fs.existsSync(targetExe)) ? targetExe : targetBat;
       const rutaIco = path.join(dirIconos, btn.iconoIco);
 
-      if (!fs.existsSync(rutaBat)) {
-        console.warn(`[AVISO] No se encontró el script bat: ${rutaBat}`);
+      if (!fs.existsSync(rutaFinalTarget)) {
+        console.warn(`[AVISO] No se encontró el ejecutable/script: ${rutaFinalTarget}`);
         continue;
       }
 
       const psCmd = `
         $ws = New-Object -ComObject WScript.Shell;
         $s = $ws.CreateShortcut('${rutaLnk.replace(/'/g, "''")}');
-        $s.TargetPath = '${rutaBat.replace(/'/g, "''")}';
+        $s.TargetPath = '${rutaFinalTarget.replace(/'/g, "''")}';
         $s.WorkingDirectory = '${root.replace(/'/g, "''")}';
         $s.Description = '${btn.descripcion.replace(/'/g, "''")}';
         if (Test-Path '${rutaIco.replace(/'/g, "''")}') {

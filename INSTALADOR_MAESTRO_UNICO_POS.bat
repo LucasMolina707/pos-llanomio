@@ -402,44 +402,12 @@ if "%USAR_PM2%"=="1" (
     echo [OK] Servidor de produccion levantado en segundo plano.
 )
 
-:: 3. Accesos directos oficiales en el Escritorio con iconos personalizados
-echo [ACCESOS] Generando la botonera oficial de 5 controles con iconos personalizados en el Escritorio...
+:: 3. Accesos directos oficiales en el Escritorio (Iniciar y Detener)
+echo [ACCESOS] Generando los 2 accesos directos oficiales (Iniciar Servidor y Detener Servidor)...
 if exist "%PROJECT_ROOT%\scripts\crear-accesos-escritorio.js" (
     node "%PROJECT_ROOT%\scripts\crear-accesos-escritorio.js" >nul 2>&1
-    echo [OK] 5 Accesos directos con iconos personalizados generados en el Escritorio.
+    echo [OK] Accesos directos oficiales generados en el Escritorio.
 )
-
-set "ICON_FILE=%PROJECT_ROOT%\instalador_tienda\iconos\icono_pantalla_completa_indigo.ico"
-if not exist "%ICON_FILE%" set "ICON_FILE=%PROJECT_ROOT%\instalador_tienda\recursos\llanomio.ico"
-if not exist "%ICON_FILE%" set "ICON_FILE=%SystemRoot%\System32\shell32.dll,13"
-
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$ws = New-Object -ComObject WScript.Shell; " ^
-  "$desktop = [System.Environment]::GetFolderPath('Desktop'); " ^
-  "$s1 = $ws.CreateShortcut([System.IO.Path]::Combine($desktop, 'POS Llanomio - Panel de Control.lnk')); " ^
-  "$s1.TargetPath = '%PROJECT_ROOT%\CONTROL_GENERAL_POS.bat'; " ^
-  "$s1.WorkingDirectory = '%PROJECT_ROOT%'; " ^
-  "$s1.IconLocation = '%ICON_FILE%'; " ^
-  "$s1.Description = 'Panel de Control Maestro del Sistema POS Llanomio'; " ^
-  "$s1.Save(); " ^
-  "$s2 = $ws.CreateShortcut([System.IO.Path]::Combine($desktop, 'POS Llanomio - Pantalla Completa.lnk')); " ^
-  "$s2.TargetPath = '%PROJECT_ROOT%\ABRIR_SISTEMA_PANTALLA_COMPLETA.bat'; " ^
-  "$s2.WorkingDirectory = '%PROJECT_ROOT%'; " ^
-  "$s2.IconLocation = '%ICON_FILE%'; " ^
-  "$s2.Description = 'Terminal POS Llanomio en Modo Aplicacion Pantalla Completa'; " ^
-  "$s2.Save(); " ^
-  "$s3 = $ws.CreateShortcut([System.IO.Path]::Combine($desktop, 'POS Llanomio - Recuperar y Levantar Servidor.lnk')); " ^
-  "$s3.TargetPath = '%PROJECT_ROOT%\RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat'; " ^
-  "$s3.WorkingDirectory = '%PROJECT_ROOT%'; " ^
-  "$s3.IconLocation = '%SystemRoot%\System32\shell32.dll,238'; " ^
-  "$s3.Description = 'Rescate Rapido y Verificacion de Integridad del POS'; " ^
-  "$s3.Save(); " ^
-  "$s4 = $ws.CreateShortcut([System.IO.Path]::Combine($desktop, 'POS Llanomio - Carpeta Respaldos.lnk')); " ^
-  "$s4.TargetPath = 'C:\POS_BACKUPS'; " ^
-  "$s4.IconLocation = '%SystemRoot%\System32\shell32.dll,4'; " ^
-  "$s4.Description = 'Boveda Central de Copias de Seguridad del POS'; " ^
-  "$s4.Save();" >nul 2>&1
-echo [OK] Accesos directos generados exitosamente.
 
 :: 4. Sondeo y verificacion HTTP 200 (sin bucles 'for' vulnerables)
 echo [SONDEO] Esperando confirmacion del servidor web en http://localhost:%PORT%/login...
