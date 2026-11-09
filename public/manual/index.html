@@ -3,34 +3,57 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistema POS Llanomio - Manual Técnico Oficial y Guía de Operación</title>
+  <title>POS Llanomio - Manual Técnico Oficial y Guía de Operación</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      background-color: #0F172A; /* Slate 900 */
-      color: #334155;
+      background-color: #D6E8E2; /* Fondo exterior verde menta pastel de la maqueta */
+      color: #1E293B;
     }
     code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
     
-    .sidebar-nav-btn {
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .sidebar-nav-btn.active {
-      background-color: #2563EB; /* Blue 600 */
-      color: #FFFFFF;
-      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+    /* Barra lateral estilo cápsula curvada verde salvia */
+    .sidebar-capsule {
+      background-color: #3F8A79;
+      border-radius: 28px;
     }
 
-    .card-panel {
+    .nav-btn-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.75);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+    }
+    .nav-btn-icon:hover {
+      color: #FFFFFF;
+      background-color: rgba(255, 255, 255, 0.15);
+    }
+    .nav-btn-icon.active {
+      background-color: #FFFFFF;
+      color: #2F6E60;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Tarjetas blancas flotantes ultra limpias con bordes redondeados */
+    .dashboard-card {
       background: #FFFFFF;
-      border: 1px solid #E2E8F0;
-      border-radius: 16px;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      border-radius: 20px;
+      border: 1px solid #E8F0EC;
+      box-shadow: 0 6px 18px -4px rgba(28, 59, 52, 0.04);
+      transition: all 0.2s ease-in-out;
+    }
+    .dashboard-card:hover {
+      box-shadow: 0 10px 24px -4px rgba(28, 59, 52, 0.07);
     }
 
     .view-content {
@@ -46,144 +69,162 @@
     }
   </style>
 </head>
-<body class="antialiased min-h-screen p-3 md:p-6 lg:p-8 flex justify-center selection:bg-blue-600 selection:text-white">
+<body class="antialiased min-h-screen p-3 md:p-6 lg:p-8 flex justify-center selection:bg-[#3F8A79] selection:text-white">
 
   <!-- ========================================================================= -->
-  <!-- CONTENEDOR MAESTRO DE LA APLICACIÓN SPA                                   -->
+  <!-- LIENZO GENERAL TIPO DASHBOARD FINTECH (IDÉNTICO A LA MAQUETA DE REFERENCIA)-->
   <!-- ========================================================================= -->
-  <div class="w-full max-w-7xl bg-[#F8FAFC] rounded-3xl border border-slate-700 shadow-2xl flex flex-col lg:flex-row overflow-hidden min-h-[92vh]">
+  <div class="w-full max-w-7xl bg-[#F8FAF9] rounded-[36px] border border-[#C9DED7] shadow-2xl p-4 md:p-6 flex flex-col md:flex-row gap-5 min-h-[92vh]">
 
     <!-- ========================================================================= -->
-    <!-- BARRA LATERAL TÉCNICA DE NAVEGACIÓN                                       -->
+    <!-- BARRA LATERAL IZQUIERDA: CÁPSULA VERDE SALVIA CON ICONOS FLOTANTES        -->
     <!-- ========================================================================= -->
-    <aside class="w-full lg:w-72 bg-slate-900 border-r border-slate-800 p-5 flex flex-col justify-between shrink-0 text-slate-300">
-      <div class="space-y-6">
-        <!-- Encabezado de la Marca -->
-        <div class="flex items-center gap-3 pb-5 border-b border-slate-800">
-          <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-blue-500/20">
-            <i data-lucide="server" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h1 class="text-sm font-bold text-white tracking-wide uppercase">POS Llanomio</h1>
-            <p class="text-[11px] text-slate-400 font-mono">Manual Técnico v2026.1</p>
-          </div>
-        </div>
-
-        <!-- Lista de Módulos Técnicos -->
-        <nav class="space-y-1.5 text-xs font-semibold">
-          <button onclick="cambiarSeccion('arquitectura', this)" class="sidebar-nav-btn active w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-left cursor-pointer">
-            <i data-lucide="cpu" class="w-4 h-4"></i>
-            <span>1. Arquitectura y Requisitos</span>
-          </button>
-
-          <button onclick="cambiarSeccion('instalacion', this)" class="sidebar-nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-left cursor-pointer">
-            <i data-lucide="box" class="w-4 h-4"></i>
-            <span>2. Instalación con Asistente GUI</span>
-          </button>
-
-          <button onclick="cambiarSeccion('ejecutables', this)" class="sidebar-nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-left cursor-pointer">
-            <i data-lucide="terminal" class="w-4 h-4"></i>
-            <span>3. Suite de Ejecutables (.EXE)</span>
-          </button>
-
-          <button onclick="cambiarSeccion('seguridad', this)" class="sidebar-nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-left cursor-pointer">
-            <i data-lucide="shield-check" class="w-4 h-4"></i>
-            <span>4. Seguridad y Recuperación (3F)</span>
-          </button>
-
-          <button onclick="cambiarSeccion('cajas', this)" class="sidebar-nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-left cursor-pointer">
-            <i data-lucide="store" class="w-4 h-4"></i>
-            <span>5. Operación de las 3 Cajas</span>
-          </button>
-
-          <button onclick="cambiarSeccion('facturacion', this)" class="sidebar-nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-left cursor-pointer">
-            <i data-lucide="printer" class="w-4 h-4"></i>
-            <span>6. Facturación (58mm, 80mm, Carta)</span>
-          </button>
-
-          <button onclick="cambiarSeccion('turnos', this)" class="sidebar-nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-left cursor-pointer">
-            <i data-lucide="vault" class="w-4 h-4"></i>
-            <span>7. Turnos y Arqueo Ciego</span>
-          </button>
-
-          <button onclick="cambiarSeccion('migracion', this)" class="sidebar-nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-left cursor-pointer">
-            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-            <span>8. Migración Masiva en Excel</span>
-          </button>
-
-          <button onclick="cambiarSeccion('respaldos', this)" class="sidebar-nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-slate-800 text-left cursor-pointer">
-            <i data-lucide="database" class="w-4 h-4"></i>
-            <span>9. Respaldo y SQLite WAL</span>
-          </button>
-        </nav>
+    <aside class="w-full md:w-20 shrink-0 sidebar-capsule p-3.5 flex md:flex-col items-center justify-between gap-3 shadow-md">
+      <!-- Logo Superior Geométrico -->
+      <div class="w-11 h-11 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center text-white font-black text-xl shadow-xs">
+        <i data-lucide="sparkles" class="w-5 h-5 text-amber-300"></i>
       </div>
 
-      <!-- Estado Operativo Local -->
-      <div class="pt-4 border-t border-slate-800 font-mono text-[11px] text-slate-400 space-y-1">
-        <div class="flex items-center justify-between">
-          <span>Modo Servidor:</span>
-          <span class="text-emerald-400 font-bold">Offline-First</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span>SQLite WAL:</span>
-          <span class="text-blue-400 font-bold">Activo</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span>Dominio mDNS:</span>
-          <span class="text-slate-200">llanomio.local</span>
+      <!-- Iconos Verticales de Navegación por Ventanas -->
+      <nav class="flex md:flex-col items-center gap-2 overflow-x-auto md:overflow-visible py-2">
+        <button onclick="cambiarSeccion('arquitectura', this)" title="1. Arquitectura y Requisitos" class="nav-btn-icon active">
+          <i data-lucide="cpu" class="w-5 h-5"></i>
+        </button>
+
+        <button onclick="cambiarSeccion('instalacion', this)" title="2. Instalación con Asistente GUI" class="nav-btn-icon">
+          <i data-lucide="box" class="w-5 h-5"></i>
+        </button>
+
+        <button onclick="cambiarSeccion('ejecutables', this)" title="3. Suite de Ejecutables (.EXE)" class="nav-btn-icon">
+          <i data-lucide="terminal" class="w-5 h-5"></i>
+        </button>
+
+        <button onclick="cambiarSeccion('seguridad', this)" title="4. Seguridad y Recuperación (3F)" class="nav-btn-icon">
+          <i data-lucide="shield-check" class="w-5 h-5"></i>
+        </button>
+
+        <button onclick="cambiarSeccion('cajas', this)" title="5. Operación de las 3 Cajas" class="nav-btn-icon">
+          <i data-lucide="store" class="w-5 h-5"></i>
+        </button>
+
+        <button onclick="cambiarSeccion('facturacion', this)" title="6. Facturación (58mm, 80mm, Carta)" class="nav-btn-icon">
+          <i data-lucide="printer" class="w-5 h-5"></i>
+        </button>
+
+        <button onclick="cambiarSeccion('turnos', this)" title="7. Turnos y Arqueo Ciego" class="nav-btn-icon">
+          <i data-lucide="vault" class="w-5 h-5"></i>
+        </button>
+
+        <button onclick="cambiarSeccion('migracion', this)" title="8. Migración Masiva en Excel" class="nav-btn-icon">
+          <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+        </button>
+
+        <button onclick="cambiarSeccion('respaldos', this)" title="9. Respaldo y SQLite WAL" class="nav-btn-icon">
+          <i data-lucide="database" class="w-5 h-5"></i>
+        </button>
+      </nav>
+
+      <!-- Botón Inferior -->
+      <div class="hidden md:flex flex-col items-center">
+        <div class="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white/70">
+          <i data-lucide="help-circle" class="w-4 h-4"></i>
         </div>
       </div>
     </aside>
 
     <!-- ========================================================================= -->
-    <!-- ÁREA PRINCIPAL DE CONTENIDO                                               -->
+    <!-- PANEL PRINCIPAL (DASHBOARD AREA)                                          -->
     <!-- ========================================================================= -->
-    <main class="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
+    <main class="flex-1 min-w-0 flex flex-col gap-5 overflow-y-auto">
+
+      <!-- ========================================== -->
+      <!-- TOPBAR ESTILO DASHBOARD                    -->
+      <!-- ========================================== -->
+      <header class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white rounded-2xl p-3.5 border border-[#E4ECE8] shadow-2xs">
+        <!-- Buscador integrado -->
+        <div class="relative w-full sm:w-80">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input 
+            type="text" 
+            id="busquedaFiltro" 
+            placeholder="Buscar procedimiento técnico..."
+            class="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-[#3F8A79] focus:bg-white text-slate-700 transition"
+          >
+        </div>
+
+        <!-- Indicador de módulo activo y perfil de sistema -->
+        <div class="flex items-center gap-3 self-end sm:self-auto">
+          <span id="badgeModulo" class="px-3 py-1 rounded-full text-xs font-bold bg-[#E8F3F0] text-[#2F6E60] border border-[#C5DFD6]">
+            1. Arquitectura y Requisitos
+          </span>
+          <div class="flex items-center gap-2 border-l border-slate-200 pl-3">
+            <div class="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
+              POS
+            </div>
+            <span class="text-xs font-bold text-slate-700 hidden sm:inline">Servidor Local</span>
+          </div>
+        </div>
+      </header>
 
       <!-- ========================================== -->
       <!-- SECCIÓN 1: ARQUITECTURA Y REQUISITOS       -->
       <!-- ========================================== -->
-      <div id="sec-arquitectura" class="view-content active space-y-6">
-        <div class="border-b border-slate-200 pb-4">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600 font-mono">Infraestructura y Base Tecnológica</span>
-          <h2 class="text-2xl font-black text-slate-900">1. Arquitectura y Requisitos del Sistema</h2>
-          <p class="text-sm text-slate-500">Diseño desacoplado, motor autónomo y conectividad local multiplataforma.</p>
+      <section id="sec-arquitectura" class="view-content active space-y-5">
+        <!-- Banner superior estilo tarjeta financiera -->
+        <div class="dashboard-card p-6 md:p-8 bg-gradient-to-br from-[#3F8A79] to-[#2B685A] text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-md">
+          <div class="space-y-2 max-w-xl">
+            <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-white/15 text-emerald-100 border border-white/20">
+              Arquitectura de Alta Disponibilidad Offline-First
+            </span>
+            <h2 class="text-2xl md:text-3xl font-black tracking-tight">1. Arquitectura y Requisitos del Sistema</h2>
+            <p class="text-emerald-50 text-xs md:text-sm leading-relaxed">
+              Diseño desacoplado y autosuficiente. No requiere servidores en la nube obligatorios ni conexión a internet activa para facturar, gestionar inventario o emitir comprobantes.
+            </p>
+          </div>
+          <div class="p-4 bg-white/10 rounded-2xl border border-white/20 font-mono text-xs space-y-1 shrink-0">
+            <div class="text-emerald-200 text-[10px] uppercase">Motor de Base de Datos:</div>
+            <div class="text-white font-bold text-sm">SQLite Relacional (WAL)</div>
+            <div class="text-emerald-200 text-[10px] uppercase pt-1">Resolución de Red:</div>
+            <div class="text-white font-bold">http://llanomio.local:3000</div>
+          </div>
         </div>
 
+        <!-- 3 Tarjetas de Pilares Técnicos -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="card-panel p-5 space-y-2">
-            <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+          <div class="dashboard-card p-5 space-y-2">
+            <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
               <i data-lucide="layers" class="w-5 h-5"></i>
             </div>
             <h3 class="text-sm font-bold text-slate-900">Next.js Standalone</h3>
             <p class="text-xs text-slate-600 leading-relaxed">
-              Servidor web autónomo precompilado. Opera sin depender de herramientas de compilación en el computador del cliente.
+              Servidor web autónomo precompilado. Opera sin herramientas de compilación externas ni dependencias pesadas en el equipo del cliente.
             </p>
           </div>
 
-          <div class="card-panel p-5 space-y-2">
-            <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+          <div class="dashboard-card p-5 space-y-2">
+            <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
               <i data-lucide="database" class="w-5 h-5"></i>
             </div>
-            <h3 class="text-sm font-bold text-slate-900">SQLite con Motor WAL</h3>
+            <h3 class="text-sm font-bold text-slate-900">Resiliencia SQLite WAL</h3>
             <p class="text-xs text-slate-600 leading-relaxed">
-              Base de datos relacional ultraligera protegida con Write-Ahead Logging (WAL) contra pérdidas ante cortes imprevistos de energía.
+              Write-Ahead Logging activo con modos de sincronización seguros que blindan la información ante cortes imprevistos de energía eléctrica.
             </p>
           </div>
 
-          <div class="card-panel p-5 space-y-2">
-            <div class="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+          <div class="dashboard-card p-5 space-y-2">
+            <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
               <i data-lucide="wifi" class="w-5 h-5"></i>
             </div>
-            <h3 class="text-sm font-bold text-slate-900">Bonjour mDNS Local</h3>
+            <h3 class="text-sm font-bold text-slate-900">mDNS Bonjour Local</h3>
             <p class="text-xs text-slate-600 leading-relaxed">
-              Permite a celulares, tablets y computadores conectarse a la red Wi-Fi escribiendo directamente <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">http://llanomio.local:3000</code>.
+              Permite a celulares, tablets y computadores conectarse a la red Wi-Fi ingresando directamente por nombre de dominio sin configurar IPs fijas.
             </p>
           </div>
         </div>
 
-        <div class="card-panel p-6 space-y-4">
-          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Requisitos Mínimos y Recomendados</h3>
+        <!-- Tabla de Requisitos Técnicos -->
+        <div class="dashboard-card p-6 space-y-4">
+          <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Especificaciones de Hardware y Entorno</h3>
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs border-collapse">
               <thead>
@@ -211,414 +252,425 @@
                 </tr>
                 <tr>
                   <td class="py-2.5 px-3 font-semibold text-slate-900">Almacenamiento</td>
-                  <td class="py-2.5 px-3">2 GB disponibles (HDD o SSD)</td>
+                  <td class="py-2.5 px-3">2 GB libres en disco</td>
                   <td class="py-2.5 px-3">Unidad de Estado Sólido (SSD NVMe / SATA)</td>
                 </tr>
                 <tr>
-                  <td class="py-2.5 px-3 font-semibold text-slate-900">Red Local (LAN)</td>
-                  <td class="py-2.5 px-3">Conexión Wi-Fi básica</td>
-                  <td class="py-2.5 px-3">Router Gigabit por cable Ethernet para servidor central</td>
+                  <td class="py-2.5 px-3 font-semibold text-slate-900">Conectividad Local</td>
+                  <td class="py-2.5 px-3">Red Wi-Fi estándar</td>
+                  <td class="py-2.5 px-3">Router Gigabit con cable Ethernet al servidor</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- ========================================== -->
       <!-- SECCIÓN 2: INSTALACIÓN CON ASISTENTE GUI   -->
       <!-- ========================================== -->
-      <div id="sec-instalacion" class="view-content space-y-6">
-        <div class="border-b border-slate-200 pb-4">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600 font-mono">Despliegue Asistido y Automatizado</span>
-          <h2 class="text-2xl font-black text-slate-900">2. Instalación con Asistente GUI (.EXE)</h2>
-          <p class="text-sm text-slate-500">Pasos exactos para implementar el sistema en un equipo comercial nuevo.</p>
-        </div>
-
-        <div class="space-y-4">
-          <div class="card-panel p-5 flex items-start gap-4">
-            <span class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0">1</span>
-            <div class="space-y-1 text-xs text-slate-600">
-              <strong class="text-sm text-slate-900 font-bold block">Ejecución del Asistente Maestro</strong>
-              <p>
-                Inicia <code class="font-mono text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded">Instalador_Maestro_Unico_POS.exe</code>. El programa solicitará elevación de Administrador de Windows (UAC) para configurar las reglas de red y los servicios del sistema.
-              </p>
-            </div>
+      <section id="sec-instalacion" class="view-content space-y-5">
+        <div class="dashboard-card p-6 md:p-8 space-y-5">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#3F8A79] font-mono">Despliegue Asistido y Automatizado</span>
+            <h2 class="text-xl font-black text-slate-900">2. Instalación con Asistente GUI (.EXE)</h2>
+            <p class="text-xs text-slate-500">Pasos exactos para implementar el sistema en un computador comercial nuevo.</p>
           </div>
 
-          <div class="card-panel p-5 flex items-start gap-4">
-            <span class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0">2</span>
-            <div class="space-y-1 text-xs text-slate-600">
-              <strong class="text-sm text-slate-900 font-bold block">Selección de Modo de Instalación</strong>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                  <span class="font-bold text-slate-900 block">Modo Rápido 1-Clic (Recomendado)</span>
-                  <span>Establece puerto 3000, dominio llanomio.local, autoarranque en Windows y accesos directos en el escritorio.</span>
-                </div>
-                <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                  <span class="font-bold text-slate-900 block">Modo Personalizado</span>
-                  <span>Permite cambiar el puerto HTTP, el nombre de red, elegir si restablecer la base de datos o conservar datos previos.</span>
+          <div class="space-y-3">
+            <div class="p-4 bg-[#F8FAF9] border border-[#E0EDE8] rounded-2xl flex items-start gap-3">
+              <span class="w-7 h-7 rounded-xl bg-[#3F8A79] text-white flex items-center justify-center font-bold text-xs shrink-0">1</span>
+              <div class="space-y-1 text-xs text-slate-600">
+                <strong class="text-slate-900 font-bold block text-sm">Ejecutar el Instalador Maestro</strong>
+                <p>Haz doble clic en <code class="font-mono text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200">Instalador_Maestro_Unico_POS.exe</code> y concede permisos de Administrador de Windows (UAC).</p>
+              </div>
+            </div>
+
+            <div class="p-4 bg-[#F8FAF9] border border-[#E0EDE8] rounded-2xl flex items-start gap-3">
+              <span class="w-7 h-7 rounded-xl bg-[#3F8A79] text-white flex items-center justify-center font-bold text-xs shrink-0">2</span>
+              <div class="space-y-2 text-xs text-slate-600 flex-1">
+                <strong class="text-slate-900 font-bold block text-sm">Seleccionar Modo de Configuración</strong>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div class="p-3 bg-white rounded-xl border border-slate-200">
+                    <span class="font-bold text-slate-900 block text-xs">Instalación Rápida 1-Clic (Recomendada)</span>
+                    <span class="text-[11px] text-slate-500">Aplica puerto 3000, llanomio.local, autoarranque permanente y accesos directos.</span>
+                  </div>
+                  <div class="p-3 bg-white rounded-xl border border-slate-200">
+                    <span class="font-bold text-slate-900 block text-xs">Instalación Personalizada</span>
+                    <span class="text-[11px] text-slate-500">Permite cambiar puerto, dominio y decidir si reiniciar la base de datos o conservar datos.</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="card-panel p-5 flex items-start gap-4">
-            <span class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0">3</span>
-            <div class="space-y-1 text-xs text-slate-600">
-              <strong class="text-sm text-slate-900 font-bold block">Monitoreo de Progreso en Vivo</strong>
-              <p>
-                El asistente muestra una barra de progreso porcentual (0% a 100%) y una consola de registro en tiempo real que ejecuta las siguientes acciones:
-              </p>
-              <ul class="list-disc pl-4 space-y-1 pt-1 text-slate-500">
-                <li>Liberación quirúrgica de puertos ocupados.</li>
-                <li>Generación del archivo de configuración <code class="font-mono bg-slate-100 px-1 rounded">.env</code> de producción.</li>
-                <li>Creación de la bóveda central de respaldos en <code class="font-mono bg-slate-100 px-1 rounded">C:\POS_BACKUPS\</code>.</li>
-                <li>Aseguramiento de credenciales maestras del administrador en SQLite.</li>
-                <li>Apertura de reglas en Windows Defender Firewall (TCP 3000 y UDP 5353 Bonjour).</li>
-                <li>Creación de la botonera oficial en el Escritorio.</li>
-              </ul>
+            <div class="p-4 bg-[#F8FAF9] border border-[#E0EDE8] rounded-2xl flex items-start gap-3">
+              <span class="w-7 h-7 rounded-xl bg-[#3F8A79] text-white flex items-center justify-center font-bold text-xs shrink-0">3</span>
+              <div class="space-y-1 text-xs text-slate-600">
+                <strong class="text-slate-900 font-bold block text-sm">Auditoría en Tiempo Real y Barra de Progreso</strong>
+                <p>El asistente muestra el avance del 0% al 100%, ejecutando la liberación de puertos, generación de variables <code class="font-mono bg-white px-1 rounded border">.env</code>, reglas de Firewall y creación de la botonera oficial.</p>
+              </div>
             </div>
-          </div>
 
-          <div class="card-panel p-5 flex items-start gap-4">
-            <span class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0">4</span>
-            <div class="space-y-1 text-xs text-slate-600">
-              <strong class="text-sm text-slate-900 font-bold block">Finalización y Apertura Automática</strong>
-              <p>
-                Al llegar al 100%, el instalador habilita el botón <strong>"Abrir POS Ahora"</strong>, levantando el servidor en segundo plano y mostrando la interfaz en pantalla completa lista para operar.
-              </p>
+            <div class="p-4 bg-[#F8FAF9] border border-[#E0EDE8] rounded-2xl flex items-start gap-3">
+              <span class="w-7 h-7 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">4</span>
+              <div class="space-y-1 text-xs text-slate-600">
+                <strong class="text-slate-900 font-bold block text-sm">Inicio Inmediato</strong>
+                <p>Al terminar, se habilita el botón <strong>"Abrir POS Ahora"</strong> que lanza el servidor en segundo plano y abre la aplicación en pantalla completa.</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- ========================================== -->
       <!-- SECCIÓN 3: SUITE DE EJECUTABLES (.EXE)     -->
       <!-- ========================================== -->
-      <div id="sec-ejecutables" class="view-content space-y-6">
-        <div class="border-b border-slate-200 pb-4">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600 font-mono">Botonera Operativa de Escritorio</span>
-          <h2 class="text-2xl font-black text-slate-900">3. Suite de Ejecutables Nativos (.EXE)</h2>
-          <p class="text-sm text-slate-500">Funciones técnicas de cada ejecutable instalado en el Escritorio del usuario.</p>
+      <section id="sec-ejecutables" class="view-content space-y-5">
+        <div class="dashboard-card p-6 md:p-8 space-y-5">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#3F8A79] font-mono">Botonera Oficial de Control</span>
+            <h2 class="text-xl font-black text-slate-900">3. Suite de Ejecutables Nativos (.EXE)</h2>
+            <p class="text-xs text-slate-500">Herramientas nativas creadas para el uso diario del cajero y administrador.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-5 rounded-2xl border border-emerald-200 bg-emerald-50/40 space-y-2">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
+                  <i data-lucide="play" class="w-4 h-4"></i>
+                </div>
+                <h3 class="text-sm font-bold text-slate-900">Iniciar_Servidor_POS.exe</h3>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                <strong>Uso diario:</strong> Sondea el puerto HTTP. Si el servidor está apagado, lo levanta mediante PM2 en segundo plano. Luego, abre Microsoft Edge o Google Chrome en modo aplicación nativa (<code class="font-mono bg-white px-1 rounded border">--app=http://127.0.0.1:3000/login</code>) en pantalla completa sin barra de navegación.
+              </p>
+            </div>
+
+            <div class="p-5 rounded-2xl border border-rose-200 bg-rose-50/40 space-y-2">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold">
+                  <i data-lucide="square" class="w-4 h-4"></i>
+                </div>
+                <h3 class="text-sm font-bold text-slate-900">Detener_Servidor_POS.exe</h3>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                <strong>Protección financiera:</strong> Consulta si hay un turno de caja abierto (<code class="font-mono bg-white px-1 rounded border">/api/caja/estado</code>). Si está abierto, bloquea el apagado para exigir el arqueo y cierre. Si está cerrado, genera un respaldo preventivo y libera los puertos limpiamente.
+              </p>
+            </div>
+
+            <div class="p-5 rounded-2xl border border-blue-200 bg-blue-50/40 space-y-2">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold">
+                  <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+                </div>
+                <h3 class="text-sm font-bold text-slate-900">Reiniciar_Servidor_POS.exe</h3>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                <strong>Refresco rápido:</strong> Realiza un checkpoint pasivo de la base de datos (<code class="font-mono bg-white px-1 rounded border">PRAGMA wal_checkpoint</code>), recicla los procesos de PM2 en menos de 4 segundos y refresca la ventana sin perder datos ni desconectar la sesión.
+              </p>
+            </div>
+
+            <div class="p-5 rounded-2xl border border-amber-200 bg-amber-50/40 space-y-2">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center font-bold">
+                  <i data-lucide="life-buoy" class="w-4 h-4"></i>
+                </div>
+                <h3 class="text-sm font-bold text-slate-900">Recuperar_Servidor_POS.exe</h3>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                <strong>Rescate quirúrgico:</strong> Diagnóstica bloqueos de puertos TCP, repara permisos del motor SQLite, asegura las credenciales maestras y restablece el servicio ante cortes imprevistos de luz o fallos de red.
+              </p>
+            </div>
+          </div>
         </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="card-panel p-5 space-y-3 border-l-4 border-emerald-500">
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
-              <h3 class="text-sm font-bold text-slate-900">Iniciar_Servidor_POS.exe</h3>
-            </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              <strong>Control Diario:</strong> Realiza una petición HTTP de sondeo al puerto local. Si el servidor está apagado, lo levanta mediante PM2 en segundo plano. Luego, abre Microsoft Edge o Google Chrome en modo aplicación nativa (<code class="font-mono bg-slate-100 px-1 rounded">--app=http://127.0.0.1:3000/login</code>) en pantalla maximizada respetando la barra de tareas.
-            </p>
-          </div>
-
-          <div class="card-panel p-5 space-y-3 border-l-4 border-rose-500">
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full bg-rose-500"></span>
-              <h3 class="text-sm font-bold text-slate-900">Detener_Servidor_POS.exe</h3>
-            </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              <strong>Protección Financiera Activa:</strong> Antes de detener los procesos, consulta el estado de la caja (<code class="font-mono bg-slate-100 px-1 rounded">/api/caja/estado</code>). Si existe un turno abierto, bloquea el apagado y avisa al usuario para que realice el arqueo y cierre. Si la caja está cerrada, genera un respaldo preventivo y libera los puertos limpiamente.
-            </p>
-          </div>
-
-          <div class="card-panel p-5 space-y-3 border-l-4 border-blue-500">
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full bg-blue-500"></span>
-              <h3 class="text-sm font-bold text-slate-900">Reiniciar_Servidor_POS.exe</h3>
-            </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              <strong>Optimización en Caliente:</strong> Ejecuta un vaciado pasivo de registros WAL de SQLite (<code class="font-mono bg-slate-100 px-1 rounded">PRAGMA wal_checkpoint</code>), recicla los hilos de PM2 en menos de 4 segundos y refresca la conexión del navegador sin alterar la sesión de trabajo.
-            </p>
-          </div>
-
-          <div class="card-panel p-5 space-y-3 border-l-4 border-amber-500">
-            <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full bg-amber-500"></span>
-              <h3 class="text-sm font-bold text-slate-900">Recuperar_Servidor_POS.exe</h3>
-            </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              <strong>Rescate Quirúrgico y Diagnóstico:</strong> Diseñado para recuperar el sistema ante cortes imprevistos de luz o fallos de red. Diagnostica bloqueos de puertos, repara permisos, asegura la existencia de credenciales y levanta el servicio al estado previo.
-            </p>
-          </div>
-        </div>
-      </div>
+      </section>
 
       <!-- ========================================== -->
       <!-- SECCIÓN 4: SEGURIDAD Y RECUPERACIÓN (3F)   -->
       <!-- ========================================== -->
-      <div id="sec-seguridad" class="view-content space-y-6">
-        <div class="border-b border-slate-200 pb-4">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600 font-mono">Criptografía y Control de Acceso</span>
-          <h2 class="text-2xl font-black text-slate-900">4. Seguridad y Protocolo de 3 Factores</h2>
-          <p class="text-sm text-slate-500">Roles de usuario (RBAC) y restauración segura contra ataques de fuerza bruta.</p>
-        </div>
+      <section id="sec-seguridad" class="view-content space-y-5">
+        <div class="dashboard-card p-6 md:p-8 space-y-5">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#3F8A79] font-mono">Control de Acceso y Recuperación</span>
+            <h2 class="text-xl font-black text-slate-900">4. Seguridad y Protocolo de 3 Factores (3F)</h2>
+            <p class="text-xs text-slate-500">Matriz de permisos (RBAC) y restauración segura contra ataques de fuerza bruta.</p>
+          </div>
 
-        <div class="card-panel p-6 space-y-4">
-          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Credenciales Iniciales de Fábrica</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
-            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <span class="text-slate-400 block text-[10px] uppercase">Usuario</span>
+            <div class="p-3 bg-[#F8FAF9] border border-[#E0EDE8] rounded-xl">
+              <span class="text-slate-400 block text-[10px] uppercase">Usuario Maestro</span>
               <strong class="text-slate-900 text-sm">admin</strong>
             </div>
-            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <span class="text-slate-400 block text-[10px] uppercase">Contraseña</span>
+            <div class="p-3 bg-[#F8FAF9] border border-[#E0EDE8] rounded-xl">
+              <span class="text-slate-400 block text-[10px] uppercase">Contraseña Fábrica</span>
               <strong class="text-slate-900 text-sm">admin123</strong>
             </div>
-            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <div class="p-3 bg-[#F8FAF9] border border-[#E0EDE8] rounded-xl">
               <span class="text-slate-400 block text-[10px] uppercase">Documento 3F</span>
               <strong class="text-slate-900 text-sm">0000000000</strong>
             </div>
-            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <div class="p-3 bg-[#F8FAF9] border border-[#E0EDE8] rounded-xl">
               <span class="text-slate-400 block text-[10px] uppercase">PIN de Seguridad</span>
               <strong class="text-slate-900 text-sm">000000</strong>
             </div>
           </div>
-        </div>
 
-        <div class="card-panel p-6 space-y-4">
-          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Protocolo de 3 Factores Locales (Anti-Hackeo)</h3>
-          <p class="text-xs text-slate-600 leading-relaxed">
-            Para restaurar una contraseña olvidada sin conexión a internet y sin vulnerar la base de datos, el sistema valida directamente contra hashes <code class="font-mono bg-slate-100 px-1 rounded">bcrypt</code> en SQLite:
-          </p>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-            <div class="p-3.5 bg-blue-50/50 border border-blue-200 rounded-xl space-y-1">
-              <strong class="text-blue-900 font-bold block">Factor 1: Identidad</strong>
-              <span class="text-slate-600">Cédula o NIT registrado en la cuenta.</span>
+          <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wide">Protocolo Criptográfico de Restauración</h3>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Para recuperar una contraseña olvidada sin conexión a internet, el sistema valida directamente contra hashes <code class="font-mono bg-white px-1 rounded border">bcrypt</code> en SQLite los 3 factores registrados:
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+              <div class="p-3 bg-white rounded-xl border border-slate-200">
+                <strong class="text-slate-900 block">Factor 1: Cédula o NIT</strong>
+                <span class="text-slate-500 text-[11px]">Identificación oficial del titular.</span>
+              </div>
+              <div class="p-3 bg-white rounded-xl border border-slate-200">
+                <strong class="text-slate-900 block">Factor 2: PIN Numérico</strong>
+                <span class="text-slate-500 text-[11px]">Código confidencial de 6 dígitos.</span>
+              </div>
+              <div class="p-3 bg-white rounded-xl border border-slate-200">
+                <strong class="text-slate-900 block">Factor 3: Desafío Secreto</strong>
+                <span class="text-slate-500 text-[11px]">Respuesta exacta a la pregunta asignada.</span>
+              </div>
             </div>
-            <div class="p-3.5 bg-blue-50/50 border border-blue-200 rounded-xl space-y-1">
-              <strong class="text-blue-900 font-bold block">Factor 2: PIN Confidencial</strong>
-              <span class="text-slate-600">PIN numérico privado de 6 dígitos.</span>
+            <div class="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center gap-2 mt-2">
+              <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0"></i>
+              <span><strong>Bloqueo Persistente:</strong> Tras 3 intentos fallidos consecutivos, la cuenta se bloquea en base de datos durante 15 minutos automáticamente.</span>
             </div>
-            <div class="p-3.5 bg-blue-50/50 border border-blue-200 rounded-xl space-y-1">
-              <strong class="text-blue-900 font-bold block">Factor 3: Desafío Secreto</strong>
-              <span class="text-slate-600">Respuesta a la pregunta de seguridad elegida.</span>
-            </div>
-          </div>
-          <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center gap-2">
-            <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0"></i>
-            <span><strong>Protección contra fuerza bruta:</strong> Si se introducen datos incorrectos 3 veces consecutivas, la cuenta se bloquea en base de datos durante 15 minutos de forma persistente.</span>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- ========================================== -->
       <!-- SECCIÓN 5: OPERACIÓN DE LAS 3 CAJAS        -->
       <!-- ========================================== -->
-      <div id="sec-cajas" class="view-content space-y-6">
-        <div class="border-b border-slate-200 pb-4">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600 font-mono">Mostrador Comercial Especializado</span>
-          <h2 class="text-2xl font-black text-slate-900">5. Operación de las 3 Cajas Homologadas</h2>
-          <p class="text-sm text-slate-500">Módulos especializados para venta, alquiler y reserva sin fricción operativa.</p>
+      <section id="sec-cajas" class="view-content space-y-5">
+        <div class="dashboard-card p-6 md:p-8 space-y-5">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#3F8A79] font-mono">Mostrador Comercial Especializado</span>
+            <h2 class="text-xl font-black text-slate-900">5. Operación de las 3 Cajas Homologadas</h2>
+            <p class="text-xs text-slate-500">Módulos especializados para venta, alquiler y reserva con control de estado.</p>
+          </div>
+
+          <div class="space-y-4">
+            <div class="p-5 rounded-2xl border border-emerald-200 bg-emerald-50/30 space-y-2">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-900">Caja de Ventas y Sastrería (/caja/pos)</h3>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">Terminal Verde</span>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Facturación rápida con escáner de códigos de barras USB/Bluetooth, búsqueda instantánea de clientes, desglose de prendas terminadas o servicios de confección y arreglos. Admite pagos combinados (ej. Efectivo + Nequi/Daviplata).
+              </p>
+            </div>
+
+            <div class="p-5 rounded-2xl border border-amber-200 bg-amber-50/30 space-y-2">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-900">Caja de Alquileres y Depósitos (/caja/alquileres)</h3>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Terminal Naranja</span>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Contrato de entrega en custodia. Exige un <strong>Depósito en Garantía en Efectivo</strong> que se mantiene contabilizado en el arqueo del cajero hasta la devolución de las prendas. Calcula automáticamente recargos por mora diaria pactada si expira la fecha de entrega.
+              </p>
+            </div>
+
+            <div class="p-5 rounded-2xl border border-indigo-200 bg-indigo-50/30 space-y-2">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-900">Caja de Apartados y Reservas (/caja/apartados)</h3>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">Terminal Morada</span>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Reservas para eventos futuros con abonos iniciales. Bloquea las prendas en el catálogo para evitar alquileres o ventas cruzadas en las fechas reservadas, y emite comprobantes de saldo exigible al momento del retiro.
+              </p>
+            </div>
+          </div>
         </div>
-
-        <div class="space-y-4">
-          <!-- Caja de Ventas -->
-          <div class="card-panel p-5 border-l-4 border-emerald-500 space-y-2">
-            <div class="flex items-center justify-between">
-              <h3 class="text-sm font-bold text-slate-900">Terminal de Ventas POS y Sastrería (/caja/pos)</h3>
-              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Terminal Verde</span>
-            </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              Permite facturar productos terminados, prendas comerciales o servicios de sastrería y arreglos. Admite lectura con escáner de códigos de barras USB/Bluetooth, búsqueda instantánea por nombre o documento, y pagos divididos (ej. parte en Efectivo y parte por Transferencia).
-            </p>
-          </div>
-
-          <!-- Caja de Alquileres -->
-          <div class="card-panel p-5 border-l-4 border-amber-500 space-y-2">
-            <div class="flex items-center justify-between">
-              <h3 class="text-sm font-bold text-slate-900">Terminal de Alquileres y Depósitos (/caja/alquileres)</h3>
-              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Terminal Naranja</span>
-            </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              Controla el préstamo de prendas con contrato de custodia. Exige un <strong>Depósito en Garantía en Efectivo</strong> que permanece registrado en la gaveta física del cajero hasta la devolución de las prendas en buen estado. Calcula automáticamente penalizaciones por mora diaria si la fecha pactada expira.
-            </p>
-          </div>
-
-          <!-- Caja de Apartados -->
-          <div class="card-panel p-5 border-l-4 border-indigo-500 space-y-2">
-            <div class="flex items-center justify-between">
-              <h3 class="text-sm font-bold text-slate-900">Terminal de Apartados y Reservas (/caja/apartados)</h3>
-              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">Terminal Morada</span>
-            </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              Permite a los clientes apartar artículos para eventos futuros realizando abonos escalonados. Bloquea las prendas en el inventario para evitar cruces con ventas o alquileres inmediatos, y emite comprobantes de saldo pendiente exigible.
-            </p>
-          </div>
-        </div>
-      </div>
+      </section>
 
       <!-- ========================================== -->
       <!-- SECCIÓN 6: FACTURACIÓN E IMPRESIÓN         -->
       <!-- ========================================== -->
-      <div id="sec-facturacion" class="view-content space-y-6">
-        <div class="border-b border-slate-200 pb-4">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600 font-mono">Formatos y Salida Física</span>
-          <h2 class="text-2xl font-black text-slate-900">6. Sistema de Facturación e Impresión</h2>
-          <p class="text-sm text-slate-500">Diseño rectangular minimalista con paridad 100% entre pantalla, PDF e impresora.</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="card-panel p-5 space-y-2">
-            <div class="w-8 h-8 rounded bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs font-mono">58mm</div>
-            <h3 class="text-sm font-bold text-slate-900">Térmica 58 mm</h3>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              Formato ultra-compacto para impresoras de rollo estrecho. Optimiza márgenes y elimina cualquier desborde horizontal de texto.
-            </p>
+      <section id="sec-facturacion" class="view-content space-y-5">
+        <div class="dashboard-card p-6 md:p-8 space-y-5">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#3F8A79] font-mono">Formatos y Salida Física</span>
+            <h2 class="text-xl font-black text-slate-900">6. Sistema de Facturación e Impresión</h2>
+            <p class="text-xs text-slate-500">Diseño rectangular minimalista con paridad 100% entre pantalla, PDF e impresora.</p>
           </div>
 
-          <div class="card-panel p-5 space-y-2">
-            <div class="w-8 h-8 rounded bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs font-mono">80mm</div>
-            <h3 class="text-sm font-bold text-slate-900">Térmica 80 mm</h3>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              El estándar para tirillas de mostrador comercial. Permite imprimir desglose de productos, depósito en garantía y políticas del negocio.
-            </p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+              <span class="font-mono text-xs font-bold text-slate-900 block">Térmica 58 mm</span>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Formato ultra-compacto para impresoras de rollo estrecho. Optimiza márgenes horizontales evitando desbordes o textos cortados.
+              </p>
+            </div>
+
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+              <span class="font-mono text-xs font-bold text-slate-900 block">Térmica 80 mm</span>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                El formato estándar para tirillas de mostrador comercial. Permite desglosar líneas de prendas, depósito en custodia y cláusulas legales.
+              </p>
+            </div>
+
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+              <span class="font-mono text-xs font-bold text-slate-900 block">Media Carta Doble</span>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Genera 2 ejemplares idénticos en una sola hoja carta (Original Cliente y Copia Archivo) con línea de corte guiada al centro.
+              </p>
+            </div>
           </div>
 
-          <div class="card-panel p-5 space-y-2">
-            <div class="w-8 h-8 rounded bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs font-mono">Carta</div>
-            <h3 class="text-sm font-bold text-slate-900">Media Carta Doble</h3>
+          <div class="p-4 bg-white border border-slate-200 rounded-2xl space-y-2">
+            <strong class="text-xs font-bold text-slate-900 uppercase tracking-wide">Estándar de Paridad Visual</strong>
             <p class="text-xs text-slate-600 leading-relaxed">
-              Emite 2 ejemplares exactos en una sola hoja tamaño carta (Original Cliente y Copia Archivo) con línea de corte guiada al centro.
+              Las facturas eliminan curvas decorativas y sombras para garantizar máxima nitidez y ahorro de tinta. El logotipo de la empresa se aloja en un contenedor cuadrado de proporción fija (64x64 mm) que evita distorsiones o estiramientos.
             </p>
           </div>
         </div>
-
-        <div class="card-panel p-6 space-y-3">
-          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Regla de Paridad y Estándar Visual</h3>
-          <p class="text-xs text-slate-600 leading-relaxed">
-            Las facturas cumplen con un diseño limpio libre de sombras decorativas o bordes curvados que desgastan tinta. El logotipo de la empresa se aloja en un marco cuadrado ajustable de 64x64 mm que mantiene la proporción real de la imagen sin estiramientos. El documento mostrado en el navegador es idéntico al PDF descargado y a la impresión física.
-          </p>
-        </div>
-      </div>
+      </section>
 
       <!-- ========================================== -->
       <!-- SECCIÓN 7: TURNOS Y ARQUEO CIEGO           -->
       <!-- ========================================== -->
-      <div id="sec-turnos" class="view-content space-y-6">
-        <div class="border-b border-slate-200 pb-4">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600 font-mono">Auditoría Financiera en Tiempo Real</span>
-          <h2 class="text-2xl font-black text-slate-900">7. Control de Turnos y Arqueo Ciego</h2>
-          <p class="text-sm text-slate-500">Cierre estricto sin descuadres y control automático del cajón monedero.</p>
-        </div>
+      <section id="sec-turnos" class="view-content space-y-5">
+        <div class="dashboard-card p-6 md:p-8 space-y-5">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#3F8A79] font-mono">Control de Caja y Auditoría</span>
+            <h2 class="text-xl font-black text-slate-900">7. Control de Turnos y Arqueo Ciego</h2>
+            <p class="text-xs text-slate-500">Cierre estricto sin descuadres y control del cajón monedero.</p>
+          </div>
 
-        <div class="card-panel p-6 space-y-4">
-          <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-800 space-y-1">
+          <div class="p-4 bg-[#F8FAF9] border border-[#E0EDE8] rounded-2xl font-mono text-xs text-slate-800 space-y-1">
             <span class="text-[10px] text-slate-400 uppercase font-bold block">Fórmula Matemática de Arqueo:</span>
-            <div class="font-bold text-blue-700 text-sm">Efectivo Esperado = Base Inicial + Ventas Efectivo + Depósitos Custodia - Egresos/Gastos</div>
+            <div class="font-bold text-[#2F6E60] text-sm">Efectivo Esperado = Base Inicial + Ventas Efectivo + Depósitos Custodia - Egresos/Gastos</div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-600">
-            <div class="space-y-1">
+            <div class="p-4 bg-white border border-slate-200 rounded-2xl space-y-1">
               <strong class="text-slate-900 font-bold block">Arqueo Ciego (Doble Validación)</strong>
-              <p>
-                Al momento del cierre, el software no le revela el total recaudado al cajero. El dependiente debe contar y digitar físicamente los billetes y monedas. Una vez confirmado, el sistema emite el acta de cierre señalando si hubo cuadre exacto, sobrante o faltante.
-              </p>
+              <p>El software no revela el total esperado al cajero. El usuario debe contar físicamente los billetes y monedas. Al confirmar, el sistema emite el acta de cierre señalando si hubo cuadre exacto, sobrante o faltante.</p>
             </div>
-            <div class="space-y-1">
-              <strong class="text-slate-900 font-bold block">Apertura Automática del Cajón</strong>
-              <p>
-                El cajón monedero RJ11 se dispara mediante pulsos directos de la impresora térmica o presionando la tecla rápida <code class="font-mono bg-slate-100 px-1 rounded">F2</code> en cualquier momento que se requiera dar cambio.
-              </p>
+            <div class="p-4 bg-white border border-slate-200 rounded-2xl space-y-1">
+              <strong class="text-slate-900 font-bold block">Apertura Automática de Cajón Monedero</strong>
+              <p>El cajón RJ11 se dispara mediante pulsos directos de la impresora térmica tras cada cobro en efectivo o pulsando la tecla rápida <code class="font-mono bg-slate-100 px-1 rounded border">F2</code>.</p>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- ========================================== -->
       <!-- SECCIÓN 8: MIGRACIÓN MASIVA EN EXCEL       -->
       <!-- ========================================== -->
-      <div id="sec-migracion" class="view-content space-y-6">
-        <div class="border-b border-slate-200 pb-4">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600 font-mono">Importación y Carga Rápida</span>
-          <h2 class="text-2xl font-black text-slate-900">8. Migración Masiva con Plantillas Excel</h2>
-          <p class="text-sm text-slate-500">Estructura oficial para cargar clientes e inventario en bloque sin errores.</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="card-panel p-5 space-y-3">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                <i data-lucide="users" class="w-5 h-5"></i>
-              </div>
-              <div>
-                <h3 class="text-sm font-bold text-slate-900">Plantilla_Carga_Clientes.xlsx</h3>
-                <span class="text-[11px] text-blue-600 font-mono">Cartera y Directorio</span>
-              </div>
-            </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              Columnas obligatorias: Cédula/NIT, Nombre Completo, Teléfono Primario, Dirección, Ciudad y Correo Electrónico. Valida duplicados automáticamente.
-            </p>
+      <section id="sec-migracion" class="view-content space-y-5">
+        <div class="dashboard-card p-6 md:p-8 space-y-5">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#3F8A79] font-mono">Importación y Carga Rápida</span>
+            <h2 class="text-xl font-black text-slate-900">8. Migración Masiva con Plantillas Excel</h2>
+            <p class="text-xs text-slate-500">Formatos oficiales para importar datos en bloque sin errores de formato.</p>
           </div>
 
-          <div class="card-panel p-5 space-y-3">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                <i data-lucide="package" class="w-5 h-5"></i>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-5 rounded-2xl border border-blue-200 bg-blue-50/30 space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+                  <i data-lucide="users" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-slate-900">Plantilla_Carga_Clientes.xlsx</h3>
+                  <span class="text-[11px] text-blue-700 font-mono">Directorio y Cartera</span>
+                </div>
               </div>
-              <div>
-                <h3 class="text-sm font-bold text-slate-900">Plantilla_Carga_Inventario.xlsx</h3>
-                <span class="text-[11px] text-emerald-600 font-mono">Catálogo y Existencias</span>
-              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Columnas requeridas: Cédula/NIT, Nombre Completo, Teléfono Primario, Dirección, Ciudad y Correo Electrónico. Valida documentos duplicados de forma nativa.
+              </p>
             </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              Columnas obligatorias: Código Único, Nombre de la Prenda, Tipo (VENTA/ALQUILER), Categoría, Talla, Color, Stock Disponible y Precio Unitario.
-            </p>
+
+            <div class="p-5 rounded-2xl border border-emerald-200 bg-emerald-50/30 space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+                  <i data-lucide="package" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-slate-900">Plantilla_Carga_Inventario.xlsx</h3>
+                  <span class="text-[11px] text-emerald-700 font-mono">Catálogo y Existencias</span>
+                </div>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Columnas requeridas: Código Único, Nombre de Prenda, Tipo (VENTA/ALQUILER), Categoría, Talla, Color, Stock Disponible y Precio Unitario.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- ========================================== -->
       <!-- SECCIÓN 9: RESPALDOS Y SQLITE WAL          -->
       <!-- ========================================== -->
-      <div id="sec-respaldos" class="view-content space-y-6">
-        <div class="border-b border-slate-200 pb-4">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600 font-mono">Salvaguarda y Continuidad Operativa</span>
-          <h2 class="text-2xl font-black text-slate-900">9. Respaldo y Resiliencia SQLite WAL</h2>
-          <p class="text-sm text-slate-500">Estructura de bóvedas locales, tolerancia a fallos eléctricos y restauración.</p>
-        </div>
+      <section id="sec-respaldos" class="view-content space-y-5">
+        <div class="dashboard-card p-6 md:p-8 space-y-5">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#3F8A79] font-mono">Salvaguarda y Continuidad Operativa</span>
+            <h2 class="text-xl font-black text-slate-900">9. Respaldo y Resiliencia SQLite WAL</h2>
+            <p class="text-xs text-slate-500">Estructura de bóvedas locales, tolerancia a fallos eléctricos y restauración.</p>
+          </div>
 
-        <div class="card-panel p-6 space-y-4">
-          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Bóveda Central de Seguridad (C:\POS_BACKUPS)</h3>
-          <p class="text-xs text-slate-600 leading-relaxed">
-            El sistema mantiene aisladas las copias de seguridad en la raíz del disco <code class="font-mono bg-slate-100 px-1 rounded">C:\POS_BACKUPS\</code> para que nunca se pierdan si se desinstala o actualiza el aplicativo.
-          </p>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs font-mono">
-            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <span class="text-slate-400 block text-[10px] uppercase">Snapshots Diarios</span>
-              <strong class="text-slate-800">/historial/</strong>
-            </div>
-            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <span class="text-slate-400 block text-[10px] uppercase">Libro de Ventas</span>
-              <strong class="text-slate-800">/historial_facturas/</strong>
-            </div>
-            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <span class="text-slate-400 block text-[10px] uppercase">Arqueos de Caja</span>
-              <strong class="text-slate-800">/movimientos_caja/</strong>
+          <div class="p-4 bg-white border border-slate-200 rounded-2xl space-y-3">
+            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wide font-mono">Bóveda Central de Seguridad (C:\POS_BACKUPS)</h3>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Las copias de seguridad residen en la raíz del disco <code class="font-mono bg-slate-100 px-1 rounded border">C:\POS_BACKUPS\</code> aisladas de la aplicación para que nunca se borren si se actualiza o reinstala el sistema.
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <span class="text-slate-400 block text-[10px] uppercase">Snapshots Diarios</span>
+                <strong class="text-slate-800">/historial/</strong>
+              </div>
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <span class="text-slate-400 block text-[10px] uppercase">Libro de Ventas</span>
+                <strong class="text-slate-800">/historial_facturas/</strong>
+              </div>
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <span class="text-slate-400 block text-[10px] uppercase">Arqueos de Caja</span>
+                <strong class="text-slate-800">/movimientos_caja/</strong>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="card-panel p-6 space-y-3">
-          <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Protocolo de Restauración en Computador Nuevo</h3>
-          <ol class="list-decimal pl-4 text-xs text-slate-600 space-y-2">
-            <li>Instala el sistema con el asistente en el equipo nuevo.</li>
-            <li>Detén el servidor con <code class="font-mono bg-slate-100 px-1 rounded">Detener_Servidor_POS.exe</code>.</li>
-            <li>Copia tu archivo <code class="font-mono bg-slate-100 px-1 rounded">llanomio.db</code> de respaldo dentro de la carpeta <code class="font-mono bg-slate-100 px-1 rounded">C:\POS_Llanomio\database\</code>.</li>
-            <li>Inicia el servidor con <code class="font-mono bg-slate-100 px-1 rounded">Iniciar_Servidor_POS.exe</code>. La totalidad de clientes, facturas y deudas quedarán recuperados al instante.</li>
-          </ol>
+          <div class="p-4 bg-[#F8FAF9] border border-[#E0EDE8] rounded-2xl space-y-2">
+            <strong class="text-xs font-bold text-slate-900 uppercase tracking-wide">Protocolo de Restauración en Equipo Nuevo</strong>
+            <ol class="list-decimal pl-4 text-xs text-slate-600 space-y-1.5 pt-1">
+              <li>Instala el sistema con el asistente en el equipo nuevo.</li>
+              <li>Detén el servidor con <code class="font-mono bg-white px-1 rounded border">Detener_Servidor_POS.exe</code>.</li>
+              <li>Copia tu archivo <code class="font-mono bg-white px-1 rounded border">llanomio.db</code> de respaldo en la carpeta <code class="font-mono bg-white px-1 rounded border">C:\POS_Llanomio\database\</code>.</li>
+              <li>Inicia el servidor con <code class="font-mono bg-white px-1 rounded border">Iniciar_Servidor_POS.exe</code>. Todos los clientes, facturas y deudas quedarán activos de inmediato.</li>
+            </ol>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <!-- Footer Integrado -->
+      <footer class="pt-4 border-t border-[#D5E5E0] text-center text-[11px] text-slate-400 font-mono">
+        POS Llanomio — Manual Técnico por Módulos • 100% Offline-First
+      </footer>
 
     </main>
   </div>
 
-  <!-- Script JS de control de vistas -->
+  <!-- Script JS de control de vistas y búsqueda interactiva -->
   <script>
     lucide.createIcons();
+
+    const titulosModulos = {
+      'arquitectura': '1. Arquitectura y Requisitos',
+      'instalacion': '2. Instalación con Asistente GUI',
+      'ejecutables': '3. Suite de Ejecutables (.EXE)',
+      'seguridad': '4. Seguridad y Recuperación (3F)',
+      'cajas': '5. Operación de las 3 Cajas',
+      'facturacion': '6. Facturación (58mm, 80mm, Carta)',
+      'turnos': '7. Turnos y Arqueo Ciego',
+      'migracion': '8. Migración Masiva en Excel',
+      'respaldos': '9. Respaldo y SQLite WAL'
+    };
 
     function cambiarSeccion(idSeccion, btnElement) {
       // 1. Ocultar todas las secciones
@@ -626,19 +678,57 @@
         view.classList.remove('active');
       });
 
-      // 2. Mostrar la sección seleccionada
+      // 2. Mostrar la sección elegida
       const target = document.getElementById('sec-' + idSeccion);
       if (target) {
         target.classList.add('active');
       }
 
       // 3. Actualizar clase activa en los botones laterales
-      document.querySelectorAll('.sidebar-nav-btn').forEach(btn => {
+      document.querySelectorAll('.nav-btn-icon').forEach(btn => {
         btn.classList.remove('active');
       });
       if (btnElement) {
         btnElement.classList.add('active');
       }
+
+      // 4. Actualizar título en el Topbar
+      const badge = document.getElementById('badgeModulo');
+      if (badge && titulosModulos[idSeccion]) {
+        badge.innerText = titulosModulos[idSeccion];
+      }
+    }
+
+    // Buscador interactivo
+    const inputBusqueda = document.getElementById('busquedaFiltro');
+    if (inputBusqueda) {
+      inputBusqueda.addEventListener('input', function(e) {
+        const q = e.target.value.toLowerCase().trim();
+        if (!q) return;
+
+        const mapas = [
+          { k: ['instal', 'asistente', 'gui', 'puerto', 'firewall'], id: 'instalacion' },
+          { k: ['ejecutable', 'iniciar', 'detener', 'reiniciar', 'recuperar'], id: 'ejecutables' },
+          { k: ['seguridad', 'admin', 'clave', 'pin', 'pregunta', 'bloqueo'], id: 'seguridad' },
+          { k: ['caja', 'venta', 'alquiler', 'apartado', 'deposito', 'reserva'], id: 'cajas' },
+          { k: ['factura', 'impresion', 'termica', '58mm', '80mm', 'carta', 'pdf'], id: 'facturacion' },
+          { k: ['turno', 'arqueo', 'cierre', 'cajon', 'f2', 'efectivo'], id: 'turnos' },
+          { k: ['excel', 'plantilla', 'cliente', 'inventario', 'importar'], id: 'migracion' },
+          { k: ['respaldo', 'backup', 'wal', 'sqlite', 'restaurar', 'ci:\\pos_backups'], id: 'respaldos' },
+          { k: ['requisito', 'arquitectura', 'hardware', 'lan', 'wifi', 'red'], id: 'arquitectura' }
+        ];
+
+        for (const m of mapas) {
+          if (m.k.some(palabra => q.includes(palabra))) {
+            const btns = Array.from(document.querySelectorAll('.nav-btn-icon'));
+            const targetBtn = btns.find(b => b.getAttribute('onclick').includes(m.id));
+            if (targetBtn) {
+              cambiarSeccion(m.id, targetBtn);
+              break;
+            }
+          }
+        }
+      });
     }
   </script>
 </body>
