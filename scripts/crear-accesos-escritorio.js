@@ -65,6 +65,11 @@ function crearAccesosDirectos(directorioRaiz = null) {
 
     // Limpiar accesos viejos u obsoletos en el escritorio
     const obsoletos = [
+      "1. Inicializar Sitio POS (Levantar si Cayo).lnk",
+      "2. Detener y Pausar Servidor POS.lnk",
+      "3. Reiniciar Sitio POS (Optimizar Velocidad).lnk",
+      "4. Activar Inicio Automatico con Windows.lnk",
+      "5. Abrir Terminal POS Pantalla Completa.lnk",
       "Reiniciar Servidor POS.lnk",
       "POS Llanomio - Recuperar y Levantar Servidor.lnk",
       "POS Llanomio - Carpeta Respaldos.lnk",
