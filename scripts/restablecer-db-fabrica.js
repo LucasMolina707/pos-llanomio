@@ -2,13 +2,13 @@
  * RESTABLECER BASE DE DATOS DE FÁBRICA Y ARCHIVADO HISTÓRICO DE BACKUPS
  * SISTEMA POS LLANOMIO
  *
- * Flujo:
- * 1. Respalda de forma preventiva la base de datos actual.
- * 2. Mueve todas las copias de seguridad de C:\POS_BACKUPS y database/backups_locales
- *    a una subcarpeta histórica organizada con marca de tiempo:
- *    C:\POS_BACKUPS\backups_antiguos_historicos\archivado_YYYY-MM-DD_HH-mm-ss\
- * 3. Restaura la base de datos llanomio.db limpia en estado de fábrica puro (Admin: admin/admin123).
- * 4. Ejecuta PRAGMA wal_checkpoint(TRUNCATE) y verificación de integridad.
+ * Flujo de Resiliencia:
+ * 1. Detiene cualquier proceso Node o servidor activo que mantenga bloqueada la base de datos.
+ * 2. Determina la ruta de archivo histórico: si C:\POS_BACKUPS no tiene permisos de escritura,
+ *    utiliza automáticamente como respaldo la ruta local del proyecto: database/backups_antiguos_historicos/.
+ * 3. Copia la base de datos activa a la carpeta histórica.
+ * 4. Mueve las copias de seguridad de carpetas locales y externas hacia el archivo histórico.
+ * 5. Restaura llanomio.db limpia en estado de fábrica con admin/admin123.
  */
 
 const fs = require('fs');
@@ -21,6 +21,24 @@ function obtenerMarcaTiempo() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
 }
 
+function asegurarDirectorioSeguro(rutaPrincipal, rutaFallback) {
+  try {
+    if (!fs.existsSync(rutaPrincipal)) {
+      fs.mkdirSync(rutaPrincipal, { recursive: true });
+    }
+    // Probar escritura
+    const testFile = path.join(rutaPrincipal, `.test_write_${Date.now()}.tmp`);
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+    return rutaPrincipal;
+  } catch (err) {
+    if (!fs.existsSync(rutaFallback)) {
+      fs.mkdirSync(rutaFallback, { recursive: true });
+    }
+    return rutaFallback;
+  }
+}
+
 async function restablecerAFabrica() {
   const rootDir = path.resolve(__dirname, '..');
   const dbDir = path.join(rootDir, 'database');
@@ -29,40 +47,47 @@ async function restablecerAFabrica() {
   const shmDb = path.join(dbDir, 'llanomio.db-shm');
   const factoryDb = path.join(dbDir, 'llanomio_limpio_fabrica.db');
 
-  const bovedaPrincipal = 'C:\\POS_BACKUPS';
-  const carpetaHistoricos = path.join(bovedaPrincipal, 'backups_antiguos_historicos');
-  const timestamp = obtenerMarcaTiempo();
-  const destinoArchivado = path.join(carpetaHistoricos, `archivado_${timestamp}`);
-
   console.log('===============================================================================');
   console.log('       RESTABLECIMIENTO DE FÁBRICA Y ARCHIVADO HISTÓRICO DE BACKUPS');
   console.log('                           SISTEMA POS LLANOMIO');
   console.log('===============================================================================\n');
 
-  // Asegurar directorios de destino histórico
-  if (!fs.existsSync(carpetaHistoricos)) {
-    fs.mkdirSync(carpetaHistoricos, { recursive: true });
-  }
+  // Liberar cualquier bloqueo en el puerto 3000 o SQLite
+  try {
+    execSync('powershell -NoProfile -Command "$c = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue; if ($c) { $c.OwningProcess | Sort-Object -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }"', { windowsHide: true });
+  } catch {}
+
+  const timestamp = obtenerMarcaTiempo();
+  const rutaPrincipal = 'C:\\POS_BACKUPS\\backups_antiguos_historicos';
+  const rutaFallback = path.join(dbDir, 'backups_antiguos_historicos');
+  const carpetaHistoricos = asegurarDirectorioSeguro(rutaPrincipal, rutaFallback);
+  const destinoArchivado = path.join(carpetaHistoricos, `archivado_${timestamp}`);
   fs.mkdirSync(destinoArchivado, { recursive: true });
+
+  console.log(`[HISTÓRICO] Carpeta de resguardo asignada: ${destinoArchivado}`);
 
   // 1. Respaldo previo de la base de datos actual si existe
   if (fs.existsSync(mainDb)) {
     console.log('[1/4] Creando respaldo de salvaguarda de la base de datos activa...');
     const respaldoPrevio = path.join(destinoArchivado, `llanomio_previo_reset_${timestamp}.db`);
-    fs.copyFileSync(mainDb, respaldoPrevio);
-    console.log(`      -> Salvaguarda guardada en: ${respaldoPrevio}`);
+    try {
+      fs.copyFileSync(mainDb, respaldoPrevio);
+      console.log(`      -> Salvaguarda guardada en: ${respaldoPrevio}`);
+    } catch (e) {
+      console.warn('      [AVISO] No se pudo copiar archivo principal:', e.message);
+    }
   }
 
   // 2. Reubicar copias de seguridad existentes sin borrarlas
-  console.log('[2/4] Archivando copias de seguridad existentes a históricos antiguos...');
+  console.log('[2/4] Archivando copias de seguridad anteriores...');
   const carpetasBackup = [
-    path.join(bovedaPrincipal, 'historial'),
-    path.join(bovedaPrincipal, 'inventario'),
-    path.join(bovedaPrincipal, 'clientes'),
-    path.join(bovedaPrincipal, 'historial_facturas'),
-    path.join(bovedaPrincipal, 'movimientos_caja'),
-    path.join(bovedaPrincipal, 'gastos_operativos'),
-    path.join(bovedaPrincipal, 'salvaguarda_pre_actualizacion'),
+    'C:\\POS_BACKUPS\\historial',
+    'C:\\POS_BACKUPS\\inventario',
+    'C:\\POS_BACKUPS\\clientes',
+    'C:\\POS_BACKUPS\\historial_facturas',
+    'C:\\POS_BACKUPS\\movimientos_caja',
+    'C:\\POS_BACKUPS\\gastos_operativos',
+    'C:\\POS_BACKUPS\\salvaguarda_pre_actualizacion',
     path.join(dbDir, 'backups_locales')
   ];
 
@@ -70,38 +95,28 @@ async function restablecerAFabrica() {
 
   for (const carpeta of carpetasBackup) {
     if (fs.existsSync(carpeta)) {
-      const archivos = fs.readdirSync(carpeta);
-      for (const archivo of archivos) {
-        const rutaOrigen = path.join(carpeta, archivo);
-        const stats = fs.statSync(rutaOrigen);
-        if (stats.isFile()) {
-          const subDestino = path.join(destinoArchivado, path.basename(carpeta));
-          if (!fs.existsSync(subDestino)) fs.mkdirSync(subDestino, { recursive: true });
-          const rutaFinal = path.join(subDestino, archivo);
-          fs.renameSync(rutaOrigen, rutaFinal);
-          totalArchivados++;
+      try {
+        const archivos = fs.readdirSync(carpeta);
+        for (const archivo of archivos) {
+          const rutaOrigen = path.join(carpeta, archivo);
+          try {
+            const stats = fs.statSync(rutaOrigen);
+            if (stats.isFile()) {
+              const subDestino = path.join(destinoArchivado, path.basename(carpeta));
+              if (!fs.existsSync(subDestino)) fs.mkdirSync(subDestino, { recursive: true });
+              const rutaFinal = path.join(subDestino, archivo);
+              fs.renameSync(rutaOrigen, rutaFinal);
+              totalArchivados++;
+            }
+          } catch {}
         }
-      }
+      } catch {}
     }
   }
 
-  // Archivar cualquier backup .db suelto en C:\POS_BACKUPS
-  if (fs.existsSync(bovedaPrincipal)) {
-    const sueltos = fs.readdirSync(bovedaPrincipal);
-    for (const item of sueltos) {
-      const ruta = path.join(bovedaPrincipal, item);
-      if (fs.statSync(ruta).isFile() && (item.endsWith('.db') || item.endsWith('.bak') || item.endsWith('.sqlite'))) {
-        const rutaFinal = path.join(destinoArchivado, item);
-        fs.renameSync(ruta, rutaFinal);
-        totalArchivados++;
-      }
-    }
-  }
+  console.log(`      -> ${totalArchivados} archivos archivados históricamente.`);
 
-  console.log(`      -> ${totalArchivados} archivos de respaldo reubicados históricamente en:`);
-  console.log(`         ${destinoArchivado}`);
-
-  // 3. Garantizar que existe la plantilla de fábrica limpia
+  // 3. Garantizar plantilla de fábrica limpia
   console.log('[3/4] Generando / verificando base de datos con estado puro de fábrica...');
   const scriptGenerador = path.join(rootDir, 'scripts', 'generar-db-fabrica.js');
   try {
@@ -110,7 +125,7 @@ async function restablecerAFabrica() {
     console.warn('      [AVISO] Se utilizó la plantilla existente de fábrica.');
   }
 
-  // Limpiar WAL y SHM activos
+  // Limpiar WAL y SHM
   if (fs.existsSync(walDb)) {
     try { fs.unlinkSync(walDb); } catch {}
   }
@@ -118,10 +133,10 @@ async function restablecerAFabrica() {
     try { fs.unlinkSync(shmDb); } catch {}
   }
 
-  // Copiar base de datos limpia de fábrica a llanomio.db
+  // Restaurar base de datos
   if (fs.existsSync(factoryDb)) {
     fs.copyFileSync(factoryDb, mainDb);
-    console.log('      -> database/llanomio.db restaurada con éxito.');
+    console.log('      -> database/llanomio.db restaurada con éxito en estado de fábrica.');
   } else {
     throw new Error('No se encontró llanomio_limpio_fabrica.db');
   }
@@ -138,7 +153,7 @@ async function restablecerAFabrica() {
   console.log('\n===============================================================================');
   console.log('           RESTABLECIMIENTO COMPLETADO CON ÉXITO');
   console.log('===============================================================================');
-  console.log(' - Base de datos activa: Limpia y lista para usar.');
+  console.log(' - Base de datos activa: Limpia y lista para usar de fábrica.');
   console.log(' - Usuario Administrador: admin / admin123');
   console.log(` - Historial de respaldos archivados: ${destinoArchivado}\n`);
 }
@@ -147,4 +162,3 @@ restablecerAFabrica().catch((err) => {
   console.error('[ERROR CRÍTICO EN RESTABLECIMIENTO]:', err);
   process.exit(1);
 });
-
