@@ -35,6 +35,14 @@ El sistema elimina la dependencia y costos recurrentes de servicios en la nube (
 
 ```text
 pos-llanomio/
+├── INSTALADOR_MAESTRO_UNICO_POS.bat  # Instalador oficial de servicios, PM2, Firewall y accesos
+├── INICIAR_O_RECUPERAR_SERVIDOR_POS.bat # Iniciador unico resiliente (arranque normal y recuperacion ante caidas)
+├── DETENER_SERVIDOR_POS.bat          # Detencion limpia de servicios PM2, node y liberacion de puertos
+├── RESTABLECER_BASE_DATOS_FABRICA.bat # Restablecedor de base de datos limpia de fabrica (admin123, YOANA)
+├── PREPARAR_PAQUETE_LIMPIO_PARA_COMPRIMIR.bat # Limpieza profunda y optimizacion para comprimir en .ZIP
+├── CONTROL_GENERAL_POS.bat           # Panel de control maestro administrativo (opciones 0 a 9)
+├── ABRIR_SISTEMA_PANTALLA_COMPLETA.bat # Acceso directo a terminal mostrador en Modo Kiosco
+├── INICIAR_MODO_DESARROLLO.bat       # Lanzador rapido para entorno de desarrollo (Next Dev)
 ├── .antigravityrules                  # Reglas maestras del proyecto LLANOMIO
 ├── .env                              # Variables de entorno activas (DATABASE_URL, PORT, JWT_SECRET)
 ├── .env.example                      # Plantilla de entorno para nuevas tiendas
@@ -42,7 +50,6 @@ pos-llanomio/
 ├── CONTEXTO_POS.md                   # Documentación viva y bitácora técnica de arquitectura
 ├── ecosystem.config.js               # Orquestación de procesos de PM2 (Next.js + Proxy mDNS)
 ├── start-pos.js                      # Script de arranque nativo de Next.js en puerto 3000
-├── server-mdns.js                    # Servidor proxy HTTP puerto 80 y anuncio Bonjour llanomio.local
 ├── next.config.mjs                   # Configuración del servidor Next.js
 ├── package.json                      # Dependencias y scripts de ejecución
 ├── postcss.config.mjs                # Configuración de PostCSS

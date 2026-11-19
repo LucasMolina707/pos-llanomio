@@ -21,7 +21,11 @@ namespace AuroraHost.POS
                 Environment.SetEnvironmentVariable("TMP", tmpDir);
 
                 // 1. Ejecutar Recuperar y Levantar Servidor
-                string scriptRecuperar = Path.Combine(baseDir, "RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat");
+                string scriptRecuperar = Path.Combine(baseDir, "INICIAR_O_RECUPERAR_SERVIDOR_POS.bat");
+                if (!File.Exists(scriptRecuperar))
+                {
+                    scriptRecuperar = Path.Combine(baseDir, "RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat");
+                }
                 if (File.Exists(scriptRecuperar))
                 {
                     ProcessStartInfo psi = new ProcessStartInfo

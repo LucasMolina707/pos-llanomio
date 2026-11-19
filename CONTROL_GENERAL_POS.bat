@@ -67,14 +67,14 @@ echo   - Red LAN:        http://!LOCAL_DOMAIN!:!PORT!/login
 echo   - Instancia:      !INSTANCE_ID!
 echo.
 echo [0] Instalacion y Despliegue Maestro desde Cero (Node.js, BD, Autoarranque)
-echo [1] Iniciar / Levantar Servidor POS (1_INICIALIZAR_SITIO_POS)
-echo [2] Abrir Terminal POS Pantalla Completa (5_ABRIR_POS_PANTALLA_COMPLETA)
+echo [1] Iniciar / Levantar Servidor POS (INICIAR_O_RECUPERAR_SERVIDOR_POS)
+echo [2] Abrir Terminal POS Pantalla Completa (ABRIR_SISTEMA_PANTALLA_COMPLETA)
 echo [3] Reiniciar Sitio POS y Optimizar Velocidad (3_REINICIAR_SITIO_RAPIDO_POS)
 echo [4] Reconfigurar Puertos TCP y Dominio Local de Red
 echo [5] Copias de Seguridad y Restauracion de Base de Datos
 echo [6] Aplicar Actualizacion Segura (Parche .ZIP o GitHub)
 echo [7] Monitoreo y Servicio Zabbix Agent 2
-echo [8] Detener y Pausar Servidor POS (2_DETENER_PAUSAR_SERVIDOR_POS)
+echo [8] Detener y Pausar Servidor POS (DETENER_SERVIDOR_POS)
 echo [9] Activar Inicio Automatico con Windows (4_ACTIVAR_INICIO_AUTOMATICO_PC)
 echo [X] Salir
 echo ===============================================================================
@@ -86,11 +86,11 @@ if "%OPC_MAE%"=="0" (
     goto :MENU_MAESTRO
 )
 if "%OPC_MAE%"=="1" (
-    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\1_INICIALIZAR_SITIO_POS.bat"
+    call "%PROJECT_ROOT%\INICIAR_O_RECUPERAR_SERVIDOR_POS.bat"
     goto :MENU_MAESTRO
 )
 if "%OPC_MAE%"=="2" (
-    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\5_ABRIR_POS_PANTALLA_COMPLETA.bat"
+    call "%PROJECT_ROOT%\ABRIR_SISTEMA_PANTALLA_COMPLETA.bat"
     goto :MENU_MAESTRO
 )
 if "%OPC_MAE%"=="3" (
@@ -114,7 +114,7 @@ if "%OPC_MAE%"=="7" (
     goto :MENU_MAESTRO
 )
 if "%OPC_MAE%"=="8" (
-    call "%PROJECT_ROOT%\instalador_tienda\2_INICIADORES_Y_ACTIVADORES\2_DETENER_PAUSAR_SERVIDOR_POS.bat"
+    call "%PROJECT_ROOT%\DETENER_SERVIDOR_POS.bat"
     goto :MENU_MAESTRO
 )
 if "%OPC_MAE%"=="9" (

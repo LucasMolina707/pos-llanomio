@@ -94,7 +94,11 @@ namespace AuroraHost.POS
             try
             {
                 // 1. Ejecutar preparacion de base de datos e integridad
-                string scriptRecuperar = Path.Combine(baseDir, "RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat");
+                string scriptRecuperar = Path.Combine(baseDir, "INICIAR_O_RECUPERAR_SERVIDOR_POS.bat");
+                if (!File.Exists(scriptRecuperar))
+                {
+                    scriptRecuperar = Path.Combine(baseDir, "RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat");
+                }
                 if (File.Exists(scriptRecuperar))
                 {
                     ProcessStartInfo psi = new ProcessStartInfo();

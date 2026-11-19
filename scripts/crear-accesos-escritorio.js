@@ -35,14 +35,14 @@ const DEFINICIONES_BOTONES_AURORA = [
   {
     nombreLnk: "Iniciar Servidor POS.lnk",
     scriptExe: "Iniciar_Servidor_POS.exe",
-    scriptBat: "1_INICIALIZAR_SITIO_POS.bat",
+    scriptBat: "INICIAR_O_RECUPERAR_SERVIDOR_POS.bat",
     iconoIco: "icono_iniciar_verde.ico",
     descripcion: "Iniciar Servidor y Abrir Sistema POS Llanomio",
   },
   {
     nombreLnk: "Detener Servidor POS.lnk",
     scriptExe: "Detener_Servidor_POS.exe",
-    scriptBat: "2_DETENER_PAUSAR_SERVIDOR_POS.bat",
+    scriptBat: "DETENER_SERVIDOR_POS.bat",
     iconoIco: "icono_detener_rojo.ico",
     descripcion: "Detener Servidor Local Aurora POS",
   },
@@ -91,7 +91,7 @@ function crearAccesosDirectos(directorioRaiz = null) {
     for (const btn of DEFINICIONES_BOTONES_AURORA) {
       const rutaLnk = path.join(escritorio, btn.nombreLnk);
       const targetExe = btn.scriptExe ? path.join(root, btn.scriptExe) : null;
-      const targetBat = path.join(dirIniciadores, btn.scriptBat);
+      const targetBat = fs.existsSync(path.join(root, btn.scriptBat)) ? path.join(root, btn.scriptBat) : path.join(dirIniciadores, btn.scriptBat);
       const rutaFinalTarget = (targetExe && fs.existsSync(targetExe)) ? targetExe : targetBat;
       const rutaIco = path.join(dirIconos, btn.iconoIco);
 
