@@ -17,10 +17,15 @@ import {
   Smartphone,
   Layers,
   Activity,
+  DollarSign,
+  ShieldCheck,
 } from "lucide-react";
 
 interface MetricasData {
   ingresosNetos: number;
+  totalGastos?: number;
+  utilidadNeta?: number;
+  balanceNeto?: number;
   cuentasPorCobrar: number;
   morasRecaudadas: number;
   totalPrendasAlquiladas: number;
@@ -286,20 +291,20 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
         </div>
       </div>
 
-      {/* 2. Fila de Indicadores Clave (4 Tarjetas KPI) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {/* KPI 1: Ingresos Netos Recaudados */}
+      {/* 2. Fila Simplificada de Métricas Clave (5 Tarjetas KPI) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+        {/* KPI 1: Ingresos Totales */}
         <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Ingresos Recaudados
+              Ingresos Totales
             </span>
-            <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
-              <TrendingUp className="h-4 w-4" />
+            <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center">
+              <DollarSign className="h-4 w-4" />
             </div>
           </div>
           <div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-tight">
               {cargando ? (
                 <div className="h-7 w-28 bg-slate-200 rounded-md animate-pulse"></div>
               ) : (
@@ -312,59 +317,66 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
           </div>
         </div>
 
-        {/* KPI 2: Efectivo en Caja vs. Medios Digitales */}
+        {/* KPI 2: Total Efectivo */}
         <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Efectivo vs. Digitales
+              Total Efectivo
             </span>
-            <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center">
-              <Vault className="h-4 w-4" />
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
+              <Banknote className="h-4 w-4" />
             </div>
           </div>
           <div>
-            <div className="flex items-baseline justify-between text-xs font-bold text-slate-700 mb-1.5">
-              <span className="text-emerald-700">
-                Efvo: {cargando ? "..." : formatearDinero(desgloseMetodos?.totalEfectivo || 0)}
-              </span>
-              <span className="text-blue-700">
-                Dig: {cargando ? "..." : formatearDinero(desgloseMetodos?.totalDigital || 0)}
-              </span>
+            <div className="text-xl sm:text-2xl font-black text-emerald-600 font-mono tracking-tight">
+              {cargando ? (
+                <div className="h-7 w-28 bg-slate-200 rounded-md animate-pulse"></div>
+              ) : (
+                formatearDinero(desgloseMetodos?.totalEfectivo || dondeEstaElDinero?.efectivoFisicoPeriodo || 0)
+              )}
             </div>
-
-            {/* Barra de progreso de distribución */}
-            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
-              <div
-                className="bg-emerald-500 h-full transition-all duration-300"
-                style={{ width: `${pctEfectivo}%` }}
-                title={`Efectivo: ${pctEfectivo}%`}
-              ></div>
-              <div
-                className="bg-blue-500 h-full transition-all duration-300"
-                style={{ width: `${pctDigital}%` }}
-                title={`Digital: ${pctDigital}%`}
-              ></div>
-            </div>
-
-            <div className="flex justify-between text-[10px] font-semibold text-slate-400 mt-1">
-              <span>{pctEfectivo}% Efectivo</span>
-              <span>{pctDigital}% Digital</span>
-            </div>
+            <p className="text-[11px] font-semibold text-slate-500 mt-1">
+              Recaudado en efectivo físico
+            </p>
           </div>
         </div>
 
-        {/* KPI 3: Depósitos en Custodia (Alquileres + Apartados) */}
+        {/* KPI 3: Transacciones / Digitales */}
         <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Depósitos en Custodia
+              Transacciones
             </span>
-            <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center">
-              <ClockAlert className="h-4 w-4" />
+            <div className="h-8 w-8 rounded-lg bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center">
+              <Smartphone className="h-4 w-4" />
             </div>
           </div>
           <div>
-            <div className="text-xl sm:text-2xl font-black text-amber-700 tracking-tight">
+            <div className="text-xl sm:text-2xl font-black text-purple-600 font-mono tracking-tight">
+              {cargando ? (
+                <div className="h-7 w-28 bg-slate-200 rounded-md animate-pulse"></div>
+              ) : (
+                formatearDinero(desgloseMetodos?.totalDigital || dondeEstaElDinero?.totalCuentasDigitales || 0)
+              )}
+            </div>
+            <p className="text-[11px] font-semibold text-slate-500 mt-1">
+              Nequi, Daviplata, Bancolombia, etc.
+            </p>
+          </div>
+        </div>
+
+        {/* KPI 4: Depósitos en Custodia */}
+        <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Depósitos
+            </span>
+            <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+          </div>
+          <div>
+            <div className="text-xl sm:text-2xl font-black text-amber-700 font-mono tracking-tight">
               {cargando ? (
                 <div className="h-7 w-28 bg-slate-200 rounded-md animate-pulse"></div>
               ) : (
@@ -372,31 +384,37 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
               )}
             </div>
             <p className="text-[11px] font-semibold text-slate-500 mt-1">
-              Garantías de alquileres activos y apartados (custodia)
+              Garantías alquileres y apartados
             </p>
           </div>
         </div>
 
-        {/* KPI 4: Dinero en la Calle (Saldos por Cobrar + Moras Activas) */}
+        {/* KPI 5: Utilidad Neta */}
         <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Dinero en la Calle
+              Utilidades
             </span>
-            <div className="h-8 w-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
-              <AlertTriangle className="h-4 w-4" />
+            <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
+              <TrendingUp className="h-4 w-4" />
             </div>
           </div>
           <div>
-            <div className="text-xl sm:text-2xl font-black text-rose-600 tracking-tight">
+            <div
+              className={`text-xl sm:text-2xl font-black font-mono tracking-tight ${
+                (metricas?.utilidadNeta ?? metricas?.ingresosNetos ?? 0) >= 0
+                  ? "text-emerald-700"
+                  : "text-rose-600"
+              }`}
+            >
               {cargando ? (
                 <div className="h-7 w-28 bg-slate-200 rounded-md animate-pulse"></div>
               ) : (
-                formatearDinero(metricas?.dineroEnLaCalle ?? metricas?.cuentasPorCobrar ?? dondeEstaElDinero?.cuentasPorCobrar ?? 0)
+                formatearDinero(metricas?.utilidadNeta ?? metricas?.ingresosNetos ?? 0)
               )}
             </div>
             <p className="text-[11px] font-semibold text-slate-500 mt-1">
-              Saldos activos + moras de clientes vencidos
+              Ingresos - Gastos operativos
             </p>
           </div>
         </div>

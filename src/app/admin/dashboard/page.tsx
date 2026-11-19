@@ -513,208 +513,66 @@ export default function DashboardGerencialPage() {
         </div>
       )}
 
-      {/* SECCIÓN 1: ¿DÓNDE ESTÁ EL DINERO? (TRAZABILIDAD EXACTA DE LIQUIDEZ) */}
-      <div className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
-              <Banknote className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-                ¿Dónde está el Dinero? (Trazabilidad de Liquidez)
-              </h2>
-              <p className="text-xs text-slate-500">
-                Auditoría en tiempo real de billetes en gaveta, saldos digitales en bancos, depósitos en custodia y dinero en la calle
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 w-fit">
-            Período: <strong className="text-slate-900 uppercase">{periodoActivo === "DIA" ? "Día (Hoy)" : periodoActivo === "MES" ? "Mes Actual" : periodoActivo === "ANIO" ? "Año Actual" : "Personalizado"}</strong>
-          </span>
-        </div>
-
-        {/* 4 Tarjetas de Liquidez */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* 1. Efectivo Físico */}
-          <div className="bg-gradient-to-br from-emerald-50/60 to-white rounded-xl p-4 border border-emerald-200/80 shadow-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Banknote className="w-4 h-4 text-emerald-600" />
-                Efectivo Físico
-              </span>
-              <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                En Caja
-              </span>
-            </div>
-            <div className="text-2xl font-black text-emerald-900 font-mono tracking-tight">
-              {formatearDinero(dondeEstaElDinero?.efectivoFisicoPeriodo ?? metodosPago.totalEfectivo)}
-            </div>
-            <div className="pt-2 border-t border-emerald-100 space-y-1 text-xs text-emerald-800">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">En Gaveta (Turno):</span>
-                <span className="font-bold font-mono">
-                  {formatearDinero(dondeEstaElDinero?.efectivoEnGavetaTurno ?? turnoActual?.efectivoEnGaveta ?? 0)}
-                </span>
-              </div>
-              {turnoActual && (
-                <div className="flex items-center justify-between text-[11px] text-emerald-700">
-                  <span>Base: {formatearDinero(dondeEstaElDinero?.baseInicialGaveta ?? turnoActual.baseInicial)}</span>
-                  <span>+ Recaudado: {formatearDinero(dondeEstaElDinero?.efectivoRecaudadoTurno ?? (dondeEstaElDinero?.efectivoEnGavetaTurno ? dondeEstaElDinero.efectivoEnGavetaTurno - turnoActual.baseInicial : 0))}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 2. Cuentas Digitales o Consignaciones */}
-          <div className="bg-gradient-to-br from-blue-50/60 to-white rounded-xl p-4 border border-blue-200/80 shadow-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Smartphone className="w-4 h-4 text-blue-600" />
-                Cuentas Digitales / Consignaciones
-              </span>
-              <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
-                Bancos & Apps
-              </span>
-            </div>
-            <div className="text-2xl font-black text-blue-900 font-mono tracking-tight">
-              {formatearDinero(dondeEstaElDinero?.cuentasDigitalesOConsignaciones ?? dondeEstaElDinero?.totalCuentasDigitales ?? (metodosPago.totalNequi + metodosPago.totalDaviplata + (metodosPago.totalBancolombia || 0) + (metodosPago.totalLlave || 0) + metodosPago.totalTransferencia + (metodosPago.totalConsignacion || 0)))}
-            </div>
-            <div className="pt-2 border-t border-blue-100 flex flex-wrap gap-1 text-[11px]">
-              <span className="bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded">
-                Neq: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.nequi ?? metodosPago.totalNequi)}
-              </span>
-              <span className="bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">
-                Ban: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.bancolombia ?? metodosPago.totalBancolombia ?? 0)}
-              </span>
-              <span className="bg-rose-100 text-rose-800 font-bold px-1.5 py-0.5 rounded">
-                Dav: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.daviplata ?? metodosPago.totalDaviplata)}
-              </span>
-              {((dondeEstaElDinero?.desgloseDigital?.llave ?? metodosPago.totalLlave ?? 0) > 0) && (
-                <span className="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">
-                  Llave: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.llave ?? metodosPago.totalLlave ?? 0)}
-                </span>
-              )}
-              {((dondeEstaElDinero?.desgloseDigital?.transferencia ?? metodosPago.totalTransferencia ?? 0) > 0) && (
-                <span className="bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded">
-                  Transf: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.transferencia ?? metodosPago.totalTransferencia ?? 0)}
-                </span>
-              )}
-              {((dondeEstaElDinero?.desgloseDigital?.consignacion ?? metodosPago.totalConsignacion ?? 0) > 0) && (
-                <span className="bg-indigo-100 text-indigo-800 font-bold px-1.5 py-0.5 rounded">
-                  Consig: {formatearDinero(dondeEstaElDinero?.desgloseDigital?.consignacion ?? metodosPago.totalConsignacion ?? 0)}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* 3. Depósitos en Custodia (Alquileres + Apartados) */}
-          <div className="bg-gradient-to-br from-amber-50/60 to-white rounded-xl p-4 border border-amber-200/80 shadow-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-amber-600" />
-                Depósitos en Custodia
-              </span>
-              <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
-                Garantías
-              </span>
-            </div>
-            <div className="text-2xl font-black text-amber-900 font-mono tracking-tight">
-              {formatearDinero(dondeEstaElDinero?.depositosEnCustodia ?? dondeEstaElDinero?.depositosCustodia ?? metricas.depositosCustodia ?? 0)}
-            </div>
-            <div className="pt-2 border-t border-amber-100 text-xs text-amber-900 space-y-1">
-              <div className="flex justify-between font-bold text-[11px]">
-                <span>Alquileres: {formatearDinero(dondeEstaElDinero?.desgloseCustodia?.alquileresActivos ?? dondeEstaElDinero?.depositosCustodia ?? 0)}</span>
-                <span>Apartados: {formatearDinero(dondeEstaElDinero?.desgloseCustodia?.apartadosActivos ?? 0)}</span>
-              </div>
-              <p className="text-[10px] text-amber-800 leading-tight">
-                Dinero en garantía de alquileres activos y apartados (En custodia, no es ingreso de la tienda)
-              </p>
-            </div>
-          </div>
-
-          {/* 4. Dinero en la Calle (Saldos por Cobrar + Moras Activas) */}
-          <div className="bg-gradient-to-br from-rose-50/60 to-white rounded-xl p-4 border border-rose-200/80 shadow-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
-                <ClockAlert className="w-4 h-4 text-rose-600" />
-                Dinero en la Calle
-              </span>
-              <span className="text-xs font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full">
-                Cartera & Moras
-              </span>
-            </div>
-            <div className="text-2xl font-black text-rose-900 font-mono tracking-tight">
-              {formatearDinero(dondeEstaElDinero?.dineroEnLaCalle ?? (dondeEstaElDinero?.cuentasPorCobrar ?? metricas.cuentasPorCobrar))}
-            </div>
-            <div className="pt-2 border-t border-rose-100 text-xs text-rose-800 space-y-1">
-              <div className="flex items-center justify-between font-bold text-[11px]">
-                <span>Saldos: {formatearDinero(dondeEstaElDinero?.desgloseDineroCalle?.saldosPorCobrar ?? dondeEstaElDinero?.cuentasPorCobrar ?? metricas.cuentasPorCobrar)}</span>
-                <span>Moras Activas: {formatearDinero(dondeEstaElDinero?.desgloseDineroCalle?.morasActivas ?? 0)}</span>
-              </div>
-              <p className="text-[10.5px] font-semibold text-rose-700">
-                {dondeEstaElDinero?.desgloseDineroCalle?.clientesDeudoresCount ?? metricas.clientesDeudoresCount ?? 0} clientes deudores / en mora
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Cuadrícula Simplificada de Métricas Clave (Ingresos, Efectivo, Transferencias, Depósitos y Utilidades) */}
+      {/* 2. Cuadrícula Simplificada de Métricas Clave (Ingresos, Efectivo, Transacciones, Depósitos y Utilidades) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {/* Tarjeta 1: Ingresos Totales */}
-        <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Ingresos Totales
             </span>
-            <div className="h-10 w-10 rounded-full bg-blue-50 border border-blue-100/80 flex items-center justify-center text-blue-600">
+            <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-100/80 flex items-center justify-center text-blue-600">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-slate-900 transition-colors">
+            <div className="text-2xl font-black tracking-tight text-slate-900 font-mono transition-colors">
               {formatearDinero(metricas.ingresosNetos)}
             </div>
-            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1 flex items-center justify-between">
-              <span>Recaudado en periodo</span>
+            <p className="text-xs font-medium text-slate-500 mt-1 flex items-center justify-between">
+              <span>Recaudado en período</span>
               <span className="font-bold text-slate-700">{metricas.totalAbonos} abonos</span>
             </p>
           </div>
         </div>
 
         {/* Tarjeta 2: Total Efectivo */}
-        <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Total Efectivo
             </span>
-            <div className="h-10 w-10 rounded-full bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600">
               <Banknote className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-emerald-600 transition-colors">
+            <div className="text-2xl font-black tracking-tight text-emerald-600 font-mono transition-colors">
               {formatearDinero(dondeEstaElDinero?.efectivoFisicoPeriodo ?? metodosPago.totalEfectivo)}
             </div>
-            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-              Recaudos en efectivo físico
+            <p className="text-xs font-medium text-slate-500 mt-1 flex items-center justify-between">
+              <span>Efectivo en caja</span>
+              {turnoActual && (
+                <span className="font-bold text-emerald-700">
+                  Gaveta: {formatearDinero(dondeEstaElDinero?.efectivoEnGavetaTurno ?? turnoActual.efectivoEnGaveta ?? 0)}
+                </span>
+              )}
             </p>
           </div>
         </div>
 
-        {/* Tarjeta 3: Total Transferencias / Digital */}
-        <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+        {/* Tarjeta 3: Transacciones / Medios Digitales */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Transferencias / Digital
+              Transacción (Digital)
             </span>
-            <div className="h-10 w-10 rounded-full bg-purple-50 border border-purple-100/80 flex items-center justify-center text-purple-600">
+            <div className="h-10 w-10 rounded-xl bg-purple-50 border border-purple-100/80 flex items-center justify-center text-purple-600">
               <Smartphone className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-purple-600 transition-colors">
+            <div className="text-2xl font-black tracking-tight text-purple-600 font-mono transition-colors">
               {formatearDinero(
                 dondeEstaElDinero?.cuentasDigitalesOConsignaciones ??
                   dondeEstaElDinero?.totalCuentasDigitales ??
@@ -726,24 +584,24 @@ export default function DashboardGerencialPage() {
                     (metodosPago.totalConsignacion || 0))
               )}
             </div>
-            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-              Nequi, Bancolombia, Llave, Daviplata
+            <p className="text-xs font-medium text-slate-500 mt-1">
+              Nequi, Daviplata, Bancolombia, Llave
             </p>
           </div>
         </div>
 
-        {/* Tarjeta 4: Depósitos / Abonos en Garantía */}
-        <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+        {/* Tarjeta 4: Depósitos en Custodia */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Depósitos en Garantía
             </span>
-            <div className="h-10 w-10 rounded-full bg-amber-50 border border-amber-100/80 flex items-center justify-center text-amber-600">
+            <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100/80 flex items-center justify-center text-amber-600">
               <ShieldCheck className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-amber-600 transition-colors">
+            <div className="text-2xl font-black tracking-tight text-amber-600 font-mono transition-colors">
               {formatearDinero(
                 dondeEstaElDinero?.depositosEnCustodia ??
                   dondeEstaElDinero?.depositosCustodia ??
@@ -751,32 +609,35 @@ export default function DashboardGerencialPage() {
                   0
               )}
             </div>
-            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-              Custodia de alquileres y apartados
+            <p className="text-xs font-medium text-slate-500 mt-1">
+              Custodia por alquileres y apartados
             </p>
           </div>
         </div>
 
         {/* Tarjeta 5: Utilidad Neta */}
-        <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Utilidad Neta
             </span>
-            <div className="h-10 w-10 rounded-full bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600">
               <TrendingUp className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
             <div
-              className={`text-2xl font-black tracking-tight transition-colors ${
+              className={`text-2xl font-black tracking-tight font-mono transition-colors ${
                 (metricas.utilidadNeta ?? metricas.ingresosNetos) >= 0 ? "text-emerald-700" : "text-rose-600"
               }`}
             >
               {formatearDinero(metricas.utilidadNeta ?? metricas.ingresosNetos)}
             </div>
-            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-              Ingresos Totales - Gastos
+            <p className="text-xs font-medium text-slate-500 mt-1 flex items-center justify-between">
+              <span>Ingresos - Gastos</span>
+              <span className="text-slate-400 font-mono">
+                Gastos: {formatearDinero(metricas.totalGastos || 0)}
+              </span>
             </p>
           </div>
         </div>

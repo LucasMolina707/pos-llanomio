@@ -96,3 +96,14 @@ html, body {
     line-height: 1.45;
   }
 }
+
+/* Ocultar indicadores de depuración de desarrollo de Next.js */
+nextjs-portal,
+#__next-build-watcher,
+[data-nextjs-toast],
+[data-nextjs-dev-overlay] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

@@ -18,6 +18,7 @@ import {
   ExternalLink,
   HelpCircle,
   ZoomIn,
+  Globe,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import { RespuestaRedLocal } from "@/app/api/red-local/route";
@@ -42,7 +43,12 @@ export default function TarjetaConexionLAN({
   const [cargando, setCargando] = useState(true);
   const [errorRed, setErrorRed] = useState<string | null>(null);
 
-  // Modo de acceso: IP universal vs mDNS
+  // Detección dinámica de origen según la sesión activa
+  const [tipoConexion, setTipoConexion] = useState<"DOMINIO" | "IP_LOCAL" | "LOCALHOST">("LOCALHOST");
+  const [urlOrigenNavegador, setUrlOrigenNavegador] = useState<string>("");
+  const [origenSeleccionado, setOrigenSeleccionado] = useState<"SESION_ACTUAL" | "LAN_MANUAL">("SESION_ACTUAL");
+
+  // Modo de acceso LAN secundario: IP universal vs mDNS
   const [modoAcceso, setModoAcceso] = useState<"IP" | "MDNS">("IP");
   // Índice de interfaz de red física
   const [interfazSeleccionada, setInterfazSeleccionada] = useState<number>(0);
@@ -53,6 +59,33 @@ export default function TarjetaConexionLAN({
   const [copiado, setCopiado] = useState(false);
   const [mostrarDiagnostico, setMostrarDiagnostico] = useState(false);
   const [zoomQrAbierto, setZoomQrAbierto] = useState(false);
+
+  // Detectar la URL de la sesión en el navegador cliente
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const origin = window.location.origin;
+      const hostname = window.location.hostname;
+      setUrlOrigenNavegador(origin);
+
+      const esIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+      const esLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0";
+
+      if (esLocal) {
+        setTipoConexion("LOCALHOST");
+        // Si el operador está en el equipo servidor maestro vía localhost, ofrecer por defecto la IP LAN
+        // para que los celulares y tablets que escaneen el QR puedan conectarse
+        setOrigenSeleccionado("LAN_MANUAL");
+      } else if (esIp) {
+        // Acceso por IP local (ej. http://192.168.x.x:3000)
+        setTipoConexion("IP_LOCAL");
+        setOrigenSeleccionado("SESION_ACTUAL");
+      } else {
+        // Acceso por dominio o subdominio (ej. https://subdominio.dominio.com)
+        setTipoConexion("DOMINIO");
+        setOrigenSeleccionado("SESION_ACTUAL");
+      }
+    }
+  }, []);
 
   // Cargar información de interfaces de red
   const cargarDatosRed = async () => {
@@ -81,18 +114,19 @@ export default function TarjetaConexionLAN({
     cargarDatosRed();
   }, []);
 
-  // Calcular la URL activa para conectar dispositivos
+  // Calcular la URL activa para el código QR y conexión
   const obtenerUrlActiva = (): string => {
-    // Si estamos en el navegador y el host no es localhost/127.0.0.1, usar el origen actual
-    if (typeof window !== "undefined") {
-      const hostname = window.location.hostname;
-      if (hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "0.0.0.0") {
-        return window.location.origin;
-      }
+    // 1. Si se utiliza la URL activa de la sesión (Dominio, Subdominio o IP directa del navegador)
+    if (origenSeleccionado === "SESION_ACTUAL") {
+      if (urlOrigenNavegador) return urlOrigenNavegador;
+      if (typeof window !== "undefined") return window.location.origin;
     }
 
+    // 2. Si se utiliza la IP LAN local detectada del equipo servidor
     if (!datosRed) {
-      if (typeof window !== "undefined") return window.location.origin;
+      if (typeof window !== "undefined" && tipoConexion !== "LOCALHOST") {
+        return window.location.origin;
+      }
       return "http://127.0.0.1:3000";
     }
 
@@ -277,90 +311,158 @@ export default function TarjetaConexionLAN({
       >
         {/* Columna Izquierda: Configuración de Acceso y Guía (7 columnas) */}
         <div className={`col-span-12 ${esModal ? "sm:col-span-7 space-y-3" : "lg:col-span-7 space-y-4"}`}>
-          {/* Selector de Método: IP Directa vs mDNS */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setModoAcceso("IP")}
-              title="Recomendado Universal: Compatible al 100% con celulares Android, iPhone, tablets y PCs en el mismo Wi-Fi"
-              className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs font-bold cursor-pointer ${
-                modoAcceso === "IP"
-                  ? "bg-blue-50/80 border-blue-500 text-blue-900 shadow-2xs ring-1 ring-blue-500/20"
-                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
-              }`}
-            >
-              <Wifi className={`w-3.5 h-3.5 ${modoAcceso === "IP" ? "text-blue-600" : "text-slate-400"}`} />
-              <span>IP Directa</span>
-            </button>
+          {/* Selector Dinámico de Origen: Sesión Activa (Dominio/IP) vs Red LAN Local */}
+          {tipoConexion !== "LOCALHOST" ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrigenSeleccionado("SESION_ACTUAL")}
+                  className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs font-bold cursor-pointer ${
+                    origenSeleccionado === "SESION_ACTUAL"
+                      ? "bg-blue-50/90 border-blue-600 text-blue-900 shadow-2xs ring-1 ring-blue-500/20"
+                      : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                  }`}
+                  title="Genera el código QR con la dirección web o IP activa por la que estás navegando en esta sesión"
+                >
+                  {tipoConexion === "DOMINIO" ? (
+                    <Globe className="w-3.5 h-3.5 text-blue-600" />
+                  ) : (
+                    <Wifi className="w-3.5 h-3.5 text-blue-600" />
+                  )}
+                  <span>
+                    {tipoConexion === "DOMINIO" ? "URL Dominio Activo" : "IP de Sesión Activa"}
+                  </span>
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setModoAcceso("MDNS")}
-              title="Enlace dominio local ideal para dispositivos Apple/Bonjour y PCs en red local"
-              className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs font-bold cursor-pointer ${
-                modoAcceso === "MDNS"
-                  ? "bg-blue-50/80 border-blue-500 text-blue-900 shadow-2xs ring-1 ring-blue-500/20"
-                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
-              }`}
-            >
-              <Radio className={`w-3.5 h-3.5 ${modoAcceso === "MDNS" ? "text-blue-600" : "text-slate-400"}`} />
-              <span>Dominio mDNS</span>
-            </button>
-          </div>
+                <button
+                  type="button"
+                  onClick={() => setOrigenSeleccionado("LAN_MANUAL")}
+                  className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs font-bold cursor-pointer ${
+                    origenSeleccionado === "LAN_MANUAL"
+                      ? "bg-blue-50/90 border-blue-600 text-blue-900 shadow-2xs ring-1 ring-blue-500/20"
+                      : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                  }`}
+                  title="Conmutar a la IP de red local del equipo servidor de la tienda"
+                >
+                  <Network className="w-3.5 h-3.5 text-slate-500" />
+                  <span>IP LAN Servidor</span>
+                </button>
+              </div>
 
-          {/* Adaptador de Red y Puerto en una Sola Fila Compacta */}
-          <div className="grid grid-cols-2 gap-2">
-            {/* Adaptador de Red */}
-            <div
-              className="p-2 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-1.5 truncate cursor-help"
-              title="Adaptador de red física activo de la tienda"
-            >
-              <div className="flex items-center gap-1.5 truncate min-w-0">
-                <Network className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                <span className="text-xs font-bold text-slate-800 truncate">
-                  {datosRed?.interfaces[interfazSeleccionada]?.esWifi ? "Wi-Fi" : "Red LAN"}
+              {/* Pastilla indicadora de origen */}
+              <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">Modo de Conexión:</span>
+                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  {origenSeleccionado === "SESION_ACTUAL" ? (
+                    tipoConexion === "DOMINIO" ? (
+                      <>
+                        <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">Dominio / Servidor Web en Internet</span>
+                      </>
+                    ) : (
+                      <>
+                        <Wifi className="w-3.5 h-3.5 text-blue-600" />
+                        <span className="text-blue-700">IP de Red Local Directa</span>
+                      </>
+                    )
+                  ) : (
+                    <>
+                      <Network className="w-3.5 h-3.5 text-purple-600" />
+                      <span className="text-purple-700">IP Interna de Tarjeta de Red</span>
+                    </>
+                  )}
                 </span>
               </div>
-              <span className="font-mono text-[11px] font-bold text-blue-700 shrink-0">
-                {datosRed?.interfaces[interfazSeleccionada]?.ip || datosRed?.ipPrincipal || "127.0.0.1"}
-              </span>
             </div>
+          ) : (
+            /* Si está en Localhost (PC Maestro), selector de IP Directa vs mDNS */
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setModoAcceso("IP")}
+                title="Recomendado Universal: Compatible al 100% con celulares Android, iPhone, tablets y PCs en el mismo Wi-Fi"
+                className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs font-bold cursor-pointer ${
+                  modoAcceso === "IP"
+                    ? "bg-blue-50/80 border-blue-500 text-blue-900 shadow-2xs ring-1 ring-blue-500/20"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                <Wifi className={`w-3.5 h-3.5 ${modoAcceso === "IP" ? "text-blue-600" : "text-slate-400"}`} />
+                <span>IP Directa LAN</span>
+              </button>
 
-            {/* Selector de Puerto Píldora */}
-            <div className="p-1 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center gap-1">
               <button
                 type="button"
-                onClick={() => setPuertoSeleccionado("3000")}
-                title="Puerto principal directo Next.js (Recomendado)"
-                className={`flex-1 py-1 px-2 rounded-lg text-xs font-mono font-bold transition ${
-                  puertoSeleccionado === "3000"
-                    ? "bg-white text-blue-600 shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
+                onClick={() => setModoAcceso("MDNS")}
+                title="Enlace dominio local ideal para dispositivos Apple/Bonjour y PCs en red local"
+                className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-xs font-bold cursor-pointer ${
+                  modoAcceso === "MDNS"
+                    ? "bg-blue-50/80 border-blue-500 text-blue-900 shadow-2xs ring-1 ring-blue-500/20"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
                 }`}
               >
-                :3000
-              </button>
-              <button
-                type="button"
-                onClick={() => setPuertoSeleccionado("80")}
-                disabled={!datosRed?.puerto80Activo}
-                title={
-                  datosRed?.puerto80Activo
-                    ? "Puerto 80 Proxy HTTP sin escribir número de puerto"
-                    : "Proxy puerto 80 no disponible"
-                }
-                className={`flex-1 py-1 px-2 rounded-lg text-xs font-mono font-bold transition ${
-                  puertoSeleccionado === "80"
-                    ? "bg-white text-blue-600 shadow-2xs"
-                    : datosRed?.puerto80Activo
-                    ? "text-slate-600 hover:text-slate-900"
-                    : "text-slate-300 cursor-not-allowed"
-                }`}
-              >
-                :80
+                <Radio className={`w-3.5 h-3.5 ${modoAcceso === "MDNS" ? "text-blue-600" : "text-slate-400"}`} />
+                <span>Dominio mDNS</span>
               </button>
             </div>
-          </div>
+          )}
+
+          {/* Adaptador de Red y Puerto (visible si está en LAN_MANUAL o en Localhost) */}
+          {(origenSeleccionado === "LAN_MANUAL" || tipoConexion === "LOCALHOST") && (
+            <div className="grid grid-cols-2 gap-2">
+              {/* Adaptador de Red */}
+              <div
+                className="p-2 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-1.5 truncate cursor-help"
+                title="Adaptador de red física activo de la tienda"
+              >
+                <div className="flex items-center gap-1.5 truncate min-w-0">
+                  <Network className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span className="text-xs font-bold text-slate-800 truncate">
+                    {datosRed?.interfaces[interfazSeleccionada]?.esWifi ? "Wi-Fi" : "Red LAN"}
+                  </span>
+                </div>
+                <span className="font-mono text-[11px] font-bold text-blue-700 shrink-0">
+                  {datosRed?.interfaces[interfazSeleccionada]?.ip || datosRed?.ipPrincipal || "127.0.0.1"}
+                </span>
+              </div>
+
+              {/* Selector de Puerto Píldora */}
+              <div className="p-1 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPuertoSeleccionado("3000")}
+                  title="Puerto principal directo Next.js (Recomendado)"
+                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-mono font-bold transition ${
+                    puertoSeleccionado === "3000"
+                      ? "bg-white text-blue-600 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  :3000
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPuertoSeleccionado("80")}
+                  disabled={!datosRed?.puerto80Activo}
+                  title={
+                    datosRed?.puerto80Activo
+                      ? "Puerto 80 Proxy HTTP sin escribir número de puerto"
+                      : "Proxy puerto 80 no disponible"
+                  }
+                  className={`flex-1 py-1 px-2 rounded-lg text-xs font-mono font-bold transition ${
+                    puertoSeleccionado === "80"
+                      ? "bg-white text-blue-600 shadow-2xs"
+                      : datosRed?.puerto80Activo
+                      ? "text-slate-600 hover:text-slate-900"
+                      : "text-slate-300 cursor-not-allowed"
+                  }`}
+                >
+                  :80
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Caja de Enlace Directo + Botones de Icono */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-2">
@@ -426,10 +528,14 @@ export default function TarjetaConexionLAN({
               : "lg:col-span-5 flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-white border-2 border-blue-100 rounded-2xl p-5 shadow-xs text-center"
           }`}
         >
-          {/* Badge Superior QR */}
+          {/* Badge Superior QR Dinámico */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-extrabold uppercase tracking-wider mb-2.5">
             <QrCode className="w-3.5 h-3.5 text-blue-600" />
-            <span>Escaneo Rápido Wi-Fi</span>
+            <span>
+              {origenSeleccionado === "SESION_ACTUAL" && tipoConexion === "DOMINIO"
+                ? "Código QR Dominio Web"
+                : "Escaneo Rápido Wi-Fi"}
+            </span>
           </div>
 
           {/* Marco del Código QR con Zoom en 1 Clic */}
