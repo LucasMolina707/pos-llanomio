@@ -15,6 +15,7 @@ const CATEGORIAS_GASTO_BASE = [
   { nombre: "Insumos de Producción y Sastrería", requiereEmpleado: false, esPredeterminada: true },
   { nombre: "Arriendo", requiereEmpleado: false, esPredeterminada: true },
   { nombre: "Servicios Públicos", requiereEmpleado: false, esPredeterminada: true },
+  { nombre: "YOANA", requiereEmpleado: false, esPredeterminada: true },
 ];
 
 const PERMISOS_DEFAULT_ADMIN = {

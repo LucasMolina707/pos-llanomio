@@ -144,6 +144,7 @@ export default function GastosAdminPage() {
   const [nuevoNombreEmpleado, setNuevoNombreEmpleado] = useState<string>("");
   const [nuevaModalidadNomina, setNuevaModalidadNomina] = useState<string>("QUINCENAL");
   const [nuevaObservacionNomina, setNuevaObservacionNomina] = useState<string>("");
+  const [subcategoriaYoana, setSubcategoriaYoana] = useState<string>("Almuerzo / Alimentación");
   const [nuevaDescripcion, setNuevaDescripcion] = useState<string>("");
   const [nuevoValor, setNuevoValor] = useState<string>("");
   const [guardandoFila, setGuardandoFila] = useState(false);
@@ -290,8 +291,12 @@ export default function GastosAdminPage() {
       return;
     }
 
+    const esYoanaEnFila = Boolean(categoriaSeleccionada?.nombre?.toUpperCase() === "YOANA");
+
     const descFinal = nuevaDescripcion.trim()
       ? nuevaDescripcion.trim()
+      : esYoanaEnFila
+      ? `YOANA - ${subcategoriaYoana}`
       : esNominaEnFila
       ? `Pago de nómina - ${nuevoNombreEmpleado} (${nuevaModalidadNomina})`
       : categoriaSeleccionada?.nombre || "Gasto operativo";
@@ -845,23 +850,52 @@ export default function GastosAdminPage() {
                   </div>
                 </div>
 
-                {/* Celda 4: Descripción (col 4 o col 3) */}
-                <div className={esNominaEnFila ? "sm:col-span-3" : "sm:col-span-5"}>
-                  <label className="h-5 flex items-center text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                    DESCRIPCIÓN DIRECTA
-                  </label>
-                  <input
-                    type="text"
-                    placeholder={
-                      esNominaEnFila
-                        ? "Ej. Quincena de noviembre / Horas extras..."
-                        : "Ej. Servicio de luz, compra de cintas métricas..."
-                    }
-                    value={nuevaDescripcion}
-                    onChange={(e) => setNuevaDescripcion(e.target.value)}
-                    className="w-full h-10 px-3 text-xs font-medium text-slate-900 bg-white border border-slate-300 rounded-xl outline-none focus:border-indigo-500"
-                  />
-                </div>
+                {/* Celda 4: Descripción o Selector YOANA (col 4 o col 3) */}
+                {categoriaSeleccionada?.nombre?.toUpperCase() === "YOANA" ? (
+                  <div className="sm:col-span-5">
+                    <label className="h-5 flex items-center text-[11px] font-bold uppercase tracking-wider text-purple-900">
+                      DETALLE / SUBCATEGORÍA YOANA
+                    </label>
+                    <div className="flex gap-1.5 items-center">
+                      <select
+                        value={subcategoriaYoana}
+                        onChange={(e) => setSubcategoriaYoana(e.target.value)}
+                        className="w-1/2 h-10 px-2.5 text-xs font-bold text-slate-900 bg-purple-50 border border-purple-300 rounded-xl outline-none focus:border-purple-600 cursor-pointer"
+                      >
+                        <option value="Almuerzo / Alimentación">Almuerzo / Alimentación</option>
+                        <option value="Refrigerios / Cafetería">Refrigerios / Cafetería</option>
+                        <option value="Taxis / Transporte">Taxis / Transporte</option>
+                        <option value="Insumos Personales de Turno">Insumos Personales de Turno</option>
+                        <option value="Gastos Médicos / Farmacia">Gastos Médicos / Farmacia</option>
+                        <option value="Gastos Varios Autorizados">Gastos Varios Autorizados</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Nota o detalle adicional opcional..."
+                        value={nuevaDescripcion}
+                        onChange={(e) => setNuevaDescripcion(e.target.value)}
+                        className="w-1/2 h-10 px-3 text-xs font-medium text-slate-900 bg-white border border-slate-300 rounded-xl outline-none focus:border-purple-500"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className={esNominaEnFila ? "sm:col-span-3" : "sm:col-span-5"}>
+                    <label className="h-5 flex items-center text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                      DESCRIPCIÓN DIRECTA
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={
+                        esNominaEnFila
+                          ? "Ej. Quincena de noviembre / Horas extras..."
+                          : "Ej. Servicio de luz, compra de cintas métricas..."
+                      }
+                      value={nuevaDescripcion}
+                      onChange={(e) => setNuevaDescripcion(e.target.value)}
+                      className="w-full h-10 px-3 text-xs font-medium text-slate-900 bg-white border border-slate-300 rounded-xl outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                )}
 
                 {/* Celda 5: Valor en Pesos COP (col 2) */}
                 <div className="sm:col-span-2">

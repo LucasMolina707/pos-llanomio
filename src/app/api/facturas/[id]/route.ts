@@ -179,10 +179,56 @@ export async function POST(req: NextRequest, { params }: Params) {
         );
       }
 
-      const montoNuevo = Math.max(0, Math.round(Number(body.monto !== undefined ? body.monto : (body.nuevoAbono !== undefined ? body.nuevoAbono : 0)) * 100) / 100);
-      
+      // Preparar lista de abonos a crear (soporta pago único o mixto)
+      const abonosConversion: Array<{
+        monto: number;
+        metodoPago: MetodoPago;
+        montoRecibido?: number | null;
+        vueltasEntregadas?: number | null;
+        referenciaComprobante?: string | null;
+        notas?: string | null;
+      }> = [];
+
+      if (Array.isArray(body.abonos) && body.abonos.length > 0) {
+        for (const ab of body.abonos) {
+          const m = Math.max(0, Math.round(Number(ab.monto || 0) * 100) / 100);
+          if (m > 0) {
+            let met: MetodoPago = MetodoPago.EFECTIVO;
+            if (ab.metodoPago && Object.values(MetodoPago).includes(ab.metodoPago as MetodoPago)) {
+              met = ab.metodoPago as MetodoPago;
+            }
+            abonosConversion.push({
+              monto: m,
+              metodoPago: met,
+              montoRecibido: ab.montoRecibido ? Number(ab.montoRecibido) : null,
+              vueltasEntregadas: ab.vueltasEntregadas ? Number(ab.vueltasEntregadas) : null,
+              referenciaComprobante: ab.referenciaComprobante?.trim() || null,
+              notas: ab.notas?.trim() || "Pago de saldo al retirar prendas del apartado",
+            });
+          }
+        }
+      } else {
+        const montoNuevo = Math.max(0, Math.round(Number(body.monto !== undefined ? body.monto : (body.nuevoAbono !== undefined ? body.nuevoAbono : 0)) * 100) / 100);
+        if (montoNuevo > 0) {
+          let metodoNuevo: MetodoPago = MetodoPago.EFECTIVO;
+          if (body.metodoPago && Object.values(MetodoPago).includes(body.metodoPago as MetodoPago)) {
+            metodoNuevo = body.metodoPago as MetodoPago;
+          }
+          abonosConversion.push({
+            monto: montoNuevo,
+            metodoPago: metodoNuevo,
+            montoRecibido: body.montoRecibido ? Number(body.montoRecibido) : null,
+            vueltasEntregadas: body.vueltasEntregadas ? Number(body.vueltasEntregadas) : null,
+            referenciaComprobante: body.referenciaComprobante?.trim() || null,
+            notas: body.notas?.trim() || "Pago de saldo al retirar prendas del apartado",
+          });
+        }
+      }
+
+      const totalDineroEntregado = abonosConversion.reduce((acc, a) => acc + a.monto, 0);
+
       // Control de caja si se recibe dinero en la entrega
-      if (montoNuevo > 0) {
+      if (totalDineroEntregado > 0) {
         const turnoActivo = await obtenerTurnoAbiertoActivo(prisma, cajeroId, body.turnoCajaId || turnoCajaId);
         if (!turnoActivo) {
           return NextResponse.json(
@@ -194,11 +240,6 @@ export async function POST(req: NextRequest, { params }: Params) {
             { status: 409 }
           );
         }
-      }
-
-      let metodoNuevo: MetodoPago = MetodoPago.EFECTIVO;
-      if (body.metodoPago && Object.values(MetodoPago).includes(body.metodoPago as MetodoPago)) {
-        metodoNuevo = body.metodoPago as MetodoPago;
       }
 
       const resultadoConversion = await prisma.$transaction(async (tx) => {
@@ -220,41 +261,42 @@ export async function POST(req: NextRequest, { params }: Params) {
           }) || turnosAbiertos[0];
         }
 
-        // 2. Si hay nuevo abono, registrarlo
-        let nuevoAbono = null;
-        if (montoNuevo > 0) {
-          nuevoAbono = await tx.abono.create({
+        // 2. Si hay abonos, registrarlos e impactar caja
+        let primerAbono = null;
+        const campoMetodoMap: Record<MetodoPago, string> = {
+          [MetodoPago.EFECTIVO]: "totalEfectivo",
+          [MetodoPago.NEQUI]: "totalNequi",
+          [MetodoPago.BANCOLOMBIA]: "totalBancolombia",
+          [MetodoPago.LLAVE]: "totalLlave",
+          [MetodoPago.DAVIPLATA]: "totalDaviplata",
+          [MetodoPago.TRANSFERENCIA]: "totalTransferencia",
+          [MetodoPago.CONSIGNACION]: "totalConsignacion",
+        };
+
+        for (const ab of abonosConversion) {
+          const abCreado = await tx.abono.create({
             data: {
               facturaId: facturaPrevia.id,
               cajeroId,
               turnoCajaId: turnoAbierto?.id || null,
-              monto: montoNuevo,
-              metodoPago: metodoNuevo,
-              montoRecibido: body.montoRecibido ? Number(body.montoRecibido) : null,
-              vueltasEntregadas: body.vueltasEntregadas ? Number(body.vueltasEntregadas) : null,
-              referenciaComprobante: body.referenciaComprobante?.trim() || null,
-              notas: body.notas?.trim() || "Pago de saldo al retirar prendas del apartado",
+              monto: ab.monto,
+              metodoPago: ab.metodoPago,
+              montoRecibido: ab.montoRecibido,
+              vueltasEntregadas: ab.vueltasEntregadas,
+              referenciaComprobante: ab.referenciaComprobante,
+              notas: ab.notas,
             },
           });
+          if (!primerAbono) primerAbono = abCreado;
 
-          // Impactar turno activo
           if (turnoAbierto) {
-            const campoMetodoMap: Record<MetodoPago, string> = {
-              [MetodoPago.EFECTIVO]: "totalEfectivo",
-              [MetodoPago.NEQUI]: "totalNequi",
-              [MetodoPago.BANCOLOMBIA]: "totalBancolombia",
-              [MetodoPago.LLAVE]: "totalLlave",
-              [MetodoPago.DAVIPLATA]: "totalDaviplata",
-              [MetodoPago.TRANSFERENCIA]: "totalTransferencia",
-              [MetodoPago.CONSIGNACION]: "totalConsignacion",
-            };
-            const campo = campoMetodoMap[metodoNuevo];
+            const campo = campoMetodoMap[ab.metodoPago];
             if (campo) {
               await tx.turnoCaja.update({
                 where: { id: turnoAbierto.id },
                 data: {
-                  [campo]: { increment: montoNuevo },
-                  totalRecaudado: { increment: montoNuevo },
+                  [campo]: { increment: ab.monto },
+                  totalRecaudado: { increment: ab.monto },
                 },
               });
             }
@@ -303,7 +345,7 @@ export async function POST(req: NextRequest, { params }: Params) {
                 where: { id: det.productoId },
                 data: { estado: "ALQUILADO", estadoPrenda: "ALQUILADO" },
               });
-            } catch {}
+            } catch { }
           }
         }
 
@@ -356,7 +398,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           },
         });
 
-        return { facturaConvertida, nuevoAbono };
+        return { facturaConvertida, nuevoAbono: primerAbono };
       });
 
       return NextResponse.json({
@@ -367,22 +409,6 @@ export async function POST(req: NextRequest, { params }: Params) {
         factura: resultadoConversion.facturaConvertida,
         abono: resultadoConversion.nuevoAbono,
       });
-    }
-
-    // Control de Caja: Si ingresa dinero, resolver el turno abierto de forma universal
-    if (montoNumerico > 0) {
-      const turnoActivo = await obtenerTurnoAbiertoActivo(prisma, cajeroId, body.turnoCajaId || turnoCajaId);
-      if (!turnoActivo) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "No existe un turno de caja iniciado para la jornada de hoy. Debe registrar la base de efectivo inicial antes de registrar cobros.",
-            codigoSeguridad: "SIN_TURNO",
-            requiereAperturaHoy: true,
-          },
-          { status: 409 }
-        );
-      }
     }
 
     // 3. Buscar factura existente
@@ -397,6 +423,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           },
         },
         abonos: true,
+        cliente: true,
       },
     });
 
@@ -407,10 +434,70 @@ export async function POST(req: NextRequest, { params }: Params) {
       );
     }
 
-    // 4. Normalizar método de pago
+    // 4. Normalizar método de pago y preparar lista de abonos (único o mixto)
     let metodo: MetodoPago = MetodoPago.EFECTIVO;
     if (Object.values(MetodoPago).includes(metodoPago as MetodoPago)) {
       metodo = metodoPago as MetodoPago;
+    }
+
+    const abonosCobro: Array<{
+      monto: number;
+      metodoPago: MetodoPago;
+      montoRecibido?: number | null;
+      vueltasEntregadas?: number | null;
+      referenciaComprobante?: string | null;
+      notas?: string | null;
+    }> = [];
+
+    if (Array.isArray(body.abonos) && body.abonos.length > 0) {
+      for (const ab of body.abonos) {
+        const m = Math.max(0, Math.round(Number(ab.monto || 0) * 100) / 100);
+        if (m > 0) {
+          let met: MetodoPago = MetodoPago.EFECTIVO;
+          if (ab.metodoPago && Object.values(MetodoPago).includes(ab.metodoPago as MetodoPago)) {
+            met = ab.metodoPago as MetodoPago;
+          }
+          abonosCobro.push({
+            monto: m,
+            metodoPago: met,
+            montoRecibido: ab.montoRecibido ? Number(ab.montoRecibido) : null,
+            vueltasEntregadas: ab.vueltasEntregadas ? Number(ab.vueltasEntregadas) : null,
+            referenciaComprobante: ab.referenciaComprobante?.trim() || null,
+            notas: ab.notas?.trim() || "Abono / Pago de factura",
+          });
+        }
+      }
+    } else if (montoNumerico > 0) {
+      abonosCobro.push({
+        monto: montoNumerico,
+        metodoPago: metodo,
+        montoRecibido: montoRecibido ? Number(montoRecibido) : null,
+        vueltasEntregadas: vueltasEntregadas ? Number(vueltasEntregadas) : null,
+        referenciaComprobante: referenciaComprobante?.trim() || null,
+        notas:
+          notas?.trim() ||
+          (recargoMoraNumerico > 0
+            ? "Cobro de mora y liquidación de factura"
+            : "Abono / Pago de factura"),
+      });
+    }
+
+    const totalDineroCobro = abonosCobro.reduce((acc, a) => acc + a.monto, 0);
+
+    // Control de Caja: Si ingresa dinero, resolver el turno abierto de forma universal
+    if (totalDineroCobro > 0) {
+      const turnoActivo = await obtenerTurnoAbiertoActivo(prisma, cajeroId, body.turnoCajaId || turnoCajaId);
+      if (!turnoActivo) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "No existe un turno de caja iniciado para la jornada de hoy. Debe registrar la base de efectivo inicial antes de registrar cobros.",
+            codigoSeguridad: "SIN_TURNO",
+            requiereAperturaHoy: true,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // 5. Transacción atómica en base de datos SQLite
@@ -438,48 +525,47 @@ export async function POST(req: NextRequest, { params }: Params) {
         });
       }
 
-      // B. Crear registro de abono si el monto es mayor a 0
+      // B. Crear registro de abono(s) si el monto es mayor a 0
       let nuevoAbono = null;
-      if (montoNumerico > 0) {
-        nuevoAbono = await tx.abono.create({
-          data: {
-            facturaId: facturaExistente.id,
-            cajeroId,
-            turnoCajaId: turnoAbierto?.id || null,
-            monto: montoNumerico,
-            metodoPago: metodo,
-            montoRecibido: montoRecibido ? Number(montoRecibido) : null,
-            vueltasEntregadas: vueltasEntregadas ? Number(vueltasEntregadas) : null,
-            referenciaComprobante: referenciaComprobante?.trim() || null,
-            notas:
-              notas?.trim() ||
-              (recargoMoraNumerico > 0
-                ? "Cobro de mora y liquidación de factura"
-                : "Abono / Pago de factura"),
-          },
-        });
+      if (abonosCobro.length > 0) {
+        const campoMetodoMap: Record<MetodoPago, string> = {
+          [MetodoPago.EFECTIVO]: "totalEfectivo",
+          [MetodoPago.NEQUI]: "totalNequi",
+          [MetodoPago.BANCOLOMBIA]: "totalBancolombia",
+          [MetodoPago.LLAVE]: "totalLlave",
+          [MetodoPago.DAVIPLATA]: "totalDaviplata",
+          [MetodoPago.TRANSFERENCIA]: "totalTransferencia",
+          [MetodoPago.CONSIGNACION]: "totalConsignacion",
+        };
 
-        // Impactar movimiento en el turno activo si existe
-        if (turnoAbierto) {
-          const campoMetodoMap: Record<MetodoPago, string> = {
-            [MetodoPago.EFECTIVO]: "totalEfectivo",
-            [MetodoPago.NEQUI]: "totalNequi",
-            [MetodoPago.BANCOLOMBIA]: "totalBancolombia",
-            [MetodoPago.LLAVE]: "totalLlave",
-            [MetodoPago.DAVIPLATA]: "totalDaviplata",
-            [MetodoPago.TRANSFERENCIA]: "totalTransferencia",
-            [MetodoPago.CONSIGNACION]: "totalConsignacion",
-          };
+        for (const ab of abonosCobro) {
+          const abCreado = await tx.abono.create({
+            data: {
+              facturaId: facturaExistente.id,
+              cajeroId,
+              turnoCajaId: turnoAbierto?.id || null,
+              monto: ab.monto,
+              metodoPago: ab.metodoPago,
+              montoRecibido: ab.montoRecibido,
+              vueltasEntregadas: ab.vueltasEntregadas,
+              referenciaComprobante: ab.referenciaComprobante,
+              notas: ab.notas,
+            },
+          });
+          if (!nuevoAbono) nuevoAbono = abCreado;
 
-          const campoAIncrementar = campoMetodoMap[metodo];
-          if (campoAIncrementar) {
-            await tx.turnoCaja.update({
-              where: { id: turnoAbierto.id },
-              data: {
-                [campoAIncrementar]: { increment: montoNumerico },
-                totalRecaudado: { increment: montoNumerico },
-              },
-            });
+          // Impactar movimiento en el turno activo si existe
+          if (turnoAbierto) {
+            const campoAIncrementar = campoMetodoMap[ab.metodoPago];
+            if (campoAIncrementar) {
+              await tx.turnoCaja.update({
+                where: { id: turnoAbierto.id },
+                data: {
+                  [campoAIncrementar]: { increment: ab.monto },
+                  totalRecaudado: { increment: ab.monto },
+                },
+              });
+            }
           }
         }
       }
@@ -894,10 +980,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const abonosInput: AbonoEnCursoInput[] = Array.isArray(body.abonos) && body.abonos.length > 0
       ? (body.abonos as AbonoEnCursoInput[])
       : (typeof abonoInicial === "number" && abonoInicial > 0
-          ? [{ monto: abonoInicial, metodoPago: body.metodoPagoAbono || MetodoPago.EFECTIVO }]
-          : (abonoInicial && typeof abonoInicial === "object" && Number((abonoInicial as AbonoEnCursoInput).monto) > 0
-              ? [abonoInicial as AbonoEnCursoInput]
-              : []));
+        ? [{ monto: abonoInicial, metodoPago: body.metodoPagoAbono || MetodoPago.EFECTIVO }]
+        : (abonoInicial && typeof abonoInicial === "object" && Number((abonoInicial as AbonoEnCursoInput).monto) > 0
+          ? [abonoInicial as AbonoEnCursoInput]
+          : []));
 
     const abonosDataCreacion: {
       monto: number;
@@ -971,7 +1057,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
               where: { id: d.productoId },
               data: { estado: "DISPONIBLE", estadoPrenda: "DISPONIBLE" },
             });
-          } catch {}
+          } catch { }
         }
       }
 
@@ -1047,7 +1133,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
                 where: { id: item.productoId },
                 data: { estado: "ALQUILADO", estadoPrenda: "ALQUILADO" },
               });
-            } catch {}
+            } catch { }
           }
         }
       }
@@ -1089,5 +1175,124 @@ export async function PUT(req: NextRequest, { params }: Params) {
       { success: false, error: mensajeError },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * DELETE /api/facturas/[id]
+ * Anula / elimina una factura del historial con doble verificación de seguridad.
+ * Restituye automáticamente el stock y estado de las prendas a DISPONIBLE,
+ * y descuenta el dinero recaudado del arqueo de caja.
+ */
+export async function DELETE(req: NextRequest, { params }: Params) {
+  try {
+    const sesion = await obtenerSesionDesdeRequest(req);
+    const { id } = await params;
+    const body = await req.json().catch(() => ({}));
+    const { pinSeguridad, motivo = "Anulación autorizada en historial" } = body;
+
+    // 1. Validar que la factura exista con sus detalles y abonos
+    const factura = await prisma.factura.findFirst({
+      where: { OR: [{ id }, { numeroFactura: id }] },
+      include: {
+        detalles: { include: { producto: true } },
+        abonos: true,
+      },
+    });
+
+    if (!factura) {
+      return NextResponse.json(
+        { success: false, error: "La factura no fue encontrada en la base de datos." },
+        { status: 404 }
+      );
+    }
+
+    // 2. Doble validación de seguridad (PIN de Supervisor / Administrador o Contraseña)
+    const credencialIngresada = String(pinSeguridad || "").trim();
+    if (!credencialIngresada) {
+      return NextResponse.json(
+        { success: false, error: "El PIN o contraseña de supervisor es obligatorio para anular." },
+        { status: 400 }
+      );
+    }
+
+    const supervisores = await prisma.user.findMany({
+      where: { rol: "ADMIN", activo: true },
+    });
+
+    let supervisorAutorizado = null;
+    const bcrypt = await import("bcryptjs");
+    for (const sup of supervisores) {
+      if (sup.pinSeguridadHash && /^\d{6}$/.test(credencialIngresada)) {
+        if (await bcrypt.compare(credencialIngresada, sup.pinSeguridadHash)) {
+          supervisorAutorizado = sup;
+          break;
+        }
+      }
+      if (sup.passwordHash) {
+        if (await bcrypt.compare(credencialIngresada, sup.passwordHash)) {
+          supervisorAutorizado = sup;
+          break;
+        }
+      }
+    }
+
+    if (!supervisorAutorizado) {
+      return NextResponse.json(
+        { success: false, error: "PIN o clave de supervisor incorrecta. Operación denegada." },
+        { status: 403 }
+      );
+    }
+
+    // 3. Reversión atómica en base de datos SQLite
+    await prisma.$transaction(async (tx) => {
+      // A. Revertir prendas e inventario a DISPONIBLE
+      for (const det of factura.detalles) {
+        if (det.productoId && det.producto) {
+          const nuevoStock = det.producto.stockActual + det.cantidad;
+          await tx.producto.update({
+            where: { id: det.productoId },
+            data: {
+              stockActual: nuevoStock,
+              estado: EstadoPrenda.DISPONIBLE,
+              estadoPrenda: EstadoPrenda.DISPONIBLE,
+            },
+          });
+        }
+      }
+
+      // B. Reversión de caja: los abonos eliminados se descontarán naturalmente de calcularArqueoExactoTurno
+      // al eliminar los registros de la tabla abonos (onDelete: Cascade de Prisma al borrar factura)
+
+      // C. Eliminar la factura (y sus abonos y detalles asociados vía CASCADE)
+      await tx.factura.delete({
+        where: { id: factura.id },
+      });
+
+      // D. Registro de auditoría
+      if (sesion?.userId) {
+        try {
+          await tx.auditoriaSesion.create({
+            data: {
+              userId: sesion.userId,
+              accion: "FACTURA_ANULADA",
+              detalles: `Factura N° ${factura.numeroFactura} anulada. Motivo: ${motivo}. Stock restablecido.`,
+              ip: req.headers.get("x-forwarded-for") || "127.0.0.1",
+              userAgent: req.headers.get("user-agent") || "POS Terminal",
+            },
+          });
+        } catch { }
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      ok: true,
+      mensaje: `Factura N° ${factura.numeroFactura} anulada exitosamente. El inventario y los valores de caja han sido restablecidos.`,
+    });
+  } catch (err: unknown) {
+    console.error("Error al eliminar factura:", err);
+    const msg = err instanceof Error ? err.message : "Error interno al anular factura";
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

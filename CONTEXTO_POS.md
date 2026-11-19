@@ -4700,3 +4700,50 @@ Se completó la homologación visual, geométrica y funcional 1:1 en las tres te
 
 
 
+
+
+---
+
+## SECCIÓN 77: ACTUALIZACIONES OPERATIVAS, PAGOS MIXTOS, APARTADOS CON PREVISUALIZACIÓN, ANULACIÓN EN HISTORIAL, CATEGORÍA YOANA, DASHBOARD SIMPLIFICADO Y CAJA MULTI-USUARIO
+
+### 1. Visión y Propósito Técnico
+Se implementó el paquete integral de actualizaciones y optimizaciones operativas para el mostrador de Llanomio:
+- **Pagos Mixtos y Abonos Parciales Divididos:** Capacidad de cobrar una parte en efectivo y la restante en transferencia/digital (o viceversa) en las tres terminales (`/caja/pos`, `/caja/alquileres`, `/caja/apartados`), así como en los modales de abonos posteriores desde el historial de cartera.
+- **Flujo de 5 Pasos en Apartados con Navegación Libre:** Navegación bidireccional ágil sin perder datos ni transaccionar anticipadamente; Paso 4 de Previsualización de Factura / Borrador y Paso 5 de Expedición de Comprobante Definitivo (`PlantillaImpresion`).
+- **Anulación / Eliminación de Facturas con Doble Confirmación:** Modal de confirmación que solicita PIN o contraseña de administrador/supervisor; al confirmar, revierte el stock de prendas a `DISPONIBLE` y descuenta el dinero del balance de caja (arqueo).
+- **Categoría de Gastos "YOANA":** Nueva categoría especial en base de datos con subcategorías detalladas (Alimentación / Almuerzo, Refrigerios, Taxis / Transporte, Insumos de Turno, etc.).
+- **Dashboard Gerencial Simplificado:** Visualización optimizada a las 5 métricas financieras clave: Ingresos Totales, Total Efectivo, Total Transferencias / Digital, Depósitos en Custodia y Utilidad Neta.
+- **Base de Caja Predeterminada ($50.000 COP) y Concurrencia Multi-Usuario:** Sugerencia predeterminada de apertura de turno en $50.000 COP y soporte para que múltiples terminales y usuarios en red compartan la misma apertura de caja sin bloqueos ni errores 409.
+- **Eliminación de Bloqueo de Sesión Única:** Soporte para inicio de sesión concurrente en varios dispositivos con una misma cuenta.
+- **Código QR Dinámico:** Detección automática del origen del navegador (`window.location.origin`), garantizando enlace exacto ya sea en red local LAN o vía dominio web.
+- **Resiliencia de Entorno de Desarrollo:** `start-pos.js` detecta automáticamente si el proyecto se encuentra en modo desarrollo (sin compilación previa `.next`) e inicia el servidor en tiempo real (`next dev`); se incorpora el lanzador directo `INICIAR_MODO_DESARROLLO.bat`.
+
+### 2. Archivos Modificados y Creados
+1. **`src/app/api/auth/login/route.ts` & `src/lib/auth.ts`:**
+   - Desactivado el bloqueo de sesión única por usuario para permitir operación simultánea en varios dispositivos.
+2. **`src/components/red/TarjetaConexionLAN.tsx`:**
+   - Generación de código QR dinámica a partir de `window.location.origin`.
+3. **`src/app/admin/caja/page.tsx` & `src/components/caja/ModalConexionCajon.tsx`:**
+   - Valor base predeterminado de apertura configurado en $50.000 COP.
+4. **`database/seed.js` & `src/app/admin/gastos/page.tsx`:**
+   - Incorporación de categoría `"YOANA"` y selector dinámico de subcategorías específicas en formulario de egresos.
+5. **`src/app/admin/dashboard/page.tsx`:**
+   - Métricas gerenciales consolidadas a 5 tarjetas de alto impacto financiero.
+6. **`src/app/api/facturas/[id]/route.ts`:**
+   - Endpoint `DELETE` con verificación por PIN o clave de supervisor, reversión atómica de prendas a `DISPONIBLE` y ajuste de arqueo.
+   - Endpoint `POST` y `PATCH` con soporte universal para `body.abonos = [{ monto, metodoPago, ... }]`.
+7. **`src/app/caja/pos/page.tsx`:**
+   - Pagos mixtos (Efectivo + Digital) en paso 3 de cobro y botón de anulación con doble confirmación en historial.
+8. **`src/app/caja/alquileres/page.tsx`:**
+   - Pagos mixtos en paso 3 y en modal de abono a cartera existente; botón de anulación con doble confirmación en historial.
+9. **`src/app/caja/apartados/page.tsx`:**
+   - Stepper de 5 pasos; navegación bidireccional; pagos mixtos; paso 4 de previsualización; anulación con confirmación en historial.
+10. **`src/components/caja/HeaderMostradorUnificado.tsx`:**
+    - Soporte para Stepper de 5 pasos en módulo `APARTADOS`.
+11. **`src/hooks/useCajonSincronizado.ts`:**
+    - Exposición de método `recargarSeguridad` para sincronización fluida de caja.
+12. **`start-pos.js` & `INICIAR_MODO_DESARROLLO.bat`:**
+    - Fallback inteligente a `next dev` si no existe compilación previa `.next`, y script lanzador de desarrollo directo.
+
+### 3. Certificación de Calidad
+- **TypeScript QA:** `npx tsc --noEmit` certificado con **0 errores**.

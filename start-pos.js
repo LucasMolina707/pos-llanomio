@@ -75,13 +75,22 @@ async function arrancarServidor() {
   }
 
   const standaloneServer = path.join(__dirname, ".next", "standalone", "server.js");
+  const buildIdPath = path.join(__dirname, ".next", "BUILD_ID");
+
   if (fs.existsSync(standaloneServer)) {
     console.log(`[INICIO] Desplegando en modo Standalone autonomo en puerto ${puerto}...`);
     require(standaloneServer);
-  } else {
+  } else if (fs.existsSync(buildIdPath)) {
     console.log(`[INICIO] Desplegando en modo Next.js produccion estandar en puerto ${puerto}...`);
     const nextBin = path.join(__dirname, "node_modules", "next", "dist", "bin", "next");
     process.argv = [process.argv[0], nextBin, "start", "-H", "0.0.0.0", "-p", String(puerto)];
+    require(nextBin);
+  } else {
+    console.log(`[INICIO] Entorno de desarrollo detectado (sin compilacion previa .next).`);
+    console.log(`[INICIO] Iniciando Servidor de Desarrollo (Dev Server) en http://localhost:${puerto}...`);
+    process.env.NODE_ENV = "development";
+    const nextBin = path.join(__dirname, "node_modules", "next", "dist", "bin", "next");
+    process.argv = [process.argv[0], nextBin, "dev", "-H", "0.0.0.0", "-p", String(puerto)];
     require(nextBin);
   }
 }

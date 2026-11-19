@@ -83,7 +83,18 @@ export default function TarjetaConexionLAN({
 
   // Calcular la URL activa para conectar dispositivos
   const obtenerUrlActiva = (): string => {
-    if (!datosRed) return "http://127.0.0.1:3000";
+    // Si estamos en el navegador y el host no es localhost/127.0.0.1, usar el origen actual
+    if (typeof window !== "undefined") {
+      const hostname = window.location.hostname;
+      if (hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "0.0.0.0") {
+        return window.location.origin;
+      }
+    }
+
+    if (!datosRed) {
+      if (typeof window !== "undefined") return window.location.origin;
+      return "http://127.0.0.1:3000";
+    }
 
     const puertoStr = puertoSeleccionado === "80" ? "" : `:${datosRed.puertoNext}`;
 

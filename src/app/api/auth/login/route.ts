@@ -92,63 +92,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Regla de Sesión Única Activa por Usuario en Red Local (1 Cuenta = 1 Dispositivo a la vez)
-    const AHORA = Date.now();
-    const ultimaActividadMs = user.sesionUltimaActividad
-      ? new Date(user.sesionUltimaActividad).getTime()
-      : 0;
-
-    const sesionSigueActiva = Boolean(
-      user.sesionActivaToken &&
-      ultimaActividadMs > 0 &&
-      AHORA - ultimaActividadMs < TIEMPO_EXPIRACION_INACTIVIDAD_MS
-    );
-
-    const esMismoDispositivo = Boolean(
-      deviceId && user.sesionDispositivoId && user.sesionDispositivoId === deviceId
-    );
-
-    // Si la sesión sigue activa en OTRO equipo diferente
-    if (sesionSigueActiva && !esMismoDispositivo) {
-      if (forzarCierreRemoto === true) {
-        // Si se envió pinSupervisor, verificar autorización adicional si se requiere
-        if (pinSupervisor && user.rol !== "ADMIN") {
-          const supervisor = await prisma.user.findFirst({
-            where: { rol: "ADMIN", activo: true },
-          });
-          if (supervisor && supervisor.pinSeguridadHash) {
-            const pinValido = await bcrypt.compare(String(pinSupervisor), supervisor.pinSeguridadHash);
-            if (!pinValido) {
-              return NextResponse.json(
-                { ok: false, error: "PIN de supervisor incorrecto para autorizar la liberación remota." },
-                { status: 403 }
-              );
-            }
-          }
-        }
-
-        // Registrar auditoría de liberación forzada
-        await prisma.auditoriaSesion.create({
-          data: {
-            userId: user.id,
-            accion: "LIBERACION_FORZADA",
-            detalles: `Sesión previa en IP ${user.sesionIp || "desconocida"} liberada forzosamente desde nuevo dispositivo (${deviceId || "web"})`,
-            ip,
-            userAgent,
-          },
-        });
-      } else {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: `Esta cuenta (@${user.username}) ya tiene una sesión abierta y activa en otro equipo de la red local.`,
-            sesionBloqueada: true,
-            ipActiva: user.sesionIp || null,
-          },
-          { status: 409 }
-        );
-      }
-    }
+    // 3. Concurrencia Multidispositivo Permitida (Múltiples terminales y cajeros simultáneos)
+    // Se elimina el bloqueo por sesión única para que varios dispositivos en la red local puedan operar a la vez.
 
     // 4. Generar nuevo identificador único de sesión y actualizar estado en SQLite
     const sessionToken = crypto.randomUUID();

@@ -505,6 +505,7 @@ export function useCajonSincronizado() {
     tipoModalRequerido,
     errorAccionCaja,
     actualizarCajon,
+    recargarSeguridad: () => actualizarCajon(true),
     conectarCajaCompartida,
     abrirNuevoCajon,
     desvincularCajonLocal,

@@ -162,7 +162,7 @@ export default function ControlCajaAdminPage() {
   const [pestanaActiva, setPestanaActiva] = useState<"TURNOS_ACTIVOS" | "HISTORIAL_ARQUEOS">("TURNOS_ACTIVOS");
 
   // Estados formulario Apertura Inicial
-  const [baseInicialInput, setBaseInicialInput] = useState<string>("100000");
+  const [baseInicialInput, setBaseInicialInput] = useState<string>("50000");
   const [nombreGabineteInput, setNombreGabineteInput] = useState<string>("Gabinete #1 - Principal");
   const [obsApertura, setObsApertura] = useState<string>("");
 

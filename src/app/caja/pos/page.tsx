@@ -401,6 +401,10 @@ export default function PosPage() {
   // =========================================================
   const [modalidadPago, setModalidadPago] = useState<ModalidadPago>("COMPLETO");
   const [metodoPagoPrincipal, setMetodoPagoPrincipal] = useState<MetodoPagoPos>("EFECTIVO");
+  const [esPagoMixto, setEsPagoMixto] = useState<boolean>(false);
+  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState<string>("");
+  const [montoDigitalMixto, setMontoDigitalMixto] = useState<string>("");
+  const [metodoDigitalMixto, setMetodoDigitalMixto] = useState<MetodoPagoPos>("TRANSFERENCIA");
   const [montoAbonoParcial, setMontoAbonoParcial] = useState<string>("");
   const [efectivoRecibido, setEfectivoRecibido] = useState<string>("");
   const [referenciaPago, setReferenciaPago] = useState("");
@@ -412,6 +416,44 @@ export default function PosPage() {
   const [procesandoFactura, setProcesandoFactura] = useState(false);
   const [mensajeError, setMensajeError] = useState<string | null>(null);
   const [datosImpresion, setDatosImpresion] = useState<DatosImpresionFactura | null>(null);
+
+  // Modal de Anulación / Eliminación de Factura con Doble Verificación
+  const [facturaParaEliminar, setFacturaParaEliminar] = useState<FacturaMonitoreo | null>(null);
+  const [pinSupervisorEliminar, setPinSupervisorEliminar] = useState("");
+  const [motivoEliminar, setMotivoEliminar] = useState("Cancelación por cliente");
+  const [eliminandoFactura, setEliminandoFactura] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+
+  const ejecutarEliminacionFactura = async () => {
+    if (!facturaParaEliminar) return;
+    try {
+      setEliminandoFactura(true);
+      setErrorEliminar(null);
+
+      const res = await fetch(`/api/facturas/${facturaParaEliminar.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pinSeguridad: pinSupervisorEliminar.trim(),
+          motivo: motivoEliminar.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "No se pudo anular la factura.");
+      }
+
+      setFacturaParaEliminar(null);
+      setPinSupervisorEliminar("");
+      cargarMonitoreo(true);
+      cajon.actualizarCajon(true);
+    } catch (err: unknown) {
+      setErrorEliminar(err instanceof Error ? err.message : "Error al anular factura");
+    } finally {
+      setEliminandoFactura(false);
+    }
+  };
 
   // =========================================================
   // CARGAS INICIALES DE DATOS (0 ms de latencia local)
@@ -657,9 +699,10 @@ export default function PosPage() {
 
   // Cálculo de vueltas en efectivo
   const efectivoRecibidoNum = Number(efectivoRecibido) || 0;
+  const montoObjetivoEfectivo = esPagoMixto ? (Number(montoEfectivoMixto) || 0) : valorACobrarHoy;
   const vueltasCalculadas =
-    metodoPagoPrincipal === "EFECTIVO" && valorACobrarHoy > 0
-      ? efectivoRecibidoNum - valorACobrarHoy
+    ((metodoPagoPrincipal === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && Number(montoEfectivoMixto) > 0)) && montoObjetivoEfectivo > 0
+      ? efectivoRecibidoNum - montoObjetivoEfectivo
       : 0;
 
   // =========================================================
@@ -842,7 +885,7 @@ export default function PosPage() {
   };
 
   const fijarEfectivoExacto = () => {
-    setEfectivoRecibido(String(valorACobrarHoy));
+    setEfectivoRecibido(String(esPagoMixto ? (Number(montoEfectivoMixto) || 0) : valorACobrarHoy));
   };
 
   // =========================================================
@@ -853,7 +896,7 @@ export default function PosPage() {
     if (seguridadCaja.bloqueadoParaFacturar) {
       setMensajeError(
         seguridadCaja.motivoBloqueo ||
-          "La terminal POS está bloqueada para facturación. Verifique el estado de la caja."
+        "La terminal POS está bloqueada para facturación. Verifique el estado de la caja."
       );
       return;
     }
@@ -870,7 +913,22 @@ export default function PosPage() {
       return;
     }
 
-    if (metodoPagoPrincipal === "EFECTIVO" && valorACobrarHoy > 0) {
+    if (esPagoMixto && valorACobrarHoy > 0) {
+      const efNum = Number(montoEfectivoMixto) || 0;
+      const digNum = Number(montoDigitalMixto) || 0;
+      if (Math.round((efNum + digNum) * 100) / 100 !== Math.round(valorACobrarHoy * 100) / 100) {
+        setMensajeError(
+          `La suma de efectivo ($${efNum.toLocaleString("es-CO")}) y digital ($${digNum.toLocaleString("es-CO")}) debe coincidir con el valor a cobrar ($${valorACobrarHoy.toLocaleString("es-CO")}).`
+        );
+        return;
+      }
+      if (efNum > 0 && efectivoRecibidoNum < efNum) {
+        setMensajeError(
+          `El efectivo entregado ($${efectivoRecibidoNum.toLocaleString("es-CO")}) es inferior a la porción en efectivo ($${efNum.toLocaleString("es-CO")}).`
+        );
+        return;
+      }
+    } else if (metodoPagoPrincipal === "EFECTIVO" && valorACobrarHoy > 0) {
       if (efectivoRecibidoNum < valorACobrarHoy) {
         setMensajeError(
           `El efectivo recibido ($${efectivoRecibidoNum.toLocaleString(
@@ -904,24 +962,46 @@ export default function PosPage() {
           fechaDevolucion: item.fechaDevolucion,
         })),
         turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
-        abonoInicial:
-          valorACobrarHoy > 0
+        abonoInicial: esPagoMixto
+          ? undefined
+          : valorACobrarHoy > 0
             ? {
-                monto: valorACobrarHoy,
-                metodoPago: metodoPagoPrincipal,
-                montoRecibido:
-                  metodoPagoPrincipal === "EFECTIVO" ? efectivoRecibidoNum : undefined,
-                vueltasEntregadas:
-                  metodoPagoPrincipal === "EFECTIVO"
-                    ? Math.max(0, vueltasCalculadas)
-                    : undefined,
-                referenciaComprobante: referenciaPago.trim() || undefined,
-                notas:
-                  modalidadPago === "COMPLETO"
-                    ? "Pago completo de contado"
-                    : "Adelanto inicial de compra/alquiler",
-              }
+              monto: valorACobrarHoy,
+              metodoPago: metodoPagoPrincipal,
+              montoRecibido:
+                metodoPagoPrincipal === "EFECTIVO" ? efectivoRecibidoNum : undefined,
+              vueltasEntregadas:
+                metodoPagoPrincipal === "EFECTIVO"
+                  ? Math.max(0, vueltasCalculadas)
+                  : undefined,
+              referenciaComprobante: referenciaPago.trim() || undefined,
+              notas:
+                modalidadPago === "COMPLETO"
+                  ? "Pago completo de contado"
+                  : "Adelanto inicial de compra/alquiler",
+            }
             : undefined,
+        abonos: esPagoMixto && valorACobrarHoy > 0
+          ? [
+            ...(Number(montoEfectivoMixto) > 0
+              ? [{
+                monto: Number(montoEfectivoMixto),
+                metodoPago: "EFECTIVO",
+                montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
+                vueltasEntregadas: Math.max(0, vueltasCalculadas),
+                notas: "Pago mixto - Porción Efectivo",
+              }]
+              : []),
+            ...(Number(montoDigitalMixto) > 0
+              ? [{
+                monto: Number(montoDigitalMixto),
+                metodoPago: metodoDigitalMixto,
+                referenciaComprobante: referenciaPago.trim() || undefined,
+                notas: `Pago mixto - Porción ${metodoDigitalMixto}`,
+              }]
+              : []),
+          ]
+          : undefined,
       };
 
       // Si existe facturaEnCursoId, actualizarla con PUT sin crear un nuevo registro; de lo contrario, POST
@@ -953,14 +1033,17 @@ export default function PosPage() {
       const facturaFinal = data.factura;
 
       // Disparar apertura automática del cajón si el cobro se realizó en EFECTIVO
-      if (metodoPagoPrincipal === "EFECTIVO" && valorACobrarHoy > 0) {
+      if (
+        ((metodoPagoPrincipal === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && Number(montoEfectivoMixto) > 0)) &&
+        valorACobrarHoy > 0
+      ) {
         safeFetchJson("/api/caja/abrir-cajon", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             motivo: `COBRO_AUTOMATICO_EFECTIVO · Factura ${facturaFinal?.numeroFactura || ""}`,
           }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       // Guardar el ID de la factura para evitar duplicados si el usuario retrocede entre pasos
@@ -1069,11 +1152,11 @@ export default function PosPage() {
         modulo: "VENTAS",
         cliente: clienteSeleccionado
           ? {
-              id: clienteSeleccionado.id,
-              nombre: clienteSeleccionado.nombre,
-              documento: clienteSeleccionado.documento || undefined,
-              telefono: clienteSeleccionado.telefono || undefined,
-            }
+            id: clienteSeleccionado.id,
+            nombre: clienteSeleccionado.nombre,
+            documento: clienteSeleccionado.documento || undefined,
+            telefono: clienteSeleccionado.telefono || undefined,
+          }
           : null,
         itemsConteo: itemsCarrito.reduce((acc, it) => acc + it.cantidad, 0),
         resumenPrendas: itemsCarrito.map((it) => `${it.cantidad}x ${it.nombre}`).join(", "),
@@ -1233,7 +1316,7 @@ export default function PosPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ motivo: "Apertura rápida por atajo F2" }),
-      }).catch(() => {});
+      }).catch(() => { });
     },
     F4: () => {
       if (vistaPrincipal === "NUEVA_FACTURA") {
@@ -1396,22 +1479,20 @@ export default function PosPage() {
                 <button
                   type="button"
                   onClick={() => setPestanaHistorial("PENDIENTES_AL_DIA")}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${
-                    pestanaHistorial === "PENDIENTES_AL_DIA"
-                      ? "bg-blue-50 border-blue-600 text-blue-900 ring-2 ring-blue-600/20"
-                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${pestanaHistorial === "PENDIENTES_AL_DIA"
+                    ? "bg-blue-50 border-blue-600 text-blue-900 ring-2 ring-blue-600/20"
+                    : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-blue-600 shrink-0" />
                     <span>A. Pendientes al Día</span>
                   </div>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
-                      pestanaHistorial === "PENDIENTES_AL_DIA"
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-200 text-slate-700"
-                    }`}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${pestanaHistorial === "PENDIENTES_AL_DIA"
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-200 text-slate-700"
+                      }`}
                   >
                     {estadisticasMonitoreo.conteoPendientesAlDia}
                   </span>
@@ -1421,22 +1502,20 @@ export default function PosPage() {
                 <button
                   type="button"
                   onClick={() => setPestanaHistorial("MORA_Y_SALDO")}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${
-                    pestanaHistorial === "MORA_Y_SALDO"
-                      ? "bg-rose-50 border-rose-600 text-rose-900 ring-2 ring-rose-600/20"
-                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${pestanaHistorial === "MORA_Y_SALDO"
+                    ? "bg-rose-50 border-rose-600 text-rose-900 ring-2 ring-rose-600/20"
+                    : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                     <span>B. En Mora + Saldo</span>
                   </div>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
-                      estadisticasMonitoreo.conteoMoraYSaldo > 0
-                        ? "bg-rose-600 text-white"
-                        : "bg-slate-200 text-slate-700"
-                    }`}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${estadisticasMonitoreo.conteoMoraYSaldo > 0
+                      ? "bg-rose-600 text-white"
+                      : "bg-slate-200 text-slate-700"
+                      }`}
                   >
                     {estadisticasMonitoreo.conteoMoraYSaldo}
                   </span>
@@ -1446,22 +1525,20 @@ export default function PosPage() {
                 <button
                   type="button"
                   onClick={() => setPestanaHistorial("SOLO_MORA")}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${
-                    pestanaHistorial === "SOLO_MORA"
-                      ? "bg-amber-50 border-amber-600 text-amber-900 ring-2 ring-amber-600/20"
-                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${pestanaHistorial === "SOLO_MORA"
+                    ? "bg-amber-50 border-amber-600 text-amber-900 ring-2 ring-amber-600/20"
+                    : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     <Coins className="w-4 h-4 text-amber-600 shrink-0" />
                     <span>C. Solo Mora (Prenda Pendiente)</span>
                   </div>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
-                      estadisticasMonitoreo.conteoSoloMora > 0
-                        ? "bg-amber-600 text-white"
-                        : "bg-slate-200 text-slate-700"
-                    }`}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${estadisticasMonitoreo.conteoSoloMora > 0
+                      ? "bg-amber-600 text-white"
+                      : "bg-slate-200 text-slate-700"
+                      }`}
                   >
                     {estadisticasMonitoreo.conteoSoloMora}
                   </span>
@@ -1471,22 +1548,20 @@ export default function PosPage() {
                 <button
                   type="button"
                   onClick={() => setPestanaHistorial("PAZ_Y_SALVOS")}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${
-                    pestanaHistorial === "PAZ_Y_SALVOS"
-                      ? "bg-emerald-50 border-emerald-600 text-emerald-900 ring-2 ring-emerald-600/20"
-                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${pestanaHistorial === "PAZ_Y_SALVOS"
+                    ? "bg-emerald-50 border-emerald-600 text-emerald-900 ring-2 ring-emerald-600/20"
+                    : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>D. Paz y Salvos (Cerradas)</span>
                   </div>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
-                      pestanaHistorial === "PAZ_Y_SALVOS"
-                        ? "bg-emerald-600 text-white"
-                        : "bg-slate-200 text-slate-700"
-                    }`}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${pestanaHistorial === "PAZ_Y_SALVOS"
+                      ? "bg-emerald-600 text-white"
+                      : "bg-slate-200 text-slate-700"
+                      }`}
                   >
                     {estadisticasMonitoreo.conteoPazYSalvos}
                   </span>
@@ -1650,9 +1725,9 @@ export default function PosPage() {
                                 <td className="px-3.5 py-3 text-center text-xs font-mono text-slate-600">
                                   {f.fechaDevolucionPactada
                                     ? new Date(f.fechaDevolucionPactada).toLocaleString("es-CO", {
-                                        dateStyle: "short",
-                                        timeStyle: "short",
-                                      })
+                                      dateStyle: "short",
+                                      timeStyle: "short",
+                                    })
                                     : "N/A"}
                                 </td>
                                 <td className="px-3.5 py-3 text-center">
@@ -1705,15 +1780,15 @@ export default function PosPage() {
                                       pestanaHistorial === "SOLO_MORA"
                                         ? "Cobrar Mora & Prenda"
                                         : pestanaHistorial === "MORA_Y_SALDO"
-                                        ? "Cobrar Saldo & Mora"
-                                        : "Cobrar Saldo Pendiente"
+                                          ? "Cobrar Saldo & Mora"
+                                          : "Cobrar Saldo Pendiente"
                                     }
                                     variant={
                                       pestanaHistorial === "MORA_Y_SALDO"
                                         ? "danger"
                                         : pestanaHistorial === "SOLO_MORA"
-                                        ? "amber"
-                                        : "emerald"
+                                          ? "amber"
+                                          : "emerald"
                                     }
                                     size="md"
                                     onClick={() => {
@@ -1739,8 +1814,8 @@ export default function PosPage() {
                                       pestanaHistorial === "SOLO_MORA"
                                         ? "SOLO_MORA_ENTREGA"
                                         : pestanaHistorial === "MORA_Y_SALDO"
-                                        ? "MORA"
-                                        : "SALDO_PENDIENTE"
+                                          ? "MORA"
+                                          : "SALDO_PENDIENTE"
                                     }
                                     mostrarTexto={false}
                                     className="w-9 h-9 min-w-[36px] min-h-[36px] p-2 flex items-center justify-center rounded-xl"
@@ -1754,6 +1829,19 @@ export default function PosPage() {
                                   variant="neutral"
                                   size="md"
                                   onClick={() => abrirReimpresionUniversal(f)}
+                                />
+
+                                {/* Botón Anular / Eliminar Factura */}
+                                <IconButtonTooltip
+                                  icon={Trash2}
+                                  label="Anular factura y devolver dinero a caja e inventario a bodega"
+                                  variant="danger"
+                                  size="md"
+                                  onClick={() => {
+                                    setFacturaParaEliminar(f);
+                                    setPinSupervisorEliminar("");
+                                    setErrorEliminar(null);
+                                  }}
                                 />
                               </div>
                             </td>
@@ -1956,11 +2044,10 @@ export default function PosPage() {
                                     key={cli.id}
                                     type="button"
                                     onClick={() => seleccionarCliente(cli)}
-                                    className={`relative flex flex-col justify-between p-3 rounded-xl border transition-all text-left shadow-2xs group min-w-0 overflow-hidden cursor-pointer ${
-                                      esSeleccionado
-                                        ? "bg-emerald-50/80 border-emerald-600 ring-2 ring-emerald-600/20"
-                                        : "bg-white border-slate-200 hover:border-emerald-400 hover:bg-slate-50/60"
-                                    }`}
+                                    className={`relative flex flex-col justify-between p-3 rounded-xl border transition-all text-left shadow-2xs group min-w-0 overflow-hidden cursor-pointer ${esSeleccionado
+                                      ? "bg-emerald-50/80 border-emerald-600 ring-2 ring-emerald-600/20"
+                                      : "bg-white border-slate-200 hover:border-emerald-400 hover:bg-slate-50/60"
+                                      }`}
                                   >
                                     <div className="flex items-start justify-between gap-1.5 w-full min-w-0">
                                       <span className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-emerald-600 transition truncate">
@@ -2026,11 +2113,10 @@ export default function PosPage() {
                             <button
                               type="button"
                               onClick={() => setModuloActivo("VENTA")}
-                              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                                moduloActivo === "VENTA"
-                                  ? "bg-emerald-600 text-white shadow-xs"
-                                  : "text-slate-600 hover:text-slate-900"
-                              }`}
+                              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${moduloActivo === "VENTA"
+                                ? "bg-emerald-600 text-white shadow-xs"
+                                : "text-slate-600 hover:text-slate-900"
+                                }`}
                             >
                               <Tag className="w-3.5 h-3.5" />
                               <span>1. Productos (Venta)</span>
@@ -2039,11 +2125,10 @@ export default function PosPage() {
                             <button
                               type="button"
                               onClick={() => setModuloActivo("ARREGLO")}
-                              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                                moduloActivo === "ARREGLO"
-                                  ? "bg-purple-600 text-white shadow-xs"
-                                  : "text-slate-600 hover:text-slate-900"
-                              }`}
+                              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${moduloActivo === "ARREGLO"
+                                ? "bg-purple-600 text-white shadow-xs"
+                                : "text-slate-600 hover:text-slate-900"
+                                }`}
                             >
                               <Scissors className="w-3.5 h-3.5" />
                               <span>2. Arreglos / Sastrería</span>
@@ -2221,11 +2306,10 @@ export default function PosPage() {
                               <button
                                 type="button"
                                 onClick={() => setModalidadPago("COMPLETO")}
-                                className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${
-                                  modalidadPago === "COMPLETO"
-                                    ? "bg-emerald-50 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20"
-                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                }`}
+                                className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${modalidadPago === "COMPLETO"
+                                  ? "bg-emerald-50 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20"
+                                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                                  }`}
                               >
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                                 <span className="text-xs font-bold">Completo</span>
@@ -2235,11 +2319,10 @@ export default function PosPage() {
                               <button
                                 type="button"
                                 onClick={() => setModalidadPago("ADELANTO")}
-                                className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${
-                                  modalidadPago === "ADELANTO"
-                                    ? "bg-amber-50 border-amber-600 text-amber-800 ring-2 ring-amber-600/20"
-                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                }`}
+                                className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${modalidadPago === "ADELANTO"
+                                  ? "bg-amber-50 border-amber-600 text-amber-800 ring-2 ring-amber-600/20"
+                                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                                  }`}
                               >
                                 <Coins className="w-4 h-4 text-amber-600" />
                                 <span className="text-xs font-bold">Adelanto</span>
@@ -2249,11 +2332,10 @@ export default function PosPage() {
                               <button
                                 type="button"
                                 onClick={() => setModalidadPago("PENDIENTE")}
-                                className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${
-                                  modalidadPago === "PENDIENTE"
-                                    ? "bg-rose-50 border-rose-600 text-rose-800 ring-2 ring-rose-600/20"
-                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                }`}
+                                className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${modalidadPago === "PENDIENTE"
+                                  ? "bg-rose-50 border-rose-600 text-rose-800 ring-2 ring-rose-600/20"
+                                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                                  }`}
                               >
                                 <Clock className="w-4 h-4 text-rose-600" />
                                 <span className="text-xs font-bold">Pendiente</span>
@@ -2286,44 +2368,148 @@ export default function PosPage() {
                             {/* Métodos de Pago */}
                             {modalidadPago !== "PENDIENTE" && (
                               <div className="space-y-2 pt-1">
-                                <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wider">
-                                  2. Método de Pago del Cobro Hoy
-                                </h3>
+                                <div className="flex items-center justify-between">
+                                  <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wider">
+                                    2. Método de Pago del Cobro Hoy
+                                  </h3>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const nuevoEstado = !esPagoMixto;
+                                      setEsPagoMixto(nuevoEstado);
+                                      if (nuevoEstado) {
+                                        const mitad = Math.floor(valorACobrarHoy / 2);
+                                        setMontoEfectivoMixto(String(mitad));
+                                        setMontoDigitalMixto(String(valorACobrarHoy - mitad));
+                                        setEfectivoRecibido(String(mitad));
+                                      } else {
+                                        setEfectivoRecibido(String(valorACobrarHoy));
+                                      }
+                                    }}
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition flex items-center gap-1 ${esPagoMixto
+                                      ? "bg-indigo-50 border-indigo-300 text-indigo-700"
+                                      : "bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200"
+                                      }`}
+                                  >
+                                    <Coins className="w-3.5 h-3.5" />
+                                    <span>{esPagoMixto ? "Modo Mixto Activo" : "Pago Mixto"}</span>
+                                  </button>
+                                </div>
 
-                                <div className="grid grid-cols-3 gap-1.5">
-                                  {[
-                                    { id: "EFECTIVO", label: "Efectivo", icon: Banknote },
-                                    { id: "NEQUI", label: "Nequi", icon: Smartphone },
-                                    { id: "BANCOLOMBIA", label: "Bancolombia", icon: Building2 },
-                                    { id: "LLAVE", label: "Llave / Bre-B", icon: Coins },
-                                    { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
-                                    { id: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },
-                                  ].map((met) => {
-                                    const IconComp = met.icon;
-                                    const esActivo = metodoPagoPrincipal === met.id;
+                                {!esPagoMixto ? (
+                                  <div className="grid grid-cols-3 gap-1.5">
+                                    {[
+                                      { id: "EFECTIVO", label: "Efectivo", icon: Banknote },
+                                      { id: "NEQUI", label: "Nequi", icon: Smartphone },
+                                      { id: "BANCOLOMBIA", label: "Bancolombia", icon: Building2 },
+                                      { id: "LLAVE", label: "Llave / Bre-B", icon: Coins },
+                                      { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
+                                      { id: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },
+                                    ].map((met) => {
+                                      const IconComp = met.icon;
+                                      const esActivo = metodoPagoPrincipal === met.id;
 
-                                    return (
-                                      <button
-                                        key={met.id}
-                                        type="button"
-                                        onClick={() => {
-                                          setMetodoPagoPrincipal(met.id as MetodoPagoPos);
-                                          if (met.id === "EFECTIVO") {
-                                            setEfectivoRecibido(String(valorACobrarHoy));
-                                          }
-                                        }}
-                                        className={`p-2 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${
-                                          esActivo
+                                      return (
+                                        <button
+                                          key={met.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setMetodoPagoPrincipal(met.id as MetodoPagoPos);
+                                            if (met.id === "EFECTIVO") {
+                                              setEfectivoRecibido(String(valorACobrarHoy));
+                                            }
+                                          }}
+                                          className={`p-2 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${esActivo
                                             ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
                                             : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                                        }`}
-                                      >
-                                        <IconComp className="w-3.5 h-3.5" />
-                                        <span className="text-xs font-bold">{met.label}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
+                                            }`}
+                                        >
+                                          <IconComp className="w-3.5 h-3.5" />
+                                          <span className="text-xs font-bold">{met.label}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200 space-y-3">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                                          Porción en Efectivo ($):
+                                        </label>
+                                        <input
+                                          type="number"
+                                          value={montoEfectivoMixto}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setMontoEfectivoMixto(val);
+                                            const n = Number(val) || 0;
+                                            const resto = Math.max(0, valorACobrarHoy - n);
+                                            setMontoDigitalMixto(String(resto));
+                                            setEfectivoRecibido(String(n));
+                                          }}
+                                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-indigo-500"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                                          Porción Digital / Transf. ($):
+                                        </label>
+                                        <input
+                                          type="number"
+                                          value={montoDigitalMixto}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setMontoDigitalMixto(val);
+                                            const n = Number(val) || 0;
+                                            const resto = Math.max(0, valorACobrarHoy - n);
+                                            setMontoEfectivoMixto(String(resto));
+                                            setEfectivoRecibido(String(resto));
+                                          }}
+                                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-indigo-500"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                                        Método de la Porción Digital:
+                                      </label>
+                                      <div className="grid grid-cols-3 gap-1">
+                                        {[
+                                          { id: "NEQUI", label: "Nequi" },
+                                          { id: "BANCOLOMBIA", label: "Bancolombia" },
+                                          { id: "LLAVE", label: "Bre-B" },
+                                          { id: "DAVIPLATA", label: "Daviplata" },
+                                          { id: "TRANSFERENCIA", label: "Transf. Genérica" },
+                                        ].map((m) => (
+                                          <button
+                                            key={m.id}
+                                            type="button"
+                                            onClick={() => setMetodoDigitalMixto(m.id as MetodoPagoPos)}
+                                            className={`py-1 px-1.5 rounded-lg text-[10.5px] font-bold border text-center transition ${metodoDigitalMixto === m.id
+                                              ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                                              : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+                                              }`}
+                                          >
+                                            {m.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-xs pt-1 border-t border-indigo-200/60 font-semibold">
+                                      <span className="text-slate-600">Suma total mixta:</span>
+                                      <span className={`font-mono font-bold ${(Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0) === valorACobrarHoy
+                                        ? "text-emerald-700"
+                                        : "text-rose-600"
+                                        }`}>
+                                        ${((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)).toLocaleString("es-CO")} de ${valorACobrarHoy.toLocaleString("es-CO")}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
 
@@ -2373,7 +2559,7 @@ export default function PosPage() {
                             </div>
 
                             {/* Calculadora de Efectivo si aplica */}
-                            {metodoPagoPrincipal === "EFECTIVO" && valorACobrarHoy > 0 && (
+                            {((metodoPagoPrincipal === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && (Number(montoEfectivoMixto) || 0) > 0)) && valorACobrarHoy > 0 && (
                               <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-2">
                                 <label className="text-xs font-black uppercase text-emerald-900 tracking-wide block">
                                   Efectivo recibido del cliente:
@@ -2419,19 +2605,17 @@ export default function PosPage() {
 
                                 {/* Vueltas */}
                                 <div
-                                  className={`p-3 rounded-xl text-center border ${
-                                    vueltasCalculadas >= 0
-                                      ? "bg-white border-emerald-300"
-                                      : "bg-rose-50 border-rose-300 text-rose-700"
-                                  }`}
+                                  className={`p-3 rounded-xl text-center border ${vueltasCalculadas >= 0
+                                    ? "bg-white border-emerald-300"
+                                    : "bg-rose-50 border-rose-300 text-rose-700"
+                                    }`}
                                 >
                                   <span className="text-[11px] font-bold uppercase tracking-wider block text-slate-500">
                                     Vueltas / Cambio a Entregar:
                                   </span>
                                   <span
-                                    className={`text-xl font-black font-mono block mt-0.5 ${
-                                      vueltasCalculadas >= 0 ? "text-emerald-600" : "text-rose-600"
-                                    }`}
+                                    className={`text-xl font-black font-mono block mt-0.5 ${vueltasCalculadas >= 0 ? "text-emerald-600" : "text-rose-600"
+                                      }`}
                                   >
                                     ${Math.max(0, vueltasCalculadas).toLocaleString("es-CO")}
                                   </span>
@@ -2635,9 +2819,14 @@ export default function PosPage() {
                           type="button"
                           disabled={
                             procesandoFactura ||
-                            (metodoPagoPrincipal === "EFECTIVO" &&
+                            (!esPagoMixto &&
+                              metodoPagoPrincipal === "EFECTIVO" &&
                               valorACobrarHoy > 0 &&
-                              efectivoRecibidoNum < valorACobrarHoy)
+                              efectivoRecibidoNum < valorACobrarHoy) ||
+                            (esPagoMixto &&
+                              valorACobrarHoy > 0 &&
+                              ((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0) !== valorACobrarHoy ||
+                                ((Number(montoEfectivoMixto) || 0) > 0 && efectivoRecibidoNum < (Number(montoEfectivoMixto) || 0))))
                           }
                           onClick={finalizarTransaccion}
                           className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
@@ -2782,6 +2971,100 @@ export default function PosPage() {
         onGuardarTicketActual={guardarTicketActualEnEspera}
         onRestaurarTicket={restaurarTicketEnEspera}
       />
+
+      {/* Modal de Anulación / Eliminación de Factura con Doble Verificación */}
+      {facturaParaEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-rose-200 w-full max-w-md p-5 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-rose-600" />
+                <h3 className="text-sm font-black text-slate-900">
+                  Anular Factura N° {facturaParaEliminar.numeroFactura}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFacturaParaEliminar(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-rose-950 text-xs space-y-1">
+              <p className="font-bold">Acción de Alta Seguridad:</p>
+              <p>• Los artículos vendidos o apartados regresarán al inventario activo.</p>
+              <p>• El dinero cobrado (${facturaParaEliminar.totalAbonado.toLocaleString("es-CO")}) se descontará del arqueo de caja.</p>
+              <p>• Esta transacción no se sumará a los reportes de ventas netas.</p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Motivo de la Anulación:
+                </label>
+                <input
+                  type="text"
+                  value={motivoEliminar}
+                  onChange={(e) => setMotivoEliminar(e.target.value)}
+                  placeholder="Ej. Devolución de compra, error de digitación..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  PIN de Confirmación del Supervisor:
+                </label>
+                <input
+                  type="password"
+                  maxLength={6}
+                  value={pinSupervisorEliminar}
+                  onChange={(e) => setPinSupervisorEliminar(e.target.value)}
+                  placeholder="Ingresa PIN numérico de 6 dígitos"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-center tracking-widest text-slate-900 outline-none focus:border-rose-500"
+                />
+              </div>
+
+              {errorEliminar && (
+                <div className="p-2.5 bg-rose-100 text-rose-800 text-xs font-bold rounded-xl border border-rose-200 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{errorEliminar}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setFacturaParaEliminar(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={eliminandoFactura || !pinSupervisorEliminar.trim()}
+                onClick={ejecutarEliminacionFactura}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-black text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {eliminandoFactura ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Anulando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Confirmar Anulación</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -130,24 +130,8 @@ export async function validarSesionActivaEnBD(
       return { valida: false, motivo: "USUARIO_NO_ENCONTRADO" };
     }
 
-    // Si no hay token en BD, la sesión fue cerrada
-    if (!user.sesionActivaToken) {
-      return { valida: false, motivo: "TOKEN_INVALIDO" };
-    }
-
-    // Si los tokens no coinciden, otra sesión fue iniciada en otro dispositivo
-    if (sessionToken && user.sesionActivaToken !== sessionToken) {
-      return { valida: false, motivo: "TOKEN_INVALIDO" };
-    }
-
-    // Verificar ventana de inactividad
-    if (user.sesionUltimaActividad) {
-      const transcurrido = Date.now() - new Date(user.sesionUltimaActividad).getTime();
-      if (transcurrido > TIEMPO_EXPIRACION_INACTIVIDAD_MS) {
-        return { valida: false, motivo: "EXPIRADA_POR_INACTIVIDAD" };
-      }
-    }
-
+    // Concurrencia multidispositivo permitida: no invalidar sesiones de otros dispositivos
+    // si el token JWT es válido y el usuario está activo.
     return { valida: true };
   } catch (error) {
     console.error("[AUTH] Error al validar sesión en SQLite:", error);

@@ -70,7 +70,7 @@ export default function ModalConexionCajon({
   onCerrarModal,
 }: ModalConexionCajonProps) {
   // Estados para formulario de Apertura Inicial
-  const [baseAperturaInicial, setBaseAperturaInicial] = useState<string>("100000");
+  const [baseAperturaInicial, setBaseAperturaInicial] = useState<string>("50000");
   const [nombreGabineteInicial, setNombreGabineteInicial] = useState<string>("");
   const [obsAperturaInicial, setObsAperturaInicial] = useState<string>("");
 

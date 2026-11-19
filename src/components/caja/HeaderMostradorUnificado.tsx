@@ -19,6 +19,7 @@ import {
   Check,
   Tag,
   PauseCircle,
+  FileText,
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import IconButtonTooltip, { IconButtonVariant } from "@/components/ui/IconButtonTooltip";
@@ -37,7 +38,7 @@ interface ModuloConfig {
   iconClass: string;
   activeVariant: IconButtonVariant;
   stepperActiveClass: string;
-  defaultEtiquetas: [string, string, string, string];
+  defaultEtiquetas: string[];
 }
 
 const MODULO_CONFIG: Record<ModuloCaja, ModuloConfig> = {
@@ -72,7 +73,7 @@ const MODULO_CONFIG: Record<ModuloCaja, ModuloConfig> = {
     iconClass: "text-indigo-600",
     activeVariant: "indigo",
     stepperActiveClass: "bg-indigo-600 text-white border-indigo-700 shadow-xs",
-    defaultEtiquetas: ["1. Cliente", "2. Artículos a Apartar", "3. Cobro y Abono", "4. Comprobante"],
+    defaultEtiquetas: ["1. Cliente", "2. Prendas", "3. Cobro y Abono", "4. Previsualizar", "5. Comprobante"],
   },
 };
 
@@ -318,7 +319,7 @@ export interface StepperMostradorUnificadoProps {
   conteoItems?: number;
   puedeCobrar?: boolean;
   puedeImprimir?: boolean;
-  etiquetasPasos?: [string, string, string, string];
+  etiquetasPasos?: string[];
 }
 
 export function StepperMostradorUnificado({
@@ -340,8 +341,8 @@ export function StepperMostradorUnificado({
 
   return (
     <div className="h-11 shrink-0 w-full bg-slate-50 border-b border-slate-200 px-3 sm:px-4 flex items-center justify-between z-20 gap-2">
-      {/* Stepper de 4 Pasos Homologado */}
-      <div className="grid grid-cols-4 gap-1.5 sm:gap-2 w-full max-w-3xl">
+      {/* Stepper de 4 o 5 Pasos Homologado */}
+      <div className={`grid ${etiquetas.length === 5 ? "grid-cols-5" : "grid-cols-4"} gap-1.5 sm:gap-2 w-full max-w-3xl`}>
         {/* Paso 1: Cliente */}
         <button
           type="button"
@@ -394,20 +395,52 @@ export function StepperMostradorUnificado({
           <span className="truncate">{etiquetas[2]}</span>
         </button>
 
-        {/* Paso 4: Comprobante */}
-        <button
-          type="button"
-          disabled={!puedeImprimir}
-          onClick={() => puedeImprimir && onSeleccionarPaso(4)}
-          className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
-            pasoActual === 4
-              ? `${cfg.stepperActiveClass} ring-1 ring-black/5`
-              : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <Printer className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">{etiquetas[3]}</span>
-        </button>
+        {/* Paso 4 (Previsualizar si 5 pasos, o Comprobante si 4 pasos) */}
+        {etiquetas.length === 5 ? (
+          <>
+            <button
+              type="button"
+              disabled={!tieneItems}
+              onClick={() => tieneItems && onSeleccionarPaso(4)}
+              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
+                pasoActual === 4
+                  ? `${cfg.stepperActiveClass} ring-1 ring-black/5`
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{etiquetas[3]}</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={!puedeImprimir}
+              onClick={() => puedeImprimir && onSeleccionarPaso(5)}
+              className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
+                pasoActual === 5
+                  ? `${cfg.stepperActiveClass} ring-1 ring-black/5`
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Printer className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{etiquetas[4]}</span>
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            disabled={!puedeImprimir}
+            onClick={() => puedeImprimir && onSeleccionarPaso(4)}
+            className={`flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold transition truncate disabled:opacity-40 disabled:cursor-not-allowed ${
+              pasoActual === 4
+                ? `${cfg.stepperActiveClass} ring-1 ring-black/5`
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Printer className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{etiquetas[3]}</span>
+          </button>
+        )}
       </div>
 
       {/* Leyenda Uniforme de Atajos de Teclado */}

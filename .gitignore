@@ -24,6 +24,8 @@
 /database/*.db-shm
 /database/backups_locales/*
 !/database/backups_locales/.gitkeep
+/database/backups_antiguos_historicos/*
+!/database/backups_antiguos_historicos/.gitkeep
 
 # Archivos de migración con datos privados
 /migracion_excel/origen/*

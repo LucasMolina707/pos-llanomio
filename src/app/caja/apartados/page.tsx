@@ -44,6 +44,7 @@ import {
   ShieldCheck,
   Tag,
   Building2,
+  Coins,
   LogOut,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
@@ -163,7 +164,7 @@ export default function ApartadosPage() {
 
   // Estados principales de flujo y pestañas
   const [pestaña, setPestaña] = useState<"NUEVO" | "HISTORIAL">("NUEVO");
-  const [paso, setPaso] = useState<1 | 2 | 3 | 4>(1);
+  const [paso, setPaso] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [facturaEnCursoId, setFacturaEnCursoId] = useState<string | null>(null);
   const [facturaFinalizada, setFacturaFinalizada] = useState<any | null>(null);
   const [configuracionEmpresa, setConfiguracionEmpresa] = useState<any | null>(null);
@@ -228,7 +229,49 @@ export default function ApartadosPage() {
   const [depositoEntregadoHoy, setDepositoEntregadoHoy] = useState(false);
   const [abonoInicialInput, setAbonoInicialInput] = useState<string>("0");
   const [metodoPagoAbono, setMetodoPagoAbono] = useState<string>("EFECTIVO");
+  const [esPagoMixto, setEsPagoMixto] = useState<boolean>(false);
+  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState<string>("");
+  const [montoDigitalMixto, setMontoDigitalMixto] = useState<string>("");
+  const [metodoDigitalMixto, setMetodoDigitalMixto] = useState<string>("TRANSFERENCIA");
   const [efectivoRecibidoInput, setEfectivoRecibidoInput] = useState<string>("");
+
+  // Modal de Anulación / Eliminación de Apartado en Historial con Doble Confirmación y PIN
+  const [apartadoParaEliminar, setApartadoParaEliminar] = useState<FacturaApartadoResumen | null>(null);
+  const [pinSupervisorEliminar, setPinSupervisorEliminar] = useState("");
+  const [motivoEliminar, setMotivoEliminar] = useState("Cancelación de apartado");
+  const [eliminandoApartado, setEliminandoApartado] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+
+  const ejecutarEliminacionApartado = async () => {
+    if (!apartadoParaEliminar) return;
+    try {
+      setEliminandoApartado(true);
+      setErrorEliminar(null);
+
+      const res = await fetch(`/api/facturas/${apartadoParaEliminar.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pinSeguridad: pinSupervisorEliminar.trim(),
+          motivo: motivoEliminar.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "No se pudo anular el apartado.");
+      }
+
+      setApartadoParaEliminar(null);
+      setPinSupervisorEliminar("");
+      cargarHistorial();
+      cajon.recargarSeguridad();
+    } catch (err: unknown) {
+      setErrorEliminar(err instanceof Error ? err.message : "Error al anular apartado");
+    } finally {
+      setEliminandoApartado(false);
+    }
+  };
 
   // Abono y Depósito Predeterminado Dinámico basado en el Último Valor Generado (Editable)
   const [ultimoAbonoSugeridoApartado, setUltimoAbonoSugeridoApartado] = useState<number>(() => {
@@ -376,7 +419,10 @@ export default function ApartadosPage() {
   // Cuadre de efectivo y vueltas
   const totalACobrarHoy = (depositoEntregadoHoy ? depositoNumerico : 0) + abonoNumerico;
   const efectivoRecibidoNum = Number(efectivoRecibidoInput) || 0;
-  const vueltasEntregadasCalculadas = Math.max(0, efectivoRecibidoNum - totalACobrarHoy);
+  const montoObjetivoEfectivo = esPagoMixto
+    ? (Number(montoEfectivoMixto) || 0) + (depositoEntregadoHoy ? depositoNumerico : 0)
+    : (metodoPagoAbono === "EFECTIVO" ? totalACobrarHoy : (depositoEntregadoHoy ? depositoNumerico : 0));
+  const vueltasEntregadasCalculadas = Math.max(0, efectivoRecibidoNum - montoObjetivoEfectivo);
 
   // ---------------------------------------------------------------------------
   // Acciones de Carrito de Apartados
@@ -515,13 +561,35 @@ export default function ApartadosPage() {
         metodoPagoDeposito: depositoEntregadoHoy && depositoNumerico > 0 ? "EFECTIVO" : null,
         turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
         observaciones: observaciones.trim() || null,
-        abonoInicial: abonoNumerico > 0
-          ? {
+        abonoInicial: esPagoMixto
+          ? undefined
+          : abonoNumerico > 0
+            ? {
               monto: abonoNumerico,
               metodoPago: metodoPagoAbono,
               montoRecibido: metodoPagoAbono === "EFECTIVO" ? efectivoRecibidoNum : null,
               vueltasEntregadas: metodoPagoAbono === "EFECTIVO" ? vueltasEntregadasCalculadas : null,
             }
+            : undefined,
+        abonos: esPagoMixto && abonoNumerico > 0
+          ? [
+            ...(Number(montoEfectivoMixto) > 0
+              ? [{
+                monto: Number(montoEfectivoMixto),
+                metodoPago: "EFECTIVO",
+                montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
+                vueltasEntregadas: vueltasEntregadasCalculadas,
+                notas: "Apartado - Porción Efectivo",
+              }]
+              : []),
+            ...(Number(montoDigitalMixto) > 0
+              ? [{
+                monto: Number(montoDigitalMixto),
+                metodoPago: metodoDigitalMixto,
+                notas: `Apartado - Porción ${metodoDigitalMixto}`,
+              }]
+              : []),
+          ]
           : undefined,
       };
 
@@ -551,14 +619,14 @@ export default function ApartadosPage() {
         cajon.notificarCajaActualizada();
 
         // Disparar apertura automática de cajón si el cobro se realizó en EFECTIVO
-        if (metodoPagoAbono === "EFECTIVO") {
+        if ((metodoPagoAbono === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && Number(montoEfectivoMixto) > 0) || depositoEntregadoHoy) {
           safeFetchJson("/api/caja/abrir-cajon", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               motivo: `COBRO_AUTOMATICO_EFECTIVO · Apartado ${facturaGuardada.numeroFactura || ""}`,
             }),
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
 
@@ -579,8 +647,8 @@ export default function ApartadosPage() {
       // Recargar historial en segundo plano
       cargarHistorial();
 
-      // Avanzar al Paso 4 (Comprobante FORMATO DE APARTADO)
-      setPaso(4);
+      // Avanzar al Paso 5 (Comprobante Finalizado FORMATO DE APARTADO)
+      setPaso(5);
     } catch (err: unknown) {
       console.error("Error al registrar apartado:", err);
       const msg = err instanceof Error ? err.message : "Error desconocido al procesar el apartado";
@@ -659,7 +727,7 @@ export default function ApartadosPage() {
           body: JSON.stringify({
             motivo: `ABONO_EFECTIVO · Apartado ${apartadoParaAbonar.numeroFactura || ""}`,
           }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       alert("Abono registrado con éxito.");
@@ -733,7 +801,7 @@ export default function ApartadosPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ motivo: "Apertura rápida por atajo F2" }),
-      }).catch(() => {});
+      }).catch(() => { });
     },
     F4: () => {
       if (pestaña === "NUEVO") {
@@ -814,8 +882,8 @@ export default function ApartadosPage() {
       {/* 2. CUERPO PRINCIPAL HOMOLOGADO ANTI-SUPERPOSICIÓN                         */}
       {/* ========================================================================= */}
       {pestaña === "NUEVO" ? (
-        paso === 4 && facturaFinalizada ? (
-          /* PASO 4: VISOR DOCUMENTAL A 12 COLUMNAS COMPLETAS */
+        paso === 5 && facturaFinalizada ? (
+          /* PASO 5: VISOR DOCUMENTAL A 12 COLUMNAS COMPLETAS (FACTURA FINAL EXPEDIDA) */
           <main className="flex-1 min-h-0 overflow-hidden p-3 flex flex-col bg-[#F4F6F9]">
             <div className="h-full min-h-0 min-w-0 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden p-3 shadow-2xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 mb-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 shrink-0 gap-2">
@@ -826,7 +894,7 @@ export default function ApartadosPage() {
                       Apartado Registrado Exitosamente — Factura N° {facturaFinalizada.numeroFactura}
                     </span>
                     <span className="text-[11px] text-emerald-800">
-                      Previsualiza en 80mm, Media Carta o Carta, o retrocede para ajustar valores sin duplicar registro.
+                      Imprime en 80mm térmico, Media Carta o Carta, o descarga el PDF oficial.
                     </span>
                   </div>
                 </div>
@@ -850,7 +918,7 @@ export default function ApartadosPage() {
                     title="Finaliza el proceso, vacía la orden y regresa al Paso 1 para atender al siguiente cliente"
                   >
                     <CheckCircle2 className="w-4 h-4 text-white" />
-                    <span>Finalizar y Cerrar Operación</span>
+                    <span>Nuevo Apartado / Salir</span>
                   </button>
                 </div>
               </div>
@@ -860,6 +928,171 @@ export default function ApartadosPage() {
                   facturaId={facturaFinalizada.id}
                   onCerrar={reiniciarOperacionLimpia}
                 />
+              </div>
+            </div>
+          </main>
+        ) : paso === 4 ? (
+          /* PASO 4: PREVISUALIZACIÓN DE FACTURA / HOJA DE APARTADO ANTES DE CONFIRMAR */
+          <main className="flex-1 min-h-0 overflow-hidden p-3 flex flex-col bg-[#F4F6F9]">
+            <div className="h-full min-h-0 min-w-0 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden p-3.5 shadow-2xs">
+              {/* Barra superior de advertencia / previsualización */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 mb-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-950 shrink-0 gap-2">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-indigo-600 shrink-0" />
+                  <div>
+                    <span className="font-bold text-xs sm:text-sm block">
+                      Paso 4: Previsualización de Factura y Hoja de Apartado
+                    </span>
+                    <span className="text-[11px] text-indigo-800">
+                      Revisa los detalles antes de expedir. Puedes volver atrás a cualquier paso para corregir prendas, cliente o abono sin haber registrado nada aún en la base de datos.
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setPaso(3)}
+                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5 text-slate-600" />
+                    <span>← Volver a Modificar Valores (Paso 3)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={guardando}
+                    onClick={procesarGuardadoApartado}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-black text-xs sm:text-sm transition flex items-center gap-1.5 cursor-pointer shadow-xs hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    {guardando ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Guardando en Sistema...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Confirmar y Expedir Apartado Definitivo</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Vista previa documental del comprobante borrador */}
+              <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-4 max-w-4xl mx-auto w-full">
+                <div className="p-6 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-5">
+                  {/* Cabecera del borrador */}
+                  <div className="flex justify-between items-start border-b border-slate-200 pb-4">
+                    <div>
+                      <h2 className="text-lg font-black text-slate-900 tracking-tight">CONFECCIONES Y ALQUILERES LLANOMIO</h2>
+                      <p className="text-xs text-slate-500 font-medium">Borrador Oficial de Hoja de Apartado / Reserva</p>
+                      <p className="text-xs text-slate-400 mt-1">Fecha de Solicitud: {new Date().toLocaleDateString("es-CO", { dateStyle: "long" })}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="inline-block px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
+                        PREVISUALIZACIÓN BORRADOR
+                      </span>
+                      <p className="text-[11px] text-slate-400 mt-1">El número de factura oficial se generará al confirmar</p>
+                    </div>
+                  </div>
+
+                  {/* Datos del Cliente y Fechas */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                    <div className="space-y-1">
+                      <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] block">DATOS DEL CLIENTE:</span>
+                      <p className="font-bold text-slate-900 text-sm">{clienteSeleccionado?.nombre}</p>
+                      <p className="text-slate-600">Documento / C.C.: <strong className="text-slate-900 font-mono">{clienteSeleccionado?.documento}</strong></p>
+                      <p className="text-slate-600">Teléfono Móvil: <strong className="text-slate-900 font-mono">{clienteSeleccionado?.telefono}</strong></p>
+                      {clienteSeleccionado?.direccion && <p className="text-slate-600">Dirección: {clienteSeleccionado.direccion}</p>}
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] block">FECHAS PACTADAS:</span>
+                      <p className="text-slate-600">Fecha de Retiro / Salida: <strong className="text-indigo-900 font-bold">{fechaSalida ? new Date(fechaSalida).toLocaleDateString("es-CO", { dateStyle: "medium" }) : "Inmediata"}</strong></p>
+                      <p className="text-slate-600">Fecha Estimada de Llegada: <strong className="text-slate-900 font-bold">{fechaDevolucion ? new Date(fechaDevolucion).toLocaleDateString("es-CO", { dateStyle: "medium" }) : "No pactada"}</strong></p>
+                      <p className="text-[11px] text-slate-500 italic mt-1">{reglaFechaTexto.mensajeInformativo}</p>
+                    </div>
+                  </div>
+
+                  {/* Tabla de Artículos */}
+                  <div>
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-2">ARTÍCULOS Y PRENDAS SEPARADAS ({itemsApartado.length}):</h3>
+                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                          <tr>
+                            <th className="py-2 px-3 text-left">Cant.</th>
+                            <th className="py-2 px-3 text-left">Descripción / Prenda</th>
+                            <th className="py-2 px-3 text-right">Precio Unit.</th>
+                            <th className="py-2 px-3 text-right">Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium">
+                          {itemsApartado.map((it) => (
+                            <tr key={it.idTemporal} className="hover:bg-slate-50/50">
+                              <td className="py-2 px-3 font-mono font-bold text-slate-900">{it.cantidad}</td>
+                              <td className="py-2 px-3">
+                                <span className="font-bold text-slate-800 block">{it.nombre}</span>
+                                {it.descripcionDetallada && (
+                                  <span className="text-[10px] text-slate-500 block italic">Nota: {it.descripcionDetallada}</span>
+                                )}
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono text-slate-600">${it.precioUnitario.toLocaleString("es-CO")}</td>
+                              <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">${it.subtotal.toLocaleString("es-CO")}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Resumen Financiero y Métodos de Pago */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+                      <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] block">MÉTODO DE PAGO DEL ABONO:</span>
+                      {esPagoMixto ? (
+                        <div className="space-y-1">
+                          <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-900 font-black text-[11px] inline-block">
+                            Pago Mixto (Efectivo + Transferencia)
+                          </span>
+                          <p className="text-slate-700">• Porción Efectivo: <strong className="font-mono text-emerald-800">${(Number(montoEfectivoMixto) || 0).toLocaleString("es-CO")}</strong></p>
+                          <p className="text-slate-700">• Porción {metodoDigitalMixto}: <strong className="font-mono text-indigo-800">${(Number(montoDigitalMixto) || 0).toLocaleString("es-CO")}</strong></p>
+                        </div>
+                      ) : (
+                        <p className="text-slate-700">
+                          Método seleccionado: <strong className="text-slate-900 font-bold uppercase">{metodoPagoAbono}</strong>
+                        </p>
+                      )}
+                      {observaciones && (
+                        <p className="text-slate-600 pt-1 border-t border-slate-200">
+                          Observaciones: <span className="italic">{observaciones}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5 font-medium">
+                      <div className="flex justify-between text-slate-600">
+                        <span>Valor Total de Alquiler:</span>
+                        <span className="font-mono font-bold text-slate-900">${totalAlquiler.toLocaleString("es-CO")}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Depósito en Garantía:</span>
+                        <span className="font-mono font-bold text-amber-800">
+                          ${depositoNumerico.toLocaleString("es-CO")} {depositoEntregadoHoy ? "(Entregado hoy)" : "(Al retirar)"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-emerald-700 font-bold pt-1 border-t border-slate-200">
+                        <span>Abono Inicial Pactado:</span>
+                        <span className="font-mono text-emerald-700">-${abonoNumerico.toLocaleString("es-CO")}</span>
+                      </div>
+                      <div className="flex justify-between text-rose-700 font-black text-sm pt-1 border-t border-slate-300">
+                        <span>SALDO PENDIENTE AL RETIRAR:</span>
+                        <span className="font-mono text-rose-700 text-base">${saldoPendienteCalculado.toLocaleString("es-CO")}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </main>
@@ -932,73 +1165,71 @@ export default function ApartadosPage() {
                       <div className="space-y-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
                           {clientesPaginados.map((cli) => {
-                          const seleccionado = clienteSeleccionado?.id === cli.id;
-                          return (
-                            <div
-                              key={cli.id}
-                              onClick={() => setClienteSeleccionado(cli)}
-                              className={`relative flex flex-col justify-between p-3 rounded-xl border cursor-pointer transition min-w-0 overflow-hidden ${
-                                seleccionado
+                            const seleccionado = clienteSeleccionado?.id === cli.id;
+                            return (
+                              <div
+                                key={cli.id}
+                                onClick={() => setClienteSeleccionado(cli)}
+                                className={`relative flex flex-col justify-between p-3 rounded-xl border cursor-pointer transition min-w-0 overflow-hidden ${seleccionado
                                   ? "bg-indigo-50 border-indigo-400 ring-2 ring-indigo-300"
                                   : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                              }`}
-                            >
-                              <div className="min-w-0">
-                                <div className="flex items-start justify-between gap-1 mb-1">
-                                  <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">
-                                    {cli.nombre}
+                                  }`}
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex items-start justify-between gap-1 mb-1">
+                                    <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                                      {cli.nombre}
+                                    </p>
+                                    {seleccionado && (
+                                      <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                                        <Check className="w-3 h-3" />
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
+                                    {cli.tipoIdentificacion || "CC"}: {cli.documento}
                                   </p>
-                                  {seleccionado && (
-                                    <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
-                                      <Check className="w-3 h-3" />
-                                    </span>
-                                  )}
+                                  <p className="text-[11px] text-slate-600 flex items-center gap-1 font-mono mt-0.5 truncate">
+                                    <PhoneCall className="w-3 h-3 text-emerald-600 shrink-0" />
+                                    <span className="truncate">{cli.telefono}</span>
+                                  </p>
                                 </div>
-                                <p className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
-                                  {cli.tipoIdentificacion || "CC"}: {cli.documento}
-                                </p>
-                                <p className="text-[11px] text-slate-600 flex items-center gap-1 font-mono mt-0.5 truncate">
-                                  <PhoneCall className="w-3 h-3 text-emerald-600 shrink-0" />
-                                  <span className="truncate">{cli.telefono}</span>
-                                </p>
-                              </div>
 
-                              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-                                <span className="text-[11px] font-bold text-slate-500 truncate">Cliente</span>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <IconButtonTooltip
-                                    icon={UserCog}
-                                    label="Editar Datos / RUT del Cliente"
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setMostrarModalCrearCliente(true);
-                                    }}
-                                  />
-                                  <button
-                                    type="button"
-                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                                      seleccionado
+                                <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                                  <span className="text-[11px] font-bold text-slate-500 truncate">Cliente</span>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <IconButtonTooltip
+                                      icon={UserCog}
+                                      label="Editar Datos / RUT del Cliente"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMostrarModalCrearCliente(true);
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      className={`px-2.5 py-1 rounded-lg text-xs font-bold ${seleccionado
                                         ? "bg-indigo-600 text-white"
                                         : "bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
-                                    }`}
-                                  >
-                                    {seleccionado ? "Elegido" : "Seleccionar"}
-                                  </button>
+                                        }`}
+                                    >
+                                      {seleccionado ? "Elegido" : "Seleccionar"}
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {clientesFiltrados.length > 48 && (
-                        <div className="p-2 text-center text-[11px] font-semibold text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
-                          Mostrando los primeros 48 clientes de {clientesFiltrados.length} encontrados. Refine el texto en el buscador para acotar.
+                            );
+                          })}
                         </div>
-                      )}
-                    </div>
-                  )}
+                        {clientesFiltrados.length > 48 && (
+                          <div className="p-2 text-center text-[11px] font-semibold text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
+                            Mostrando los primeros 48 clientes de {clientesFiltrados.length} encontrados. Refine el texto en el buscador para acotar.
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1268,38 +1499,148 @@ export default function ApartadosPage() {
 
                       {totalACobrarHoy > 0 && (
                         <>
-                          <div>
-                            <label className="text-xs font-bold text-slate-700 block mb-1">
-                              Método de Pago:
-                            </label>
-                            <div className="grid grid-cols-3 gap-1.5">
-                              {["EFECTIVO", "NEQUI", "DAVIPLATA", "TARJETA", "TRANSFERENCIA"].map((m) => (
-                                <button
-                                  key={m}
-                                  type="button"
-                                  onClick={() => setMetodoPagoAbono(m)}
-                                  className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition ${
-                                    metodoPagoAbono === m
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-slate-700 block">
+                                Método de Pago del Abono:
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nuevoEstado = !esPagoMixto;
+                                  setEsPagoMixto(nuevoEstado);
+                                  if (nuevoEstado) {
+                                    const mitad = Math.floor(abonoNumerico / 2);
+                                    setMontoEfectivoMixto(String(mitad));
+                                    setMontoDigitalMixto(String(abonoNumerico - mitad));
+                                    setEfectivoRecibidoInput(String(mitad + (depositoEntregadoHoy ? depositoNumerico : 0)));
+                                  } else {
+                                    setEfectivoRecibidoInput(String(totalACobrarHoy));
+                                  }
+                                }}
+                                className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold border transition flex items-center gap-1 ${esPagoMixto
+                                  ? "bg-indigo-100 border-indigo-300 text-indigo-800"
+                                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
+                                  }`}
+                              >
+                                <Coins className="w-3 h-3" />
+                                <span>{esPagoMixto ? "Modo Mixto Activo" : "Pago Mixto"}</span>
+                              </button>
+                            </div>
+
+                            {!esPagoMixto ? (
+                              <div className="grid grid-cols-3 gap-1.5">
+                                {["EFECTIVO", "NEQUI", "BANCOLOMBIA", "LLAVE", "DAVIPLATA", "TRANSFERENCIA"].map((m) => (
+                                  <button
+                                    key={m}
+                                    type="button"
+                                    onClick={() => {
+                                      setMetodoPagoAbono(m);
+                                      if (m === "EFECTIVO") {
+                                        setEfectivoRecibidoInput(String(totalACobrarHoy));
+                                      }
+                                    }}
+                                    className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition ${metodoPagoAbono === m
                                       ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
                                       : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
-                                  }`}
-                                >
-                                  {m}
-                                </button>
-                              ))}
-                            </div>
+                                      }`}
+                                  >
+                                    {m === "LLAVE" ? "BRE-B" : m}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="p-3 bg-indigo-50/70 rounded-xl border border-indigo-200 space-y-2.5">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                                      Efectivo ($):
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={montoEfectivoMixto}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setMontoEfectivoMixto(val);
+                                        const n = Number(val) || 0;
+                                        const resto = Math.max(0, abonoNumerico - n);
+                                        setMontoDigitalMixto(String(resto));
+                                        setEfectivoRecibidoInput(String(n + (depositoEntregadoHoy ? depositoNumerico : 0)));
+                                      }}
+                                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-indigo-500"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                                      Digital / Transf. ($):
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={montoDigitalMixto}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setMontoDigitalMixto(val);
+                                        const n = Number(val) || 0;
+                                        const resto = Math.max(0, abonoNumerico - n);
+                                        setMontoEfectivoMixto(String(resto));
+                                        setEfectivoRecibidoInput(String(resto + (depositoEntregadoHoy ? depositoNumerico : 0)));
+                                      }}
+                                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-indigo-500"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                                    Canal Digital:
+                                  </label>
+                                  <div className="grid grid-cols-3 gap-1">
+                                    {[
+                                      { id: "NEQUI", label: "Nequi" },
+                                      { id: "BANCOLOMBIA", label: "Bancolombia" },
+                                      { id: "LLAVE", label: "Bre-B" },
+                                      { id: "DAVIPLATA", label: "Daviplata" },
+                                      { id: "TRANSFERENCIA", label: "Transf. Genérica" },
+                                    ].map((m) => (
+                                      <button
+                                        key={m.id}
+                                        type="button"
+                                        onClick={() => setMetodoDigitalMixto(m.id)}
+                                        className={`py-1 px-1.5 rounded-lg text-[10.5px] font-bold border text-center transition ${metodoDigitalMixto === m.id
+                                          ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+                                          }`}
+                                      >
+                                        {m.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between text-xs pt-1 border-t border-indigo-200/60 font-semibold">
+                                  <span className="text-slate-600">Suma abono mixto:</span>
+                                  <span className={`font-mono font-bold ${(Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0) === abonoNumerico
+                                    ? "text-emerald-700"
+                                    : "text-rose-600"
+                                    }`}>
+                                    ${((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)).toLocaleString("es-CO")} de ${abonoNumerico.toLocaleString("es-CO")}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
-                          {metodoPagoAbono === "EFECTIVO" && (
+                          {((metodoPagoAbono === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && (Number(montoEfectivoMixto) || 0) > 0) || depositoEntregadoHoy) && (
                             <div className="space-y-2">
                               <label className="text-xs font-bold text-slate-700 block">
-                                Efectivo Recibido:
+                                Efectivo Recibido en Gaveta:
                               </label>
                               <input
                                 type="number"
                                 value={efectivoRecibidoInput}
                                 onChange={(e) => setEfectivoRecibidoInput(e.target.value)}
-                                placeholder={`Mínimo $${totalACobrarHoy.toLocaleString("es-CO")}`}
+                                placeholder={`Mínimo $${montoObjetivoEfectivo.toLocaleString("es-CO")}`}
                                 className="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono font-bold text-base bg-white outline-none focus:border-indigo-500"
                               />
 
@@ -1317,10 +1658,10 @@ export default function ApartadosPage() {
                                 ))}
                                 <button
                                   type="button"
-                                  onClick={() => setEfectivoRecibidoInput(String(totalACobrarHoy))}
+                                  onClick={() => setEfectivoRecibidoInput(String(montoObjetivoEfectivo))}
                                   className="px-2 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100"
                                 >
-                                  Exacto
+                                  Exacto (${montoObjetivoEfectivo.toLocaleString("es-CO")})
                                 </button>
                               </div>
 
@@ -1523,21 +1864,32 @@ export default function ApartadosPage() {
                   {paso === 3 && (
                     <button
                       type="button"
-                      disabled={guardando}
-                      onClick={procesarGuardadoApartado}
-                      className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                      disabled={itemsApartado.length === 0 || !clienteSeleccionado}
+                      onClick={() => {
+                        if (!clienteSeleccionado) {
+                          alert("Selecciona un cliente antes de continuar.");
+                          setPaso(1);
+                          return;
+                        }
+                        if (itemsApartado.length === 0) {
+                          alert("Agrega al menos una prenda para apartar.");
+                          setPaso(2);
+                          return;
+                        }
+                        if (esPagoMixto && abonoNumerico > 0) {
+                          const ef = Number(montoEfectivoMixto) || 0;
+                          const dig = Number(montoDigitalMixto) || 0;
+                          if (ef + dig !== abonoNumerico) {
+                            alert(`La suma de efectivo ($${ef.toLocaleString("es-CO")}) y digital ($${dig.toLocaleString("es-CO")}) debe coincidir con el abono inicial ($${abonoNumerico.toLocaleString("es-CO")}).`);
+                            return;
+                          }
+                        }
+                        setPaso(4);
+                      }}
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                     >
-                      {guardando ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Guardando...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Confirmar y Expedir Apartado</span>
-                        </>
-                      )}
+                      <span>Siguiente: Previsualizar Factura (Paso 4)</span>
+                      <ArrowRight className="w-4 h-4" />
                     </button>
                   )}
                 </div>
@@ -1569,27 +1921,24 @@ export default function ApartadosPage() {
                   <button
                     type="button"
                     onClick={() => setFiltroEstadoHistorial("TODOS")}
-                    className={`px-3 py-1 rounded-lg transition ${
-                      filtroEstadoHistorial === "TODOS" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-600"
-                    }`}
+                    className={`px-3 py-1 rounded-lg transition ${filtroEstadoHistorial === "TODOS" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-600"
+                      }`}
                   >
                     Todos
                   </button>
                   <button
                     type="button"
                     onClick={() => setFiltroEstadoHistorial("PENDIENTES")}
-                    className={`px-3 py-1 rounded-lg transition ${
-                      filtroEstadoHistorial === "PENDIENTES" ? "bg-white text-amber-800 shadow-2xs" : "text-slate-600"
-                    }`}
+                    className={`px-3 py-1 rounded-lg transition ${filtroEstadoHistorial === "PENDIENTES" ? "bg-white text-amber-800 shadow-2xs" : "text-slate-600"
+                      }`}
                   >
                     Pendientes
                   </button>
                   <button
                     type="button"
                     onClick={() => setFiltroEstadoHistorial("CONVERTIDOS")}
-                    className={`px-3 py-1 rounded-lg transition ${
-                      filtroEstadoHistorial === "CONVERTIDOS" ? "bg-white text-emerald-800 shadow-2xs" : "text-slate-600"
-                    }`}
+                    className={`px-3 py-1 rounded-lg transition ${filtroEstadoHistorial === "CONVERTIDOS" ? "bg-white text-emerald-800 shadow-2xs" : "text-slate-600"
+                      }`}
                   >
                     Alquileres
                   </button>
@@ -1658,8 +2007,8 @@ export default function ApartadosPage() {
                             {item.fechaRetiroApartado
                               ? new Date(item.fechaRetiroApartado).toLocaleDateString("es-CO")
                               : item.fechaEntregaAlquiler
-                              ? new Date(item.fechaEntregaAlquiler).toLocaleDateString("es-CO")
-                              : "—"}
+                                ? new Date(item.fechaEntregaAlquiler).toLocaleDateString("es-CO")
+                                : "—"}
                           </td>
                           <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">
                             ${item.totalFactura.toLocaleString("es-CO")}
@@ -1710,6 +2059,17 @@ export default function ApartadosPage() {
                                 variant="neutral"
                                 size="sm"
                                 href={`/impresion/${item.id}`}
+                              />
+                              <IconButtonTooltip
+                                icon={Trash2}
+                                label="Anular y Eliminar Apartado del Historial (Requiere Clave Supervisor)"
+                                variant="danger"
+                                size="sm"
+                                onClick={() => {
+                                  setApartadoParaEliminar(item);
+                                  setPinSupervisorEliminar("");
+                                  setErrorEliminar(null);
+                                }}
                               />
                             </div>
                           </td>
@@ -1851,6 +2211,99 @@ export default function ApartadosPage() {
           setMostrarModalCajon(false);
         }}
       />
+
+      {/* Modal de Anulación / Eliminación de Apartado con Doble Verificación */}
+      {apartadoParaEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-rose-200 w-full max-w-md p-5 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-rose-600" />
+                <h3 className="text-sm font-black text-slate-900">
+                  Anular Apartado N° {apartadoParaEliminar.numeroFactura}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApartadoParaEliminar(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-rose-950 text-xs space-y-1">
+              <p className="font-bold">Acción de Alta Seguridad:</p>
+              <p>• Las prendas o trajes separados regresarán al inventario activo como DISPONIBLES.</p>
+              <p>• Los dineros recaudados (${apartadoParaEliminar.totalAbonado.toLocaleString("es-CO")}) se descontarán del arqueo de caja.</p>
+              <p>• La transacción quedará anulada y no impactará las métricas de venta o alquiler.</p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Motivo de la Anulación:
+                </label>
+                <input
+                  type="text"
+                  value={motivoEliminar}
+                  onChange={(e) => setMotivoEliminar(e.target.value)}
+                  placeholder="Ej. Cliente desistió del evento, error de registro..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  PIN o Clave del Supervisor:
+                </label>
+                <input
+                  type="password"
+                  value={pinSupervisorEliminar}
+                  onChange={(e) => setPinSupervisorEliminar(e.target.value)}
+                  placeholder="Ingresa PIN numérico o contraseña de supervisor"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-center tracking-widest text-slate-900 outline-none focus:border-rose-500"
+                />
+              </div>
+
+              {errorEliminar && (
+                <div className="p-2.5 bg-rose-100 text-rose-800 text-xs font-bold rounded-xl border border-rose-200 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{errorEliminar}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setApartadoParaEliminar(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={eliminandoApartado || !pinSupervisorEliminar.trim()}
+                onClick={ejecutarEliminacionApartado}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-black text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {eliminandoApartado ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Anulando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Confirmar Anulación</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
