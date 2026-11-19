@@ -4754,3 +4754,43 @@ Se implementó el paquete integral de actualizaciones y optimizaciones operativa
 
 ### 3. Certificación de Calidad
 - **TypeScript QA:** `npx tsc --noEmit` certificado con **0 errores**.
+
+---
+
+## SECCIÓN 78: CONTROL DE CALIDAD (QA), CERTIFICACIÓN DE EJECUTABLES Y CIERRE GIT (FASES 1 A 4)
+
+### 1. Resumen Integral de Fases Completadas
+
+#### Fase 1: Base de Datos, Caja y Control de Acceso (Cimientos del Sistema)
+- **Sesión Compartida y Multi-Dispositivo:** Eliminada la restricción de login único en `/api/auth/me` y `/api/auth/login`. Múltiples terminales y dispositivos móviles pueden operar simultáneamente en la misma apertura de caja sin conflictos de sesión.
+- **Monto Inicial Predeterminado en Caja ($50.000 COP):** Precargado automáticamente en `ModalConexionCajon.tsx` y en la apertura de turno de `/admin/caja`.
+- **Categoría de Gastos "YOANA" y Subcategorías Dinámicas:** Registrada como categoría fija en base de datos (`YOANA`), con subcategorías predeterminadas (Almuerzo, Refrigerio, Taxis, Transporte, Insumos varios, Otros) y persistencia en `localStorage` con modal para añadir nuevas.
+- **Anulación y Eliminación Segura de Transacciones:** Modal con doble confirmación y validación por PIN de supervisor. Reversión atómica en base de datos: prendas devueltas a estado `DISPONIBLE`, factura y abonos eliminados en cascada, y recálculo automático del efectivo en caja.
+
+#### Fase 2: Pagos Mixtos, Abonos y Flujo de 5 Pasos en Operaciones
+- **Métodos de Pago Múltiples y Mixtos:** En Terminal POS (`/caja/pos`), Alquileres (`/caja/alquileres`) y Apartados (`/caja/apartados`), soporte para recibir Efectivo + Transferencia electrónica (Bancolombia, Nequi, Daviplata, Bre-B / Llave) en una sola operación con cuadre automático.
+- **Bancolombia como Método Digital Predeterminado:** Configurado como primera opción preseleccionada en todas las porciones electrónicas y transferencias de las 3 terminales y en el modal de liquidación.
+- **Soporte de Abonos Parciales:** Registro de abonos con actualización de saldo pendiente e historial tanto en mostrador como en el Centro de Monitoreo (`ModalLiquidarFactura.tsx`).
+- **Navegación Bidireccional en Apartados:** Flujo secuencial de 5 pasos que permite retroceder libremente (Paso 4 -> Paso 3 -> Paso 2 -> Paso 1) para corregir prendas, cliente o montos sin generar registros ficticios en base de datos.
+- **Paso 5 de Confirmación con Previsualización:** En el Paso 4 se muestra el borrador exacto del comprobante y únicamente al presionar "Confirmar y Expedir" se asienta la transacción en base de datos, inventario y caja, pasando al Paso 5.
+
+#### Fase 3: Dashboard Gerencial Simplificado y Código QR Dinámico
+- **Dashboard Gerencial Depurado:** Cuadrícula de 5 métricas clave protagonistas: Ingresos Totales, Total Efectivo, Transacciones (Digital), Depósitos en Garantía y Utilidades Netas (Ingresos - Gastos).
+- **Homologación Visual:** Misma estructura de 5 métricas sincronizada en el Banner de Inicio (`BannerMetricasInicio.tsx`).
+- **Código QR Dinámico según URL Activa:** En `TarjetaConexionLAN.tsx`, detección automática de origen (`window.location.origin`). Si se accede por IP local (`http://192.168.x.x:PUERTO`), el QR apunta a esa ruta; si se accede por dominio o subdominio en internet (`https://subdominio.dominio.com`), el QR refleja la URL web activa; y en servidor central (`localhost`) ofrece la IP física de la red local.
+
+#### Fase 4: Control de Calidad (QA), Certificación y Cierre Git
+- **TypeScript QA:** Ejecución de `npx tsc --noEmit` completada con **0 errores**.
+- **Compilación de Producción:** Ejecución de `npm run build` completada con éxito (`Compiled successfully in 25.9s`), optimizando 22 de 22 rutas estáticas y dinámicas.
+- **Certificación de Ejecutables en la Raíz:**
+  - `INSTALADOR_MAESTRO_UNICO_POS.bat` (21.126 bytes): Instalador maestro desatendido.
+  - `CONTROL_GENERAL_POS.bat` (4.900 bytes): Panel de control administrativo y mantenimiento.
+  - `ABRIR_SISTEMA_PANTALLA_COMPLETA.bat` (448 bytes): Lanzador modo kiosco en pantalla completa.
+  - `dist_instalador/Aurora_Host_POS_Setup.exe` (296.960 bytes): Instalador nativo ejecutable.
+  - `database/llanomio.db` (315.392 bytes): Base de datos de fábrica limpia con credenciales maestras (`admin` / `admin123`, PIN `000000`, pregunta de seguridad y configuración de empresa).
+- **Flujo de Instalación Certificado desde ZIP:**
+  1. Descarga desde el repositorio privado en GitHub: `<> Code` -> `Download ZIP`.
+  2. Extracción recomendada en `C:\Aurora_Host_POS`.
+  3. Clic derecho en `INSTALADOR_MAESTRO_UNICO_POS.bat` -> *Ejecutar como Administrador*.
+  4. Configuración automática de Node.js, dependencias, puertos, Firewall de Windows, PM2 y creación de accesos directos.
+  5. Inicio del mostrador en pantalla completa con respuesta instantánea y cero indicadores de desarrollo.
