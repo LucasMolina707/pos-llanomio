@@ -232,7 +232,7 @@ export default function ApartadosPage() {
   const [esPagoMixto, setEsPagoMixto] = useState<boolean>(false);
   const [montoEfectivoMixto, setMontoEfectivoMixto] = useState<string>("");
   const [montoDigitalMixto, setMontoDigitalMixto] = useState<string>("");
-  const [metodoDigitalMixto, setMetodoDigitalMixto] = useState<string>("TRANSFERENCIA");
+  const [metodoDigitalMixto, setMetodoDigitalMixto] = useState<string>("BANCOLOMBIA");
   const [efectivoRecibidoInput, setEfectivoRecibidoInput] = useState<string>("");
 
   // Modal de Anulación / Eliminación de Apartado en Historial con Doble Confirmación y PIN
@@ -1526,7 +1526,7 @@ export default function ApartadosPage() {
 
                             {!esPagoMixto ? (
                               <div className="grid grid-cols-3 gap-1.5">
-                                {["EFECTIVO", "NEQUI", "BANCOLOMBIA", "LLAVE", "DAVIPLATA", "TRANSFERENCIA"].map((m) => (
+                                {["EFECTIVO", "BANCOLOMBIA", "NEQUI", "LLAVE", "DAVIPLATA", "TRANSFERENCIA"].map((m) => (
                                   <button
                                     key={m}
                                     type="button"
@@ -1589,12 +1589,12 @@ export default function ApartadosPage() {
 
                                 <div>
                                   <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                                    Canal Digital:
+                                    Canal Digital (Predeterminado: Bancolombia):
                                   </label>
                                   <div className="grid grid-cols-3 gap-1">
                                     {[
-                                      { id: "NEQUI", label: "Nequi" },
                                       { id: "BANCOLOMBIA", label: "Bancolombia" },
+                                      { id: "NEQUI", label: "Nequi" },
                                       { id: "LLAVE", label: "Bre-B" },
                                       { id: "DAVIPLATA", label: "Daviplata" },
                                       { id: "TRANSFERENCIA", label: "Transf. Genérica" },

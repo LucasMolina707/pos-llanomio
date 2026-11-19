@@ -273,7 +273,7 @@ export default function TerminalAlquileresPage() {
   const [esPagoMixto, setEsPagoMixto] = useState<boolean>(false);
   const [montoEfectivoMixto, setMontoEfectivoMixto] = useState<string>("");
   const [montoDigitalMixto, setMontoDigitalMixto] = useState<string>("");
-  const [metodoDigitalMixto, setMetodoDigitalMixto] = useState<MetodoPagoAlquiler>("TRANSFERENCIA");
+  const [metodoDigitalMixto, setMetodoDigitalMixto] = useState<MetodoPagoAlquiler>("BANCOLOMBIA");
   const [referenciaPago, setReferenciaPago] = useState("");
   const [notasAlquiler, setNotasAlquiler] = useState("");
   const [guardandoAlquiler, setGuardandoAlquiler] = useState(false);
@@ -2722,8 +2722,8 @@ export default function TerminalAlquileresPage() {
                               <div className="grid grid-cols-3 gap-1">
                                 {[
                                   { id: "EFECTIVO", label: "Efectivo", icon: Banknote },
-                                  { id: "NEQUI", label: "Nequi", icon: Smartphone },
                                   { id: "BANCOLOMBIA", label: "Bancolombia", icon: Building2 },
+                                  { id: "NEQUI", label: "Nequi", icon: Smartphone },
                                   { id: "LLAVE", label: "Bre-B", icon: Coins },
                                   { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
                                   { id: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },
@@ -2796,12 +2796,12 @@ export default function TerminalAlquileresPage() {
 
                                 <div>
                                   <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
-                                    Canal Digital:
+                                    Canal Digital (Predeterminado: Bancolombia):
                                   </label>
                                   <div className="grid grid-cols-3 gap-1">
                                     {[
-                                      { id: "NEQUI", label: "Nequi" },
                                       { id: "BANCOLOMBIA", label: "Bancolombia" },
+                                      { id: "NEQUI", label: "Nequi" },
                                       { id: "LLAVE", label: "Bre-B" },
                                       { id: "DAVIPLATA", label: "Daviplata" },
                                       { id: "TRANSFERENCIA", label: "Transf. Genérica" },
@@ -3306,8 +3306,8 @@ export default function TerminalAlquileresPage() {
                     className="w-full px-2 py-1 text-xs bg-white border border-indigo-300 rounded-lg text-slate-800 font-bold"
                   >
                     <option value="EFECTIVO">Efectivo</option>
-                    <option value="NEQUI">Nequi</option>
                     <option value="BANCOLOMBIA">Bancolombia</option>
+                    <option value="NEQUI">Nequi</option>
                     <option value="LLAVE">Llave</option>
                   </select>
                 </div>
@@ -3716,8 +3716,8 @@ export default function TerminalAlquileresPage() {
               {(
                 [
                   { id: "EFECTIVO", label: "Efectivo", icon: Banknote },
-                  { id: "NEQUI", label: "Nequi", icon: Smartphone },
                   { id: "BANCOLOMBIA", label: "Bancolombia", icon: CreditCard },
+                  { id: "NEQUI", label: "Nequi", icon: Smartphone },
                   { id: "LLAVE", label: "Llave", icon: CreditCard },
                   { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
                   { id: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },

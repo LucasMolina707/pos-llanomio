@@ -505,8 +505,8 @@ export default function ModalLiquidarFactura({
                     {(
                       [
                         "EFECTIVO",
-                        "NEQUI",
                         "BANCOLOMBIA",
+                        "NEQUI",
                         "LLAVE",
                         "DAVIPLATA",
                         "TRANSFERENCIA",

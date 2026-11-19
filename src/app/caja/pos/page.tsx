@@ -404,7 +404,7 @@ export default function PosPage() {
   const [esPagoMixto, setEsPagoMixto] = useState<boolean>(false);
   const [montoEfectivoMixto, setMontoEfectivoMixto] = useState<string>("");
   const [montoDigitalMixto, setMontoDigitalMixto] = useState<string>("");
-  const [metodoDigitalMixto, setMetodoDigitalMixto] = useState<MetodoPagoPos>("TRANSFERENCIA");
+  const [metodoDigitalMixto, setMetodoDigitalMixto] = useState<MetodoPagoPos>("BANCOLOMBIA");
   const [montoAbonoParcial, setMontoAbonoParcial] = useState<string>("");
   const [efectivoRecibido, setEfectivoRecibido] = useState<string>("");
   const [referenciaPago, setReferenciaPago] = useState("");
@@ -2400,8 +2400,8 @@ export default function PosPage() {
                                   <div className="grid grid-cols-3 gap-1.5">
                                     {[
                                       { id: "EFECTIVO", label: "Efectivo", icon: Banknote },
-                                      { id: "NEQUI", label: "Nequi", icon: Smartphone },
                                       { id: "BANCOLOMBIA", label: "Bancolombia", icon: Building2 },
+                                      { id: "NEQUI", label: "Nequi", icon: Smartphone },
                                       { id: "LLAVE", label: "Llave / Bre-B", icon: Coins },
                                       { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
                                       { id: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },
@@ -2474,12 +2474,12 @@ export default function PosPage() {
 
                                     <div>
                                       <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                                        Método de la Porción Digital:
+                                        Método de la Porción Digital (Predeterminado: Bancolombia):
                                       </label>
                                       <div className="grid grid-cols-3 gap-1">
                                         {[
-                                          { id: "NEQUI", label: "Nequi" },
                                           { id: "BANCOLOMBIA", label: "Bancolombia" },
+                                          { id: "NEQUI", label: "Nequi" },
                                           { id: "LLAVE", label: "Bre-B" },
                                           { id: "DAVIPLATA", label: "Daviplata" },
                                           { id: "TRANSFERENCIA", label: "Transf. Genérica" },
