@@ -110,3 +110,21 @@ div[data-nextjs-portal] {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+/* Reglas de impresión limpia para reportes ejecutivos y panel de Johana */
+@media print {
+  header, nav, aside, .no-print {
+    display: none !important;
+  }
+  body, main {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  #panel-johana-impresion {
+    border: none !important;
+    box-shadow: none !important;
+    width: 100% !important;
+  }
+}

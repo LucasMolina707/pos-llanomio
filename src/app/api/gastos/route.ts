@@ -67,6 +67,9 @@ export async function GET(req: NextRequest) {
     const fechaInicioParam = searchParams.get("fechaInicio");
     const fechaFinParam = searchParams.get("fechaFin");
     const categoriaId = searchParams.get("categoriaId");
+    const categoriaNombreParam = searchParams.get("categoriaNombre")?.trim();
+    const soloJohana = searchParams.get("soloJohana") === "true" || categoriaNombreParam?.toUpperCase() === "JOHANA" || categoriaNombreParam?.toUpperCase() === "YOANA";
+    const subcategoriaParam = searchParams.get("subcategoria")?.trim();
     const empleado = searchParams.get("empleado")?.trim();
     const q = searchParams.get("q")?.trim();
 
@@ -105,8 +108,14 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    if (categoriaId && categoriaId !== "TODAS") {
+    if (soloJohana) {
+      where.categoriaNombre = { in: ["JOHANA", "YOANA"] };
+    } else if (categoriaId && categoriaId !== "TODAS") {
       where.categoriaId = categoriaId;
+    }
+
+    if (subcategoriaParam && subcategoriaParam !== "TODAS") {
+      where.subcategoria = subcategoriaParam;
     }
 
     if (empleado && empleado !== "TODOS") {
@@ -119,6 +128,7 @@ export async function GET(req: NextRequest) {
       where.OR = [
         { descripcion: { contains: q } },
         { categoriaNombre: { contains: q } },
+        { subcategoria: { contains: q } },
         { nombreEmpleado: { contains: q } },
         { observacionNomina: { contains: q } },
       ];
@@ -238,12 +248,24 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Desglose por subcategorías (útil para el panel de Johana y análisis de costos)
+    const desgloseSubcategorias: Record<string, { total: number; cantidad: number }> = {};
+    for (const g of gastos) {
+      const sub = g.subcategoria?.trim() || "Otros / General";
+      if (!desgloseSubcategorias[sub]) {
+        desgloseSubcategorias[sub] = { total: 0, cantidad: 0 };
+      }
+      desgloseSubcategorias[sub].total += g.valor;
+      desgloseSubcategorias[sub].cantidad += 1;
+    }
+
     return NextResponse.json(
       {
         ok: true,
         success: true,
         gastos,
         total: gastos.length,
+        desgloseSubcategorias,
         resumen: {
           totalGastosFiltrados,
           gastoDia,
@@ -290,6 +312,7 @@ export async function POST(req: NextRequest) {
     const {
       fecha: fechaInput,
       categoriaId,
+      subcategoria: subcategoriaInput,
       descripcion: descripcionInput,
       valor: valorInput,
       nombreEmpleado: nombreEmpleadoInput,
@@ -384,12 +407,43 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Si es categoría especial JOHANA (o YOANA), asegurar subcategoría persistente
+    const esJohana =
+      categoria.nombre.toUpperCase() === "JOHANA" ||
+      categoria.nombre.toUpperCase() === "YOANA";
+
+    const subcategoria = subcategoriaInput ? String(subcategoriaInput).trim() : null;
+
+    if (esJohana && subcategoria) {
+      try {
+        await prisma.subcategoriaGasto.upsert({
+          where: {
+            categoriaId_nombre: {
+              categoriaId: categoria.id,
+              nombre: subcategoria,
+            },
+          },
+          update: { activa: true },
+          create: {
+            categoriaId: categoria.id,
+            nombre: subcategoria,
+            activa: true,
+          },
+        });
+      } catch (errSub) {
+        console.warn("[GASTOS] No se pudo asegurar subcategoría en SubcategoriaGasto:", errSub);
+      }
+    }
+
+    const categoriaNombreFinal = esJohana ? "JOHANA" : categoria.nombre;
+
     // 6. Crear el registro en Gasto (Sin alterar cajas ni turnos)
     const nuevoGasto = await prisma.gasto.create({
       data: {
         fecha,
         categoriaId: categoria.id,
-        categoriaNombre: categoria.nombre,
+        categoriaNombre: categoriaNombreFinal,
+        subcategoria: subcategoria || null,
         descripcion,
         valor,
         esNomina,

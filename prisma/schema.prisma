@@ -438,15 +438,28 @@ model SecuenciaFactura {
 }
 
 model CategoriaGasto {
-  id               String   @id @default(cuid())
-  nombre           String   @unique
-  requiereEmpleado Boolean  @default(false)
-  esPredeterminada Boolean  @default(false)
-  activa           Boolean  @default(true)
-  fechaCreacion    DateTime @default(now())
+  id               String              @id @default(cuid())
+  nombre           String              @unique
+  requiereEmpleado Boolean             @default(false)
+  esPredeterminada Boolean             @default(false)
+  activa           Boolean             @default(true)
+  fechaCreacion    DateTime            @default(now())
   gastos           Gasto[]
+  subcategorias    SubcategoriaGasto[]
 
   @@map("categorias_gasto")
+}
+
+model SubcategoriaGasto {
+  id             String         @id @default(cuid())
+  nombre         String
+  categoriaId    String
+  categoria      CategoriaGasto @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+  activa         Boolean        @default(true)
+  fechaCreacion  DateTime       @default(now())
+
+  @@unique([categoriaId, nombre])
+  @@map("subcategorias_gasto")
 }
 
 model EmpleadoGasto {
@@ -466,6 +479,7 @@ model Gasto {
   categoriaId         String
   categoria           CategoriaGasto @relation(fields: [categoriaId], references: [id])
   categoriaNombre     String
+  subcategoria        String?
   descripcion         String
   valor               Float
   esNomina            Boolean        @default(false)
@@ -478,6 +492,7 @@ model Gasto {
 
   @@index([fecha])
   @@index([categoriaId])
+  @@index([subcategoria])
   @@index([esNomina])
   @@index([nombreEmpleado])
   @@map("gastos")

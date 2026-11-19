@@ -158,6 +158,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
       dataUpdate.observacionNomina = body.observacionNomina ? String(body.observacionNomina).trim() : null;
     }
 
+    if (body.subcategoria !== undefined) {
+      dataUpdate.subcategoria = body.subcategoria ? String(body.subcategoria).trim() : null;
+    }
+
     const gastoActualizado = await prisma.gasto.update({
       where: { id },
       data: dataUpdate,

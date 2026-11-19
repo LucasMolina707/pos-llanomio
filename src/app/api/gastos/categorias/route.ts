@@ -21,23 +21,102 @@ const CATEGORIAS_BASE = [
   { nombre: "Insumos de Producción y Sastrería (Cintas, Tizas, Lápices, Hilos, Agujas)", requiereEmpleado: false, esPredeterminada: true },
   { nombre: "Arriendo", requiereEmpleado: false, esPredeterminada: true },
   { nombre: "Servicios Públicos (Agua, Luz, Gas, Internet)", requiereEmpleado: false, esPredeterminada: true },
-  { nombre: "YOANA", requiereEmpleado: false, esPredeterminada: true },
+  { nombre: "JOHANA", requiereEmpleado: false, esPredeterminada: true },
+];
+
+const SUBCATEGORIAS_JOHANA_DEFAULT = [
+  "Almuerzo",
+  "Refrigerio",
+  "Taxis / Transporte",
+  "Insumos / Papelería",
+  "Cafetería / Aseo",
 ];
 
 /**
+ * Asegura la existencia y vigencia de la categoría especial JOHANA
+ * y sus subcategorías predeterminadas persistentes.
+ */
+async function asegurarCategoriaJohana() {
+  try {
+    // 1. Si existía YOANA con Y, migrarla limpiamente a JOHANA para unificar
+    const catYoanaVieja = await prisma.categoriaGasto.findFirst({
+      where: { nombre: "YOANA" },
+    });
+    if (catYoanaVieja) {
+      const yaExisteJohana = await prisma.categoriaGasto.findFirst({
+        where: { nombre: "JOHANA" },
+      });
+      if (!yaExisteJohana) {
+        await prisma.categoriaGasto.update({
+          where: { id: catYoanaVieja.id },
+          data: { nombre: "JOHANA", activa: true },
+        });
+      }
+      await prisma.gasto.updateMany({
+        where: { categoriaId: catYoanaVieja.id },
+        data: { categoriaNombre: "JOHANA" },
+      });
+    }
+
+    // 2. Upsert categoría JOHANA
+    const catJohana = await prisma.categoriaGasto.upsert({
+      where: { nombre: "JOHANA" },
+      update: { activa: true, requiereEmpleado: false },
+      create: {
+        nombre: "JOHANA",
+        requiereEmpleado: false,
+        esPredeterminada: true,
+        activa: true,
+      },
+    });
+
+    // 3. Sembrado de subcategorías predeterminadas de JOHANA en SubcategoriaGasto
+    for (const subNombre of SUBCATEGORIAS_JOHANA_DEFAULT) {
+      await prisma.subcategoriaGasto.upsert({
+        where: {
+          categoriaId_nombre: {
+            categoriaId: catJohana.id,
+            nombre: subNombre,
+          },
+        },
+        update: { activa: true },
+        create: {
+          categoriaId: catJohana.id,
+          nombre: subNombre,
+          activa: true,
+        },
+      });
+    }
+
+    return catJohana;
+  } catch (err) {
+    console.warn("[GASTOS] Aviso al asegurar categoría Johana:", err);
+    return null;
+  }
+}
+
+/**
  * GET /api/gastos/categorias
- * Retorna el catálogo completo de categorías de gastos.
+ * Retorna el catálogo completo de categorías de gastos incluyendo subcategorías activas.
  * Si la base de datos está vacía, realiza sembrado automático inicial (Auto-Seed)
- * con las categorías base obligatorias y asegura la categoría especial YOANA.
+ * con las categorías base obligatorias y asegura la categoría especial JOHANA.
  */
 export async function GET() {
   try {
+    await asegurarCategoriaJohana();
+
     let categorias = await prisma.categoriaGasto.findMany({
       where: { activa: true },
+      include: {
+        subcategorias: {
+          where: { activa: true },
+          orderBy: { nombre: "asc" },
+        },
+      },
       orderBy: [{ esPredeterminada: "desc" }, { nombre: "asc" }],
     });
 
-    // Auto-sembrado si la tabla está vacía o faltan las categorías base
+    // Auto-sembrado si la tabla está vacía
     if (categorias.length === 0) {
       for (const catBase of CATEGORIAS_BASE) {
         await prisma.categoriaGasto.upsert({
@@ -52,29 +131,18 @@ export async function GET() {
         });
       }
 
+      await asegurarCategoriaJohana();
+
       categorias = await prisma.categoriaGasto.findMany({
         where: { activa: true },
+        include: {
+          subcategorias: {
+            where: { activa: true },
+            orderBy: { nombre: "asc" },
+          },
+        },
         orderBy: [{ esPredeterminada: "desc" }, { nombre: "asc" }],
       });
-    } else {
-      // Garantizar que la categoría especial YOANA siempre se encuentre activa
-      const tieneYoana = categorias.some((c) => c.nombre.toUpperCase() === "YOANA");
-      if (!tieneYoana) {
-        await prisma.categoriaGasto.upsert({
-          where: { nombre: "YOANA" },
-          update: {},
-          create: {
-            nombre: "YOANA",
-            requiereEmpleado: false,
-            esPredeterminada: true,
-            activa: true,
-          },
-        });
-        categorias = await prisma.categoriaGasto.findMany({
-          where: { activa: true },
-          orderBy: [{ esPredeterminada: "desc" }, { nombre: "asc" }],
-        });
-      }
     }
 
     return NextResponse.json(
@@ -116,7 +184,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Buscar si ya existe (insensible a mayúsculas o exacto)
+    // Buscar si ya existe
     const existente = await prisma.categoriaGasto.findFirst({
       where: {
         nombre: {
@@ -127,7 +195,6 @@ export async function POST(req: NextRequest) {
 
     if (existente) {
       if (!existente.activa) {
-        // Reactivar si estaba inactiva
         const reactivada = await prisma.categoriaGasto.update({
           where: { id: existente.id },
           data: { activa: true, requiereEmpleado },
@@ -165,4 +232,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

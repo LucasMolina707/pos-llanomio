@@ -4814,3 +4814,53 @@ Se implementó el paquete integral de actualizaciones y optimizaciones operativa
 - **Causa del Icono "N" y la Lentitud:** El icono circular con la letra "N" corresponde al *Next.js Dev Indicator / Turbo DevTools*, el cual se activa exclusivamente cuando el sistema corre en **Modo Desarrollo (`npm run dev` o `INICIAR_MODO_DESARROLLO.bat`)**. En este modo, Next.js compila bajo demanda (JIT), activando React StrictMode y sobrecargas de inspección que reducen la velocidad de respuesta.
 - **Modo Producción de Alta Velocidad:** Al ejecutarse con `INICIAR_MODO_PRODUCCION_LOCAL.bat`, `CONTROL_GENERAL_POS.bat` o a través del servicio PM2, el sistema corre en modo producción precompilado con tiempos de respuesta inferiores a 50ms y **sin ningún logo ni indicador de desarrollo en pantalla**.
 - **Blindaje en CSS (`src/app/globals.css`):** Se incorporaron reglas globales para ocultar y suprimir de forma estricta cualquier portal o badge de depuración (`nextjs-portal`, `[data-nextjs-dev-tools-button]`, etc.) garantizando una interfaz 100% limpia bajo cualquier condición de ejecución.
+
+
+---
+
+## SECCIÓN 80: GESTIÓN ESPECIAL DE GASTOS JOHANA CON SUBCATEGORÍAS PERSISTENTES Y PANEL EXCLUSIVO EXCELJS
+
+### 1. Modelo de Datos y Subcategorías Persistentes en SQLite
+- **Modelo `SubcategoriaGasto`:**
+  - Creado en `database/schema.prisma` y `prisma/schema.prisma` con clave foránea hacia `CategoriaGasto` y restricción única `@@unique([categoriaId, nombre])`.
+  - Permite guardar y asociar dinámicamente nuevas subcategorías en la base de datos física SQLite.
+- **Campo `subcategoria` en `Gasto`:**
+  - Campo opcional `subcategoria String?` con índice de búsqueda `@@index([subcategoria])` para consultas rápidas por desglose.
+- **Sembrado y Normalización Automática (`/api/gastos/categorias`):**
+  - Asegura la categoría especial `JOHANA` (con descripción formal "Gastos operativos y personales autorizados de Johana").
+  - Migración automática en caliente: cualquier registro o categoría previa bajo la nomenclatura `YOANA` se asimila y actualiza a `JOHANA`.
+  - Sembrado predeterminado de 5 subcategorías iniciales:
+    1. `Almuerzo`
+    2. `Refrigerio`
+    3. `Taxis / Transporte`
+    4. `Insumos / Papelería`
+    5. `Cafetería / Aseo`
+
+### 2. Endpoints API Especializados
+- **`GET /api/gastos/subcategorias` & `POST /api/gastos/subcategorias`:**
+  - Consulta y alta de nuevas subcategorías persistentes en base de datos bajo la categoría `JOHANA`.
+- **`GET /api/gastos` y `POST /api/gastos`:**
+  - Soporte de filtros `soloJohana=true`, `subcategoria`, `dia` (YYYY-MM-DD) y `mes` (YYYY-MM).
+  - Cálculo agregado en backend de `desgloseSubcategorias` con sumatoria de montos y conteo de registros por cada subcategoría.
+  - Almacenamiento seguro del campo `subcategoria` en el registro del gasto y auto-creación en `SubcategoriaGasto` si es un valor nuevo.
+- **`GET /api/gastos/johana/excel`:**
+  - Generador de reportes contables profesionales en formato `.xlsx` utilizando la librería `exceljs`.
+  - Estructurado en dos hojas:
+    1. **"Gastos Johana Detallado":** Registro cronológico con columnas estilizadas (Fecha, Subcategoría, Descripción, Responsable, Monto formateado `$ #,##0`), cabeceras en azul pizarra `#1E293B`, texto en blanco, bordes finos, anchos automáticos y fila de total general destacado con fórmula SUM.
+    2. **"Resumen por Subcategoría":** Tabla de resumen ejecutivo con total gastado por cada subcategoría, porcentaje de participación sobre el total y fila de consolidado general.
+
+### 3. Interfaz de Usuario y Panel de Solo Lectura (`/admin/gastos`)
+- **Pestaña Dedicada "Panel Johana (Solo Lectura)":**
+  - Acceso directo desde la cabecera del módulo de gastos.
+  - Filtros independientes por **Día** (`input type="date"`) o por **Mes** (`input type="month"`), con botón "Hoy" para restablecer la vista diaria actual.
+  - Selector de filtro por subcategoría específica o "Todas las Subcategorías".
+  - **Tarjetas KPI Destacadas:** Total Gastado en el período, Número de Registros y Subcategoría con Mayor Gasto.
+  - **Badges de Desglose:** Resumen visual rápido con el monto acumulado por cada subcategoría.
+  - **Tabla de Solo Visualización:** Vista limpia, sin botones de eliminar ni editar, orientada a auditoría, revisión y transparencia contable.
+  - **Exportación Excel Inmediata:** Botón con icono de hoja de cálculo que descarga el reporte oficial con los filtros activos.
+  - **Impresión Limpia en Papel:** Botón de impresión que activa `@media print` en `globals.css` ocultando cabeceras, menús laterales y botones de acción, imprimiendo únicamente el informe ejecutivo de Johana con membrete formal.
+- **Registro de Gastos con Selector de Subcategorías:**
+  - En la fila de inserción rápida de gastos, al elegir la categoría `JOHANA`, se despliega automáticamente el selector de subcategorías y el botón `[+]` para registrar nuevas subcategorías en la base de datos sin salir de la vista.
+
+### 4. Aislamiento Contable Estricto de la Gaveta de Caja
+- Se ratifica y garantiza que ninguna operación registrada en `/admin/gastos` (incluyendo los gastos de Johana) altera, descuenta ni modifica el saldo de la gaveta de caja de los turnos de los cajeros (`TurnoCaja` / `CierreCaja`). La gaveta física permanece estrictamente aislada para el cuadre del dinero en mostrador.
