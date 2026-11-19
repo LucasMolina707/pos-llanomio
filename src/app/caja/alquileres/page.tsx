@@ -876,7 +876,8 @@ export default function TerminalAlquileresPage() {
     if (esPagoMixto) {
       const ef = Number(montoEfectivoMixto) || 0;
       const dig = Number(montoDigitalMixto) || 0;
-      return (ef + dig === totalExigidoHoyEnCaja) && (ef === 0 || efectivoRecibidoNum >= ef);
+      const totalMixto = ef + dig;
+      return totalMixto > 0 && (ef === 0 || efectivoRecibidoNum >= ef);
     }
     if (metodoPagoPrincipal === "EFECTIVO") {
       return abonoEfectivoConfirmado && efectivoRecibidoNum >= totalExigidoHoyEnCaja;
@@ -1172,6 +1173,38 @@ export default function TerminalAlquileresPage() {
             fechaDevolucion: new Date(fechaDevolucion).toISOString(),
             descripcionDetallada: it.descripcionDetallada?.trim() || undefined,
           })),
+          esPagoMixto,
+          metodoPagoPrincipal: esPagoMixto ? "MIXTO" : metodoPagoPrincipal,
+          pagos: esPagoMixto && valorAbonoAlquilerHoy > 0
+            ? [
+              ...(Number(montoEfectivoMixto) > 0
+                ? [{
+                  monto: Number(montoEfectivoMixto),
+                  metodoPago: "EFECTIVO",
+                  montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
+                  vueltasEntregadas: Math.max(0, vueltasCambioFinal),
+                  notas: "Alquiler mixto - Porción Efectivo",
+                }]
+                : []),
+              ...(Number(montoDigitalMixto) > 0
+                ? [{
+                  monto: Number(montoDigitalMixto),
+                  metodoPago: metodoDigitalMixto,
+                  referenciaComprobante: referenciaPago.trim() || undefined,
+                  notas: `Alquiler mixto - Porción ${metodoDigitalMixto}`,
+                }]
+                : []),
+            ]
+            : valorAbonoAlquilerHoy > 0
+              ? [{
+                monto: valorAbonoAlquilerHoy,
+                metodoPago: metodoPagoPrincipal,
+                montoRecibido: metodoPagoPrincipal === "EFECTIVO" ? efectivoRecibidoNum : undefined,
+                vueltasEntregadas: metodoPagoPrincipal === "EFECTIVO" ? vueltasCambioFinal : undefined,
+                referenciaComprobante: referenciaPago.trim() || undefined,
+                notas: modalidadPago === "COMPLETO" ? `Pago completo canon (${metodoPagoPrincipal})` : `Abono anticipo canon (${metodoPagoPrincipal})`,
+              }]
+              : [],
           abonoInicial: esPagoMixto
             ? undefined
             : valorAbonoAlquilerHoy > 0
@@ -2756,9 +2789,22 @@ export default function TerminalAlquileresPage() {
                               <div className="p-2.5 bg-orange-100/70 rounded-xl border border-orange-300 space-y-2">
                                 <div className="grid grid-cols-2 gap-2">
                                   <div>
-                                    <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
-                                      Efectivo ($):
-                                    </label>
+                                    <div className="flex items-center justify-between mb-0.5">
+                                      <label className="text-[10px] font-bold text-slate-700 block">
+                                        Monto 1: Efectivo ($):
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setMontoEfectivoMixto(String(totalExigidoHoyEnCaja));
+                                          setMontoDigitalMixto("0");
+                                          setEfectivoRecibidoCliente(String(totalExigidoHoyEnCaja));
+                                        }}
+                                        className="text-[9.5px] text-orange-900 hover:underline font-bold"
+                                      >
+                                        Todo en Efectivo
+                                      </button>
+                                    </div>
                                     <input
                                       type="number"
                                       value={montoEfectivoMixto}
@@ -2766,8 +2812,6 @@ export default function TerminalAlquileresPage() {
                                         const val = e.target.value;
                                         setMontoEfectivoMixto(val);
                                         const n = Number(val) || 0;
-                                        const resto = Math.max(0, totalExigidoHoyEnCaja - n);
-                                        setMontoDigitalMixto(String(resto));
                                         setEfectivoRecibidoCliente(String(n));
                                       }}
                                       className="w-full px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-orange-500"
@@ -2775,19 +2819,28 @@ export default function TerminalAlquileresPage() {
                                   </div>
 
                                   <div>
-                                    <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
-                                      Digital / Transf. ($):
-                                    </label>
+                                    <div className="flex items-center justify-between mb-0.5">
+                                      <label className="text-[10px] font-bold text-slate-700 block">
+                                        Monto 2: Digital / Transf. ($):
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const ef = Number(montoEfectivoMixto) || 0;
+                                          const resto = Math.max(0, totalExigidoHoyEnCaja - ef);
+                                          setMontoDigitalMixto(String(resto));
+                                        }}
+                                        className="text-[9.5px] text-orange-900 hover:underline font-bold"
+                                      >
+                                        Completar Resto
+                                      </button>
+                                    </div>
                                     <input
                                       type="number"
                                       value={montoDigitalMixto}
                                       onChange={(e) => {
                                         const val = e.target.value;
                                         setMontoDigitalMixto(val);
-                                        const n = Number(val) || 0;
-                                        const resto = Math.max(0, totalExigidoHoyEnCaja - n);
-                                        setMontoEfectivoMixto(String(resto));
-                                        setEfectivoRecibidoCliente(String(resto));
                                       }}
                                       className="w-full px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-orange-500"
                                     />
@@ -2798,7 +2851,7 @@ export default function TerminalAlquileresPage() {
                                   <label className="text-[10px] font-bold text-slate-700 block mb-0.5">
                                     Canal Digital (Predeterminado: Bancolombia):
                                   </label>
-                                  <div className="grid grid-cols-3 gap-1">
+                                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-1">
                                     {[
                                       { id: "BANCOLOMBIA", label: "Bancolombia" },
                                       { id: "NEQUI", label: "Nequi" },
@@ -2822,14 +2875,19 @@ export default function TerminalAlquileresPage() {
                                 </div>
 
                                 <div className="flex items-center justify-between text-[11px] pt-1 border-t border-orange-200 font-semibold">
-                                  <span className="text-slate-600">Suma total mixta:</span>
-                                  <span className={`font-mono font-bold ${(Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0) === totalExigidoHoyEnCaja
-                                    ? "text-emerald-700"
-                                    : "text-rose-600"
-                                    }`}>
+                                  <span className="text-slate-600">Total a pagar hoy en mixto:</span>
+                                  <span className="font-mono font-bold text-slate-900">
                                     ${((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)).toLocaleString("es-CO")} de ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
                                   </span>
                                 </div>
+                                {Math.max(0, totalExigidoHoyEnCaja - ((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0))) > 0 && (
+                                  <div className="flex items-center justify-between text-[11px] text-rose-700 font-bold">
+                                    <span>Saldo pendiente proyectado:</span>
+                                    <span className="font-mono">
+                                      ${Math.max(0, totalExigidoHoyEnCaja - ((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0))).toLocaleString("es-CO")}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             )}
 

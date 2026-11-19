@@ -687,22 +687,27 @@ export default function PosPage() {
 
   const totalFactura = subtotalVenta + subtotalAlquiler + subtotalArreglos;
 
-  // Monto a cobrar hoy según modalidad
+  // Monto a cobrar hoy según modalidad y pago mixto
+  const totalPagadoMixto = (Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0);
+
   const valorACobrarHoy = useMemo(() => {
+    if (esPagoMixto) {
+      return totalPagadoMixto;
+    }
     if (modalidadPago === "COMPLETO") return totalFactura;
     if (modalidadPago === "PENDIENTE") return 0;
     const adelanto = Number(montoAbonoParcial) || 0;
     return Math.min(Math.max(0, adelanto), totalFactura);
-  }, [modalidadPago, totalFactura, montoAbonoParcial]);
+  }, [modalidadPago, totalFactura, montoAbonoParcial, esPagoMixto, totalPagadoMixto]);
 
   const saldoPendienteProyectado = Math.max(0, totalFactura - valorACobrarHoy);
 
   // Cálculo de vueltas en efectivo
   const efectivoRecibidoNum = Number(efectivoRecibido) || 0;
-  const montoObjetivoEfectivo = esPagoMixto ? (Number(montoEfectivoMixto) || 0) : valorACobrarHoy;
+  const montoObjetivoEfectivo = esPagoMixto ? (Number(montoEfectivoMixto) || 0) : (metodoPagoPrincipal === "EFECTIVO" ? valorACobrarHoy : 0);
   const vueltasCalculadas =
     ((metodoPagoPrincipal === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && Number(montoEfectivoMixto) > 0)) && montoObjetivoEfectivo > 0
-      ? efectivoRecibidoNum - montoObjetivoEfectivo
+      ? Math.max(0, efectivoRecibidoNum - montoObjetivoEfectivo)
       : 0;
 
   // =========================================================
@@ -962,6 +967,38 @@ export default function PosPage() {
           fechaDevolucion: item.fechaDevolucion,
         })),
         turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
+        esPagoMixto,
+        metodoPagoPrincipal: esPagoMixto ? "MIXTO" : metodoPagoPrincipal,
+        pagos: esPagoMixto && valorACobrarHoy > 0
+          ? [
+            ...(Number(montoEfectivoMixto) > 0
+              ? [{
+                monto: Number(montoEfectivoMixto),
+                metodoPago: "EFECTIVO",
+                montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
+                vueltasEntregadas: Math.max(0, vueltasCalculadas),
+                notas: "Pago mixto - Porción Efectivo",
+              }]
+              : []),
+            ...(Number(montoDigitalMixto) > 0
+              ? [{
+                monto: Number(montoDigitalMixto),
+                metodoPago: metodoDigitalMixto,
+                referenciaComprobante: referenciaPago.trim() || undefined,
+                notas: `Pago mixto - Porción ${metodoDigitalMixto}`,
+              }]
+              : []),
+          ]
+          : valorACobrarHoy > 0
+            ? [{
+              monto: valorACobrarHoy,
+              metodoPago: metodoPagoPrincipal,
+              montoRecibido: metodoPagoPrincipal === "EFECTIVO" ? efectivoRecibidoNum : undefined,
+              vueltasEntregadas: metodoPagoPrincipal === "EFECTIVO" ? Math.max(0, vueltasCalculadas) : undefined,
+              referenciaComprobante: referenciaPago.trim() || undefined,
+              notas: modalidadPago === "COMPLETO" ? "Pago completo de contado" : "Adelanto inicial de compra/alquiler",
+            }]
+            : [],
         abonoInicial: esPagoMixto
           ? undefined
           : valorACobrarHoy > 0
@@ -2434,9 +2471,22 @@ export default function PosPage() {
                                   <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-200 space-y-3">
                                     <div className="grid grid-cols-2 gap-2">
                                       <div>
-                                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                                          Porción en Efectivo ($):
-                                        </label>
+                                        <div className="flex items-center justify-between mb-1">
+                                          <label className="text-[11px] font-bold text-slate-700 block">
+                                            Monto 1: Efectivo ($):
+                                          </label>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setMontoEfectivoMixto(String(totalFactura));
+                                              setMontoDigitalMixto("0");
+                                              setEfectivoRecibido(String(totalFactura));
+                                            }}
+                                            className="text-[10px] text-indigo-700 hover:underline font-bold"
+                                          >
+                                            Todo en Efectivo
+                                          </button>
+                                        </div>
                                         <input
                                           type="number"
                                           value={montoEfectivoMixto}
@@ -2444,8 +2494,6 @@ export default function PosPage() {
                                             const val = e.target.value;
                                             setMontoEfectivoMixto(val);
                                             const n = Number(val) || 0;
-                                            const resto = Math.max(0, valorACobrarHoy - n);
-                                            setMontoDigitalMixto(String(resto));
                                             setEfectivoRecibido(String(n));
                                           }}
                                           className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-indigo-500"
@@ -2453,19 +2501,28 @@ export default function PosPage() {
                                       </div>
 
                                       <div>
-                                        <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                                          Porción Digital / Transf. ($):
-                                        </label>
+                                        <div className="flex items-center justify-between mb-1">
+                                          <label className="text-[11px] font-bold text-slate-700 block">
+                                            Monto 2: Digital / Transf. ($):
+                                          </label>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const ef = Number(montoEfectivoMixto) || 0;
+                                              const resto = Math.max(0, totalFactura - ef);
+                                              setMontoDigitalMixto(String(resto));
+                                            }}
+                                            className="text-[10px] text-indigo-700 hover:underline font-bold"
+                                          >
+                                            Completar Resto
+                                          </button>
+                                        </div>
                                         <input
                                           type="number"
                                           value={montoDigitalMixto}
                                           onChange={(e) => {
                                             const val = e.target.value;
                                             setMontoDigitalMixto(val);
-                                            const n = Number(val) || 0;
-                                            const resto = Math.max(0, valorACobrarHoy - n);
-                                            setMontoEfectivoMixto(String(resto));
-                                            setEfectivoRecibido(String(resto));
                                           }}
                                           className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-indigo-500"
                                         />
@@ -2500,14 +2557,19 @@ export default function PosPage() {
                                     </div>
 
                                     <div className="flex items-center justify-between text-xs pt-1 border-t border-indigo-200/60 font-semibold">
-                                      <span className="text-slate-600">Suma total mixta:</span>
-                                      <span className={`font-mono font-bold ${(Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0) === valorACobrarHoy
-                                        ? "text-emerald-700"
-                                        : "text-rose-600"
-                                        }`}>
-                                        ${((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)).toLocaleString("es-CO")} de ${valorACobrarHoy.toLocaleString("es-CO")}
+                                      <span className="text-slate-600">Total pagado hoy en mixto:</span>
+                                      <span className="font-mono font-bold text-indigo-900">
+                                        ${totalPagadoMixto.toLocaleString("es-CO")} de ${totalFactura.toLocaleString("es-CO")}
                                       </span>
                                     </div>
+                                    {saldoPendienteProyectado > 0 && (
+                                      <div className="flex items-center justify-between text-xs text-rose-600 font-bold">
+                                        <span>Saldo pendiente proyectado:</span>
+                                        <span className="font-mono">
+                                          ${saldoPendienteProyectado.toLocaleString("es-CO")}
+                                        </span>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>

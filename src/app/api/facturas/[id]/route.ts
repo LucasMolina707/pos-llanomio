@@ -189,8 +189,12 @@ export async function POST(req: NextRequest, { params }: Params) {
         notas?: string | null;
       }> = [];
 
-      if (Array.isArray(body.abonos) && body.abonos.length > 0) {
-        for (const ab of body.abonos) {
+      const listaPagosConv = Array.isArray(body.pagos) && body.pagos.length > 0
+        ? body.pagos
+        : (Array.isArray(body.abonos) && body.abonos.length > 0 ? body.abonos : null);
+
+      if (listaPagosConv) {
+        for (const ab of listaPagosConv) {
           const m = Math.max(0, Math.round(Number(ab.monto || 0) * 100) / 100);
           if (m > 0) {
             let met: MetodoPago = MetodoPago.EFECTIVO;
@@ -449,8 +453,12 @@ export async function POST(req: NextRequest, { params }: Params) {
       notas?: string | null;
     }> = [];
 
-    if (Array.isArray(body.abonos) && body.abonos.length > 0) {
-      for (const ab of body.abonos) {
+    const listaPagosCobro = Array.isArray(body.pagos) && body.pagos.length > 0
+      ? body.pagos
+      : (Array.isArray(body.abonos) && body.abonos.length > 0 ? body.abonos : null);
+
+    if (listaPagosCobro) {
+      for (const ab of listaPagosCobro) {
         const m = Math.max(0, Math.round(Number(ab.monto || 0) * 100) / 100);
         if (m > 0) {
           let met: MetodoPago = MetodoPago.EFECTIVO;
@@ -743,6 +751,23 @@ export async function POST(req: NextRequest, { params }: Params) {
           recargoMoraAcumulado: nuevoRecargoMora,
           totalAbonado: nuevoTotalAbonado,
           saldoPendiente: nuevoSaldoPendiente,
+          metodoPagoPrincipal:
+            body.metodoPagoPrincipal ||
+            (body.esPagoMixto || abonosCobro.length > 1
+              ? "MIXTO"
+              : (abonosCobro[0]?.metodoPago || facturaExistente.metodoPagoPrincipal)),
+          efectivoRecibido:
+            body.efectivoRecibido !== undefined
+              ? Math.max(0, Number(body.efectivoRecibido) || 0)
+              : (body.montoRecibido !== undefined
+                  ? Math.max(0, Number(body.montoRecibido) || 0)
+                  : facturaExistente.efectivoRecibido),
+          cambioEntregado:
+            body.cambioEntregado !== undefined
+              ? Math.max(0, Number(body.cambioEntregado) || 0)
+              : (body.vueltasEntregadas !== undefined
+                  ? Math.max(0, Number(body.vueltasEntregadas) || 0)
+                  : facturaExistente.cambioEntregado),
           estado: nuevoEstado,
           fechaDevolucionReal: fechaDevReal,
           estadoDeposito: nuevoEstadoDeposito,

@@ -4864,3 +4864,50 @@ Se implementó el paquete integral de actualizaciones y optimizaciones operativa
 
 ### 4. Aislamiento Contable Estricto de la Gaveta de Caja
 - Se ratifica y garantiza que ninguna operación registrada en `/admin/gastos` (incluyendo los gastos de Johana) altera, descuenta ni modifica el saldo de la gaveta de caja de los turnos de los cajeros (`TurnoCaja` / `CierreCaja`). La gaveta física permanece estrictamente aislada para el cuadre del dinero en mostrador.
+
+
+---
+
+## SECCIÓN 81: HOMOLOGACIÓN INTEGRAL DE PAGOS MIXTOS (2 MONTOS EN PESOS) EN VENTAS, ALQUILERES, APARTADOS Y LIQUIDACIÓN
+
+### 1. Modelo de Datos y Soporte Prisma / SQLite
+- **Campo `metodoPagoPrincipal` en `Factura`:**
+  - Registrado en `database/schema.prisma` y `prisma/schema.prisma` (`metodoPagoPrincipal String? @default("EFECTIVO")`).
+  - Permite identificar inmediatamente en reportes, vistas y comprobantes si la factura se liquidó al 100% en un canal único o bajo la modalidad `MIXTO`.
+- **Desglose Múltiple de `Abono` por Factura:**
+  - Cada operación con pago mixto crea atómicamente en base de datos dos registros en la tabla `Abono`: uno para el tramo en efectivo (`EFECTIVO`) y otro para el tramo electrónico (`BANCOLOMBIA`, `NEQUI`, `LLAVE`, `DAVIPLATA`, `TRANSFERENCIA` o `CONSIGNACION`).
+  - Cada abono guarda su propio `monto`, `cajeroId`, `turnoCajaId`, `montoRecibido`, `vueltasEntregadas` y `referenciaComprobante`.
+
+### 2. Endpoints de Facturación (`/api/facturas` y `/api/facturas/[id]`)
+- **Procesamiento de Arreglo de Tramos (`pagos: Array<{ metodoPago, monto, referencia, ... }>`):**
+  - Tanto en la creación de facturas (`POST /api/facturas`) como en el cobro de saldos / abonos posteriores (`POST /api/facturas/[id]` y conversión de apartados), las rutas aceptan y procesan de forma unificada `body.pagos` y `body.abonos`.
+  - Recálculo contable exacto: `totalAbonado` es la suma de los tramos recibidos y `saldoPendiente = Math.max(0, totalFactura - totalAbonado)`.
+- **Impacto Financiero Preciso en `TurnoCaja`:**
+  - Dentro de la transacción atómica SQLite, se actualizan individualmente las columnas de arqueo del turno abierto según el método de cada tramo:
+    - Tramo Efectivo incrementa `totalEfectivo` y `totalRecaudado`.
+    - Tramo Digital incrementa `totalBancolombia` (o el canal digital correspondiente) y `totalRecaudado`.
+  - Cuadre matemático al centavo sin descuadres ni distorsiones en los informes de cierre de turno.
+
+### 3. Homologación de Interfaz UI/UX en Mostrador (Sin Porcentajes)
+- **Ventas Mostrador (`/caja/pos`), Alquileres (`/caja/alquileres`) y Apartados (`/caja/apartados`):**
+  - Selección ágil entre **1 Método de Pago** (100% Efectivo, Bancolombia, Nequi, Bre-B, Daviplata, Transferencia) o **Pago Mixto (2 Métodos)**.
+  - **Monto 1: Efectivo ($):** Input numérico en pesos con botón directo `[Todo en Efectivo]` para transferir el 100% del valor a cobrar hoy.
+  - **Monto 2: Digital / Transferencia ($):** Input numérico en pesos con botón directo `[Completar Resto]` para autocompletar la diferencia exacta respecto al total a cobrar.
+  - **Selector de Canal Digital Predeterminado:** Botones de un solo clic con Bancolombia predeterminado, Nequi, Bre-B, Daviplata y Transf. Genérica.
+  - **Recálculo Dinámico de Saldo y Vueltas:**
+    - Si la suma de ambos tramos es inferior al valor de la factura, el sistema calcula y muestra en vivo el saldo pendiente proyectado que quedará en cartera.
+    - Si el cliente entrega un valor en efectivo superior al Monto 1, calcula automáticamente las vueltas sobre la porción en efectivo.
+- **Modal de Cobro de Saldo y Liquidación (`ModalLiquidarFactura.tsx`):**
+  - Homologado con el mismo botón `Pago Mixto (2 Métodos)` y los dos tramos con autocompletado y selector digital.
+
+### 4. Representación Documental en Tirilla y Formatos PDF
+- **`PlantillaImpresion.tsx` (Tirilla 80mm, Media Carta y Carta):**
+  - En facturas pagadas con modalidad mixta, el rótulo de método de pago se formatea como: `MIXTO: EFECTIVO $X + BANCOLOMBIA $Y`.
+  - El historial detallado de pagos de la factura lista los tramos individuales con fecha, monto, método y cajero responsable.
+- **`src/lib/pdf-media-carta.ts`:**
+  - Exportación vectorial en jsPDF homologada para reflejar el desglose consolidado de pagos mixtos y el saldo pendiente.
+
+### 5. Certificación QA
+- **Suite de Pruebas Automatizadas:** Ejecución de `test-pago-mixto-qa.ts` certificando creación de factura con $50.000 en Efectivo y $20.000 en Bancolombia, incremento exacto en `TurnoCaja` ($50.000 en `totalEfectivo`, $20.000 en `totalBancolombia`), 2 registros en `Abono` y saldo pendiente de $30.000.
+- **Validación TypeScript:** `npx tsc --noEmit` completado con **0 errores**.
+- **Compilación de Producción:** `npm run build` completado exitosamente en 29.6s optimizando 22 de 22 rutas.

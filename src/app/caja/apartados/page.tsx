@@ -557,6 +557,36 @@ export default function ApartadosPage() {
         metodoPagoDeposito: depositoEntregadoHoy && depositoNumerico > 0 ? "EFECTIVO" : null,
         turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
         observaciones: observaciones.trim() || null,
+        esPagoMixto,
+        metodoPagoPrincipal: esPagoMixto ? "MIXTO" : metodoPagoAbono,
+        pagos: esPagoMixto && abonoNumerico > 0
+          ? [
+            ...(Number(montoEfectivoMixto) > 0
+              ? [{
+                monto: Number(montoEfectivoMixto),
+                metodoPago: "EFECTIVO",
+                montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
+                vueltasEntregadas: vueltasEntregadasCalculadas,
+                notas: "Apartado - Porción Efectivo",
+              }]
+              : []),
+            ...(Number(montoDigitalMixto) > 0
+              ? [{
+                monto: Number(montoDigitalMixto),
+                metodoPago: metodoDigitalMixto,
+                notas: `Apartado - Porción ${metodoDigitalMixto}`,
+              }]
+              : []),
+          ]
+          : abonoNumerico > 0
+            ? [{
+              monto: abonoNumerico,
+              metodoPago: metodoPagoAbono,
+              montoRecibido: metodoPagoAbono === "EFECTIVO" ? efectivoRecibidoNum : null,
+              vueltasEntregadas: metodoPagoAbono === "EFECTIVO" ? vueltasEntregadasCalculadas : null,
+              notas: "Apartado - Abono inicial",
+            }]
+            : [],
         abonoInicial: esPagoMixto
           ? undefined
           : abonoNumerico > 0
@@ -1549,9 +1579,22 @@ export default function ApartadosPage() {
                               <div className="p-3 bg-indigo-50/70 rounded-xl border border-indigo-200 space-y-2.5">
                                 <div className="grid grid-cols-2 gap-2">
                                   <div>
-                                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                                      Efectivo ($):
-                                    </label>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <label className="text-[11px] font-bold text-slate-700 block">
+                                        Monto 1: Efectivo ($):
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setMontoEfectivoMixto(String(abonoNumerico));
+                                          setMontoDigitalMixto("0");
+                                          setEfectivoRecibidoInput(String(abonoNumerico + (depositoEntregadoHoy ? depositoNumerico : 0)));
+                                        }}
+                                        className="text-[10px] text-indigo-700 hover:underline font-bold"
+                                      >
+                                        Todo en Efectivo
+                                      </button>
+                                    </div>
                                     <input
                                       type="number"
                                       value={montoEfectivoMixto}
@@ -1559,8 +1602,6 @@ export default function ApartadosPage() {
                                         const val = e.target.value;
                                         setMontoEfectivoMixto(val);
                                         const n = Number(val) || 0;
-                                        const resto = Math.max(0, abonoNumerico - n);
-                                        setMontoDigitalMixto(String(resto));
                                         setEfectivoRecibidoInput(String(n + (depositoEntregadoHoy ? depositoNumerico : 0)));
                                       }}
                                       className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-indigo-500"
@@ -1568,19 +1609,28 @@ export default function ApartadosPage() {
                                   </div>
 
                                   <div>
-                                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                                      Digital / Transf. ($):
-                                    </label>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <label className="text-[11px] font-bold text-slate-700 block">
+                                        Monto 2: Digital / Transf. ($):
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const ef = Number(montoEfectivoMixto) || 0;
+                                          const resto = Math.max(0, abonoNumerico - ef);
+                                          setMontoDigitalMixto(String(resto));
+                                        }}
+                                        className="text-[10px] text-indigo-700 hover:underline font-bold"
+                                      >
+                                        Completar Resto
+                                      </button>
+                                    </div>
                                     <input
                                       type="number"
                                       value={montoDigitalMixto}
                                       onChange={(e) => {
                                         const val = e.target.value;
                                         setMontoDigitalMixto(val);
-                                        const n = Number(val) || 0;
-                                        const resto = Math.max(0, abonoNumerico - n);
-                                        setMontoEfectivoMixto(String(resto));
-                                        setEfectivoRecibidoInput(String(resto + (depositoEntregadoHoy ? depositoNumerico : 0)));
                                       }}
                                       className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-indigo-500"
                                     />
@@ -1591,7 +1641,7 @@ export default function ApartadosPage() {
                                   <label className="text-[11px] font-bold text-slate-700 block mb-1">
                                     Canal Digital (Predeterminado: Bancolombia):
                                   </label>
-                                  <div className="grid grid-cols-3 gap-1">
+                                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-1">
                                     {[
                                       { id: "BANCOLOMBIA", label: "Bancolombia" },
                                       { id: "NEQUI", label: "Nequi" },
@@ -1615,14 +1665,19 @@ export default function ApartadosPage() {
                                 </div>
 
                                 <div className="flex items-center justify-between text-xs pt-1 border-t border-indigo-200/60 font-semibold">
-                                  <span className="text-slate-600">Suma abono mixto:</span>
-                                  <span className={`font-mono font-bold ${(Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0) === abonoNumerico
-                                    ? "text-emerald-700"
-                                    : "text-rose-600"
-                                    }`}>
+                                  <span className="text-slate-600">Total abonado hoy en mixto:</span>
+                                  <span className="font-mono font-bold text-indigo-900">
                                     ${((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)).toLocaleString("es-CO")} de ${abonoNumerico.toLocaleString("es-CO")}
                                   </span>
                                 </div>
+                                {Math.max(0, totalAlquiler - ((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0))) > 0 && (
+                                  <div className="flex items-center justify-between text-xs text-rose-600 font-bold">
+                                    <span>Saldo pendiente proyectado:</span>
+                                    <span className="font-mono">
+                                      ${Math.max(0, totalAlquiler - ((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0))).toLocaleString("es-CO")}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>

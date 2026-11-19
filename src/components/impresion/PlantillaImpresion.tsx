@@ -448,14 +448,17 @@ export default function PlantillaImpresion({
         ? safeNumber(factura.tarifaMoraDiaria)
         : (detalles.reduce((acc, d) => acc + (safeNumber(d.producto?.tarifaMoraDiaria) || 0), 0) || 3000);
 
-    // Desglose de medios de pago para venta y alquiler (PROHIBIDO "ABONADO" EN ALQUILER)
-    const metodosAbonos = Array.from(
-      new Set(abonos.map((a) => (a.metodoPago || "EFECTIVO").toUpperCase()))
-    );
-    const textoMedioPagoPrincipal =
-      metodosAbonos.length > 0
-        ? metodosAbonos.join(" / ")
-        : (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase();
+    // Desglose de medios de pago para venta y alquiler (Soporte Oficial Pagos Mixtos)
+    const desgloseMetodosPagados = abonos.reduce((acc: Record<string, number>, a) => {
+      const met = (a.metodoPago || "EFECTIVO").toUpperCase();
+      acc[met] = (acc[met] || 0) + (safeNumber(a.monto) || 0);
+      return acc;
+    }, {});
+    const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
+    const metodosAbonos = Object.keys(desgloseMetodosPagados);
+    const textoMedioPagoPrincipal = tienePagoMixtoReal
+      ? "MIXTO: " + Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} ${formatCOP(v)}`).join(" + ")
+      : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
 
     // 4. REGLA CONTABLE — CUADRE DE CAJA, EFECTIVO RECIBIDO Y VUELTAS
     const totalAlquilerConDeposito = totalOperacionPrincipal + montoDepositoEfectivo;

@@ -147,13 +147,16 @@ function dibujarPaginaMediaCarta(
   const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
   const saldoPendienteTotalApartado = Math.max(0, (totalOperacionPrincipal + saldoDepositoAlRetirar) - totalAbonado);
 
-  const metodosAbonos = Array.from(
-    new Set((factura.abonos || []).map((a) => (a.metodoPago || "EFECTIVO").toUpperCase()))
-  );
-  const textoMedioPagoPrincipal =
-    metodosAbonos.length > 0
-      ? metodosAbonos.join(" / ")
-      : (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase();
+  const desgloseMetodosPagados = (factura.abonos || []).reduce((acc: Record<string, number>, a) => {
+    const met = (a.metodoPago || "EFECTIVO").toUpperCase();
+    acc[met] = (acc[met] || 0) + (safeNum(a.monto) || 0);
+    return acc;
+  }, {});
+  const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
+  const metodosAbonos = Object.keys(desgloseMetodosPagados);
+  const textoMedioPagoPrincipal = tienePagoMixtoReal
+    ? "MIXTO: " + Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
+    : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
 
   const tarifaMoraDiariaOficial =
     safeNum(factura.tarifaMoraDiaria) > 0
@@ -868,13 +871,16 @@ function dibujarPaginaCarta(
   const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
   const saldoPendienteTotalApartado = Math.max(0, (totalOperacionPrincipal + saldoDepositoAlRetirar) - totalAbonado);
 
-  const metodosAbonos = Array.from(
-    new Set((factura.abonos || []).map((a) => (a.metodoPago || "EFECTIVO").toUpperCase()))
-  );
-  const textoMedioPagoPrincipal =
-    metodosAbonos.length > 0
-      ? metodosAbonos.join(" / ")
-      : (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase();
+  const desgloseMetodosPagados = (factura.abonos || []).reduce((acc: Record<string, number>, a) => {
+    const met = (a.metodoPago || "EFECTIVO").toUpperCase();
+    acc[met] = (acc[met] || 0) + (safeNum(a.monto) || 0);
+    return acc;
+  }, {});
+  const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
+  const metodosAbonos = Object.keys(desgloseMetodosPagados);
+  const textoMedioPagoPrincipal = tienePagoMixtoReal
+    ? "MIXTO: " + Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
+    : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
 
   const tarifaMoraDiariaOficial =
     safeNum(factura.tarifaMoraDiaria) > 0
@@ -1580,13 +1586,16 @@ function dibujarContenidoTirilla(
   const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
   const saldoPendienteTotalApartado = Math.max(0, (totalOperacionPrincipal + saldoDepositoAlRetirar) - totalAbonado);
 
-  const metodosAbonos = Array.from(
-    new Set((factura.abonos || []).map((a) => (a.metodoPago || "EFECTIVO").toUpperCase()))
-  );
-  const textoMedioPagoPrincipal =
-    metodosAbonos.length > 0
-      ? metodosAbonos.join(" / ")
-      : (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase();
+  const desgloseMetodosPagados = (factura.abonos || []).reduce((acc: Record<string, number>, a) => {
+    const met = (a.metodoPago || "EFECTIVO").toUpperCase();
+    acc[met] = (acc[met] || 0) + (safeNum(a.monto) || 0);
+    return acc;
+  }, {});
+  const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
+  const metodosAbonos = Object.keys(desgloseMetodosPagados);
+  const textoMedioPagoPrincipal = tienePagoMixtoReal
+    ? "MIXTO: " + Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
+    : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
 
   const tarifaMoraDiariaOficial =
     safeNum(factura.tarifaMoraDiaria) > 0

@@ -266,6 +266,7 @@ model Factura {
   metodoPagoDeposito      String?
 
   // Liquidación de Efectivo y Vueltas
+  metodoPagoPrincipal     String?        @default("EFECTIVO")
   efectivoRecibido        Float          @default(0)
   cambioEntregado         Float          @default(0)
 

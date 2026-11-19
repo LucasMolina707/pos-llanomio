@@ -281,12 +281,16 @@ export async function POST(req: NextRequest) {
 
     // 0. Control de Seguridad Financiera POS y Resolución Universal de Turno Abierto
     let abonoInicialNum = 0;
-    if (typeof abonoInicial === "number") {
+    const listaPagosEntrada: any[] | null = Array.isArray(body.pagos) && body.pagos.length > 0
+      ? body.pagos
+      : (Array.isArray(body.abonos) && body.abonos.length > 0 ? body.abonos : null);
+
+    if (listaPagosEntrada) {
+      abonoInicialNum = listaPagosEntrada.reduce((acc: number, a: any) => acc + (Number(a.monto) || 0), 0);
+    } else if (typeof abonoInicial === "number") {
       abonoInicialNum = Math.max(0, abonoInicial);
     } else if (abonoInicial && typeof abonoInicial === "object" && "monto" in abonoInicial) {
       abonoInicialNum = Math.max(0, Number((abonoInicial as any).monto) || 0);
-    } else if (body.abonos && Array.isArray(body.abonos)) {
-      abonoInicialNum = body.abonos.reduce((acc: number, a: any) => acc + (Number(a.monto) || 0), 0);
     }
 
     const turnoActivo = await obtenerTurnoAbiertoActivo(prisma, cajeroId, body.turnoCajaId);
@@ -429,11 +433,11 @@ export async function POST(req: NextRequest) {
     const totalFactura = Math.round((subtotalProductos + subtotalArreglosLibres) * 100) / 100;
 
     // 5. Procesar abono inicial (uno o múltiples pagos parciales / mixtos)
-    const abonosInput: any[] = Array.isArray(body.abonos) && body.abonos.length > 0
-      ? body.abonos
+    const abonosInput: any[] = listaPagosEntrada
+      ? listaPagosEntrada
       : (typeof abonoInicial === "number" && abonoInicial > 0
-          ? [{ monto: abonoInicial, metodoPago: body.metodoPagoAbono || MetodoPago.EFECTIVO }]
-          : (abonoInicial && Number(abonoInicial.monto) > 0 ? [abonoInicial] : []));
+          ? [{ monto: abonoInicial, metodoPago: body.metodoPagoAbono || body.metodoPagoPrincipal || MetodoPago.EFECTIVO }]
+          : (abonoInicial && Number((abonoInicial as any).monto) > 0 ? [abonoInicial] : []));
 
     const abonosDataCreacion: {
       monto: number;
@@ -523,6 +527,12 @@ export async function POST(req: NextRequest) {
       const fechaRetiroApartado = parseFechaSegura(body.fechaRetiroApartado || body.fechaSalida || fechaEntregaCalculada);
       const fechaDevolucionEstimada = parseFechaSegura(body.fechaDevolucionEstimada || body.fechaDevolucion || fechaDevolucionCalculada);
 
+      const metodoPagoPrincipalFinal =
+        body.metodoPagoPrincipal ||
+        (body.esPagoMixto || abonosDataCreacion.length > 1
+          ? "MIXTO"
+          : (abonosDataCreacion[0]?.metodoPago || "EFECTIVO"));
+
       const factura = await tx.factura.create({
         data: {
           consecutivo,
@@ -532,6 +542,7 @@ export async function POST(req: NextRequest) {
           turnoCajaId: turnoAbierto?.id || null,
           tipoOperacion: tipoOpFinal,
           estado: estadoFinal,
+          metodoPagoPrincipal: metodoPagoPrincipalFinal,
           subtotalProductos,
           subtotalArreglosLibres,
           totalFactura,
