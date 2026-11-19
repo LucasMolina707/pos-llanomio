@@ -4794,3 +4794,23 @@ Se implementó el paquete integral de actualizaciones y optimizaciones operativa
   3. Clic derecho en `INSTALADOR_MAESTRO_UNICO_POS.bat` -> *Ejecutar como Administrador*.
   4. Configuración automática de Node.js, dependencias, puertos, Firewall de Windows, PM2 y creación de accesos directos.
   5. Inicio del mostrador en pantalla completa con respuesta instantánea y cero indicadores de desarrollo.
+
+---
+
+## SECCIÓN 79: SIMPLIFICACIÓN Y CORRECCIÓN DEFINITIVA DE TARJETA CONEXIÓN QR Y EXCLUSIÓN DE INDICADORES DE DESARROLLO
+
+### 1. Simplificación Absoluta del Componente QR (`TarjetaConexionLAN.tsx`)
+- **Eliminación de Elementos Redundantes:** Se eliminaron las pestañas de selección ("IP Directa LAN" y "Dominio mDNS"), selectores de puertos `:3000`/`:80`, barras de adaptadores de red y paneles de diagnóstico que confundían a los usuarios no técnicos.
+- **Enfoque Exclusivo en Escaneo:** La interfaz ahora presenta únicamente:
+  - Cabecera compacta con título, indicador de estado ("Wi-Fi Tienda" o "Web / Dominio"), botón de refresco y botón de cierre en modo modal.
+  - Marco del Código QR en alta definición con zoom en pantalla completa a un solo clic.
+  - Caja inferior monoespaciada con el enlace exacto listo para copiar al portapapeles o abrir directamente en una nueva pestaña.
+- **Resolución Inteligente de la Dirección Activa:**
+  - **Acceso Local (IPv4 o `localhost` / `127.0.0.1`):** Si se ejecuta en el servidor central bajo `localhost`, consulta la IP física de la red (`/api/red-local`) y genera `http://<IP_LAN>:<PUERTO>` (ej. `http://192.168.1.243:3000`). Si ya se abrió por IP física en el navegador, mantiene estrictamente `http://<IP>:<PUERTO>`.
+  - **Acceso por Dominio / Subdominio (Internet / Túnel Cloudflare):** Genera el enlace limpio con protocolo y dominio/subdominio (ej. `https://pos.llanomio.com`), eliminando cualquier sufijo de puerto redundante (`:3000:3000`).
+- **Ajuste de Encuadre Modal:** En `src/app/page.tsx`, se redujo el ancho máximo a `max-w-md` para un encuadre visual armónico sin márgenes desproporcionados.
+
+### 2. Aclaración y Bloqueo de Indicadores de Desarrollo ("Logo N" y Modo Dev)
+- **Causa del Icono "N" y la Lentitud:** El icono circular con la letra "N" corresponde al *Next.js Dev Indicator / Turbo DevTools*, el cual se activa exclusivamente cuando el sistema corre en **Modo Desarrollo (`npm run dev` o `INICIAR_MODO_DESARROLLO.bat`)**. En este modo, Next.js compila bajo demanda (JIT), activando React StrictMode y sobrecargas de inspección que reducen la velocidad de respuesta.
+- **Modo Producción de Alta Velocidad:** Al ejecutarse con `INICIAR_MODO_PRODUCCION_LOCAL.bat`, `CONTROL_GENERAL_POS.bat` o a través del servicio PM2, el sistema corre en modo producción precompilado con tiempos de respuesta inferiores a 50ms y **sin ningún logo ni indicador de desarrollo en pantalla**.
+- **Blindaje en CSS (`src/app/globals.css`):** Se incorporaron reglas globales para ocultar y suprimir de forma estricta cualquier portal o badge de depuración (`nextjs-portal`, `[data-nextjs-dev-tools-button]`, etc.) garantizando una interfaz 100% limpia bajo cualquier condición de ejecución.

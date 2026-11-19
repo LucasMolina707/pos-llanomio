@@ -101,7 +101,10 @@ html, body {
 nextjs-portal,
 #__next-build-watcher,
 [data-nextjs-toast],
-[data-nextjs-dev-overlay] {
+[data-nextjs-dev-overlay],
+[data-nextjs-dev-tools-button],
+[data-next-badge],
+div[data-nextjs-portal] {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;

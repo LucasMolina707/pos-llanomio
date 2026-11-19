@@ -345,7 +345,7 @@ export default function HomePage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-3xl animate-in zoom-in-95 duration-150"
+            className="w-full max-w-md animate-in zoom-in-95 duration-150"
           >
             <TarjetaConexionLAN
               onClose={() => setMostrarModalQR(false)}
