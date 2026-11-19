@@ -54,6 +54,23 @@ export async function safeFetchJson<T = unknown>(
           `Error en la petición (HTTP ${res.status})`,
     };
   } catch (err: unknown) {
+    // Si la petición fue abortada o cancelada intencionalmente por el ciclo de vida del componente,
+    // se descarta silenciosamente sin generar errores en consola ni en la interfaz.
+    const esAbort =
+      err instanceof Error &&
+      (err.name === "AbortError" ||
+        err.message?.toLowerCase().includes("aborted") ||
+        err.message?.toLowerCase().includes("abort"));
+
+    if (esAbort) {
+      return {
+        ok: false,
+        status: 0,
+        data: null,
+        error: "PETICION_ABORTADA",
+      };
+    }
+
     const errorMsg =
       err instanceof Error ? err.message : "Error de conexión con el servidor local";
     console.error(`Error en safeFetchJson a ${url}:`, err);

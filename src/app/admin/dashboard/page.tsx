@@ -219,7 +219,9 @@ export default function DashboardGerencialPage() {
 
       // Cancelar request previo si aún está en vuelo
       if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+        try {
+          abortControllerRef.current.abort();
+        } catch {}
       }
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -230,10 +232,14 @@ export default function DashboardGerencialPage() {
             ? `periodo=${periodoActivo.toLowerCase()}`
             : `desde=${fechaDesde}&hasta=${fechaHasta}`;
 
-        const { ok, data } = await safeFetchJson<any>(`/api/dashboard/metrics?${queryParam}`, {
+        const { ok, data, error } = await safeFetchJson<any>(`/api/dashboard/metrics?${queryParam}`, {
           cache: "no-store",
           signal: controller.signal,
         });
+
+        if (error === "PETICION_ABORTADA") {
+          return;
+        }
 
         if (ok && data?.success && data?.metricas) {
           const firmaActual = `${data.metricas.ingresosNetos}-${data.metricas.cuentasPorCobrar}-${data.metricas.totalFacturas}-${data.dondeEstaElDinero?.depositosCustodia || 0}-${data.ultimasFacturas?.[0]?.id || ""}`;
@@ -254,7 +260,12 @@ export default function DashboardGerencialPage() {
           setTotalPulsosRecibidos((prev) => prev + 1);
         }
       } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") {
+        if (
+          err instanceof Error &&
+          (err.name === "AbortError" ||
+            err.message?.toLowerCase().includes("abort") ||
+            err.message?.toLowerCase().includes("aborted"))
+        ) {
           return;
         }
         console.warn("Telemetría en segundo plano no crítica:", err);
@@ -299,7 +310,11 @@ export default function DashboardGerencialPage() {
       if (pollingInterval) clearInterval(pollingInterval);
       window.removeEventListener("focus", handleReenfoque);
       document.removeEventListener("visibilitychange", handleReenfoque);
-      if (abortControllerRef.current) abortControllerRef.current.abort();
+      if (abortControllerRef.current) {
+        try {
+          abortControllerRef.current.abort();
+        } catch {}
+      }
     };
   }, [enVivoActivo, cargarMetricas]);
 

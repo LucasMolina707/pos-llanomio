@@ -167,7 +167,9 @@ export function useCajonSincronizado() {
       actualizandoRef.current = true;
 
       if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+        try {
+          abortControllerRef.current.abort();
+        } catch {}
       }
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -299,7 +301,12 @@ export function useCajonSincronizado() {
           return;
         }
       } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") {
+        if (
+          err instanceof Error &&
+          (err.name === "AbortError" ||
+            err.message?.toLowerCase().includes("abort") ||
+            err.message?.toLowerCase().includes("aborted"))
+        ) {
           return;
         }
         if (!silencioso) {
@@ -473,7 +480,9 @@ export function useCajonSincronizado() {
         channel.close();
       }
       if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+        try {
+          abortControllerRef.current.abort();
+        } catch {}
       }
     };
   }, [actualizarCajon]);

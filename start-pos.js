@@ -76,22 +76,34 @@ async function arrancarServidor() {
 
   const standaloneServer = path.join(__dirname, ".next", "standalone", "server.js");
   const buildIdPath = path.join(__dirname, ".next", "BUILD_ID");
+  const nextBin = path.join(__dirname, "node_modules", "next", "dist", "bin", "next");
 
-  if (fs.existsSync(standaloneServer)) {
-    console.log(`[INICIO] Desplegando en modo Standalone autonomo en puerto ${puerto}...`);
-    require(standaloneServer);
-  } else if (fs.existsSync(buildIdPath)) {
-    console.log(`[INICIO] Desplegando en modo Next.js produccion estandar en puerto ${puerto}...`);
-    const nextBin = path.join(__dirname, "node_modules", "next", "dist", "bin", "next");
+  if (fs.existsSync(buildIdPath) && fs.existsSync(nextBin)) {
+    console.log(`[INICIO] Desplegando en modo Next.js produccion optimizada en puerto ${puerto}...`);
     process.argv = [process.argv[0], nextBin, "start", "-H", "0.0.0.0", "-p", String(puerto)];
     require(nextBin);
+  } else if (fs.existsSync(standaloneServer)) {
+    // Hidratar recursos estaticos y publicos en standalone
+    const sStatic = path.join(__dirname, ".next", "standalone", ".next", "static");
+    const rStatic = path.join(__dirname, ".next", "static");
+    if (!fs.existsSync(sStatic) && fs.existsSync(rStatic)) {
+      try { fs.cpSync(rStatic, sStatic, { recursive: true }); } catch {}
+    }
+    const sPublic = path.join(__dirname, ".next", "standalone", "public");
+    const rPublic = path.join(__dirname, "public");
+    if (!fs.existsSync(sPublic) && fs.existsSync(rPublic)) {
+      try { fs.cpSync(rPublic, sPublic, { recursive: true }); } catch {}
+    }
+    console.log(`[INICIO] Desplegando en modo Standalone autonomo en puerto ${puerto}...`);
+    require(standaloneServer);
   } else {
     console.log(`[INICIO] Entorno de desarrollo detectado (sin compilacion previa .next).`);
     console.log(`[INICIO] Iniciando Servidor de Desarrollo (Dev Server) en http://localhost:${puerto}...`);
     process.env.NODE_ENV = "development";
-    const nextBin = path.join(__dirname, "node_modules", "next", "dist", "bin", "next");
-    process.argv = [process.argv[0], nextBin, "dev", "-H", "0.0.0.0", "-p", String(puerto)];
-    require(nextBin);
+    if (fs.existsSync(nextBin)) {
+      process.argv = [process.argv[0], nextBin, "dev", "-H", "0.0.0.0", "-p", String(puerto)];
+      require(nextBin);
+    }
   }
 }
 
