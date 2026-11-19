@@ -198,6 +198,11 @@ export default function DashboardGerencialPage() {
   const [enVivoActivo, setEnVivoActivo] = useState(true);
   const [ultimaSincronizacion, setUltimaSincronizacion] = useState<Date>(new Date());
   const [totalPulsosRecibidos, setTotalPulsosRecibidos] = useState(0);
+  const [montado, setMontado] = useState(false);
+
+  useEffect(() => {
+    setMontado(true);
+  }, []);
 
   // Referencias para evitar revalidaciones duplicadas y condiciones de carrera
   const ultimaFirmaDatosRef = useRef<string>("");
@@ -451,7 +456,7 @@ export default function DashboardGerencialPage() {
             icon={RefreshCw}
             label="Actualizar Métricas y Balance"
             modulo="Dashboard"
-            destino={`Recalcula ventas, cartera y moras (Última: ${ultimaSincronizacion.toLocaleTimeString("es-CO")})`}
+            destino={`Recalcula ventas, cartera y moras (Última: ${montado ? ultimaSincronizacion.toLocaleTimeString("es-CO") : "--:--"})`}
             onClick={() => cargarMetricas(true)}
             disabled={cargandoInicial || actualizandoSilencioso}
             iconClassName={

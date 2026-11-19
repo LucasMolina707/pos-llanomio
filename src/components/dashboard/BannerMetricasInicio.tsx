@@ -99,8 +99,14 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
   const [desgloseLineas, setDesgloseLineas] = useState<DesgloseLineasNegocio | null>(null);
   const [cargando, setCargando] = useState<boolean>(true);
   const [actualizando, setActualizando] = useState<boolean>(false);
-  const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date());
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null);
+  const [montado, setMontado] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    setMontado(true);
+    setUltimaActualizacion(new Date());
+  }, []);
 
   const formatearDinero = (val: number): string => {
     return new Intl.NumberFormat("es-CO", {
@@ -206,8 +212,13 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
                 <span>En Vivo</span>
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium">
-              Lectura directa en tiempo real &bull; Actualizado: {ultimaActualizacion.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            <p className="text-xs text-slate-500 font-medium" suppressHydrationWarning>
+              Lectura directa en tiempo real &bull; Actualizado:{" "}
+              <span suppressHydrationWarning>
+                {montado && ultimaActualizacion
+                  ? ultimaActualizacion.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                  : "--:--:--"}
+              </span>
             </p>
           </div>
         </div>

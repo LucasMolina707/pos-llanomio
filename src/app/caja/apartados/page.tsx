@@ -274,27 +274,23 @@ export default function ApartadosPage() {
   };
 
   // Abono y Depósito Predeterminado Dinámico basado en el Último Valor Generado (Editable)
-  const [ultimoAbonoSugeridoApartado, setUltimoAbonoSugeridoApartado] = useState<number>(() => {
-    if (typeof window !== "undefined") {
-      const guardado = localStorage.getItem("pos_ultimo_abono_apartado");
-      if (guardado) {
-        const val = parseFloat(guardado);
-        if (!isNaN(val) && val > 0) return val;
-      }
-    }
-    return 20000;
-  });
+  const [ultimoAbonoSugeridoApartado, setUltimoAbonoSugeridoApartado] = useState<number>(20000);
+  const [ultimoDepositoSugeridoApartado, setUltimoDepositoSugeridoApartado] = useState<number>(20000);
 
-  const [ultimoDepositoSugeridoApartado, setUltimoDepositoSugeridoApartado] = useState<number>(() => {
-    if (typeof window !== "undefined") {
-      const guardado = localStorage.getItem("pos_ultimo_deposito_apartado");
-      if (guardado) {
-        const val = parseFloat(guardado);
-        if (!isNaN(val) && val > 0) return val;
+  useEffect(() => {
+    try {
+      const guardadoAbono = localStorage.getItem("pos_ultimo_abono_apartado");
+      if (guardadoAbono) {
+        const val = parseFloat(guardadoAbono);
+        if (!isNaN(val) && val > 0) setUltimoAbonoSugeridoApartado(val);
       }
-    }
-    return 20000;
-  });
+      const guardadoDep = localStorage.getItem("pos_ultimo_deposito_apartado");
+      if (guardadoDep) {
+        const val = parseFloat(guardadoDep);
+        if (!isNaN(val) && val > 0) setUltimoDepositoSugeridoApartado(val);
+      }
+    } catch {}
+  }, []);
 
   // Historial de Apartados
   const [apartadosHistorial, setApartadosHistorial] = useState<FacturaApartadoResumen[]>([]);

@@ -105,10 +105,7 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
     }
   };
 
-  const esAdmin =
-    usuario?.rol === "ADMIN" ||
-    usuario?.username === "admin" ||
-    !usuario?.rol; // Fallback seguro mientras hidrata si ya pasó middleware
+  const esAdmin = Boolean(usuario?.rol === "ADMIN" || usuario?.username === "admin");
 
   return (
     <header className="sticky top-0 z-30 h-16 w-full bg-[#FCFDFE] border-b border-slate-200/90 shadow-2xs flex items-center justify-between px-3.5 sm:px-6">

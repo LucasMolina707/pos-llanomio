@@ -58,17 +58,16 @@ export default function Sidebar({
 
   // Estados de expansión por hover y pin persistente opcional
   const [isHovered, setIsHovered] = useState(false);
-  const [isPinned, setIsPinned] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        return localStorage.getItem("pos_sidebar_pinned") === "true";
-      } catch {
-        return false;
-      }
-    }
-    return false;
-  });
+  const [isPinned, setIsPinned] = useState(false);
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("pos_sidebar_pinned") === "true") {
+        setIsPinned(true);
+      }
+    } catch {}
+  }, []);
 
   // Guardar estado de pin en localStorage
   const handleTogglePin = (e: React.MouseEvent) => {

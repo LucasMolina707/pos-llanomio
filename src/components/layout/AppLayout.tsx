@@ -16,15 +16,15 @@ interface UsuarioSesion {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [usuario, setUsuario] = useState<UsuarioSesion | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = sessionStorage.getItem("pos_user");
-        if (cached) return JSON.parse(cached);
-      } catch {}
-    }
-    return null;
-  });
+  const [usuario, setUsuario] = useState<UsuarioSesion | null>(null);
+
+  // Inicializar usuario desde caché de sesión de forma segura tras hidratación
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem("pos_user");
+      if (cached) setUsuario(JSON.parse(cached));
+    } catch {}
+  }, []);
 
   // Consultar usuario en sesión una sola vez al montar (evita llamadas repetitivas en cada cambio de ruta)
   useEffect(() => {

@@ -254,16 +254,17 @@ export default function TerminalAlquileresPage() {
   const [montoDepositoPersonalizado, setMontoDepositoPersonalizado] = useState<string>("0");
   const [tarifaMoraDiaria, setTarifaMoraDiaria] = useState<number>(3000);
   const [abonoEfectivoConfirmado, setAbonoEfectivoConfirmado] = useState<boolean>(true);
-  const [ultimoAbonoSugeridoAlquiler, setUltimoAbonoSugeridoAlquiler] = useState<number>(() => {
-    if (typeof window !== "undefined") {
+  const [ultimoAbonoSugeridoAlquiler, setUltimoAbonoSugeridoAlquiler] = useState<number>(20000);
+
+  useEffect(() => {
+    try {
       const guardado = localStorage.getItem("pos_ultimo_abono_alquiler");
       if (guardado) {
         const val = parseFloat(guardado);
-        if (!isNaN(val) && val > 0) return val;
+        if (!isNaN(val) && val > 0) setUltimoAbonoSugeridoAlquiler(val);
       }
-    }
-    return 20000;
-  });
+    } catch {}
+  }, []);
 
   // Bloque 2: Valor del Canon de Alquiler y Saldo
   const [modalidadPago, setModalidadPago] = useState<ModalidadPagoAlquiler>("COMPLETO");

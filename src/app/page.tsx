@@ -30,19 +30,16 @@ interface UsuarioSesion {
 }
 
 export default function HomePage() {
-  const [usuario, setUsuario] = useState<UsuarioSesion | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = sessionStorage.getItem("pos_user");
-        if (cached) return JSON.parse(cached);
-      } catch {}
-    }
-    return null;
-  });
+  const [usuario, setUsuario] = useState<UsuarioSesion | null>(null);
   const [mostrarModalQR, setMostrarModalQR] = useState(false);
 
   useEffect(() => {
     let activo = true;
+
+    try {
+      const cached = sessionStorage.getItem("pos_user");
+      if (cached) setUsuario(JSON.parse(cached));
+    } catch {}
     safeFetchJson<{ ok?: boolean; user?: UsuarioSesion }>("/api/auth/me").then(({ ok, data }) => {
       if (!activo) return;
       if (ok && data?.ok && data?.user) {
