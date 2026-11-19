@@ -44,30 +44,9 @@ export async function GET(req: NextRequest) {
       return resp;
     }
 
-    // Verificar si la sesión activa en BD pertenece a otro token (sesión reemplazada en otro equipo)
-    if (
-      usuarioBD.sesionActivaToken &&
-      sesion.sessionToken &&
-      usuarioBD.sesionActivaToken !== sesion.sessionToken
-    ) {
-      const resp = NextResponse.json(
-        {
-          ok: false,
-          error: "Esta sesión ha sido cerrada porque la cuenta fue abierta en otro dispositivo.",
-          sesionReemplazada: true,
-          user: null,
-        },
-        { status: 401 }
-      );
-      resp.cookies.set({
-        name: NOMBRE_COOKIE_SESION,
-        value: "",
-        ...OPCIONES_COOKIE_SESION,
-        maxAge: 0,
-        expires: new Date(0),
-      });
-      return resp;
-    }
+    // Concurrencia Multidispositivo y Sesión Compartida:
+    // Se permite explícitamente que múltiples dispositivos y terminales en la red local
+    // operen simultáneamente con la misma cuenta sin cerrar la sesión de otros equipos.
 
     // Actualizar latido / heartbeat en SQLite para mantener viva la sesión activa
     await prisma.user.update({

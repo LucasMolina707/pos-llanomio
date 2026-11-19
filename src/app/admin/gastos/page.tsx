@@ -111,6 +111,15 @@ const MESES = [
   { num: 12, nombre: "Diciembre" },
 ];
 
+const SUBCATEGORIAS_YOANA_DEFAULT = [
+  "Almuerzo",
+  "Refrigerio",
+  "Taxis",
+  "Transporte",
+  "Insumos varios",
+  "Otros",
+];
+
 export default function GastosAdminPage() {
   const hoyStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const anioActual = useMemo(() => new Date().getFullYear(), []);
@@ -144,10 +153,46 @@ export default function GastosAdminPage() {
   const [nuevoNombreEmpleado, setNuevoNombreEmpleado] = useState<string>("");
   const [nuevaModalidadNomina, setNuevaModalidadNomina] = useState<string>("QUINCENAL");
   const [nuevaObservacionNomina, setNuevaObservacionNomina] = useState<string>("");
-  const [subcategoriaYoana, setSubcategoriaYoana] = useState<string>("Almuerzo / Alimentación");
+  const [subcategoriaYoana, setSubcategoriaYoana] = useState<string>("Almuerzo");
+  const [subcategoriasYoana, setSubcategoriasYoana] = useState<string[]>(SUBCATEGORIAS_YOANA_DEFAULT);
+  const [modalNuevaSubcatYoana, setModalNuevaSubcatYoana] = useState(false);
+  const [nuevaSubcatYoanaInput, setNuevaSubcatYoanaInput] = useState("");
   const [nuevaDescripcion, setNuevaDescripcion] = useState<string>("");
   const [nuevoValor, setNuevoValor] = useState<string>("");
   const [guardandoFila, setGuardandoFila] = useState(false);
+
+  // Cargar subcategorías personalizadas de YOANA desde persistencia local
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const guardadas = localStorage.getItem("pos_subcategorias_yoana");
+        if (guardadas) {
+          const parsed = JSON.parse(guardadas);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSubcategoriasYoana(parsed);
+          }
+        }
+      } catch {}
+    }
+  }, []);
+
+  const handleAgregarSubcategoriaYoana = (nombre: string) => {
+    const limpio = nombre.trim();
+    if (!limpio) return;
+    const existe = subcategoriasYoana.some((s) => s.toLowerCase() === limpio.toLowerCase());
+    const actualizadas = existe ? subcategoriasYoana : [...subcategoriasYoana, limpio];
+    if (!existe) {
+      setSubcategoriasYoana(actualizadas);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("pos_subcategorias_yoana", JSON.stringify(actualizadas));
+        } catch {}
+      }
+    }
+    setSubcategoriaYoana(limpio);
+    setModalNuevaSubcatYoana(false);
+    setNuevaSubcatYoanaInput("");
+  };
 
   // Modales
   const [modalNuevaCategoriaAbierto, setModalNuevaCategoriaAbierto] = useState(false);
@@ -293,10 +338,12 @@ export default function GastosAdminPage() {
 
     const esYoanaEnFila = Boolean(categoriaSeleccionada?.nombre?.toUpperCase() === "YOANA");
 
-    const descFinal = nuevaDescripcion.trim()
+    const descFinal = esYoanaEnFila
       ? nuevaDescripcion.trim()
-      : esYoanaEnFila
-      ? `YOANA - ${subcategoriaYoana}`
+        ? `YOANA: ${subcategoriaYoana} - ${nuevaDescripcion.trim()}`
+        : `YOANA: ${subcategoriaYoana}`
+      : nuevaDescripcion.trim()
+      ? nuevaDescripcion.trim()
       : esNominaEnFila
       ? `Pago de nómina - ${nuevoNombreEmpleado} (${nuevaModalidadNomina})`
       : categoriaSeleccionada?.nombre || "Gasto operativo";
@@ -853,21 +900,38 @@ export default function GastosAdminPage() {
                 {/* Celda 4: Descripción o Selector YOANA (col 4 o col 3) */}
                 {categoriaSeleccionada?.nombre?.toUpperCase() === "YOANA" ? (
                   <div className="sm:col-span-5">
-                    <label className="h-5 flex items-center text-[11px] font-bold uppercase tracking-wider text-purple-900">
-                      DETALLE / SUBCATEGORÍA YOANA
-                    </label>
+                    <div className="h-5 flex items-center justify-between">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-purple-900">
+                        DETALLE / SUBCATEGORÍA YOANA
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setModalNuevaSubcatYoana(true)}
+                        className="text-[10px] font-bold text-purple-700 hover:text-purple-900 underline flex items-center gap-0.5 cursor-pointer"
+                        title="Crear nueva subcategoría personalizada"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Nueva subcategoría</span>
+                      </button>
+                    </div>
                     <div className="flex gap-1.5 items-center">
                       <select
                         value={subcategoriaYoana}
-                        onChange={(e) => setSubcategoriaYoana(e.target.value)}
+                        onChange={(e) => {
+                          if (e.target.value === "__NUEVA__") {
+                            setModalNuevaSubcatYoana(true);
+                          } else {
+                            setSubcategoriaYoana(e.target.value);
+                          }
+                        }}
                         className="w-1/2 h-10 px-2.5 text-xs font-bold text-slate-900 bg-purple-50 border border-purple-300 rounded-xl outline-none focus:border-purple-600 cursor-pointer"
                       >
-                        <option value="Almuerzo / Alimentación">Almuerzo / Alimentación</option>
-                        <option value="Refrigerios / Cafetería">Refrigerios / Cafetería</option>
-                        <option value="Taxis / Transporte">Taxis / Transporte</option>
-                        <option value="Insumos Personales de Turno">Insumos Personales de Turno</option>
-                        <option value="Gastos Médicos / Farmacia">Gastos Médicos / Farmacia</option>
-                        <option value="Gastos Varios Autorizados">Gastos Varios Autorizados</option>
+                        {subcategoriasYoana.map((sub) => (
+                          <option key={sub} value={sub}>
+                            {sub}
+                          </option>
+                        ))}
+                        <option value="__NUEVA__">+ Agregar subcategoría...</option>
                       </select>
                       <input
                         type="text"
@@ -1572,6 +1636,79 @@ export default function GastosAdminPage() {
                 className="px-4 py-1.5 text-xs font-black bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
               >
                 {eliminandoGasto ? "Eliminando..." : "Eliminar Definitivamente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: NUEVA SUBCATEGORÍA YOANA */}
+      {modalNuevaSubcatYoana && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl border border-purple-200 shadow-xl p-5 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+              <div className="flex items-center gap-2.5 text-purple-700">
+                <div className="p-2 bg-purple-50 rounded-xl">
+                  <FolderPlus className="w-5 h-5 text-purple-600" />
+                </div>
+                <h3 className="text-sm font-black text-slate-900 uppercase">
+                  Nueva Subcategoría YOANA
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalNuevaSubcatYoana(false);
+                  setNuevaSubcatYoanaInput("");
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Ingrese el nombre del concepto o subcategoría detallada para los gastos de YOANA (Ej. Almuerzo, Refrigerio, Taxis, Transporte, Insumos varios, Otros).
+            </p>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 uppercase block mb-1">
+                Nombre de la Subcategoría
+              </label>
+              <input
+                type="text"
+                placeholder="Ej. Taxis nocturnos, Refrigerio de turno..."
+                value={nuevaSubcatYoanaInput}
+                onChange={(e) => setNuevaSubcatYoanaInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAgregarSubcategoriaYoana(nuevaSubcatYoanaInput);
+                  }
+                }}
+                className="w-full h-10 px-3 text-xs text-slate-900 bg-white border border-slate-300 rounded-xl outline-none focus:border-purple-600"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setModalNuevaSubcatYoana(false);
+                  setNuevaSubcatYoanaInput("");
+                }}
+                className="px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAgregarSubcategoriaYoana(nuevaSubcatYoanaInput)}
+                disabled={!nuevaSubcatYoanaInput.trim()}
+                className="px-4 py-2 text-xs font-black bg-purple-700 hover:bg-purple-800 text-white rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
+              >
+                Guardar Subcategoría
               </button>
             </div>
           </div>

@@ -26,10 +26,12 @@ import {
   PhoneCall,
   ShieldCheck,
   PackageCheck,
+  Trash2,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import BotonWhatsApp from "@/components/crm/BotonWhatsApp";
 import ModalLiquidarFactura from "@/components/facturas/ModalLiquidarFactura";
+import ModalAnularFactura, { FacturaParaAnular } from "@/components/facturas/ModalAnularFactura";
 import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 
@@ -136,6 +138,25 @@ export default function CentralMonitoreoPage() {
   const [datosImpresionModal, setDatosImpresionModal] = useState<DatosImpresionFactura | null>(null);
   const [modalImpresionAbierto, setModalImpresionAbierto] = useState(false);
   const [cargandoImpresionId, setCargandoImpresionId] = useState<string | null>(null);
+
+  // Control del modal de anulación y reversión real de transacciones
+  const [facturaParaAnular, setFacturaParaAnular] = useState<FacturaParaAnular | null>(null);
+  const [modalAnularAbierto, setModalAnularAbierto] = useState(false);
+  const [mensajeExitoAnulacion, setMensajeExitoAnulacion] = useState<string | null>(null);
+
+  const iniciarAnulacion = (f: FacturaMonitoreo) => {
+    setFacturaParaAnular({
+      id: f.id,
+      numeroFactura: f.numeroFactura,
+      clienteNombre: f.cliente?.nombre,
+      clienteDocumento: f.cliente?.documento,
+      tipoOperacion: f.tipoOperacion,
+      totalFactura: f.totalFactura,
+      totalAbonado: f.totalAbonado,
+      prendaPrincipal: f.prendaPrincipal,
+    });
+    setModalAnularAbierto(true);
+  };
 
   // Cargar facturas desde el endpoint
   const cargarFacturas = useCallback(async (sync = false) => {
@@ -273,6 +294,23 @@ export default function CentralMonitoreoPage() {
           />
         </div>
       </header>
+
+      {/* Alerta de Notificación de Anulación Exitosa */}
+      {mensajeExitoAnulacion && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between gap-3 text-sm font-bold text-emerald-900 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span>{mensajeExitoAnulacion}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMensajeExitoAnulacion(null)}
+            className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-100 transition cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* 4 Tarjetas de Métricas de Cartera */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -763,6 +801,16 @@ export default function CentralMonitoreoPage() {
                             mostrarTexto={false}
                             className="w-9 h-9 min-w-[36px] min-h-[36px] p-0 justify-center shrink-0 rounded-xl"
                           />
+
+                          {/* Botón Anular Transacción y Reversión Real */}
+                          <IconButtonTooltip
+                            icon={Trash2}
+                            label="Anular transacción y revertir inventario/caja"
+                            size="md"
+                            variant="danger"
+                            onClick={() => iniciarAnulacion(f)}
+                            className="shrink-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700 border-rose-200"
+                          />
                         </div>
                       </td>
                     </tr>
@@ -802,6 +850,21 @@ export default function CentralMonitoreoPage() {
           }}
         />
       )}
+
+      {/* Modal de Anulación Segura con Doble Confirmación y Reversión Real */}
+      <ModalAnularFactura
+        abierto={modalAnularAbierto}
+        factura={facturaParaAnular}
+        onCerrar={() => {
+          setModalAnularAbierto(false);
+          setFacturaParaAnular(null);
+        }}
+        onAnulacionExitosa={(mensaje) => {
+          setMensajeExitoAnulacion(mensaje);
+          cargarFacturas(true);
+          setTimeout(() => setMensajeExitoAnulacion(null), 6000);
+        }}
+      />
     </div>
   );
 }

@@ -1020,12 +1020,13 @@ export default function DashboardGerencialPage() {
                 <th className="py-3 px-5 text-right">Abonado</th>
                 <th className="py-3 px-5 text-right">Saldo Pendiente</th>
                 <th className="py-3 px-5 text-center">Fecha y Hora</th>
+                <th className="py-3 px-5 text-center">Gestión</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {ultimasFacturas.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400 font-medium">
+                  <td colSpan={9} className="py-8 text-center text-slate-400 font-medium">
                     No se encontraron facturas registradas en este rango de fecha.
                   </td>
                 </tr>
@@ -1078,6 +1079,16 @@ export default function DashboardGerencialPage() {
                         dateStyle: "short",
                         timeStyle: "short",
                       })}
+                    </td>
+                    <td className="py-3 px-5 text-center">
+                      <Link
+                        href="/admin/monitoreo"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition"
+                        title="Ver detalles, anular o liquidar en Historial"
+                      >
+                        <span>Gestionar</span>
+                        <ArrowUpRight className="w-3 h-3 text-slate-500" />
+                      </Link>
                     </td>
                   </tr>
                 ))

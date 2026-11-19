@@ -75,7 +75,7 @@ export default function ModalConexionCajon({
   const [obsAperturaInicial, setObsAperturaInicial] = useState<string>("");
 
   // Estados para formulario de Caja Dividida (Opción 2)
-  const [baseDividida, setBaseDividida] = useState<string>("100000");
+  const [baseDividida, setBaseDividida] = useState<string>("50000");
   const [nombreDividido, setNombreDividido] = useState<string>("");
 
   const [procesandoLocal, setProcesandoLocal] = useState<boolean>(false);

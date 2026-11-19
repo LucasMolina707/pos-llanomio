@@ -21,13 +21,14 @@ const CATEGORIAS_BASE = [
   { nombre: "Insumos de Producción y Sastrería (Cintas, Tizas, Lápices, Hilos, Agujas)", requiereEmpleado: false, esPredeterminada: true },
   { nombre: "Arriendo", requiereEmpleado: false, esPredeterminada: true },
   { nombre: "Servicios Públicos (Agua, Luz, Gas, Internet)", requiereEmpleado: false, esPredeterminada: true },
+  { nombre: "YOANA", requiereEmpleado: false, esPredeterminada: true },
 ];
 
 /**
  * GET /api/gastos/categorias
  * Retorna el catálogo completo de categorías de gastos.
  * Si la base de datos está vacía, realiza sembrado automático inicial (Auto-Seed)
- * con las 9 categorías base obligatorias.
+ * con las categorías base obligatorias y asegura la categoría especial YOANA.
  */
 export async function GET() {
   try {
@@ -55,6 +56,25 @@ export async function GET() {
         where: { activa: true },
         orderBy: [{ esPredeterminada: "desc" }, { nombre: "asc" }],
       });
+    } else {
+      // Garantizar que la categoría especial YOANA siempre se encuentre activa
+      const tieneYoana = categorias.some((c) => c.nombre.toUpperCase() === "YOANA");
+      if (!tieneYoana) {
+        await prisma.categoriaGasto.upsert({
+          where: { nombre: "YOANA" },
+          update: {},
+          create: {
+            nombre: "YOANA",
+            requiereEmpleado: false,
+            esPredeterminada: true,
+            activa: true,
+          },
+        });
+        categorias = await prisma.categoriaGasto.findMany({
+          where: { activa: true },
+          orderBy: [{ esPredeterminada: "desc" }, { nombre: "asc" }],
+        });
+      }
     }
 
     return NextResponse.json(
