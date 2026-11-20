@@ -4911,3 +4911,32 @@ Se implementó el paquete integral de actualizaciones y optimizaciones operativa
 - **Suite de Pruebas Automatizadas:** Ejecución de `test-pago-mixto-qa.ts` certificando creación de factura con $50.000 en Efectivo y $20.000 en Bancolombia, incremento exacto en `TurnoCaja` ($50.000 en `totalEfectivo`, $20.000 en `totalBancolombia`), 2 registros en `Abono` y saldo pendiente de $30.000.
 - **Validación TypeScript:** `npx tsc --noEmit` completado con **0 errores**.
 - **Compilación de Producción:** `npm run build` completado exitosamente en 29.6s optimizando 22 de 22 rutas.
+
+---
+
+## 34. Rediseño Visual Moderno de Pagos Mixtos (FinTech UI / UX Homologada)
+
+### 1. Motivación y Diagnóstico Visual
+- La implementación previa de pagos mixtos presentaba una disposición tosca y desbalanceada: fondos lila discordantes con la paleta de caja, inputs numéricos planos sin indicador de divisa, cuadrícula digital asimétrica y carencia de retroalimentación gráfica de progreso.
+
+### 2. Mejoras Estéticas y Funcionales Implementadas
+- **Toggle Segmentado en Cabecera (`Segmented Control`):**
+  - Selector superior tipo pastilla con dos estados claros: `[ 1 Solo Método ]` (icono `CreditCard`) y `[ Pago Mixto (2 Métodos) ]` (icono `Split`), eliminando botones sueltos no jerárquicos.
+- **Sub-Tarjetas (Cards) Independientes y Armónicas:**
+  - **Monto 1: Efectivo:** Tarjeta blanca con borde verde esmeralda sutil (`border-emerald-200`), badge temático con icono `Banknote`, botón píldora interactivo `100% Efectivo`, input amplio con símbolo `$` estilizado e integrado en el margen izquierdo (`absolute left-3`) y descripción de apoyo ("Ingreso a registrar en caja física").
+  - **Monto 2: Digital / Transferencia:** Tarjeta blanca con borde azul cobalto sutil (`border-blue-200`), badge temático con icono `Smartphone`, botón píldora interactivo `Completar Restante`, input amplio con símbolo `$` estilizado e integrado y descripción de apoyo ("Abono o pago por canal electrónico").
+- **Selector de Canales Digitales en Cuadrícula Simétrica:**
+  - Disposición uniforme con 5 botones con iconos vectoriales de Lucide: `Bancolombia` (`Building2`), `Nequi` (`Smartphone`), `Bre-B` (`Coins`), `Daviplata` (`Smartphone`) y `Transf. Genérica` (`CreditCard`).
+  - Indicador sutil de selección predeterminada: Bancolombia.
+- **Barra Bicromática de Progreso y Cuadre de Cobro:**
+  - Barra de progreso dinámica que ilustra en tiempo real la proporción cubierta: porción en verde esmeralda para el efectivo y porción en azul cobalto para el canal digital.
+  - Desglose con chips de colores: punto verde con el monto en efectivo, punto azul con el monto digital y badge de estado contextual:
+    - `✓ 100% Cubierto` en verde esmeralda si la suma es exacta.
+    - `! Faltan $X` en ámbar si aún resta importe por asignar.
+    - `! Excede por $X` en carmesí si supera el valor exigible.
+
+### 3. Vistas Homologadas
+1. **Ventas Mostrador:** `src/app/caja/pos/page.tsx`
+2. **Alquileres:** `src/app/caja/alquileres/page.tsx`
+3. **Apartados:** `src/app/caja/apartados/page.tsx`
+4. **Modal de Liquidación y Cobro de Saldos:** `src/components/facturas/ModalLiquidarFactura.tsx`
