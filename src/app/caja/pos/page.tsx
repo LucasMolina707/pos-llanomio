@@ -74,6 +74,7 @@ import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useMapaAtajosTeclado } from "@/hooks/useAtajoTeclado";
 import { ModalPinSupervisor } from "@/components/seguridad/ModalPinSupervisor";
 import ModalTicketsEnEspera, { TicketEnEspera } from "@/components/caja/ModalTicketsEnEspera";
+import PanelPagosSecuenciales, { PagoAplicado } from "@/components/caja/PanelPagosSecuenciales";
 
 export interface ProductoInventario {
   id: string;
@@ -402,10 +403,7 @@ export default function PosPage() {
   // =========================================================
   const [modalidadPago, setModalidadPago] = useState<ModalidadPago>("COMPLETO");
   const [metodoPagoPrincipal, setMetodoPagoPrincipal] = useState<MetodoPagoPos>("EFECTIVO");
-  const [esPagoMixto, setEsPagoMixto] = useState<boolean>(false);
-  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState<string>("");
-  const [montoDigitalMixto, setMontoDigitalMixto] = useState<string>("");
-  const [metodoDigitalMixto, setMetodoDigitalMixto] = useState<MetodoPagoPos>("BANCOLOMBIA");
+  const [pagosAplicados, setPagosAplicados] = useState<PagoAplicado[]>([]);
   const [montoAbonoParcial, setMontoAbonoParcial] = useState<string>("");
   const [efectivoRecibido, setEfectivoRecibido] = useState<string>("");
   const [referenciaPago, setReferenciaPago] = useState("");
@@ -688,27 +686,28 @@ export default function PosPage() {
 
   const totalFactura = subtotalVenta + subtotalAlquiler + subtotalArreglos;
 
-  // Monto a cobrar hoy según modalidad y pago mixto
-  const totalPagadoMixto = (Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0);
+  // Total pagado en la lista de abonos en cascada
+  const totalPagadoEnCascada = useMemo(() => {
+    return pagosAplicados.reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
+  }, [pagosAplicados]);
 
   const valorACobrarHoy = useMemo(() => {
-    if (esPagoMixto) {
-      return totalPagadoMixto;
+    if (pagosAplicados.length > 0) {
+      return totalPagadoEnCascada;
     }
     if (modalidadPago === "COMPLETO") return totalFactura;
     if (modalidadPago === "PENDIENTE") return 0;
     const adelanto = Number(montoAbonoParcial) || 0;
     return Math.min(Math.max(0, adelanto), totalFactura);
-  }, [modalidadPago, totalFactura, montoAbonoParcial, esPagoMixto, totalPagadoMixto]);
+  }, [modalidadPago, totalFactura, montoAbonoParcial, pagosAplicados.length, totalPagadoEnCascada]);
 
-  const saldoPendienteProyectado = Math.max(0, totalFactura - valorACobrarHoy);
+  const saldoPendienteProyectado = Math.max(0, totalFactura - (pagosAplicados.length > 0 ? totalPagadoEnCascada : valorACobrarHoy));
 
-  // Cálculo de vueltas en efectivo
+  // Cálculo de vueltas en efectivo para atajo
   const efectivoRecibidoNum = Number(efectivoRecibido) || 0;
-  const montoObjetivoEfectivo = esPagoMixto ? (Number(montoEfectivoMixto) || 0) : (metodoPagoPrincipal === "EFECTIVO" ? valorACobrarHoy : 0);
   const vueltasCalculadas =
-    ((metodoPagoPrincipal === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && Number(montoEfectivoMixto) > 0)) && montoObjetivoEfectivo > 0
-      ? Math.max(0, efectivoRecibidoNum - montoObjetivoEfectivo)
+    metodoPagoPrincipal === "EFECTIVO" && efectivoRecibidoNum > valorACobrarHoy
+      ? Math.max(0, efectivoRecibidoNum - valorACobrarHoy)
       : 0;
 
   // =========================================================
@@ -891,7 +890,7 @@ export default function PosPage() {
   };
 
   const fijarEfectivoExacto = () => {
-    setEfectivoRecibido(String(esPagoMixto ? (Number(montoEfectivoMixto) || 0) : valorACobrarHoy));
+    setEfectivoRecibido(String(valorACobrarHoy));
   };
 
   // =========================================================
@@ -919,30 +918,43 @@ export default function PosPage() {
       return;
     }
 
-    if (esPagoMixto && valorACobrarHoy > 0) {
-      const efNum = Number(montoEfectivoMixto) || 0;
-      const digNum = Number(montoDigitalMixto) || 0;
-      if (Math.round((efNum + digNum) * 100) / 100 !== Math.round(valorACobrarHoy * 100) / 100) {
+    let listaPagosFinal: Array<{
+      monto: number;
+      metodoPago: string;
+      montoRecibido?: number | null;
+      vueltasEntregadas?: number | null;
+      referenciaComprobante?: string | null;
+      notas?: string | null;
+    }> = [];
+
+    if (pagosAplicados.length > 0) {
+      listaPagosFinal = pagosAplicados.map((p) => ({
+        monto: p.monto,
+        metodoPago: p.metodoPago,
+        montoRecibido: p.montoRecibido ?? null,
+        vueltasEntregadas: p.vueltasEntregadas ?? null,
+        referenciaComprobante: p.referencia || undefined,
+        notas: p.notas || `Abono ${p.metodoPago}`,
+      }));
+    } else if (valorACobrarHoy > 0 && modalidadPago !== "PENDIENTE") {
+      // Atajo de 1 solo clic: si no agregó filas a la lista, se toma el método seleccionado por el valor a cobrar
+      const efRecibido = Number(efectivoRecibido) || valorACobrarHoy;
+      if (metodoPagoPrincipal === "EFECTIVO" && efRecibido < valorACobrarHoy) {
         setMensajeError(
-          `La suma de efectivo ($${efNum.toLocaleString("es-CO")}) y digital ($${digNum.toLocaleString("es-CO")}) debe coincidir con el valor a cobrar ($${valorACobrarHoy.toLocaleString("es-CO")}).`
+          `El efectivo recibido ($${efRecibido.toLocaleString("es-CO")}) es inferior al valor a cobrar hoy ($${valorACobrarHoy.toLocaleString("es-CO")}).`
         );
         return;
       }
-      if (efNum > 0 && efectivoRecibidoNum < efNum) {
-        setMensajeError(
-          `El efectivo entregado ($${efectivoRecibidoNum.toLocaleString("es-CO")}) es inferior a la porción en efectivo ($${efNum.toLocaleString("es-CO")}).`
-        );
-        return;
-      }
-    } else if (metodoPagoPrincipal === "EFECTIVO" && valorACobrarHoy > 0) {
-      if (efectivoRecibidoNum < valorACobrarHoy) {
-        setMensajeError(
-          `El efectivo recibido ($${efectivoRecibidoNum.toLocaleString(
-            "es-CO"
-          )}) es inferior al valor a cobrar hoy ($${valorACobrarHoy.toLocaleString("es-CO")}).`
-        );
-        return;
-      }
+      listaPagosFinal = [
+        {
+          monto: valorACobrarHoy,
+          metodoPago: metodoPagoPrincipal,
+          montoRecibido: metodoPagoPrincipal === "EFECTIVO" ? efRecibido : undefined,
+          vueltasEntregadas: metodoPagoPrincipal === "EFECTIVO" ? Math.max(0, efRecibido - valorACobrarHoy) : undefined,
+          referenciaComprobante: referenciaPago.trim() || undefined,
+          notas: modalidadPago === "COMPLETO" ? "Pago completo de contado" : "Adelanto inicial de compra/alquiler",
+        },
+      ];
     }
 
     try {
@@ -968,78 +980,15 @@ export default function PosPage() {
           fechaDevolucion: item.fechaDevolucion,
         })),
         turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
-        esPagoMixto,
-        metodoPagoPrincipal: esPagoMixto ? "MIXTO" : metodoPagoPrincipal,
-        pagos: esPagoMixto && valorACobrarHoy > 0
-          ? [
-            ...(Number(montoEfectivoMixto) > 0
-              ? [{
-                monto: Number(montoEfectivoMixto),
-                metodoPago: "EFECTIVO",
-                montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
-                vueltasEntregadas: Math.max(0, vueltasCalculadas),
-                notas: "Pago mixto - Porción Efectivo",
-              }]
-              : []),
-            ...(Number(montoDigitalMixto) > 0
-              ? [{
-                monto: Number(montoDigitalMixto),
-                metodoPago: metodoDigitalMixto,
-                referenciaComprobante: referenciaPago.trim() || undefined,
-                notas: `Pago mixto - Porción ${metodoDigitalMixto}`,
-              }]
-              : []),
-          ]
-          : valorACobrarHoy > 0
-            ? [{
-              monto: valorACobrarHoy,
-              metodoPago: metodoPagoPrincipal,
-              montoRecibido: metodoPagoPrincipal === "EFECTIVO" ? efectivoRecibidoNum : undefined,
-              vueltasEntregadas: metodoPagoPrincipal === "EFECTIVO" ? Math.max(0, vueltasCalculadas) : undefined,
-              referenciaComprobante: referenciaPago.trim() || undefined,
-              notas: modalidadPago === "COMPLETO" ? "Pago completo de contado" : "Adelanto inicial de compra/alquiler",
-            }]
-            : [],
-        abonoInicial: esPagoMixto
-          ? undefined
-          : valorACobrarHoy > 0
-            ? {
-              monto: valorACobrarHoy,
-              metodoPago: metodoPagoPrincipal,
-              montoRecibido:
-                metodoPagoPrincipal === "EFECTIVO" ? efectivoRecibidoNum : undefined,
-              vueltasEntregadas:
-                metodoPagoPrincipal === "EFECTIVO"
-                  ? Math.max(0, vueltasCalculadas)
-                  : undefined,
-              referenciaComprobante: referenciaPago.trim() || undefined,
-              notas:
-                modalidadPago === "COMPLETO"
-                  ? "Pago completo de contado"
-                  : "Adelanto inicial de compra/alquiler",
-            }
-            : undefined,
-        abonos: esPagoMixto && valorACobrarHoy > 0
-          ? [
-            ...(Number(montoEfectivoMixto) > 0
-              ? [{
-                monto: Number(montoEfectivoMixto),
-                metodoPago: "EFECTIVO",
-                montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
-                vueltasEntregadas: Math.max(0, vueltasCalculadas),
-                notas: "Pago mixto - Porción Efectivo",
-              }]
-              : []),
-            ...(Number(montoDigitalMixto) > 0
-              ? [{
-                monto: Number(montoDigitalMixto),
-                metodoPago: metodoDigitalMixto,
-                referenciaComprobante: referenciaPago.trim() || undefined,
-                notas: `Pago mixto - Porción ${metodoDigitalMixto}`,
-              }]
-              : []),
-          ]
-          : undefined,
+        metodoPagoPrincipal:
+          listaPagosFinal.length === 1
+            ? listaPagosFinal[0].metodoPago
+            : listaPagosFinal.length > 1
+            ? "MIXTO"
+            : metodoPagoPrincipal,
+        pagos: listaPagosFinal,
+        abonos: listaPagosFinal,
+        abonoInicial: listaPagosFinal.length === 1 ? listaPagosFinal[0] : undefined,
       };
 
       // Si existe facturaEnCursoId, actualizarla con PUT sin crear un nuevo registro; de lo contrario, POST
@@ -1070,11 +1019,9 @@ export default function PosPage() {
 
       const facturaFinal = data.factura;
 
-      // Disparar apertura automática del cajón si el cobro se realizó en EFECTIVO
-      if (
-        ((metodoPagoPrincipal === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && Number(montoEfectivoMixto) > 0)) &&
-        valorACobrarHoy > 0
-      ) {
+      // Disparar apertura automática del cajón si hubo cobro en EFECTIVO
+      const huboEfectivo = listaPagosFinal.some((p) => p.metodoPago === "EFECTIVO" && p.monto > 0);
+      if (huboEfectivo) {
         safeFetchJson("/api/caja/abrir-cajon", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2334,15 +2281,15 @@ export default function PosPage() {
                       </div>
 
                       {/* Cuerpo de Cobro con Scroll Interno Propio */}
-                      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 content-start">
-                          {/* Columna Izquierda: Modalidades y Métodos */}
-                          <div className="space-y-3">
+                      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4">
+                        <div className="space-y-4 max-w-4xl mx-auto">
+                          {/* 1. Condición de Pago */}
+                          <div className="space-y-2">
                             <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wider">
                               1. Condición de Pago
                             </h3>
 
-                            <div className="grid grid-cols-3 gap-1.5">
+                            <div className="grid grid-cols-3 gap-2">
                               <Tooltip content="Pago Completo" subtext="Cancela el 100% de la orden hoy (Saldo $0)" position="top">
                                 <button
                                   type="button"
@@ -2388,421 +2335,48 @@ export default function PosPage() {
                                 </button>
                               </Tooltip>
                             </div>
-
-                            {/* Campo Adelanto Parcial */}
-                            {modalidadPago === "ADELANTO" && (
-                              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-1">
-                                <label className="text-xs font-bold text-amber-900 block">
-                                  Monto del Adelanto Inicial ($):
-                                </label>
-                                <input
-                                  type="number"
-                                  placeholder="Ej. 50000"
-                                  value={montoAbonoParcial}
-                                  onChange={(e) => setMontoAbonoParcial(e.target.value)}
-                                  className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                />
-                                <div className="flex justify-between text-xs text-amber-800 font-medium">
-                                  <span>Saldo que quedará en Cartera:</span>
-                                  <strong className="font-mono">
-                                    ${saldoPendienteProyectado.toLocaleString("es-CO")}
-                                  </strong>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Métodos de Pago */}
-                            {modalidadPago !== "PENDIENTE" && (
-                              <div className="space-y-3 pt-1">
-                                {/* Cabecera y Selector de Modo de Pago (Segmented Toggle) */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-slate-100">
-                                  <div>
-                                    <h3 className="text-xs font-bold uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
-                                      <Wallet className="w-3.5 h-3.5 text-slate-500" />
-                                      2. Método de Pago del Cobro Hoy
-                                    </h3>
-                                    <p className="text-[11px] text-slate-400">
-                                      Selecciona un solo medio o divide el pago entre efectivo y transferencia
-                                    </p>
-                                  </div>
-
-                                  <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto">
-                                    <Tooltip content="Cobrar el 100% con un único método de pago" position="top">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          if (esPagoMixto) {
-                                            setEsPagoMixto(false);
-                                            setEfectivoRecibido(String(valorACobrarHoy));
-                                          }
-                                        }}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${!esPagoMixto
-                                          ? "bg-white text-slate-900 shadow-xs"
-                                          : "text-slate-600 hover:text-slate-900"
-                                          }`}
-                                      >
-                                        <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                                        <span>1 Solo Método</span>
-                                      </button>
-                                    </Tooltip>
-
-                                    <Tooltip content="Dividir el cobro en dos montos: porción en efectivo y porción digital" position="top">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          if (!esPagoMixto) {
-                                            setEsPagoMixto(true);
-                                            const mitad = Math.floor(valorACobrarHoy / 2);
-                                            setMontoEfectivoMixto(String(mitad));
-                                            setMontoDigitalMixto(String(valorACobrarHoy - mitad));
-                                            setEfectivoRecibido(String(mitad));
-                                          }
-                                        }}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${esPagoMixto
-                                          ? "bg-emerald-600 text-white shadow-xs"
-                                          : "text-slate-600 hover:text-slate-900"
-                                          }`}
-                                      >
-                                        <Split className="w-3.5 h-3.5" />
-                                        <span>Pago Mixto (2 Métodos)</span>
-                                      </button>
-                                    </Tooltip>
-                                  </div>
-                                </div>
-
-                                {!esPagoMixto ? (
-                                  <div className="grid grid-cols-3 gap-2">
-                                    {[
-                                      { id: "EFECTIVO", label: "Efectivo", icon: Banknote },
-                                      { id: "BANCOLOMBIA", label: "Bancolombia", icon: Building2 },
-                                      { id: "NEQUI", label: "Nequi", icon: Smartphone },
-                                      { id: "LLAVE", label: "Llave / Bre-B", icon: Coins },
-                                      { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
-                                      { id: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },
-                                    ].map((met) => {
-                                      const IconComp = met.icon;
-                                      const esActivo = metodoPagoPrincipal === met.id;
-
-                                      return (
-                                        <Tooltip key={met.id} content={met.label} subtext={`Medio de pago único: ${met.label}`} position="top">
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setMetodoPagoPrincipal(met.id as MetodoPagoPos);
-                                              if (met.id === "EFECTIVO") {
-                                                setEfectivoRecibido(String(valorACobrarHoy));
-                                              }
-                                            }}
-                                            className={`w-full p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1.5 cursor-pointer ${esActivo
-                                              ? "bg-emerald-600 text-white border-emerald-600 shadow-xs font-bold ring-2 ring-emerald-600/20"
-                                              : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
-                                              }`}
-                                          >
-                                            <IconComp className="w-4 h-4" />
-                                            <span className="text-xs">{met.label}</span>
-                                          </button>
-                                        </Tooltip>
-                                      );
-                                    })}
-                                  </div>
-                                ) : (
-                                  <div className="bg-slate-50/80 rounded-2xl border border-slate-200/80 p-3.5 space-y-3.5 shadow-2xs">
-                                    {/* Sub-Tarjetas de los Dos Montos */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                      {/* Monto 1: Efectivo */}
-                                      <div className="bg-white rounded-xl border border-emerald-200/90 p-3 shadow-2xs space-y-2">
-                                        <div className="flex items-center justify-between">
-                                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                            <Banknote className="w-3.5 h-3.5 text-emerald-600" />
-                                            Monto 1: Efectivo
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setMontoEfectivoMixto(String(valorACobrarHoy));
-                                              setMontoDigitalMixto("0");
-                                              setEfectivoRecibido(String(valorACobrarHoy));
-                                            }}
-                                            className="text-[10.5px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
-                                          >
-                                            100% Efectivo
-                                          </button>
-                                        </div>
-
-                                        <div className="relative">
-                                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                                          <input
-                                            type="number"
-                                            value={montoEfectivoMixto}
-                                            onChange={(e) => {
-                                              const val = e.target.value;
-                                              setMontoEfectivoMixto(val);
-                                              const n = Number(val) || 0;
-                                              setEfectivoRecibido(String(n));
-                                            }}
-                                            placeholder="0"
-                                            className="w-full pl-7 pr-3 py-2 bg-slate-50/60 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition"
-                                          />
-                                        </div>
-                                        <p className="text-[10px] text-slate-400">Ingreso a registrar en caja física</p>
-                                      </div>
-
-                                      {/* Monto 2: Digital / Transferencia */}
-                                      <div className="bg-white rounded-xl border border-blue-200/90 p-3 shadow-2xs space-y-2">
-                                        <div className="flex items-center justify-between">
-                                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                                            <Smartphone className="w-3.5 h-3.5 text-blue-600" />
-                                            Monto 2: Digital / Transferencia
-                                          </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const ef = Number(montoEfectivoMixto) || 0;
-                                              const resto = Math.max(0, valorACobrarHoy - ef);
-                                              setMontoDigitalMixto(String(resto));
-                                            }}
-                                            className="text-[10.5px] font-bold text-blue-700 hover:text-blue-800 hover:underline"
-                                          >
-                                            Completar Restante
-                                          </button>
-                                        </div>
-
-                                        <div className="relative">
-                                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                                          <input
-                                            type="number"
-                                            value={montoDigitalMixto}
-                                            onChange={(e) => {
-                                              setMontoDigitalMixto(e.target.value);
-                                            }}
-                                            placeholder="0"
-                                            className="w-full pl-7 pr-3 py-2 bg-slate-50/60 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition"
-                                          />
-                                        </div>
-                                        <p className="text-[10px] text-slate-400">Abono o pago por canal electrónico</p>
-                                      </div>
-                                    </div>
-
-                                    {/* Selector de Canal Digital con 5 Botones e Iconos con Tooltip */}
-                                    <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <label className="text-[11px] font-bold text-slate-700 block">
-                                          Canal Digital: <strong className="text-blue-700">{metodoDigitalMixto}</strong>
-                                        </label>
-                                        <span className="text-[10.5px] font-semibold text-slate-400">
-                                          Predeterminado: <strong className="text-slate-700">Bancolombia</strong>
-                                        </span>
-                                      </div>
-
-                                      <div className="grid grid-cols-5 gap-1.5">
-                                        {[
-                                          { id: "BANCOLOMBIA", label: "Bancolombia", desc: "Transferencia / QR Bancolombia (Predeterminado)", icon: Building2 },
-                                          { id: "NEQUI", label: "Nequi", desc: "Transferencia a cuenta Nequi", icon: Smartphone },
-                                          { id: "LLAVE", label: "Bre-B", desc: "Transferencia inmediata Bre-B / Llave", icon: Coins },
-                                          { id: "DAVIPLATA", label: "Daviplata", desc: "Transferencia a cuenta Daviplata", icon: Smartphone },
-                                          { id: "TRANSFERENCIA", label: "Transferencia", desc: "Otros bancos o consignación", icon: CreditCard },
-                                        ].map((m) => {
-                                          const IconM = m.icon;
-                                          const esActivo = metodoDigitalMixto === m.id;
-                                          return (
-                                            <Tooltip key={m.id} content={m.label} subtext={m.desc} position="top">
-                                              <button
-                                                type="button"
-                                                onClick={() => setMetodoDigitalMixto(m.id as MetodoPagoPos)}
-                                                className={`py-2 px-1 rounded-xl text-xs font-bold border transition flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer w-full ${esActivo
-                                                  ? "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-600/20"
-                                                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                                                  }`}
-                                              >
-                                                <IconM className="w-4 h-4 shrink-0" />
-                                                <span className="hidden sm:inline text-[11px] font-semibold">{m.id === "TRANSFERENCIA" ? "Transf." : m.label}</span>
-                                              </button>
-                                            </Tooltip>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-
-                                    {/* Barra de Progreso y Resumen de Cuadre */}
-                                    <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
-                                      <div className="flex items-center justify-between text-xs">
-                                        <span className="font-semibold text-slate-600">Distribución del Pago Hoy:</span>
-                                        <span className="font-mono font-bold text-slate-900">
-                                          ${totalPagadoMixto.toLocaleString("es-CO")} de ${valorACobrarHoy.toLocaleString("es-CO")}
-                                        </span>
-                                      </div>
-
-                                      {/* Barra Bicromática */}
-                                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                                        <div
-                                          style={{
-                                            width: `${valorACobrarHoy > 0 ? Math.min(100, (Number(montoEfectivoMixto || 0) / valorACobrarHoy) * 100) : 0}%`,
-                                          }}
-                                          className="bg-emerald-500 transition-all duration-300"
-                                          title="Efectivo"
-                                        />
-                                        <div
-                                          style={{
-                                            width: `${valorACobrarHoy > 0 ? Math.min(100, (Number(montoDigitalMixto || 0) / valorACobrarHoy) * 100) : 0}%`,
-                                          }}
-                                          className="bg-blue-500 transition-all duration-300"
-                                          title="Digital"
-                                        />
-                                      </div>
-
-                                      {/* Chips de Resumen */}
-                                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
-                                        <div className="flex items-center gap-2">
-                                          <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
-                                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                                            Efectivo: ${Number(montoEfectivoMixto || 0).toLocaleString("es-CO")}
-                                          </span>
-                                          <span className="inline-flex items-center gap-1 font-semibold text-blue-700">
-                                            <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                            {metodoDigitalMixto}: ${Number(montoDigitalMixto || 0).toLocaleString("es-CO")}
-                                          </span>
-                                        </div>
-
-                                        {totalPagadoMixto === valorACobrarHoy ? (
-                                          <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                            100% Cubierto
-                                          </span>
-                                        ) : totalPagadoMixto < valorACobrarHoy ? (
-                                          <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                                            <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                                            Faltan ${(valorACobrarHoy - totalPagadoMixto).toLocaleString("es-CO")}
-                                          </span>
-                                        ) : (
-                                          <span className="inline-flex items-center gap-1 font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
-                                            <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                                            Excede por ${(totalPagadoMixto - valorACobrarHoy).toLocaleString("es-CO")}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Observaciones */}
-                            <div>
-                              <label className="text-xs font-bold text-slate-600 block mb-1">
-                                Observaciones de Factura (Opcional):
-                              </label>
-                              <input
-                                type="text"
-                                placeholder="Ej. Prenda separada para evento del fin de semana..."
-                                value={notasFactura}
-                                onChange={(e) => setNotasFactura(e.target.value)}
-                                className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                              />
-                            </div>
                           </div>
 
-                          {/* Columna Derecha: Calculadora de Efectivo y Vueltas */}
-                          <div className="space-y-3">
-                            <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wider">
-                              3. Calculadora de Caja & Vueltas
-                            </h3>
-
-                            {/* Resumen Financiero */}
-                            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                              <div className="flex justify-between text-xs text-slate-600">
-                                <span>Total de la Factura:</span>
-                                <strong className="font-mono text-slate-900">
-                                  ${totalFactura.toLocaleString("es-CO")}
-                                </strong>
-                              </div>
-                              <div className="flex justify-between text-xs sm:text-sm font-black text-slate-900 pt-0.5 border-t border-slate-200">
-                                <span>A COBRAR HOY:</span>
-                                <strong className="font-mono text-emerald-600 text-base sm:text-lg">
-                                  ${valorACobrarHoy.toLocaleString("es-CO")}
-                                </strong>
-                              </div>
-                              {modalidadPago === "ADELANTO" && (
-                                <div className="flex justify-between text-xs text-rose-600 font-bold pt-0.5">
-                                  <span>Saldo en Cartera:</span>
-                                  <strong className="font-mono">
-                                    ${saldoPendienteProyectado.toLocaleString("es-CO")}
-                                  </strong>
-                                </div>
-                              )}
+                          {/* 2. Flujo de Pagos Secuenciales / Abonos */}
+                          {modalidadPago === "PENDIENTE" ? (
+                            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1">
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                                <Clock className="w-4 h-4 text-amber-600" />
+                                Factura 100% a Crédito en Cartera
+                              </h4>
+                              <p className="text-xs text-amber-700">
+                                Esta orden se registrará con saldo pendiente por cobrar de ${totalFactura.toLocaleString("es-CO")}. No se registrará ingreso de dinero en caja hoy.
+                              </p>
                             </div>
+                          ) : (
+                            <div className="space-y-3 pt-1">
+                              <PanelPagosSecuenciales
+                                totalExigible={totalFactura}
+                                pagos={pagosAplicados}
+                                onChangePagos={setPagosAplicados}
+                                metodoActivoAtajo={metodoPagoPrincipal}
+                                onMetodoActivoAtajoChange={(m) => setMetodoPagoPrincipal(m as MetodoPagoPos)}
+                                efectivoRecibidoAtajo={efectivoRecibido}
+                                onEfectivoRecibidoAtajoChange={setEfectivoRecibido}
+                                accentColor="emerald"
+                                permitirSaldoPendiente={modalidadPago === "ADELANTO"}
+                                etiquetaTotal={modalidadPago === "ADELANTO" ? "Total Factura (Abono Parcial)" : "Total Factura"}
+                              />
+                            </div>
+                          )}
 
-                            {/* Calculadora de Efectivo si aplica */}
-                            {((metodoPagoPrincipal === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && (Number(montoEfectivoMixto) || 0) > 0)) && valorACobrarHoy > 0 && (
-                              <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-2">
-                                <label className="text-xs font-black uppercase text-emerald-900 tracking-wide block">
-                                  Efectivo recibido del cliente:
-                                </label>
-
-                                <div className="relative">
-                                  <span className="absolute left-3 top-2 text-slate-400 font-mono font-bold">$</span>
-                                  <input
-                                    ref={inputEfectivoRef}
-                                    type="number"
-                                    placeholder="0"
-                                    value={efectivoRecibido}
-                                    onChange={(e) => setEfectivoRecibido(e.target.value)}
-                                    className="w-full pl-7 pr-3 py-1.5 bg-white border border-emerald-300 rounded-xl text-base font-mono font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-                                  />
-                                </div>
-
-                                {/* Billetes rápidos */}
-                                <div>
-                                  <span className="text-[11px] font-bold text-slate-600 block mb-1">
-                                    Billetes rápidos (+):
-                                  </span>
-                                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
-                                    {BILLETES_COLOMBIANOS.map((billete) => (
-                                      <Tooltip key={billete} content={`Sumar $${billete.toLocaleString("es-CO")} en efectivo`} position="top">
-                                        <button
-                                          type="button"
-                                          onClick={() => sumarBillete(billete)}
-                                          className="py-1 px-0.5 rounded-lg bg-white border border-emerald-200 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition font-mono text-center cursor-pointer w-full"
-                                        >
-                                          +${billete / 1000}k
-                                        </button>
-                                      </Tooltip>
-                                    ))}
-                                    <Tooltip content="Fijar efectivo recibido exacto para cobro sin vueltas" position="top">
-                                      <button
-                                        type="button"
-                                        onClick={fijarEfectivoExacto}
-                                        className="py-1 px-0.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition text-center cursor-pointer w-full"
-                                      >
-                                        Exacto
-                                      </button>
-                                    </Tooltip>
-                                  </div>
-                                </div>
-
-                                {/* Vueltas */}
-                                <div
-                                  className={`p-3 rounded-xl text-center border ${vueltasCalculadas >= 0
-                                    ? "bg-white border-emerald-300"
-                                    : "bg-rose-50 border-rose-300 text-rose-700"
-                                    }`}
-                                >
-                                  <span className="text-[11px] font-bold uppercase tracking-wider block text-slate-500">
-                                    Vueltas / Cambio a Entregar:
-                                  </span>
-                                  <span
-                                    className={`text-xl font-black font-mono block mt-0.5 ${vueltasCalculadas >= 0 ? "text-emerald-600" : "text-rose-600"
-                                      }`}
-                                  >
-                                    ${Math.max(0, vueltasCalculadas).toLocaleString("es-CO")}
-                                  </span>
-                                  {vueltasCalculadas < 0 && (
-                                    <span className="text-xs font-bold text-rose-600 block mt-0.5">
-                                      Faltan ${Math.abs(vueltasCalculadas).toLocaleString("es-CO")}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
+                          {/* Observaciones de Factura */}
+                          <div>
+                            <label className="text-xs font-bold text-slate-600 block mb-1">
+                              Observaciones de Factura (Opcional):
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Ej. Prenda separada para evento del fin de semana..."
+                              value={notasFactura}
+                              onChange={(e) => setNotasFactura(e.target.value)}
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                            />
                           </div>
                         </div>
                       </div>
@@ -2995,14 +2569,12 @@ export default function PosPage() {
                           type="button"
                           disabled={
                             procesandoFactura ||
-                            (!esPagoMixto &&
+                            (modalidadPago === "COMPLETO" && pagosAplicados.length > 0 && totalPagadoEnCascada < totalFactura) ||
+                            (modalidadPago !== "PENDIENTE" &&
+                              pagosAplicados.length === 0 &&
                               metodoPagoPrincipal === "EFECTIVO" &&
                               valorACobrarHoy > 0 &&
-                              efectivoRecibidoNum < valorACobrarHoy) ||
-                            (esPagoMixto &&
-                              valorACobrarHoy > 0 &&
-                              ((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0) !== valorACobrarHoy ||
-                                ((Number(montoEfectivoMixto) || 0) > 0 && efectivoRecibidoNum < (Number(montoEfectivoMixto) || 0))))
+                              efectivoRecibidoNum < valorACobrarHoy)
                           }
                           onClick={finalizarTransaccion}
                           className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"

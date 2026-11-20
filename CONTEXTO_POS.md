@@ -5008,3 +5008,36 @@ Se implementó el paquete integral de actualizaciones y optimizaciones operativa
 - **TypeScript:** `npx tsc --noEmit` completado con **0 errores**.
 - **Next.js Production Build:** `npm run build` completado con éxito absoluto en 26.6s optimizando **22 de 22 rutas**.
 - **Regla Maestra 6:** Inscrita de forma permanente en `.antigravityrules`.
+
+---
+
+## 37. FLUJO PROFESIONAL DE PAGOS SECUENCIALES EN CASCADA (CADENA/SUPERMERCADO) Y ELIMINACIÓN DE "PAGO MIXTO"
+
+### 1. Eliminación Radical del Concepto y Etiqueta "Pago Mixto"
+- **Problema previo:** La interfaz obligaba al cajero a elegir entre "1 Solo Método" o "Pago Mixto", mostrando cuadros rígidos ("Monto 1", "Monto 2") con calculadoras duplicadas que generaban fatiga visual, desalineación y confusión operativa.
+- **Solución implementada:** Se erradicó por completo la palabra y concepto de "Pago Mixto" de la interfaz de usuario, comprobantes de pago y vistas operativas. El sistema ahora opera bajo el estándar de **Pagos / Abonos Secuenciales en Cascada** (estilo Cajas de Cadena / Supermercados):
+  1. Barra superior de control de montos: **Total Exigible**, **Total Cubierto** y **Saldo Faltante en Vivo** con barra de progreso reactiva.
+  2. Bucle ágil: Selección de medio entre 7 métodos (`Efectivo`, `Bancolombia`, `Nequi`, `Bre-B`, `Daviplata`, `Transferencia`, `Consignación`) con monto precargado con el saldo pendiente (editable a voluntad).
+  3. Si el medio es `EFECTIVO`, despliega celda para dinero entregado por el cliente, billetes rápidos (`+$10k`, `+$20k`, `+$50k`, `+$100k`, `Exacto`) y cálculo automático de vueltas para ese tramo.
+  4. Botón `Agregar / Aplicar Pago` que añade el tramo a la lista en cascada y descuenta el saldo en vivo. Cada fila dispone de botón para remover `[X]`.
+  5. **Atajo de 1 Clic para Pago 100% Contado:** Si el cliente paga todo con un único medio, el cajero puede hacer clic directo en "Finalizar y Cobrar" sin registrar pagos previos en la lista; el sistema procesa automáticamente el 100% con el método seleccionado.
+
+### 2. Homologación Exacta en las 3 Consolas y Modales
+- **`src/components/caja/PanelPagosSecuenciales.tsx`:** Componente universal desacoplado y reutilizable con soporte de temas de color (`emerald`, `orange`, `indigo`), cálculo de vueltas, atajos y validación estricta de saldo.
+- **`src/app/caja/pos/page.tsx` (Ventas):** Integración de `PanelPagosSecuenciales` en Paso 3 con `accentColor="emerald"`. Admite modalidades `COMPLETO`, `ADELANTO` (crédito parcial en cartera) y `PENDIENTE` (100% en cartera).
+- **`src/app/caja/alquileres/page.tsx` (Alquileres):** Integración en Paso 3 con `accentColor="orange"` y `permitirSaldoPendiente={false}` (exige cubrir 100% del alquiler + depósito de garantía antes de la entrega).
+- **`src/app/caja/apartados/page.tsx` (Apartados / Separes):** Integración en Paso 3 con `accentColor="indigo"` y `permitirSaldoPendiente={true}`.
+- **`src/components/facturas/ModalLiquidarFactura.tsx`:** Homologado para liquidación y cobro de saldos en cartera.
+
+### 3. Comprobantes Impresos y Formatos PDF
+- **`src/components/impresion/PlantillaImpresion.tsx`:** Eliminada la etiqueta `MIXTO:`. Ahora lista los abonos de forma limpia: `EFECTIVO $100.000 + BANCOLOMBIA $100.000`. CERO códigos QR de clientes.
+- **`src/lib/pdf-media-carta.ts`:** Eliminada la etiqueta `MIXTO:`, garantizando comprobantes impresos sobrios y elegantes.
+
+### 4. Optimización de Infraestructura y Scripts de Instalación
+- **PRAGMAs SQLite en `src/lib/prisma.ts` y `start-pos.js`:** `journal_mode = WAL`, `synchronous = NORMAL`, `cache_size = -64000`, `temp_store = MEMORY`, `mmap_size = 268435456` para máximo rendimiento en PC de mostrador.
+- **`ecosystem.config.js`:** Integración de bandera `INICIAR_MDNS_PROCESO: "false"` en la app principal para delegar mDNS exclusivamente a `pos-llanomio-mdns`.
+- **Scripts `.bat` en `instalador_tienda/`:**
+  - `1_INSTALADOR_MAESTRO_DESDE_CERO.bat`: Detección dinámica de raíz y elevación de privilegios para instalación automatizada en computadores nuevos.
+  - `1_LEVANTAR_O_REINICIAR_SERVIDOR.bat`: Arranque resiliente y recuperación de servicios PM2.
+  - `scripts/preparar-paquete-instalador.js`: Corregida la ruta a `scripts/restablecer-db-fabrica.js` e integrados los nuevos `.bat` críticos.
+

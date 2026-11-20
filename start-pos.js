@@ -52,6 +52,9 @@ async function ejecutarRecuperacionSQLite() {
     await prisma.$queryRawUnsafe("PRAGMA journal_mode = WAL;");
     await prisma.$queryRawUnsafe("PRAGMA synchronous = NORMAL;");
     await prisma.$queryRawUnsafe("PRAGMA busy_timeout = 5000;");
+    await prisma.$queryRawUnsafe("PRAGMA cache_size = -64000;");
+    await prisma.$queryRawUnsafe("PRAGMA temp_store = MEMORY;");
+    await prisma.$queryRawUnsafe("PRAGMA mmap_size = 268435456;");
     await prisma.$queryRawUnsafe("PRAGMA wal_checkpoint(PASSIVE);");
     await prisma.$queryRawUnsafe("PRAGMA optimize;");
     await prisma.$disconnect();
@@ -64,14 +67,16 @@ async function ejecutarRecuperacionSQLite() {
 async function arrancarServidor() {
   await ejecutarRecuperacionSQLite();
 
-  // Iniciar servicio mDNS en segundo plano si existe
-  try {
-    const mdnsScript = path.join(__dirname, "scripts", "servidor-lan-mdns.js");
-    if (fs.existsSync(mdnsScript)) {
-      require(mdnsScript);
+  // Iniciar servicio mDNS en segundo plano si no corre en proceso hermano separado (PM2)
+  if (process.env.INICIAR_MDNS_PROCESO !== "false") {
+    try {
+      const mdnsScript = path.join(__dirname, "scripts", "servidor-lan-mdns.js");
+      if (fs.existsSync(mdnsScript)) {
+        require(mdnsScript);
+      }
+    } catch (errMdns) {
+      console.warn("[mDNS AVISO] No se pudo cargar servicio mDNS en proceso principal:", errMdns.message);
     }
-  } catch (errMdns) {
-    console.warn("[mDNS AVISO] No se pudo cargar servicio mDNS en proceso principal:", errMdns.message);
   }
 
   const standaloneServer = path.join(__dirname, ".next", "standalone", "server.js");

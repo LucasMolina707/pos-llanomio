@@ -457,7 +457,7 @@ export default function PlantillaImpresion({
     const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
     const metodosAbonos = Object.keys(desgloseMetodosPagados);
     const textoMedioPagoPrincipal = tienePagoMixtoReal
-      ? "MIXTO: " + Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} ${formatCOP(v)}`).join(" + ")
+      ? Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} ${formatCOP(v)}`).join(" + ")
       : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
 
     // 4. REGLA CONTABLE — CUADRE DE CAJA, EFECTIVO RECIBIDO Y VUELTAS

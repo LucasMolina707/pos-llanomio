@@ -35,12 +35,17 @@ export const prisma =
       : undefined,
   });
 
-// Configurar PRAGMAs de alto rendimiento y resiliencia para SQLite (WAL, timeout de concurrencia, sincronización normal y auto-checkpoint)
+// Configurar PRAGMAs de alto rendimiento y resiliencia para SQLite
+// (WAL, timeout de concurrencia, sincronización normal, mmap y caché en RAM)
 if (!globalForPrisma.prisma) {
   Promise.all([
     prisma.$queryRawUnsafe("PRAGMA journal_mode = WAL;"),
     prisma.$queryRawUnsafe("PRAGMA busy_timeout = 5000;"),
     prisma.$queryRawUnsafe("PRAGMA synchronous = NORMAL;"),
+    prisma.$queryRawUnsafe("PRAGMA cache_size = -64000;"), // 64 MB de caché en RAM
+    prisma.$queryRawUnsafe("PRAGMA temp_store = MEMORY;"), // Tablas temporales en RAM
+    prisma.$queryRawUnsafe("PRAGMA mmap_size = 268435456;"), // 256 MB memory-mapped I/O
+    prisma.$queryRawUnsafe("PRAGMA foreign_keys = ON;"),
     prisma.$queryRawUnsafe("PRAGMA wal_checkpoint(PASSIVE);"),
     prisma.$queryRawUnsafe("PRAGMA optimize;"),
   ]).catch((err) => {
@@ -51,8 +56,7 @@ if (!globalForPrisma.prisma) {
   });
 }
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// Asegurar instancia única persistente en el proceso Node.js (evita conexiones redundantes)
+globalForPrisma.prisma = prisma;
 
 export default prisma;

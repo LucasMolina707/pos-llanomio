@@ -56,6 +56,7 @@ import {
   Wallet,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import PanelPagosSecuenciales, { PagoAplicado } from "@/components/caja/PanelPagosSecuenciales";
 import Tooltip from "@/components/ui/Tooltip";
 import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
 import { HeaderMostradorUnificado, StepperMostradorUnificado } from "@/components/caja/HeaderMostradorUnificado";
@@ -273,10 +274,7 @@ export default function TerminalAlquileresPage() {
   const [modalidadPago, setModalidadPago] = useState<ModalidadPagoAlquiler>("COMPLETO");
   const [montoAbonoManual, setMontoAbonoManual] = useState<string>("");
   const [metodoPagoPrincipal, setMetodoPagoPrincipal] = useState<MetodoPagoAlquiler>("EFECTIVO");
-  const [esPagoMixto, setEsPagoMixto] = useState<boolean>(false);
-  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState<string>("");
-  const [montoDigitalMixto, setMontoDigitalMixto] = useState<string>("");
-  const [metodoDigitalMixto, setMetodoDigitalMixto] = useState<MetodoPagoAlquiler>("BANCOLOMBIA");
+  const [pagosAplicados, setPagosAplicados] = useState<PagoAplicado[]>([]);
   const [referenciaPago, setReferenciaPago] = useState("");
   const [notasAlquiler, setNotasAlquiler] = useState("");
   const [guardandoAlquiler, setGuardandoAlquiler] = useState(false);
@@ -866,27 +864,28 @@ export default function TerminalAlquileresPage() {
     return totalExigidoHoyEnCaja;
   }, [efectivoRecibidoCliente, totalExigidoHoyEnCaja]);
 
-  const efectivoObjetivoAlquiler = esPagoMixto
-    ? (Number(montoEfectivoMixto) || 0)
-    : (metodoPagoPrincipal === "EFECTIVO" ? totalExigidoHoyEnCaja : 0);
+  const totalPagadoEnCascada = useMemo(() => {
+    return pagosAplicados.reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
+  }, [pagosAplicados]);
+
+  const efectivoObjetivoAlquiler = metodoPagoPrincipal === "EFECTIVO" ? totalExigidoHoyEnCaja : 0;
 
   // Vueltas / Cambio Final = Efectivo Recibido - Porción Efectivo
   const vueltasCambioFinal = useMemo(() => {
-    return Math.max(0, efectivoRecibidoNum - efectivoObjetivoAlquiler);
-  }, [efectivoRecibidoNum, efectivoObjetivoAlquiler]);
+    return metodoPagoPrincipal === "EFECTIVO" && efectivoRecibidoNum > totalExigidoHoyEnCaja
+      ? Math.max(0, efectivoRecibidoNum - totalExigidoHoyEnCaja)
+      : 0;
+  }, [efectivoRecibidoNum, metodoPagoPrincipal, totalExigidoHoyEnCaja]);
 
   const depositoEfectivoValido = useMemo(() => {
-    if (esPagoMixto) {
-      const ef = Number(montoEfectivoMixto) || 0;
-      const dig = Number(montoDigitalMixto) || 0;
-      const totalMixto = ef + dig;
-      return totalMixto > 0 && (ef === 0 || efectivoRecibidoNum >= ef);
+    if (pagosAplicados.length > 0) {
+      return totalPagadoEnCascada === totalExigidoHoyEnCaja;
     }
     if (metodoPagoPrincipal === "EFECTIVO") {
-      return abonoEfectivoConfirmado && efectivoRecibidoNum >= totalExigidoHoyEnCaja;
+      return efectivoRecibidoNum >= totalExigidoHoyEnCaja;
     }
     return true;
-  }, [esPagoMixto, montoEfectivoMixto, montoDigitalMixto, metodoPagoPrincipal, abonoEfectivoConfirmado, efectivoRecibidoNum, totalExigidoHoyEnCaja]);
+  }, [pagosAplicados, totalPagadoEnCascada, totalExigidoHoyEnCaja, metodoPagoPrincipal, efectivoRecibidoNum]);
 
   const puedeExpedirAlquiler = useMemo(() => {
     if (!clienteSeleccionado || !clienteSeleccionado.telefono || clienteSeleccionado.telefono.trim().length < 7) {
@@ -1056,35 +1055,49 @@ export default function TerminalAlquileresPage() {
       return;
     }
 
-    // Validación de cobro según método
-    if (esPagoMixto) {
-      const efNum = Number(montoEfectivoMixto) || 0;
-      const digNum = Number(montoDigitalMixto) || 0;
-      if (Math.round((efNum + digNum) * 100) / 100 !== Math.round(totalExigidoHoyEnCaja * 100) / 100) {
+    if (pagosAplicados.length > 0 && totalPagadoEnCascada !== totalExigidoHoyEnCaja) {
+      setMensajeError(
+        `El total cubierto en abonos (${totalPagadoEnCascada.toLocaleString("es-CO")}) debe coincidir exactamente con el total a pagar hoy (${totalExigidoHoyEnCaja.toLocaleString("es-CO")}).`
+      );
+      return;
+    }
+
+    let listaPagosFinal: Array<{
+      monto: number;
+      metodoPago: string;
+      montoRecibido?: number | null;
+      vueltasEntregadas?: number | null;
+      referenciaComprobante?: string | null;
+      notas?: string | null;
+    }> = [];
+
+    if (pagosAplicados.length > 0) {
+      listaPagosFinal = pagosAplicados.map((p) => ({
+        monto: p.monto,
+        metodoPago: p.metodoPago,
+        montoRecibido: p.montoRecibido ?? null,
+        vueltasEntregadas: p.vueltasEntregadas ?? null,
+        referenciaComprobante: p.referencia || undefined,
+        notas: p.notas || `Abono ${p.metodoPago} Alquiler`,
+      }));
+    } else if (totalExigidoHoyEnCaja > 0) {
+      const efRecibido = Number(efectivoRecibidoCliente) || totalExigidoHoyEnCaja;
+      if (metodoPagoPrincipal === "EFECTIVO" && efRecibido < totalExigidoHoyEnCaja) {
         setMensajeError(
-          `La suma de efectivo ($${efNum.toLocaleString("es-CO")}) y digital ($${digNum.toLocaleString("es-CO")}) debe coincidir con el total a pagar hoy ($${totalExigidoHoyEnCaja.toLocaleString("es-CO")}).`
+          `Para generar la factura completa de alquiler, el valor recibido debe cubrir tanto el costo del alquiler como el depósito en garantía (${totalExigidoHoyEnCaja.toLocaleString("es-CO")}). Si el cliente solo dejará un abono parcial para reservar, regístrelo en el módulo de Apartados.`
         );
         return;
       }
-      if (efNum > 0 && efectivoRecibidoNum < efNum) {
-        setMensajeError(
-          `El efectivo entregado ($${efectivoRecibidoNum.toLocaleString("es-CO")}) es inferior a la porción en efectivo ($${efNum.toLocaleString("es-CO")}).`
-        );
-        return;
-      }
-    } else if (metodoPagoPrincipal === "EFECTIVO") {
-      if (efectivoRecibidoNum < totalExigidoHoyEnCaja) {
-        setMensajeError(
-          `Para generar la factura completa de alquiler, el valor recibido debe cubrir tanto el costo del alquiler como el depósito en garantía ($${totalExigidoHoyEnCaja.toLocaleString("es-CO")}). Si el cliente solo dejará un abono parcial para reservar, regístrelo en el módulo de Apartados.`
-        );
-        return;
-      }
-      if (!abonoEfectivoConfirmado) {
-        setMensajeError(
-          "Debe marcar la casilla de confirmación de recepción de dinero en efectivo en gaveta."
-        );
-        return;
-      }
+      listaPagosFinal = [
+        {
+          monto: totalExigidoHoyEnCaja,
+          metodoPago: metodoPagoPrincipal,
+          montoRecibido: metodoPagoPrincipal === "EFECTIVO" ? efRecibido : undefined,
+          vueltasEntregadas: metodoPagoPrincipal === "EFECTIVO" ? Math.max(0, efRecibido - totalExigidoHoyEnCaja) : undefined,
+          referenciaComprobante: referenciaPago.trim() || undefined,
+          notas: `Pago completo alquiler + depósito (${metodoPagoPrincipal})`,
+        },
+      ];
     }
 
     try {
@@ -1098,29 +1111,12 @@ export default function TerminalAlquileresPage() {
         const payloadConversion = {
           accion: "CONVERTIR_APARTADO_A_ALQUILER",
           turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
-          monto: esPagoMixto ? undefined : valorAbonoAlquilerHoy,
-          metodoPago: esPagoMixto ? undefined : metodoPagoPrincipal,
-          abonos: esPagoMixto && valorAbonoAlquilerHoy > 0
-            ? [
-              ...(Number(montoEfectivoMixto) > 0
-                ? [{
-                  monto: Number(montoEfectivoMixto),
-                  metodoPago: "EFECTIVO",
-                  montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
-                  vueltasEntregadas: Math.max(0, vueltasCambioFinal),
-                  notas: "Alquiler mixto - Porción Efectivo",
-                }]
-                : []),
-              ...(Number(montoDigitalMixto) > 0
-                ? [{
-                  monto: Number(montoDigitalMixto),
-                  metodoPago: metodoDigitalMixto,
-                  referenciaComprobante: referenciaPago.trim() || undefined,
-                  notas: `Alquiler mixto - Porción ${metodoDigitalMixto}`,
-                }]
-                : []),
-            ]
-            : undefined,
+          monto: totalExigidoHoyEnCaja,
+          metodoPago: listaPagosFinal.length === 1 ? listaPagosFinal[0].metodoPago : listaPagosFinal.length > 1 ? "MIXTO" : metodoPagoPrincipal,
+          metodoPagoPrincipal: listaPagosFinal.length === 1 ? listaPagosFinal[0].metodoPago : listaPagosFinal.length > 1 ? "MIXTO" : metodoPagoPrincipal,
+          pagos: listaPagosFinal,
+          abonos: listaPagosFinal,
+          abonoInicial: listaPagosFinal.length === 1 ? listaPagosFinal[0] : undefined,
           montoRecibido: efectivoRecibidoNum,
           efectivoRecibido: efectivoRecibidoNum,
           vueltasEntregadas: vueltasCambioFinal,
@@ -1165,7 +1161,7 @@ export default function TerminalAlquileresPage() {
           fechaDevolucionPactada: new Date(fechaDevolucion).toISOString(),
           notas: notasAlquiler.trim() || undefined,
           montoDeposito: montoDeposito,
-          metodoPagoDeposito: esPagoMixto ? "EFECTIVO" : metodoPagoPrincipal,
+          metodoPagoDeposito: "EFECTIVO",
           efectivoRecibido: efectivoRecibidoNum,
           cambioEntregado: vueltasCambioFinal,
           detalles: itemsCarrito.map((it) => ({
@@ -1176,74 +1172,11 @@ export default function TerminalAlquileresPage() {
             fechaDevolucion: new Date(fechaDevolucion).toISOString(),
             descripcionDetallada: it.descripcionDetallada?.trim() || undefined,
           })),
-          esPagoMixto,
-          metodoPagoPrincipal: esPagoMixto ? "MIXTO" : metodoPagoPrincipal,
-          pagos: esPagoMixto && valorAbonoAlquilerHoy > 0
-            ? [
-              ...(Number(montoEfectivoMixto) > 0
-                ? [{
-                  monto: Number(montoEfectivoMixto),
-                  metodoPago: "EFECTIVO",
-                  montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
-                  vueltasEntregadas: Math.max(0, vueltasCambioFinal),
-                  notas: "Alquiler mixto - Porción Efectivo",
-                }]
-                : []),
-              ...(Number(montoDigitalMixto) > 0
-                ? [{
-                  monto: Number(montoDigitalMixto),
-                  metodoPago: metodoDigitalMixto,
-                  referenciaComprobante: referenciaPago.trim() || undefined,
-                  notas: `Alquiler mixto - Porción ${metodoDigitalMixto}`,
-                }]
-                : []),
-            ]
-            : valorAbonoAlquilerHoy > 0
-              ? [{
-                monto: valorAbonoAlquilerHoy,
-                metodoPago: metodoPagoPrincipal,
-                montoRecibido: metodoPagoPrincipal === "EFECTIVO" ? efectivoRecibidoNum : undefined,
-                vueltasEntregadas: metodoPagoPrincipal === "EFECTIVO" ? vueltasCambioFinal : undefined,
-                referenciaComprobante: referenciaPago.trim() || undefined,
-                notas: modalidadPago === "COMPLETO" ? `Pago completo canon (${metodoPagoPrincipal})` : `Abono anticipo canon (${metodoPagoPrincipal})`,
-              }]
-              : [],
-          abonoInicial: esPagoMixto
-            ? undefined
-            : valorAbonoAlquilerHoy > 0
-              ? {
-                monto: valorAbonoAlquilerHoy,
-                metodoPago: metodoPagoPrincipal,
-                montoRecibido: metodoPagoPrincipal === "EFECTIVO" ? efectivoRecibidoNum : undefined,
-                vueltasEntregadas: metodoPagoPrincipal === "EFECTIVO" ? vueltasCambioFinal : undefined,
-                referenciaComprobante: referenciaPago.trim() || undefined,
-                notas:
-                  modalidadPago === "COMPLETO"
-                    ? `Pago completo del canon de alquiler (${metodoPagoPrincipal})`
-                    : `Abono / Anticipo de canon de alquiler (${metodoPagoPrincipal})`,
-              }
-              : undefined,
-          abonos: esPagoMixto && valorAbonoAlquilerHoy > 0
-            ? [
-              ...(Number(montoEfectivoMixto) > 0
-                ? [{
-                  monto: Number(montoEfectivoMixto),
-                  metodoPago: "EFECTIVO",
-                  montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
-                  vueltasEntregadas: Math.max(0, vueltasCambioFinal),
-                  notas: "Alquiler mixto - Porción Efectivo",
-                }]
-                : []),
-              ...(Number(montoDigitalMixto) > 0
-                ? [{
-                  monto: Number(montoDigitalMixto),
-                  metodoPago: metodoDigitalMixto,
-                  referenciaComprobante: referenciaPago.trim() || undefined,
-                  notas: `Alquiler mixto - Porción ${metodoDigitalMixto}`,
-                }]
-                : []),
-            ]
-            : undefined,
+          metodoPago: listaPagosFinal.length === 1 ? listaPagosFinal[0].metodoPago : listaPagosFinal.length > 1 ? "MIXTO" : metodoPagoPrincipal,
+          metodoPagoPrincipal: listaPagosFinal.length === 1 ? listaPagosFinal[0].metodoPago : listaPagosFinal.length > 1 ? "MIXTO" : metodoPagoPrincipal,
+          pagos: listaPagosFinal,
+          abonos: listaPagosFinal,
+          abonoInicial: listaPagosFinal.length === 1 ? listaPagosFinal[0] : undefined,
         };
 
         // Si ya existe una facturaEnCursoId para esta operación, actualizarla mediante PUT sin duplicar el registro
@@ -2707,417 +2640,24 @@ export default function TerminalAlquileresPage() {
                             </div>
                           </div>
 
-                          {/* Columna Derecha: Sección C (Cuadre de Efectivo y Vueltas) */}
-                          <div className="p-3.5 rounded-xl bg-orange-50/70 border-2 border-orange-300 text-slate-800 space-y-3">
-                            <div className="flex items-center justify-between border-b border-orange-200 pb-2">
-                              <div>
-                                <span className="text-[10px] font-black text-orange-800 uppercase tracking-wider block">
-                                  SECCIÓN C — CUADRE DE CAJA
-                                </span>
-                                <h3 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                                  <Banknote className="w-4 h-4 text-orange-600" />
-                                  Cobro Total en Efectivo y Vueltas
-                                </h3>
-                              </div>
-                              <div className="text-right">
-                                <span className="text-[10px] text-slate-500 block uppercase font-bold">Total a Pagar (Alquiler + Depósito)</span>
-                                <span className="text-base font-black text-orange-700 font-mono">
-                                  ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Selección de Método de Pago y Modo Mixto */}
-                            <div className="space-y-3 pt-1">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-slate-100">
-                                <div>
-                                  <span className="text-xs font-bold uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
-                                    <Wallet className="w-3.5 h-3.5 text-slate-500" />
-                                    Método de Cobro del Alquiler:
-                                  </span>
-                                  <p className="text-[11px] text-slate-400">
-                                    Medio de pago único o dividido entre efectivo y transferencia
-                                  </p>
-                                </div>
-
-                                <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto">
-                                  <Tooltip content="Pagar el valor total con un único método de pago" position="top">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (esPagoMixto) {
-                                          setEsPagoMixto(false);
-                                          setEfectivoRecibidoCliente(String(totalExigidoHoyEnCaja));
-                                        }
-                                      }}
-                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${!esPagoMixto
-                                        ? "bg-white text-slate-900 shadow-xs"
-                                        : "text-slate-600 hover:text-slate-900"
-                                        }`}
-                                    >
-                                      <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                                      <span>1 Solo Método</span>
-                                    </button>
-                                  </Tooltip>
-
-                                  <Tooltip content="Dividir el cobro en dos montos: porción en efectivo y porción digital" position="top">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (!esPagoMixto) {
-                                          setEsPagoMixto(true);
-                                          const mitad = Math.floor(totalExigidoHoyEnCaja / 2);
-                                          setMontoEfectivoMixto(String(mitad));
-                                          setMontoDigitalMixto(String(totalExigidoHoyEnCaja - mitad));
-                                          setEfectivoRecibidoCliente(String(mitad));
-                                        }
-                                      }}
-                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${esPagoMixto
-                                        ? "bg-orange-600 text-white shadow-xs"
-                                        : "text-slate-600 hover:text-slate-900"
-                                        }`}
-                                    >
-                                      <Split className="w-3.5 h-3.5" />
-                                      <span>Pago Mixto (2 Métodos)</span>
-                                    </button>
-                                  </Tooltip>
-                                </div>
-                              </div>
-
-                              {!esPagoMixto ? (
-                                <div className="grid grid-cols-3 gap-2">
-                                  {[
-                                    { id: "EFECTIVO", label: "Efectivo", desc: "Pago en efectivo en caja física", icon: Banknote },
-                                    { id: "BANCOLOMBIA", label: "Bancolombia", desc: "Transferencia Bancolombia / QR", icon: Building2 },
-                                    { id: "NEQUI", label: "Nequi", desc: "Transferencia a cuenta Nequi", icon: Smartphone },
-                                    { id: "LLAVE", label: "Bre-B", desc: "Transferencia inmediata Bre-B / Llave", icon: Coins },
-                                    { id: "DAVIPLATA", label: "Daviplata", desc: "Transferencia a cuenta Daviplata", icon: Smartphone },
-                                    { id: "TRANSFERENCIA", label: "Transferencia", desc: "Otros bancos o consignación", icon: CreditCard },
-                                  ].map((met) => {
-                                    const IconComp = met.icon;
-                                    const esActivo = metodoPagoPrincipal === met.id;
-
-                                    return (
-                                      <Tooltip key={met.id} content={met.label} subtext={met.desc} position="top">
-                                        <button
-                                          key={met.id}
-                                          type="button"
-                                          onClick={() => {
-                                            setMetodoPagoPrincipal(met.id as MetodoPagoAlquiler);
-                                            if (met.id === "EFECTIVO") {
-                                              setEfectivoRecibidoCliente(String(totalExigidoHoyEnCaja));
-                                            }
-                                          }}
-                                          className={`w-full p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1.5 cursor-pointer ${esActivo
-                                            ? "bg-orange-600 text-white border-orange-600 shadow-xs font-bold ring-2 ring-orange-600/20"
-                                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
-                                            }`}
-                                        >
-                                          <IconComp className="w-4 h-4" />
-                                          <span className="text-xs">{met.label}</span>
-                                        </button>
-                                      </Tooltip>
-                                    );
-                                  })}
-                                </div>
-                              ) : (
-                                <div className="bg-slate-50/80 rounded-2xl border border-slate-200/80 p-3.5 space-y-3.5 shadow-2xs">
-                                  {/* Sub-Tarjetas de los Dos Montos */}
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {/* Monto 1: Efectivo */}
-                                    <div className="bg-white rounded-xl border border-emerald-200/90 p-3 shadow-2xs space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                          <Banknote className="w-3.5 h-3.5 text-emerald-600" />
-                                          Monto 1: Efectivo
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setMontoEfectivoMixto(String(totalExigidoHoyEnCaja));
-                                            setMontoDigitalMixto("0");
-                                            setEfectivoRecibidoCliente(String(totalExigidoHoyEnCaja));
-                                          }}
-                                          className="text-[10.5px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
-                                        >
-                                          100% Efectivo
-                                        </button>
-                                      </div>
-
-                                      <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                                        <input
-                                          type="number"
-                                          value={montoEfectivoMixto}
-                                          onChange={(e) => {
-                                            const val = e.target.value;
-                                            setMontoEfectivoMixto(val);
-                                            const n = Number(val) || 0;
-                                            setEfectivoRecibidoCliente(String(n));
-                                          }}
-                                          placeholder="0"
-                                          className="w-full pl-7 pr-3 py-2 bg-slate-50/60 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition"
-                                        />
-                                      </div>
-                                      <p className="text-[10px] text-slate-400">Ingreso a registrar en caja física</p>
-                                    </div>
-
-                                    {/* Monto 2: Digital / Transferencia */}
-                                    <div className="bg-white rounded-xl border border-blue-200/90 p-3 shadow-2xs space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                                          <Smartphone className="w-3.5 h-3.5 text-blue-600" />
-                                          Monto 2: Digital / Transferencia
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const ef = Number(montoEfectivoMixto) || 0;
-                                            const resto = Math.max(0, totalExigidoHoyEnCaja - ef);
-                                            setMontoDigitalMixto(String(resto));
-                                          }}
-                                          className="text-[10.5px] font-bold text-blue-700 hover:text-blue-800 hover:underline"
-                                        >
-                                          Completar Restante
-                                        </button>
-                                      </div>
-
-                                      <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                                        <input
-                                          type="number"
-                                          value={montoDigitalMixto}
-                                          onChange={(e) => {
-                                            setMontoDigitalMixto(e.target.value);
-                                          }}
-                                          placeholder="0"
-                                          className="w-full pl-7 pr-3 py-2 bg-slate-50/60 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition"
-                                        />
-                                      </div>
-                                      <p className="text-[10px] text-slate-400">Abono o pago por canal electrónico</p>
-                                    </div>
-                                  </div>
-
-                                  {/* Selector de Canal Digital con 5 Botones e Iconos con Tooltip */}
-                                  <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
-                                    <div className="flex items-center justify-between">
-                                      <label className="text-[11px] font-bold text-slate-700 block">
-                                        Canal Digital: <strong className="text-blue-700">{metodoDigitalMixto}</strong>
-                                      </label>
-                                      <span className="text-[10.5px] font-semibold text-slate-400">
-                                        Predeterminado: <strong className="text-slate-700">Bancolombia</strong>
-                                      </span>
-                                    </div>
-
-                                    <div className="grid grid-cols-5 gap-1.5">
-                                      {[
-                                        { id: "BANCOLOMBIA", label: "Bancolombia", desc: "Transferencia / QR Bancolombia (Predeterminado)", icon: Building2 },
-                                        { id: "NEQUI", label: "Nequi", desc: "Transferencia a cuenta Nequi", icon: Smartphone },
-                                        { id: "LLAVE", label: "Bre-B", desc: "Transferencia inmediata Bre-B / Llave", icon: Coins },
-                                        { id: "DAVIPLATA", label: "Daviplata", desc: "Transferencia a cuenta Daviplata", icon: Smartphone },
-                                        { id: "TRANSFERENCIA", label: "Transferencia", desc: "Otros bancos o consignación", icon: CreditCard },
-                                      ].map((m) => {
-                                        const IconM = m.icon;
-                                        const esActivo = metodoDigitalMixto === m.id;
-                                        return (
-                                          <Tooltip key={m.id} content={m.label} subtext={m.desc} position="top">
-                                            <button
-                                              type="button"
-                                              onClick={() => setMetodoDigitalMixto(m.id as MetodoPagoAlquiler)}
-                                              className={`py-2 px-1 rounded-xl text-xs font-bold border transition flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer w-full ${esActivo
-                                                ? "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-600/20"
-                                                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                                                }`}
-                                            >
-                                              <IconM className="w-4 h-4 shrink-0" />
-                                              <span className="hidden sm:inline text-[11px] font-semibold">{m.id === "TRANSFERENCIA" ? "Transf." : m.label}</span>
-                                            </button>
-                                          </Tooltip>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-
-                                  {/* Barra de Progreso y Resumen de Cuadre */}
-                                  <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
-                                    <div className="flex items-center justify-between text-xs">
-                                      <span className="font-semibold text-slate-600">Distribución del Pago Hoy:</span>
-                                      <span className="font-mono font-bold text-slate-900">
-                                        ${((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)).toLocaleString("es-CO")} de ${totalExigidoHoyEnCaja.toLocaleString("es-CO")}
-                                      </span>
-                                    </div>
-
-                                    {/* Barra Bicromática */}
-                                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                                      <div
-                                        style={{
-                                          width: `${totalExigidoHoyEnCaja > 0 ? Math.min(100, (Number(montoEfectivoMixto || 0) / totalExigidoHoyEnCaja) * 100) : 0}%`,
-                                        }}
-                                        className="bg-emerald-500 transition-all duration-300"
-                                        title="Efectivo"
-                                      />
-                                      <div
-                                        style={{
-                                          width: `${totalExigidoHoyEnCaja > 0 ? Math.min(100, (Number(montoDigitalMixto || 0) / totalExigidoHoyEnCaja) * 100) : 0}%`,
-                                        }}
-                                        className="bg-blue-500 transition-all duration-300"
-                                        title="Digital"
-                                      />
-                                    </div>
-
-                                    {/* Chips de Resumen */}
-                                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
-                                      <div className="flex items-center gap-2">
-                                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
-                                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                                          Efectivo: ${Number(montoEfectivoMixto || 0).toLocaleString("es-CO")}
-                                        </span>
-                                        <span className="inline-flex items-center gap-1 font-semibold text-blue-700">
-                                          <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                          {metodoDigitalMixto}: ${Number(montoDigitalMixto || 0).toLocaleString("es-CO")}
-                                        </span>
-                                      </div>
-
-                                      {((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)) === totalExigidoHoyEnCaja ? (
-                                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                          100% Cubierto
-                                        </span>
-                                      ) : ((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)) < totalExigidoHoyEnCaja ? (
-                                        <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                                          <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                                          Faltan ${(totalExigidoHoyEnCaja - ((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0))).toLocaleString("es-CO")}
-                                        </span>
-                                      ) : (
-                                        <span className="inline-flex items-center gap-1 font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
-                                          <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                                          Excede por ${(((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)) - totalExigidoHoyEnCaja).toLocaleString("es-CO")}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Desglose de Totales de Pago de Alquiler en Orden Estricto */}
-                            <div className="p-3 rounded-xl bg-white border-2 border-orange-300 text-xs space-y-1.5 shadow-2xs">
-                              <p className="text-[10px] font-black uppercase text-slate-800 border-b border-slate-200 pb-1">
-                                TOTALES DE PAGO DE ALQUILER
-                              </p>
-                              <div className="flex justify-between text-slate-700">
-                                <span>Total Valor Alquiler:</span>
-                                <span className="font-mono font-bold text-slate-900">
-                                  ${subtotalPrendas.toLocaleString("es-CO")}
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-slate-700">
-                                <span>Depósito en Garantía:</span>
-                                <span className="font-mono font-bold text-amber-800">
-                                  ${montoDeposito.toLocaleString("es-CO")}
-                                </span>
-                              </div>
-                              <div className="flex justify-between font-black text-slate-950 p-1.5 rounded-lg bg-slate-100 border border-slate-300">
-                                <span>Total (Alquiler + Depósito):</span>
-                                <span className="font-mono text-emerald-800 text-sm">
-                                  ${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}
-                                </span>
-                              </div>
-                              {apartadoOrigen && (
-                                <div className="flex justify-between text-indigo-700 font-bold">
-                                  <span>(-) Abono Previo en Apartado:</span>
-                                  <span className="font-mono text-emerald-700">
-                                    -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="flex justify-between font-bold text-slate-800 pt-0.5 border-t border-dashed border-slate-300">
-                                <span>Recibido en Efectivo:</span>
-                                <span className="font-mono">${efectivoRecibidoNum.toLocaleString("es-CO")}</span>
-                              </div>
-                              <div className="flex justify-between font-black text-emerald-800 pt-0.5">
-                                <span>Valor Pagado ({esPagoMixto ? "Mixto" : (metodoPagoPrincipal === "EFECTIVO" ? "Efectivo" : "Digital")}):</span>
-                                <span className="font-mono">
-                                  ${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}
-                                </span>
-                              </div>
-                              <div className="flex justify-between font-black text-emerald-800 text-sm pt-0.5 border-t border-slate-200">
-                                <span>Vueltas:</span>
-                                <span className="font-mono">
-                                  ${vueltasCambioFinal.toLocaleString("es-CO")}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Campo Efectivo Recibido y Billetes si aplica efectivo */}
-                            {((metodoPagoPrincipal === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && (Number(montoEfectivoMixto) || 0) > 0)) && (
-                              <div className="space-y-1.5">
-                                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                                  <label>Efectivo que entrega el cliente ($):</label>
-                                  <button
-                                    type="button"
-                                    onClick={() => setEfectivoRecibidoCliente(String(efectivoObjetivoAlquiler))}
-                                    className="text-[10px] text-emerald-700 hover:underline font-bold cursor-pointer"
-                                  >
-                                    Exacto (${efectivoObjetivoAlquiler.toLocaleString("es-CO")})
-                                  </button>
-                                </div>
-                                <input
-                                  ref={inputEfectivoRef}
-                                  type="number"
-                                  value={efectivoRecibidoCliente}
-                                  onChange={(e) => setEfectivoRecibidoCliente(e.target.value)}
-                                  placeholder={String(efectivoObjetivoAlquiler)}
-                                  className="w-full px-2.5 py-1.5 text-sm font-black bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
-                                />
-                                <div className="flex gap-1 pt-0.5">
-                                  {BILLETES_COLOMBIANOS.map((den) => (
-                                    <Tooltip key={den} content={`Fijar $${den.toLocaleString("es-CO")} en efectivo`} position="top">
-                                      <button
-                                        type="button"
-                                        onClick={() => setEfectivoRecibidoCliente(String(den))}
-                                        className="flex-1 py-1 rounded bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-[10px] font-bold transition-all text-center cursor-pointer font-mono"
-                                      >
-                                        ${(den / 1000).toFixed(0)}k
-                                      </button>
-                                    </Tooltip>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Vueltas / Cambio Final */}
-                            <div className="p-2.5 rounded-lg bg-white border border-emerald-200 text-center flex flex-col justify-center">
-                              <span className="text-[10px] font-bold uppercase text-slate-500 block">
-                                Vueltas / Cambio Final
-                              </span>
-                              <span className="text-xl font-black text-emerald-700 font-mono">
-                                ${vueltasCambioFinal.toLocaleString("es-CO")}
-                              </span>
-                            </div>
-
-                            {/* Aviso de Bloqueo si el valor recibido no cubre */}
-                            {!depositoEfectivoValido && (
-                              <div className="p-3 rounded-xl bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs font-semibold leading-relaxed">
-                                Para generar la factura completa de alquiler, el valor recibido debe cubrir tanto el costo del alquiler como el depósito en garantía (${totalExigidoHoyEnCaja.toLocaleString("es-CO")}). Si el cliente solo dejará un abono parcial para reservar, regístrelo en el módulo de Apartados.
-                              </div>
-                            )}
-
-                          {/* Confirmación Checkbox */}
-                          <label className="flex items-start gap-2 cursor-pointer select-none pt-1">
-                            <input
-                              type="checkbox"
-                              checked={abonoEfectivoConfirmado}
-                              onChange={(e) => setAbonoEfectivoConfirmado(e.target.checked)}
-                              className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300 mt-0.5 shrink-0"
+                          {/* Columna Derecha: Flujo de Pagos Secuenciales en Cascada */}
+                          <div className="space-y-3">
+                            <PanelPagosSecuenciales
+                              totalExigible={totalExigidoHoyEnCaja}
+                              pagos={pagosAplicados}
+                              onChangePagos={setPagosAplicados}
+                              metodoActivoAtajo={metodoPagoPrincipal}
+                              onMetodoActivoAtajoChange={(m) => setMetodoPagoPrincipal(m as MetodoPagoAlquiler)}
+                              efectivoRecibidoAtajo={efectivoRecibidoCliente}
+                              onEfectivoRecibidoAtajoChange={setEfectivoRecibidoCliente}
+                              accentColor="orange"
+                              permitirSaldoPendiente={false}
+                              etiquetaTotal="Total a Pagar Hoy (Alquiler + Depósito)"
+                              subtitulo="En alquiler con entrega física se exige cubrir el 100% de la orden"
                             />
-                            <span className="text-[11px] font-bold text-slate-700 leading-tight">
-                              Confirmo recepción en <span className="text-orange-800 font-black underline">EFECTIVO</span> de ${efectivoRecibidoNum.toLocaleString("es-CO")} en gaveta y entregar ${vueltasCambioFinal.toLocaleString("es-CO")} de cambio.
-                            </span>
-                          </label>
+                          </div>
                         </div>
                       </div>
-                    </div>
                 </>
                   )}
               </div>
@@ -3316,7 +2856,7 @@ export default function TerminalAlquileresPage() {
                       <span className="font-mono">${efectivoRecibidoNum.toLocaleString("es-CO")}</span>
                     </div>
                     <div className="flex justify-between text-emerald-800 font-black pt-0.5">
-                      <span>Valor Pagado ({metodoPagoPrincipal === "EFECTIVO" ? "Efectivo" : "Consignación"}):</span>
+                      <span>Valor a Pagar:</span>
                       <span className="font-mono">${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}</span>
                     </div>
                     <div className="flex justify-between text-emerald-800 font-black pt-0.5 border-t border-slate-200">

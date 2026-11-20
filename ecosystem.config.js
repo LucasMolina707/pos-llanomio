@@ -67,6 +67,7 @@ const apps = [
       INSTANCE_ID: String(instanceId),
       LOCAL_DOMAIN: String(localDomain),
       DATABASE_URL: envConfig.DATABASE_URL || "file:./llanomio.db",
+      INICIAR_MDNS_PROCESO: "false",
     },
   },
   {

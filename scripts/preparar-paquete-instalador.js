@@ -78,7 +78,7 @@ try {
   const localTmp = path.join(PROJECT_ROOT, ".tmp");
   if (!fs.existsSync(localTmp)) fs.mkdirSync(localTmp, { recursive: true });
 
-  execSync("node scripts/reset-db-fabrica.js", {
+  execSync("node scripts/restablecer-db-fabrica.js", {
     cwd: PROJECT_ROOT,
     stdio: "inherit",
     env: {
@@ -198,11 +198,15 @@ const archivosCriticos = [
   "CONTROL_GENERAL_POS.bat",
   "ABRIR_SISTEMA_PANTALLA_COMPLETA.bat",
   "INSTALADOR_MAESTRO_UNICO_POS.bat",
+  "INICIAR_O_RECUPERAR_SERVIDOR_POS.bat",
+  "RECUPERAR_Y_LEVANTAR_SERVIDOR_ULTIMO_ESTADO.bat",
   "Iniciar_Servidor_POS.exe",
   "Detener_Servidor_POS.exe",
+  "instalador_tienda/1_INSTALACIONES/1_INSTALADOR_MAESTRO_DESDE_CERO.bat",
   "instalador_tienda/1_INSTALACIONES/2_CONFIGURAR_PUERTOS_Y_DOMINIO.bat",
   "instalador_tienda/1_INSTALACIONES/3_PREPARAR_LIMPIEZA_FABRICA_PARA_EXE.bat",
   "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/1_INICIALIZAR_SITIO_POS.bat",
+  "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/1_LEVANTAR_O_REINICIAR_SERVIDOR.bat",
   "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/2_DETENER_PAUSAR_SERVIDOR_POS.bat",
   "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/3_REINICIAR_SITIO_RAPIDO_POS.bat",
   "instalador_tienda/2_INICIADORES_Y_ACTIVADORES/5_ABRIR_POS_PANTALLA_COMPLETA.bat",

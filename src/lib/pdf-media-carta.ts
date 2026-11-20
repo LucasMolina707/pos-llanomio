@@ -155,7 +155,7 @@ function dibujarPaginaMediaCarta(
   const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
   const metodosAbonos = Object.keys(desgloseMetodosPagados);
   const textoMedioPagoPrincipal = tienePagoMixtoReal
-    ? "MIXTO: " + Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
+    ? Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
     : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
 
   const tarifaMoraDiariaOficial =
@@ -879,7 +879,7 @@ function dibujarPaginaCarta(
   const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
   const metodosAbonos = Object.keys(desgloseMetodosPagados);
   const textoMedioPagoPrincipal = tienePagoMixtoReal
-    ? "MIXTO: " + Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
+    ? Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
     : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
 
   const tarifaMoraDiariaOficial =
@@ -1594,7 +1594,7 @@ function dibujarContenidoTirilla(
   const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
   const metodosAbonos = Object.keys(desgloseMetodosPagados);
   const textoMedioPagoPrincipal = tienePagoMixtoReal
-    ? "MIXTO: " + Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
+    ? Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
     : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
 
   const tarifaMoraDiariaOficial =

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   X,
   CheckCircle2,
@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
 import Tooltip from "@/components/ui/Tooltip";
+import PanelPagosSecuenciales, { PagoAplicado } from "@/components/caja/PanelPagosSecuenciales";
 import { descargarPdfSegunFormato } from "@/lib/pdf-media-carta";
 import { MetodoPagoPos } from "@/app/caja/pos/page";
 
@@ -59,10 +60,7 @@ export default function ModalLiquidarFactura({
   const [motivoRetencion, setMotivoRetencion] = useState<string>("");
   const [estadoPrendasDevueltas, setEstadoPrendasDevueltas] = useState<"DISPONIBLE" | "EN_ARREGLO">("DISPONIBLE");
   const [metodoPago, setMetodoPago] = useState<MetodoPagoPos>("EFECTIVO");
-  const [esPagoMixto, setEsPagoMixto] = useState<boolean>(false);
-  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState<string>("");
-  const [montoDigitalMixto, setMontoDigitalMixto] = useState<string>("");
-  const [metodoDigitalMixto, setMetodoDigitalMixto] = useState<MetodoPagoPos>("BANCOLOMBIA");
+  const [pagosAplicados, setPagosAplicados] = useState<PagoAplicado[]>([]);
   const [efectivoRecibido, setEfectivoRecibido] = useState<string>("");
   const [referencia, setReferencia] = useState("");
   const [notas, setNotas] = useState("");
@@ -97,10 +95,7 @@ export default function ModalLiquidarFactura({
           const saldoBase = Math.max(0, (data.factura.totalFactura || 0) - (data.factura.totalAbonado || 0));
           const totalExigible = saldoBase + moraFinal;
           setEfectivoRecibido(String(totalExigible));
-          setEsPagoMixto(false);
-          setMontoEfectivoMixto(String(totalExigible));
-          setMontoDigitalMixto("0");
-          setMetodoDigitalMixto("BANCOLOMBIA");
+          setPagosAplicados([]);
           setTipoDevolucionDeposito("DEVUELTO_COMPLETO");
           setMontoRetenido(0);
           setMotivoRetencion("");
@@ -129,15 +124,14 @@ export default function ModalLiquidarFactura({
     ? Math.max(0, (factura.totalFactura || 0) - (factura.totalAbonado || 0))
     : 0;
   const totalACobrar = Math.round((saldoBase + moraACobrar) * 100) / 100;
-  const montoObjetivoEfectivo = esPagoMixto
-    ? (Number(montoEfectivoMixto) || 0)
-    : (metodoPago === "EFECTIVO" ? totalACobrar : 0);
+  const totalPagadoEnCascada = useMemo(() => {
+    return pagosAplicados.reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
+  }, [pagosAplicados]);
 
   const efectivoRecibidoNum = parseFloat(efectivoRecibido) || 0;
   const vueltasCalculadas =
-    ((metodoPago === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && Number(montoEfectivoMixto) > 0)) &&
-      efectivoRecibidoNum >= montoObjetivoEfectivo
-      ? Math.round((efectivoRecibidoNum - montoObjetivoEfectivo) * 100) / 100
+    metodoPago === "EFECTIVO" && totalACobrar > 0 && efectivoRecibidoNum >= totalACobrar
+      ? Math.round((efectivoRecibidoNum - totalACobrar) * 100) / 100
       : 0;
 
   const sumarBillete = (monto: number) => {
@@ -155,16 +149,9 @@ export default function ModalLiquidarFactura({
       return;
     }
 
-    if (!esPagoMixto && metodoPago === "EFECTIVO" && totalACobrar > 0 && efectivoRecibidoNum < totalACobrar) {
+    if (pagosAplicados.length > 0 && totalPagadoEnCascada !== totalACobrar) {
       setMensajeError(
-        `El efectivo recibido ($${efectivoRecibidoNum.toLocaleString("es-CO")}) es inferior al total a cobrar ($${totalACobrar.toLocaleString("es-CO")}).`
-      );
-      return;
-    }
-
-    if (esPagoMixto && Number(montoEfectivoMixto) > 0 && efectivoRecibidoNum < Number(montoEfectivoMixto)) {
-      setMensajeError(
-        `El efectivo recibido ($${efectivoRecibidoNum.toLocaleString("es-CO")}) es inferior a la porción de efectivo requerida ($${Number(montoEfectivoMixto).toLocaleString("es-CO")}).`
+        `El total pagado (${totalPagadoEnCascada.toLocaleString("es-CO")}) debe coincidir con el total a liquidar hoy (${totalACobrar.toLocaleString("es-CO")}).`
       );
       return;
     }
@@ -181,37 +168,44 @@ export default function ModalLiquidarFactura({
         ? (factura.montoDeposito || 0)
         : (tipoDevolucionDeposito === "RETENIDO_PARCIAL" ? Math.max(0, (factura.montoDeposito || 0) - retDep) : 0);
 
-      // Preparar arreglo de pagos/abonos
-      const abonosLiquidacion = esPagoMixto && totalACobrar > 0
-        ? [
-          ...(Number(montoEfectivoMixto) > 0
-            ? [{
-              monto: Number(montoEfectivoMixto),
-              metodoPago: "EFECTIVO",
-              montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
-              vueltasEntregadas: vueltasCalculadas,
-              notas: "Liquidación / Abono mixto - Efectivo",
-            }]
-            : []),
-          ...(Number(montoDigitalMixto) > 0
-            ? [{
-              monto: Number(montoDigitalMixto),
-              metodoPago: metodoDigitalMixto,
-              referenciaComprobante: referencia.trim() || undefined,
-              notas: `Liquidación / Abono mixto - ${metodoDigitalMixto}`,
-            }]
-            : []),
-        ]
-        : totalACobrar > 0
-          ? [{
+      // Preparar arreglo de pagos/abonos en cascada
+      let abonosLiquidacion: Array<{
+        monto: number;
+        metodoPago: string;
+        montoRecibido?: number | null;
+        vueltasEntregadas?: number | null;
+        referenciaComprobante?: string | null;
+        notas?: string | null;
+      }> = [];
+
+      if (pagosAplicados.length > 0) {
+        abonosLiquidacion = pagosAplicados.map((p) => ({
+          monto: p.monto,
+          metodoPago: p.metodoPago,
+          montoRecibido: p.montoRecibido ?? null,
+          vueltasEntregadas: p.vueltasEntregadas ?? null,
+          referenciaComprobante: p.referencia || undefined,
+          notas: p.notas || `Liquidación ${p.metodoPago}`,
+        }));
+      } else if (totalACobrar > 0) {
+        const efRecibido = Number(efectivoRecibido) || totalACobrar;
+        if (metodoPago === "EFECTIVO" && efRecibido < totalACobrar) {
+          setMensajeError(
+            `El efectivo recibido (${efRecibido.toLocaleString("es-CO")}) es inferior al total a cobrar (${totalACobrar.toLocaleString("es-CO")}).`
+          );
+          return;
+        }
+        abonosLiquidacion = [
+          {
             monto: totalACobrar,
             metodoPago,
-            montoRecibido: metodoPago === "EFECTIVO" ? efectivoRecibidoNum : undefined,
-            vueltasEntregadas: metodoPago === "EFECTIVO" ? vueltasCalculadas : undefined,
+            montoRecibido: metodoPago === "EFECTIVO" ? efRecibido : undefined,
+            vueltasEntregadas: metodoPago === "EFECTIVO" ? Math.max(0, efRecibido - totalACobrar) : undefined,
             referenciaComprobante: referencia.trim() || undefined,
             notas: moraACobrar > 0 ? `Liquidación de saldo y mora (${diasRetrasoSugerido} días)` : "Liquidación total",
-          }]
-          : [];
+          },
+        ];
+      }
 
       const res = await fetch(`/api/facturas/${factura.id}`, {
         method: "POST",
@@ -225,9 +219,8 @@ export default function ModalLiquidarFactura({
           montoDevueltoDeposito: devDep,
           motivoRetencionDeposito: motivoRetencion.trim() || undefined,
           estadoPrendasDevueltas: estadoPrendasDevueltas,
-          esPagoMixto,
-          metodoPagoPrincipal: esPagoMixto ? "MIXTO" : metodoPago,
-          metodoPago: esPagoMixto ? "EFECTIVO" : metodoPago,
+          metodoPagoPrincipal: abonosLiquidacion.length === 1 ? abonosLiquidacion[0].metodoPago : abonosLiquidacion.length > 1 ? "MIXTO" : metodoPago,
+          metodoPago: abonosLiquidacion.length === 1 ? abonosLiquidacion[0].metodoPago : abonosLiquidacion.length > 1 ? "MIXTO" : metodoPago,
           pagos: abonosLiquidacion,
           abonos: abonosLiquidacion,
           montoRecibido: efectivoRecibidoNum,
@@ -548,325 +541,22 @@ export default function ModalLiquidarFactura({
                 </div>
               )}
 
-              {/* Selector de Método de Pago y Modo Mixto */}
+              {/* Flujo de Pagos Secuenciales en Cascada */}
               {totalACobrar > 0 && (
                 <div className="space-y-3 pt-1">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-slate-100">
-                    <div>
-                      <span className="text-xs font-bold uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
-                        <Wallet className="w-3.5 h-3.5 text-slate-500" />
-                        Método de Liquidación:
-                      </span>
-                      <p className="text-[11px] text-slate-400">
-                        Pago único o dividido entre efectivo y transferencia
-                      </p>
-                    </div>
-
-                    <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto">
-                      <Tooltip content="Liquidar con un único método de pago" position="top">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (esPagoMixto) {
-                              setEsPagoMixto(false);
-                              setEfectivoRecibido(String(totalACobrar));
-                            }
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${!esPagoMixto
-                            ? "bg-white text-slate-900 shadow-xs"
-                            : "text-slate-600 hover:text-slate-900"
-                            }`}
-                        >
-                          <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                          <span>1 Solo Método</span>
-                        </button>
-                      </Tooltip>
-
-                      <Tooltip content="Dividir la liquidación en dos montos: porción en efectivo y porción digital" position="top">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!esPagoMixto) {
-                              setEsPagoMixto(true);
-                              const mitad = Math.floor(totalACobrar / 2);
-                              setMontoEfectivoMixto(String(mitad));
-                              setMontoDigitalMixto(String(totalACobrar - mitad));
-                              setEfectivoRecibido(String(mitad));
-                            }
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${esPagoMixto
-                            ? "bg-blue-600 text-white shadow-xs"
-                            : "text-slate-600 hover:text-slate-900"
-                            }`}
-                        >
-                          <Split className="w-3.5 h-3.5" />
-                          <span>Pago Mixto (2 Métodos)</span>
-                        </button>
-                      </Tooltip>
-                    </div>
-                  </div>
-
-                  {!esPagoMixto ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                      {[
-                        { id: "EFECTIVO", label: "Efectivo", desc: "Pago en efectivo en gaveta física", icon: Banknote },
-                        { id: "BANCOLOMBIA", label: "Bancolombia", desc: "Transferencia Bancolombia / QR", icon: Building2 },
-                        { id: "NEQUI", label: "Nequi", desc: "Transferencia a cuenta Nequi", icon: Smartphone },
-                        { id: "LLAVE", label: "Bre-B", desc: "Transferencia inmediata Bre-B / Llave", icon: Coins },
-                        { id: "DAVIPLATA", label: "Daviplata", desc: "Transferencia a cuenta Daviplata", icon: Smartphone },
-                        { id: "TRANSFERENCIA", label: "Transferencia", desc: "Otros bancos o consignación", icon: CreditCard },
-                      ].map((met) => {
-                        const IconComp = met.icon;
-                        const esActivo = metodoPago === met.id;
-
-                        return (
-                          <Tooltip key={met.id} content={met.label} subtext={met.desc} position="top">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMetodoPago(met.id as MetodoPagoPos);
-                                if (met.id === "EFECTIVO") setEfectivoRecibido(String(totalACobrar));
-                              }}
-                              className={`w-full p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1.5 cursor-pointer ${esActivo
-                                ? "bg-blue-600 text-white border-blue-600 shadow-xs font-bold ring-2 ring-blue-600/20"
-                                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
-                                }`}
-                            >
-                              <IconComp className="w-4 h-4" />
-                              <span className="text-xs">{met.label}</span>
-                            </button>
-                          </Tooltip>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="bg-slate-50/80 rounded-2xl border border-slate-200/80 p-3.5 space-y-3.5 shadow-2xs">
-                      {/* Sub-Tarjetas de los Dos Montos */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {/* Monto 1: Efectivo */}
-                        <div className="bg-white rounded-xl border border-emerald-200/90 p-3 shadow-2xs space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                              <Banknote className="w-3.5 h-3.5 text-emerald-600" />
-                              Monto 1: Efectivo
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMontoEfectivoMixto(String(totalACobrar));
-                                setMontoDigitalMixto("0");
-                                setEfectivoRecibido(String(totalACobrar));
-                              }}
-                              className="text-[10.5px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline"
-                            >
-                              100% Efectivo
-                            </button>
-                          </div>
-
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                            <input
-                              type="number"
-                              value={montoEfectivoMixto}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setMontoEfectivoMixto(val);
-                                const n = Number(val) || 0;
-                                setEfectivoRecibido(String(n));
-                              }}
-                              placeholder="0"
-                              className="w-full pl-7 pr-3 py-2 bg-slate-50/60 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition"
-                            />
-                          </div>
-                          <p className="text-[10px] text-slate-400">Ingreso a registrar en caja física</p>
-                        </div>
-
-                        {/* Monto 2: Digital / Transferencia */}
-                        <div className="bg-white rounded-xl border border-blue-200/90 p-3 shadow-2xs space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                              <Smartphone className="w-3.5 h-3.5 text-blue-600" />
-                              Monto 2: Digital / Transferencia
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const ef = Number(montoEfectivoMixto) || 0;
-                                const resto = Math.max(0, totalACobrar - ef);
-                                setMontoDigitalMixto(String(resto));
-                              }}
-                              className="text-[10.5px] font-bold text-blue-700 hover:text-blue-800 hover:underline"
-                            >
-                              Completar Restante
-                            </button>
-                          </div>
-
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                            <input
-                              type="number"
-                              value={montoDigitalMixto}
-                              onChange={(e) => {
-                                setMontoDigitalMixto(e.target.value);
-                              }}
-                              placeholder="0"
-                              className="w-full pl-7 pr-3 py-2 bg-slate-50/60 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition"
-                            />
-                          </div>
-                          <p className="text-[10px] text-slate-400">Liquidación por canal electrónico</p>
-                        </div>
-                      </div>
-
-                      {/* Selector de Canal Digital con 5 Botones e Iconos con Tooltip */}
-                      <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-slate-700 block">
-                            Canal Digital: <strong className="text-blue-700">{metodoDigitalMixto}</strong>
-                          </label>
-                          <span className="text-[10.5px] font-semibold text-slate-400">
-                            Predeterminado: <strong className="text-slate-700">Bancolombia</strong>
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-5 gap-1.5">
-                          {[
-                            { id: "BANCOLOMBIA", label: "Bancolombia", desc: "Transferencia / QR Bancolombia (Predeterminado)", icon: Building2 },
-                            { id: "NEQUI", label: "Nequi", desc: "Transferencia a cuenta Nequi", icon: Smartphone },
-                            { id: "LLAVE", label: "Bre-B", desc: "Transferencia inmediata Bre-B / Llave", icon: Coins },
-                            { id: "DAVIPLATA", label: "Daviplata", desc: "Transferencia a cuenta Daviplata", icon: Smartphone },
-                            { id: "TRANSFERENCIA", label: "Transferencia", desc: "Otros bancos o consignación", icon: CreditCard },
-                          ].map((m) => {
-                            const IconM = m.icon;
-                            const esActivo = metodoDigitalMixto === m.id;
-                            return (
-                              <Tooltip key={m.id} content={m.label} subtext={m.desc} position="top">
-                                <button
-                                  type="button"
-                                  onClick={() => setMetodoDigitalMixto(m.id as MetodoPagoPos)}
-                                  className={`py-2 px-1 rounded-xl text-xs font-bold border transition flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer w-full ${esActivo
-                                    ? "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-600/20"
-                                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                                    }`}
-                                >
-                                  <IconM className="w-4 h-4 shrink-0" />
-                                  <span className="hidden sm:inline text-[11px] font-semibold">{m.id === "TRANSFERENCIA" ? "Transf." : m.label}</span>
-                                </button>
-                              </Tooltip>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Barra de Progreso y Resumen de Cuadre */}
-                      <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-slate-600">Distribución de Liquidación Hoy:</span>
-                          <span className="font-mono font-bold text-slate-900">
-                            ${((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)).toLocaleString("es-CO")} de ${totalACobrar.toLocaleString("es-CO")}
-                          </span>
-                        </div>
-
-                        {/* Barra Bicromática */}
-                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                          <div
-                            style={{
-                              width: `${totalACobrar > 0 ? Math.min(100, (Number(montoEfectivoMixto || 0) / totalACobrar) * 100) : 0}%`,
-                            }}
-                            className="bg-emerald-500 transition-all duration-300"
-                            title="Efectivo"
-                          />
-                          <div
-                            style={{
-                              width: `${totalACobrar > 0 ? Math.min(100, (Number(montoDigitalMixto || 0) / totalACobrar) * 100) : 0}%`,
-                            }}
-                            className="bg-blue-500 transition-all duration-300"
-                            title="Digital"
-                          />
-                        </div>
-
-                        {/* Chips de Resumen */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
-                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                              Efectivo: ${Number(montoEfectivoMixto || 0).toLocaleString("es-CO")}
-                            </span>
-                            <span className="inline-flex items-center gap-1 font-semibold text-blue-700">
-                              <span className="w-2 h-2 rounded-full bg-blue-500" />
-                              {metodoDigitalMixto}: ${Number(montoDigitalMixto || 0).toLocaleString("es-CO")}
-                            </span>
-                          </div>
-
-                          {((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)) === totalACobrar ? (
-                            <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              100% Cubierto
-                            </span>
-                          ) : ((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)) < totalACobrar ? (
-                            <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                              <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                              Faltan ${(totalACobrar - ((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0))).toLocaleString("es-CO")}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
-                              <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                              Excede por ${(((Number(montoEfectivoMixto) || 0) + (Number(montoDigitalMixto) || 0)) - totalACobrar).toLocaleString("es-CO")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Calculadora de Efectivo y Vueltas (si es efectivo o pago mixto con porción de efectivo) */}
-              {((metodoPago === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && (Number(montoEfectivoMixto) || 0) > 0)) && totalACobrar > 0 && (
-                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                        Efectivo Recibido ($)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={efectivoRecibido}
-                        onChange={(e) => setEfectivoRecibido(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                      />
-                    </div>
-
-                    <div className="flex-1 text-right">
-                      <span className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                        Vueltas / Cambio
-                      </span>
-                      <span className="font-mono text-lg font-black text-emerald-700 block">
-                        ${vueltasCalculadas.toLocaleString("es-CO")}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Botones de billetes rápidos */}
-                  <div className="flex items-center flex-wrap gap-1.5 pt-1">
-                    {[2000, 5000, 10000, 20000, 50000, 100000].map((b) => (
-                      <button
-                        key={b}
-                        type="button"
-                        onClick={() => sumarBillete(b)}
-                        className="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 font-mono text-xs font-bold text-slate-700 transition"
-                      >
-                        +${(b / 1000).toFixed(0)}k
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setEfectivoRecibido(String(totalACobrar))}
-                      className="px-2.5 py-1 rounded-lg border border-blue-300 bg-blue-50 hover:bg-blue-100 font-sans text-xs font-bold text-blue-700 transition ml-auto"
-                    >
-                      Exacto
-                    </button>
-                  </div>
+                  <PanelPagosSecuenciales
+                    totalExigible={totalACobrar}
+                    pagos={pagosAplicados}
+                    onChangePagos={setPagosAplicados}
+                    metodoActivoAtajo={metodoPago}
+                    onMetodoActivoAtajoChange={(m) => setMetodoPago(m as MetodoPagoPos)}
+                    efectivoRecibidoAtajo={efectivoRecibido}
+                    onEfectivoRecibidoAtajoChange={setEfectivoRecibido}
+                    accentColor="indigo"
+                    permitirSaldoPendiente={true}
+                    etiquetaTotal="Total a Liquidar"
+                    subtitulo="Registre uno o varios pagos para cubrir el saldo pendiente"
+                  />
                 </div>
               )}
 
