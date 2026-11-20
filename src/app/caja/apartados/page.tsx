@@ -48,7 +48,6 @@ import {
   LogOut,
   Split,
   Wallet,
-  ChevronDown,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import PanelPagosSecuenciales, { PagoAplicado } from "@/components/caja/PanelPagosSecuenciales";
@@ -291,7 +290,7 @@ export default function ApartadosPage() {
         const val = parseFloat(guardadoDep);
         if (!isNaN(val) && val > 0) setUltimoDepositoSugeridoApartado(val);
       }
-    } catch {}
+    } catch { }
   }, []);
 
   // Historial de Apartados
@@ -1000,7 +999,7 @@ export default function ApartadosPage() {
                     <div>
                       <h2 className="text-lg font-black text-slate-900 tracking-tight">CONFECCIONES Y ALQUILERES LLANOMIO</h2>
                       <p className="text-xs text-slate-500 font-medium">Borrador Oficial de Hoja de Apartado / Reserva</p>
-                      <p className="text-xs text-slate-400 mt-1">Fecha de Solicitud: {new Date().toLocaleDateString("es-CO", { dateStyle: "long" })}</p>
+                      <p className="text-xs text-slate-400 mt-1 capitalize">Fecha de Solicitud: {formatearFechaConDia(new Date(), false, "completo")}</p>
                     </div>
                     <div className="text-right">
                       <span className="inline-block px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
@@ -1022,8 +1021,8 @@ export default function ApartadosPage() {
 
                     <div className="space-y-1">
                       <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] block">FECHAS PACTADAS:</span>
-                      <p className="text-slate-600">Fecha de Retiro / Salida: <strong className="text-indigo-900 font-bold">{fechaSalida ? new Date(fechaSalida).toLocaleDateString("es-CO", { dateStyle: "medium" }) : "Inmediata"}</strong></p>
-                      <p className="text-slate-600">Fecha Estimada de Llegada: <strong className="text-slate-900 font-bold">{fechaDevolucion ? new Date(fechaDevolucion).toLocaleDateString("es-CO", { dateStyle: "medium" }) : "No pactada"}</strong></p>
+                      <p className="text-slate-600">Fecha de Retiro / Salida: <strong className="text-indigo-900 font-bold capitalize">{fechaSalida ? formatearFechaConDia(fechaSalida, false, "completo") : "Inmediata"}</strong></p>
+                      <p className="text-slate-600">Fecha Estimada de Llegada: <strong className="text-slate-900 font-bold capitalize">{fechaDevolucion ? formatearFechaConDia(fechaDevolucion, true, "completo") : "No pactada"}</strong></p>
                       <p className="text-[11px] text-slate-500 italic mt-1">{reglaFechaTexto.mensajeInformativo}</p>
                     </div>
                   </div>
@@ -1892,8 +1891,8 @@ export default function ApartadosPage() {
                         <tr key={item.id} className="hover:bg-slate-50/70 transition">
                           <td className="py-2 px-3 font-mono font-bold text-slate-900">
                             {item.numeroFactura}
-                            <span className="block text-[10px] text-slate-400 font-normal">
-                              {new Date(item.fechaCreacion).toLocaleDateString("es-CO")}
+                            <span className="block text-[10px] text-slate-400 font-normal capitalize">
+                              {formatearFechaConDia(item.fechaCreacion, false, "corto")}
                             </span>
                           </td>
                           <td className="py-2 px-3">
@@ -2020,19 +2019,9 @@ export default function ApartadosPage() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-slate-700">
-                  Monto del Abono:
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setMontoNuevoAbono(String(apartadoParaAbonar.saldoPendiente))}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition shadow-2xs cursor-pointer"
-                >
-                  <Check className="w-3 h-3" />
-                  <span>Exacto (${apartadoParaAbonar.saldoPendiente.toLocaleString("es-CO")})</span>
-                </button>
-              </div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Monto del Abono:
+              </label>
               <input
                 type="number"
                 value={montoNuevoAbono}
@@ -2042,86 +2031,21 @@ export default function ApartadosPage() {
               />
             </div>
 
-            {/* Selector de Método de Pago: Efectivo, Bancolombia y Desplegable Otros Bancos */}
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
                 Método de Pago:
               </label>
-              <div className="grid grid-cols-3 gap-1.5">
-                {/* 1. Efectivo */}
-                <button
-                  type="button"
-                  onClick={() => setMetodoNuevoAbono("EFECTIVO")}
-                  className={`py-2 px-2 rounded-xl border flex items-center justify-center gap-1 font-bold text-xs transition-all cursor-pointer ${
-                    metodoNuevoAbono === "EFECTIVO"
-                      ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
-                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <Banknote className="w-3.5 h-3.5 shrink-0" />
-                  <span>Efectivo</span>
-                </button>
-
-                {/* 2. Bancolombia */}
-                <button
-                  type="button"
-                  onClick={() => setMetodoNuevoAbono("BANCOLOMBIA")}
-                  className={`py-2 px-2 rounded-xl border flex items-center justify-center gap-1 font-bold text-xs transition-all cursor-pointer ${
-                    metodoNuevoAbono === "BANCOLOMBIA"
-                      ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
-                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <Building2 className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Bancolombia</span>
-                </button>
-
-                {/* 3. Desplegable Otros Bancos / Medios */}
-                <div className="relative">
-                  <select
-                    value={
-                      ["EFECTIVO", "BANCOLOMBIA"].includes(metodoNuevoAbono)
-                        ? ""
-                        : metodoNuevoAbono
-                    }
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        setMetodoNuevoAbono(e.target.value);
-                      }
-                    }}
-                    className={`w-full h-full py-2 pl-2 pr-5 rounded-xl border font-bold text-xs appearance-none transition-all cursor-pointer ${
-                      !["EFECTIVO", "BANCOLOMBIA"].includes(metodoNuevoAbono)
-                        ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
-                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    <option value="" disabled className="text-slate-700 bg-white">
-                      {["EFECTIVO", "BANCOLOMBIA"].includes(metodoNuevoAbono)
-                        ? "Otros..."
-                        : `Canal: ${metodoNuevoAbono}`}
-                    </option>
-                    <option value="NEQUI" className="text-slate-900 bg-white">
-                      Nequi
-                    </option>
-                    <option value="DAVIPLATA" className="text-slate-900 bg-white">
-                      Daviplata
-                    </option>
-                    <option value="TARJETA" className="text-slate-900 bg-white">
-                      Bre-B / Tarjeta
-                    </option>
-                    <option value="TRANSFERENCIA" className="text-slate-900 bg-white">
-                      Transferencia
-                    </option>
-                  </select>
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none ${
-                      !["EFECTIVO", "BANCOLOMBIA"].includes(metodoNuevoAbono)
-                        ? "text-white"
-                        : "text-slate-500"
-                    }`}
-                  />
-                </div>
-              </div>
+              <select
+                value={metodoNuevoAbono}
+                onChange={(e) => setMetodoNuevoAbono(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none"
+              >
+                <option value="EFECTIVO">EFECTIVO</option>
+                <option value="NEQUI">NEQUI</option>
+                <option value="DAVIPLATA">DAVIPLATA</option>
+                <option value="TARJETA">TARJETA</option>
+                <option value="TRANSFERENCIA">TRANSFERENCIA</option>
+              </select>
             </div>
 
             <div className="flex items-center gap-2 pt-2">

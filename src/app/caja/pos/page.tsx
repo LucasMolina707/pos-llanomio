@@ -193,6 +193,8 @@ export type PestanaHistorial =
 
 export type EstadoSeguridadPos = EstadoSeguridadCajaInfo;
 
+const BILLETES_COLOMBIANOS = [2000, 5000, 10000, 20000, 50000, 100000];
+
 const SUGERENCIAS_ARREGLOS = [
   "Dobladillo / Bota de pantalón",
   "Entalle de chaqueta o prenda",
@@ -899,6 +901,11 @@ export default function PosPage() {
   // =========================================================
   // HANDLERS DE CALCULADORA DE CAJA (VISTA 3)
   // =========================================================
+  const sumarBillete = (montoBillete: number) => {
+    const actual = Number(efectivoRecibido) || 0;
+    setEfectivoRecibido(String(actual + montoBillete));
+  };
+
   const fijarEfectivoExacto = () => {
     setEfectivoRecibido(String(valorACobrarHoy));
   };
@@ -994,8 +1001,8 @@ export default function PosPage() {
           listaPagosFinal.length === 1
             ? listaPagosFinal[0].metodoPago
             : listaPagosFinal.length > 1
-            ? "MIXTO"
-            : metodoPagoPrincipal,
+              ? "MIXTO"
+              : metodoPagoPrincipal,
         pagos: listaPagosFinal,
         abonos: listaPagosFinal,
         abonoInicial: listaPagosFinal.length === 1 ? listaPagosFinal[0] : undefined,
@@ -1647,8 +1654,8 @@ export default function PosPage() {
                               <strong className="font-mono text-slate-900 block font-black text-sm md:text-base">
                                 #{f.numeroFactura}
                               </strong>
-                              <span className="text-xs text-slate-500 font-medium">
-                                {new Date(f.fechaCreacion).toLocaleDateString("es-CO")}
+                              <span className="text-xs text-slate-500 font-medium capitalize">
+                                {formatearFechaConDia(f.fechaCreacion, false, "corto")}
                               </span>
                             </td>
 
