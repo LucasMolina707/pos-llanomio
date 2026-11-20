@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import Tooltip from "@/components/ui/Tooltip";
 
 interface MetricasData {
   ingresosNetos: number;
@@ -407,39 +408,45 @@ export default function DashboardGerencialPage() {
 
           {/* Botones de Selección Rápida de Periodo */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <button
-              type="button"
-              onClick={setRangoHoy}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                periodoActivo === "DIA"
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white"
-              }`}
-            >
-              Día (Hoy)
-            </button>
-            <button
-              type="button"
-              onClick={setRangoEsteMes}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                periodoActivo === "MES"
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white"
-              }`}
-            >
-              Mes Actual
-            </button>
-            <button
-              type="button"
-              onClick={setRangoAnoActual}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                periodoActivo === "ANIO"
-                  ? "bg-blue-600 text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white"
-              }`}
-            >
-              Año Actual
-            </button>
+            <Tooltip content="Filtrar métricas exclusivamente de la jornada de hoy" position="bottom">
+              <button
+                type="button"
+                onClick={setRangoHoy}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  periodoActivo === "DIA"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white"
+                }`}
+              >
+                Día (Hoy)
+              </button>
+            </Tooltip>
+            <Tooltip content="Filtrar métricas acumuladas del mes en curso" position="bottom">
+              <button
+                type="button"
+                onClick={setRangoEsteMes}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  periodoActivo === "MES"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white"
+                }`}
+              >
+                Mes Actual
+              </button>
+            </Tooltip>
+            <Tooltip content="Filtrar métricas consolidadas del año actual" position="bottom">
+              <button
+                type="button"
+                onClick={setRangoAnoActual}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  periodoActivo === "ANIO"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white"
+                }`}
+              >
+                Año Actual
+              </button>
+            </Tooltip>
           </div>
 
           {/* Rango de Fechas Personalizado */}

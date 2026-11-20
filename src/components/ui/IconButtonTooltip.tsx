@@ -193,8 +193,10 @@ export default function IconButtonTooltip({
     orange: "bg-orange-600 text-white",
   }[badgeVariant];
 
+  const labelFinal = label || title || "";
+
   const tooltipElement =
-    mounted && visible && label
+    mounted && visible && labelFinal
       ? createPortal(
           <div
             role="tooltip"
@@ -208,9 +210,9 @@ export default function IconButtonTooltip({
                   : "translate(-50%, 0)",
               transformOrigin: tooltipStyle.transformOrigin,
             }}
-            className="z-[9999] pointer-events-none px-3 py-1.5 rounded-xl bg-slate-900/95 text-white shadow-2xl border border-slate-700/80 backdrop-blur-xs whitespace-nowrap animate-in fade-in zoom-in-95 duration-100 flex flex-col items-center gap-0.5 text-center"
+            className="z-[99999] pointer-events-none px-3 py-1.5 rounded-xl bg-slate-900/95 text-white shadow-2xl border border-slate-700/80 backdrop-blur-xs whitespace-nowrap animate-in fade-in zoom-in-95 duration-100 flex flex-col items-center gap-0.5 text-center"
           >
-            <span className="text-[11.5px] font-bold text-white tracking-wide">{label}</span>
+            <span className="text-[11.5px] font-bold text-white tracking-wide">{labelFinal}</span>
             {(destino || modulo) && (
               <span className="text-[10px] font-medium text-slate-300/90 leading-tight">
                 {modulo && <span className="text-blue-400 font-semibold">{modulo}</span>}
@@ -247,6 +249,8 @@ export default function IconButtonTooltip({
           prefetch={prefetch}
           target={target}
           id={id}
+          // Suprimir title nativo para evitar doble tooltip
+          title={undefined}
           onClick={(e) => {
             ocultar();
             if (onClick) onClick(e);
@@ -256,7 +260,7 @@ export default function IconButtonTooltip({
           onFocus={mostrar}
           onBlur={ocultar}
           onTouchStart={handleTouchStart}
-          aria-label={label}
+          aria-label={labelFinal}
           className={sharedClasses}
         >
           {innerContent}
@@ -273,6 +277,8 @@ export default function IconButtonTooltip({
         id={id}
         type={type}
         disabled={disabled}
+        // Suprimir title nativo para evitar doble tooltip
+        title={undefined}
         onClick={(e) => {
           ocultar();
           if (onClick) onClick(e);
@@ -282,7 +288,7 @@ export default function IconButtonTooltip({
         onFocus={mostrar}
         onBlur={ocultar}
         onTouchStart={handleTouchStart}
-        aria-label={label}
+        aria-label={labelFinal}
         className={sharedClasses}
       >
         {innerContent}

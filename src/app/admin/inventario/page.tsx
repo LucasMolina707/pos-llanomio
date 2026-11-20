@@ -34,6 +34,7 @@ import {
 import ModalProducto, { ProductoData } from "@/components/inventario/ModalProducto";
 import ModalGestionExcel from "@/components/excel/ModalGestionExcel";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import Tooltip from "@/components/ui/Tooltip";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 
 interface ProductoItem extends ProductoData {
@@ -709,22 +710,28 @@ export default function InventarioAdminPage() {
                       </td>
 
                       {/* Acciones */}
-                      <td className="py-3.5 px-4 text-right space-x-1">
-                        <button
-                          onClick={() => handleEditarProducto(prod)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition"
-                          title="Editar Prenda"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Tooltip content="Editar Prenda" subtext="Modifica datos, precios o estado" position="left">
+                            <button
+                              type="button"
+                              onClick={() => handleEditarProducto(prod)}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          </Tooltip>
 
-                        <button
-                          onClick={() => handleEliminarProducto(prod)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 transition"
-                          title="Eliminar o dar de baja"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                          <Tooltip content="Eliminar Prenda" subtext="Elimina o da de baja del inventario" position="left">
+                            <button
+                              type="button"
+                              onClick={() => handleEliminarProducto(prod)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 transition cursor-pointer"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </Tooltip>
+                        </div>
                       </td>
                     </tr>
                   ))}

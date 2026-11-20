@@ -2741,42 +2741,46 @@ export default function TerminalAlquileresPage() {
                                 </div>
 
                                 <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (esPagoMixto) {
-                                        setEsPagoMixto(false);
-                                        setEfectivoRecibidoCliente(String(totalExigidoHoyEnCaja));
-                                      }
-                                    }}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${!esPagoMixto
-                                      ? "bg-white text-slate-900 shadow-xs"
-                                      : "text-slate-600 hover:text-slate-900"
-                                      }`}
-                                  >
-                                    <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                                    <span>1 Solo Método</span>
-                                  </button>
+                                  <Tooltip content="Pagar el valor total con un único método de pago" position="top">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (esPagoMixto) {
+                                          setEsPagoMixto(false);
+                                          setEfectivoRecibidoCliente(String(totalExigidoHoyEnCaja));
+                                        }
+                                      }}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${!esPagoMixto
+                                        ? "bg-white text-slate-900 shadow-xs"
+                                        : "text-slate-600 hover:text-slate-900"
+                                        }`}
+                                    >
+                                      <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                                      <span>1 Solo Método</span>
+                                    </button>
+                                  </Tooltip>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (!esPagoMixto) {
-                                        setEsPagoMixto(true);
-                                        const mitad = Math.floor(totalExigidoHoyEnCaja / 2);
-                                        setMontoEfectivoMixto(String(mitad));
-                                        setMontoDigitalMixto(String(totalExigidoHoyEnCaja - mitad));
-                                        setEfectivoRecibidoCliente(String(mitad));
-                                      }
-                                    }}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${esPagoMixto
-                                      ? "bg-orange-600 text-white shadow-xs"
-                                      : "text-slate-600 hover:text-slate-900"
-                                      }`}
-                                  >
-                                    <Split className="w-3.5 h-3.5" />
-                                    <span>Pago Mixto (2 Métodos)</span>
-                                  </button>
+                                  <Tooltip content="Dividir el cobro en dos montos: porción en efectivo y porción digital" position="top">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (!esPagoMixto) {
+                                          setEsPagoMixto(true);
+                                          const mitad = Math.floor(totalExigidoHoyEnCaja / 2);
+                                          setMontoEfectivoMixto(String(mitad));
+                                          setMontoDigitalMixto(String(totalExigidoHoyEnCaja - mitad));
+                                          setEfectivoRecibidoCliente(String(mitad));
+                                        }
+                                      }}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${esPagoMixto
+                                        ? "bg-orange-600 text-white shadow-xs"
+                                        : "text-slate-600 hover:text-slate-900"
+                                        }`}
+                                    >
+                                      <Split className="w-3.5 h-3.5" />
+                                      <span>Pago Mixto (2 Métodos)</span>
+                                    </button>
+                                  </Tooltip>
                                 </div>
                               </div>
 
@@ -3068,14 +3072,15 @@ export default function TerminalAlquileresPage() {
                                 />
                                 <div className="flex gap-1 pt-0.5">
                                   {BILLETES_COLOMBIANOS.map((den) => (
-                                    <button
-                                      key={den}
-                                      type="button"
-                                      onClick={() => setEfectivoRecibidoCliente(String(den))}
-                                      className="flex-1 py-1 rounded bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-[10px] font-bold transition-all text-center cursor-pointer font-mono"
-                                    >
-                                      ${(den / 1000).toFixed(0)}k
-                                    </button>
+                                    <Tooltip key={den} content={`Fijar $${den.toLocaleString("es-CO")} en efectivo`} position="top">
+                                      <button
+                                        type="button"
+                                        onClick={() => setEfectivoRecibidoCliente(String(den))}
+                                        className="flex-1 py-1 rounded bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-[10px] font-bold transition-all text-center cursor-pointer font-mono"
+                                      >
+                                        ${(den / 1000).toFixed(0)}k
+                                      </button>
+                                    </Tooltip>
                                   ))}
                                 </div>
                               </div>

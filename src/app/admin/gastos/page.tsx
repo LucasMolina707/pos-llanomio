@@ -29,6 +29,7 @@ import {
   Tag,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import Tooltip from "@/components/ui/Tooltip";
 import { safeFetchJson } from "@/lib/safe-fetch";
 
 interface SubcategoriaGasto {
@@ -1290,22 +1291,24 @@ export default function GastosAdminPage() {
                       </td>
                       <td className="p-2.5 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setGastoParaEditar(g)}
-                            title="Editar fila"
-                            className="p-1 hover:bg-slate-200 rounded text-slate-600 hover:text-indigo-700 transition cursor-pointer"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setGastoParaEliminar(g)}
-                            title="Eliminar fila"
-                            className="p-1 hover:bg-rose-100 rounded text-slate-400 hover:text-rose-700 transition cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <Tooltip content="Editar Fila de Gasto" subtext="Modifica categoría, descripción o valor" position="left">
+                            <button
+                              type="button"
+                              onClick={() => setGastoParaEditar(g)}
+                              className="p-1 hover:bg-slate-200 rounded text-slate-600 hover:text-indigo-700 transition cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          </Tooltip>
+                          <Tooltip content="Eliminar Fila de Gasto" subtext="Elimina el registro de gastos" position="left">
+                            <button
+                              type="button"
+                              onClick={() => setGastoParaEliminar(g)}
+                              className="p-1 hover:bg-rose-100 rounded text-slate-400 hover:text-rose-700 transition cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </Tooltip>
                         </div>
                       </td>
                     </tr>

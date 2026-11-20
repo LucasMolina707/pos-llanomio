@@ -4963,3 +4963,48 @@ Se implementó el paquete integral de actualizaciones y optimizaciones operativa
   - El botón de `Historial` fue homologado a `IconButtonTooltip`, logrando una alineación perfecta de solo iconos profesionales (`Nueva Operación`, `Historial`, `En Espera`, `Sincronizar`, `Limpiar Mostrador`) con revelación instantánea de tooltip en hover.
 - **Navegación de Pasos:**
   - El botón `Modificar Ítems` fue integrado con `Tooltip` informativo ("Regresar al Paso 2 para editar prendas o cantidades"), manteniendo un diseño limpio y adaptable.
+
+
+---
+
+## 36. Homologación Exhaustiva de Minimalismo y Tooltips en Ventas, Alquileres y Apartados
+
+### 1. Resumen Ejecutivo
+- Se redujo drásticamente la saturación de texto en las tres ventanas operativas principales del mostrador (**Facturación / Ventas**, **Alquileres** y **Apartados**), así como en el **Modal de Liquidación**:
+  - Reemplazo sistemático de botones con textos largos por iconografía vectorial profesional (`lucide-react`) con dimensiones y padding uniformes.
+  - Supresión definitiva del atributo `title` nativo del navegador en botones, enlaces e iconos para erradicar el molesto doble tooltip nativo (el recuadro amarillo/gris del sistema operativo superpuesto sobre la burbuja React).
+  - Implementación de `<Tooltip>` e `<IconButtonTooltip>` con renderizado por `createPortal` en el DOM superior (`z-[99999]`), con cálculo seguro anti-desbordamiento y revelación instantánea al posar el cursor (`hover`) o tocar la pantalla.
+
+### 2. Archivos Modificados
+1. **`src/components/ui/IconButtonTooltip.tsx`:**
+   - Suprime `title={undefined}` en `<button>` y `<Link>`, garantizando que el navegador no renderice su tooltip nativo.
+   - Posicionamiento matemático flotante con `createPortal(..., document.body)` y soporte para badges, destinos y módulos.
+2. **`src/components/ui/Tooltip.tsx`:**
+   - Validación defensiva `React.isValidElement(children)` para garantizar compatibilidad con cualquier hijo.
+   - Suprime `title` del hijo y asigna `aria-label` para accesibilidad.
+3. **`src/app/caja/pos/page.tsx` (Ventas Mostrador):**
+   - Envoltorio de los 3 botones de condición de pago (`Completo`, `Adelanto`, `Pendiente`) con tooltips explicativos.
+   - Botón `Modificar Ítems` simplificado a icono de retorno con texto colapsable en móvil y tooltip.
+   - Selector de modo de cobro (`1 Solo Método` vs `Pago Mixto`) con tooltips contextuales.
+   - Canales digitales (5) sin textos truncados (`Banc...`), usando iconos vectoriales limpios y tooltips detallados.
+   - Billetes rápidos en caja física envueltos con `<Tooltip>`.
+   - Carrito lateral con `IconButtonTooltip` para vaciar, disminuir, aumentar y eliminar prendas.
+4. **`src/app/caja/alquileres/page.tsx` (Alquileres):**
+   - Billetes rápidos de efectivo objetivo envueltos con `<Tooltip>`.
+   - Selector segmentado (`1 Solo Método` vs `Pago Mixto`) envuelto con tooltips explicativos.
+   - Canales digitales (5) homologados con icono y tooltip.
+   - Carrito de trajes con `IconButtonTooltip` para vaciar contrato, editar cantidades y quitar prendas.
+5. **`src/app/caja/apartados/page.tsx` (Apartados):**
+   - Billetes rápidos y botón `Exacto` con `<Tooltip>`.
+   - Selector segmentado (`1 Solo Método` vs `Pago Mixto`) envuelto con tooltips explicativos.
+   - Canales digitales (5) homologados con icono y tooltip.
+   - Pestañas de filtro de historial (`Todos`, `Pendientes`, `Alquileres`) envueltas con tooltips.
+   - Botón de refresco de historial transformado de `<button title="...">` a `<IconButtonTooltip>`.
+   - Botones de acción por fila en historial (`ShoppingBag`, `DollarSign`, `Printer`, `Trash2`) con `IconButtonTooltip`.
+6. **`src/components/facturas/ModalLiquidarFactura.tsx`:**
+   - Homologación de botones de modo único vs mixto y canales digitales con tooltips interactivos.
+
+### 3. Certificación de Calidad (QA)
+- **TypeScript:** `npx tsc --noEmit` completado con **0 errores**.
+- **Next.js Production Build:** `npm run build` completado con éxito absoluto en 26.6s optimizando **22 de 22 rutas**.
+- **Regla Maestra 6:** Inscrita de forma permanente en `.antigravityrules`.

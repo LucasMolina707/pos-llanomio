@@ -1541,42 +1541,46 @@ export default function ApartadosPage() {
                               </div>
 
                               <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (esPagoMixto) {
-                                      setEsPagoMixto(false);
-                                      setEfectivoRecibidoInput(String(totalACobrarHoy));
-                                    }
-                                  }}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${!esPagoMixto
-                                    ? "bg-white text-slate-900 shadow-xs"
-                                    : "text-slate-600 hover:text-slate-900"
-                                    }`}
-                                >
-                                  <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                                  <span>1 Solo Método</span>
-                                </button>
+                                <Tooltip content="Cobrar con un único método de pago" position="top">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (esPagoMixto) {
+                                        setEsPagoMixto(false);
+                                        setEfectivoRecibidoInput(String(totalACobrarHoy));
+                                      }
+                                    }}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${!esPagoMixto
+                                      ? "bg-white text-slate-900 shadow-xs"
+                                      : "text-slate-600 hover:text-slate-900"
+                                      }`}
+                                  >
+                                    <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>1 Solo Método</span>
+                                  </button>
+                                </Tooltip>
 
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (!esPagoMixto) {
-                                      setEsPagoMixto(true);
-                                      const mitad = Math.floor(abonoNumerico / 2);
-                                      setMontoEfectivoMixto(String(mitad));
-                                      setMontoDigitalMixto(String(abonoNumerico - mitad));
-                                      setEfectivoRecibidoInput(String(mitad + (depositoEntregadoHoy ? depositoNumerico : 0)));
-                                    }
-                                  }}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${esPagoMixto
-                                    ? "bg-indigo-600 text-white shadow-xs"
-                                    : "text-slate-600 hover:text-slate-900"
-                                    }`}
-                                >
-                                  <Split className="w-3.5 h-3.5" />
-                                  <span>Pago Mixto (2 Métodos)</span>
-                                </button>
+                                <Tooltip content="Dividir el cobro en dos montos: porción en efectivo y porción digital" position="top">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!esPagoMixto) {
+                                        setEsPagoMixto(true);
+                                        const mitad = Math.floor(abonoNumerico / 2);
+                                        setMontoEfectivoMixto(String(mitad));
+                                        setMontoDigitalMixto(String(abonoNumerico - mitad));
+                                        setEfectivoRecibidoInput(String(mitad + (depositoEntregadoHoy ? depositoNumerico : 0)));
+                                      }
+                                    }}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${esPagoMixto
+                                      ? "bg-indigo-600 text-white shadow-xs"
+                                      : "text-slate-600 hover:text-slate-900"
+                                      }`}
+                                  >
+                                    <Split className="w-3.5 h-3.5" />
+                                    <span>Pago Mixto (2 Métodos)</span>
+                                  </button>
+                                </Tooltip>
                               </div>
                             </div>
 
@@ -1811,22 +1815,25 @@ export default function ApartadosPage() {
                               {/* Billetes Rápidos */}
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {[10000, 20000, 50000, 100000].map((b) => (
-                                  <button
-                                    key={b}
-                                    type="button"
-                                    onClick={() => setEfectivoRecibidoInput(String(b))}
-                                    className="px-2 py-1 rounded-md bg-white border border-slate-300 text-xs font-mono font-bold hover:bg-slate-100"
-                                  >
-                                    ${(b / 1000).toFixed(0)}k
-                                  </button>
+                                  <Tooltip key={b} content={`Fijar $${b.toLocaleString("es-CO")} en efectivo`} position="top">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEfectivoRecibidoInput(String(b))}
+                                      className="px-2 py-1 rounded-md bg-white border border-slate-300 text-xs font-mono font-bold hover:bg-slate-100 cursor-pointer"
+                                    >
+                                      ${(b / 1000).toFixed(0)}k
+                                    </button>
+                                  </Tooltip>
                                 ))}
-                                <button
-                                  type="button"
-                                  onClick={() => setEfectivoRecibidoInput(String(montoObjetivoEfectivo))}
-                                  className="px-2 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100"
-                                >
-                                  Exacto (${montoObjetivoEfectivo.toLocaleString("es-CO")})
-                                </button>
+                                <Tooltip content={`Fijar monto exacto de $${montoObjetivoEfectivo.toLocaleString("es-CO")}`} position="top">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEfectivoRecibidoInput(String(montoObjetivoEfectivo))}
+                                    className="px-2 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100 cursor-pointer"
+                                  >
+                                    Exacto
+                                  </button>
+                                </Tooltip>
                               </div>
 
                               <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-center justify-between">
@@ -2082,40 +2089,47 @@ export default function ApartadosPage() {
 
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setFiltroEstadoHistorial("TODOS")}
-                    className={`px-3 py-1 rounded-lg transition ${filtroEstadoHistorial === "TODOS" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-600"
-                      }`}
-                  >
-                    Todos
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFiltroEstadoHistorial("PENDIENTES")}
-                    className={`px-3 py-1 rounded-lg transition ${filtroEstadoHistorial === "PENDIENTES" ? "bg-white text-amber-800 shadow-2xs" : "text-slate-600"
-                      }`}
-                  >
-                    Pendientes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFiltroEstadoHistorial("CONVERTIDOS")}
-                    className={`px-3 py-1 rounded-lg transition ${filtroEstadoHistorial === "CONVERTIDOS" ? "bg-white text-emerald-800 shadow-2xs" : "text-slate-600"
-                      }`}
-                  >
-                    Alquileres
-                  </button>
+                  <Tooltip content="Ver todos los apartados registrados" position="bottom">
+                    <button
+                      type="button"
+                      onClick={() => setFiltroEstadoHistorial("TODOS")}
+                      className={`px-3 py-1 rounded-lg transition cursor-pointer ${filtroEstadoHistorial === "TODOS" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-600"
+                        }`}
+                    >
+                      Todos
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Ver apartados vigentes pendientes de retiro" position="bottom">
+                    <button
+                      type="button"
+                      onClick={() => setFiltroEstadoHistorial("PENDIENTES")}
+                      className={`px-3 py-1 rounded-lg transition cursor-pointer ${filtroEstadoHistorial === "PENDIENTES" ? "bg-white text-amber-800 shadow-2xs" : "text-slate-600"
+                        }`}
+                    >
+                      Pendientes
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Ver apartados que ya fueron entregados como alquileres activos" position="bottom">
+                    <button
+                      type="button"
+                      onClick={() => setFiltroEstadoHistorial("CONVERTIDOS")}
+                      className={`px-3 py-1 rounded-lg transition cursor-pointer ${filtroEstadoHistorial === "CONVERTIDOS" ? "bg-white text-emerald-800 shadow-2xs" : "text-slate-600"
+                        }`}
+                    >
+                      Alquileres
+                    </button>
+                  </Tooltip>
                 </div>
 
-                <button
-                  type="button"
+                <IconButtonTooltip
+                  icon={RefreshCw}
+                  label="Recargar y sincronizar historial de apartados"
+                  variant="neutral"
+                  size="sm"
                   onClick={cargarHistorial}
-                  className="p-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition"
-                  title="Recargar historial"
-                >
-                  <RefreshCw className={`w-4 h-4 ${cargandoHistorial ? "animate-spin text-indigo-600" : ""}`} />
-                </button>
+                  disabled={cargandoHistorial}
+                  iconClassName={cargandoHistorial ? "animate-spin text-indigo-600" : "text-indigo-600"}
+                />
               </div>
             </div>
 

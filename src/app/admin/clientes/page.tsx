@@ -34,6 +34,7 @@ import ModalGestionExcel from "@/components/excel/ModalGestionExcel";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 import { safeFetchJson } from "@/lib/safe-fetch";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import Tooltip from "@/components/ui/Tooltip";
 
 interface ClienteDirectorio {
   id: string;
@@ -342,26 +343,28 @@ export default function DirectorioClientesPage() {
 
                     {/* 6. Acciones: Editar RUT & Ver Historial */}
                     <td className="px-4 py-3.5 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => abrirModalEditar(c)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 min-h-[36px] rounded-xl text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs transition cursor-pointer"
-                          title="Editar información tributaria DIAN o datos de contacto"
-                        >
-                          <Building2 className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Editar RUT</span>
-                        </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <Tooltip content="Editar RUT / Contacto" subtext="Modifica datos tributarios DIAN, teléfono o correo" position="left">
+                          <button
+                            type="button"
+                            onClick={() => abrirModalEditar(c)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-[34px] rounded-xl text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs transition cursor-pointer"
+                          >
+                            <Building2 className="w-4 h-4 text-blue-600" />
+                            <span className="hidden xl:inline">RUT</span>
+                          </button>
+                        </Tooltip>
 
-                        <Link
-                          href={`/admin/clientes/${c.id}`}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 min-h-[36px] rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white transition shadow-xs"
-                          title="Ver expediente completo, ventas, arreglos y alquileres del cliente"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>Ver Historial Completo</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </Link>
+                        <Tooltip content="Ver Historial Completo" subtext="Expediente de compras, alquileres y cartera" position="left">
+                          <Link
+                            href={`/admin/clientes/${c.id}`}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-[34px] rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition shadow-xs cursor-pointer"
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span className="hidden xl:inline">Historial</span>
+                            <ArrowRight className="w-3 h-3 hidden sm:inline" />
+                          </Link>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>

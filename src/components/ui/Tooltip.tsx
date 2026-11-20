@@ -92,6 +92,10 @@ export default function Tooltip({
     setVisible(false);
   };
 
+  if (!React.isValidElement(children)) {
+    return <>{children}</>;
+  }
+
   const childProps = (children as React.ReactElement<any>).props || {};
 
   const child = React.cloneElement(children as any, {
@@ -101,6 +105,9 @@ export default function Tooltip({
       if (typeof ref === "function") ref(node);
       else if (ref) ref.current = node;
     },
+    // Suprimir title nativo del navegador para evitar doble tooltip superpuesto
+    title: undefined,
+    "aria-label": childProps["aria-label"] || (typeof content === "string" ? content : undefined),
     onMouseEnter: (e: any) => {
       show();
       if (childProps.onMouseEnter) childProps.onMouseEnter(e);

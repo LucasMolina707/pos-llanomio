@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
+import Tooltip from "@/components/ui/Tooltip";
 
 interface SidebarProps {
   usuario: {
@@ -290,29 +291,33 @@ export default function Sidebar({
                 type="button"
                 onClick={onCloseMobile}
                 aria-label="Cerrar menú lateral"
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition shrink-0"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition shrink-0 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={handleTogglePin}
-                title={
+              <Tooltip
+                content={
                   isPinned
                     ? "Desfijar barra lateral (volver a auto-desplegable)"
                     : "Fijar barra lateral siempre abierta"
                 }
-                className={`w-7 h-7 rounded-lg flex items-center justify-center transition shrink-0 ${isPinned
-                    ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-2xs"
-                    : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                  }`}
+                position="bottom"
               >
-                <Pin
-                  className={`w-3.5 h-3.5 transition-transform duration-150 ${isPinned ? "rotate-45 text-blue-600" : ""
+                <button
+                  type="button"
+                  onClick={handleTogglePin}
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition shrink-0 cursor-pointer ${isPinned
+                      ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-2xs"
+                      : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
                     }`}
-                />
-              </button>
+                >
+                  <Pin
+                    className={`w-3.5 h-3.5 transition-transform duration-150 ${isPinned ? "rotate-45 text-blue-600" : ""
+                      }`}
+                  />
+                </button>
+              </Tooltip>
             )}
           </div>
         )}
@@ -355,26 +360,26 @@ export default function Sidebar({
                 }
 
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    prefetch={true}
-                    onClick={() => isMobile && onCloseMobile && onCloseMobile()}
-                    title={!isExpanded ? item.name : undefined}
-                    className={`h-10 px-2.5 rounded-xl flex items-center transition-colors duration-150 ${linkClasses} ${
-                      !isExpanded ? "justify-center" : "gap-3 justify-start"
-                    }`}
-                  >
-                    <Icon
-                      className={`w-[18px] h-[18px] shrink-0 ${iconClasses} ${!isExpanded ? "mx-auto" : ""}`}
-                    />
+                  <Tooltip key={item.href} content={item.name} position="right" disabled={isExpanded}>
+                    <Link
+                      href={item.href}
+                      prefetch={true}
+                      onClick={() => isMobile && onCloseMobile && onCloseMobile()}
+                      className={`h-10 px-2.5 rounded-xl flex items-center transition-colors duration-150 ${linkClasses} ${
+                        !isExpanded ? "justify-center" : "gap-3 justify-start"
+                      }`}
+                    >
+                      <Icon
+                        className={`w-[18px] h-[18px] shrink-0 ${iconClasses} ${!isExpanded ? "mx-auto" : ""}`}
+                      />
 
-                    {isExpanded && (
-                      <span className="text-[13px] font-semibold leading-tight tracking-tight whitespace-nowrap truncate">
-                        {item.name}
-                      </span>
-                    )}
-                  </Link>
+                      {isExpanded && (
+                        <span className="text-[13px] font-semibold leading-tight tracking-tight whitespace-nowrap truncate">
+                          {item.name}
+                        </span>
+                      )}
+                    </Link>
+                  </Tooltip>
                 );
               })}
             </div>

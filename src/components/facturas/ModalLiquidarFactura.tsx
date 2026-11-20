@@ -136,7 +136,7 @@ export default function ModalLiquidarFactura({
   const efectivoRecibidoNum = parseFloat(efectivoRecibido) || 0;
   const vueltasCalculadas =
     ((metodoPago === "EFECTIVO" && !esPagoMixto) || (esPagoMixto && Number(montoEfectivoMixto) > 0)) &&
-    efectivoRecibidoNum >= montoObjetivoEfectivo
+      efectivoRecibidoNum >= montoObjetivoEfectivo
       ? Math.round((efectivoRecibidoNum - montoObjetivoEfectivo) * 100) / 100
       : 0;
 
@@ -184,33 +184,33 @@ export default function ModalLiquidarFactura({
       // Preparar arreglo de pagos/abonos
       const abonosLiquidacion = esPagoMixto && totalACobrar > 0
         ? [
-            ...(Number(montoEfectivoMixto) > 0
-              ? [{
-                  monto: Number(montoEfectivoMixto),
-                  metodoPago: "EFECTIVO",
-                  montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
-                  vueltasEntregadas: vueltasCalculadas,
-                  notas: "Liquidación / Abono mixto - Efectivo",
-                }]
-              : []),
-            ...(Number(montoDigitalMixto) > 0
-              ? [{
-                  monto: Number(montoDigitalMixto),
-                  metodoPago: metodoDigitalMixto,
-                  referenciaComprobante: referencia.trim() || undefined,
-                  notas: `Liquidación / Abono mixto - ${metodoDigitalMixto}`,
-                }]
-              : []),
-          ]
+          ...(Number(montoEfectivoMixto) > 0
+            ? [{
+              monto: Number(montoEfectivoMixto),
+              metodoPago: "EFECTIVO",
+              montoRecibido: efectivoRecibidoNum || Number(montoEfectivoMixto),
+              vueltasEntregadas: vueltasCalculadas,
+              notas: "Liquidación / Abono mixto - Efectivo",
+            }]
+            : []),
+          ...(Number(montoDigitalMixto) > 0
+            ? [{
+              monto: Number(montoDigitalMixto),
+              metodoPago: metodoDigitalMixto,
+              referenciaComprobante: referencia.trim() || undefined,
+              notas: `Liquidación / Abono mixto - ${metodoDigitalMixto}`,
+            }]
+            : []),
+        ]
         : totalACobrar > 0
           ? [{
-              monto: totalACobrar,
-              metodoPago,
-              montoRecibido: metodoPago === "EFECTIVO" ? efectivoRecibidoNum : undefined,
-              vueltasEntregadas: metodoPago === "EFECTIVO" ? vueltasCalculadas : undefined,
-              referenciaComprobante: referencia.trim() || undefined,
-              notas: moraACobrar > 0 ? `Liquidación de saldo y mora (${diasRetrasoSugerido} días)` : "Liquidación total",
-            }]
+            monto: totalACobrar,
+            metodoPago,
+            montoRecibido: metodoPago === "EFECTIVO" ? efectivoRecibidoNum : undefined,
+            vueltasEntregadas: metodoPago === "EFECTIVO" ? vueltasCalculadas : undefined,
+            referenciaComprobante: referencia.trim() || undefined,
+            notas: moraACobrar > 0 ? `Liquidación de saldo y mora (${diasRetrasoSugerido} días)` : "Liquidación total",
+          }]
           : [];
 
       const res = await fetch(`/api/facturas/${factura.id}`, {
@@ -412,22 +412,20 @@ export default function ModalLiquidarFactura({
                       <button
                         type="button"
                         onClick={() => setEstadoPrendasDevueltas("DISPONIBLE")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
-                          estadoPrendasDevueltas === "DISPONIBLE"
-                            ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                        }`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${estadoPrendasDevueltas === "DISPONIBLE"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                          : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                          }`}
                       >
                         En Buen Estado (Disponible)
                       </button>
                       <button
                         type="button"
                         onClick={() => setEstadoPrendasDevueltas("EN_ARREGLO")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
-                          estadoPrendasDevueltas === "EN_ARREGLO"
-                            ? "bg-amber-600 text-white border-amber-600 shadow-xs"
-                            : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                        }`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${estadoPrendasDevueltas === "EN_ARREGLO"
+                          ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                          : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                          }`}
                       >
                         A Lavandería / Taller
                       </button>
@@ -461,11 +459,10 @@ export default function ModalLiquidarFactura({
                         setTipoDevolucionDeposito("DEVUELTO_COMPLETO");
                         setMontoRetenido(0);
                       }}
-                      className={`p-2 rounded-xl text-center text-xs font-bold transition border ${
-                        tipoDevolucionDeposito === "DEVUELTO_COMPLETO"
-                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                          : "bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50"
-                      }`}
+                      className={`p-2 rounded-xl text-center text-xs font-bold transition border ${tipoDevolucionDeposito === "DEVUELTO_COMPLETO"
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                        : "bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50"
+                        }`}
                     >
                       Devolver 100%
                     </button>
@@ -475,11 +472,10 @@ export default function ModalLiquidarFactura({
                         setTipoDevolucionDeposito("RETENIDO_PARCIAL");
                         if (montoRetenido === 0) setMontoRetenido(Math.round((factura.montoDeposito || 0) / 2));
                       }}
-                      className={`p-2 rounded-xl text-center text-xs font-bold transition border ${
-                        tipoDevolucionDeposito === "RETENIDO_PARCIAL"
-                          ? "bg-amber-600 text-white border-amber-600 shadow-xs"
-                          : "bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50"
-                      }`}
+                      className={`p-2 rounded-xl text-center text-xs font-bold transition border ${tipoDevolucionDeposito === "RETENIDO_PARCIAL"
+                        ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                        : "bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50"
+                        }`}
                     >
                       Descuento Parcial
                     </button>
@@ -489,11 +485,10 @@ export default function ModalLiquidarFactura({
                         setTipoDevolucionDeposito("RETENIDO_TOTAL");
                         setMontoRetenido(factura.montoDeposito || 0);
                       }}
-                      className={`p-2 rounded-xl text-center text-xs font-bold transition border ${
-                        tipoDevolucionDeposito === "RETENIDO_TOTAL"
-                          ? "bg-rose-600 text-white border-rose-600 shadow-xs"
-                          : "bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50"
-                      }`}
+                      className={`p-2 rounded-xl text-center text-xs font-bold transition border ${tipoDevolucionDeposito === "RETENIDO_TOTAL"
+                        ? "bg-rose-600 text-white border-rose-600 shadow-xs"
+                        : "bg-white text-slate-700 border-amber-200 hover:bg-amber-100/50"
+                        }`}
                     >
                       Retención Total
                     </button>
@@ -568,42 +563,46 @@ export default function ModalLiquidarFactura({
                     </div>
 
                     <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (esPagoMixto) {
-                            setEsPagoMixto(false);
-                            setEfectivoRecibido(String(totalACobrar));
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${!esPagoMixto
-                          ? "bg-white text-slate-900 shadow-xs"
-                          : "text-slate-600 hover:text-slate-900"
-                          }`}
-                      >
-                        <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                        <span>1 Solo Método</span>
-                      </button>
+                      <Tooltip content="Liquidar con un único método de pago" position="top">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (esPagoMixto) {
+                              setEsPagoMixto(false);
+                              setEfectivoRecibido(String(totalACobrar));
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${!esPagoMixto
+                            ? "bg-white text-slate-900 shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                            }`}
+                        >
+                          <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                          <span>1 Solo Método</span>
+                        </button>
+                      </Tooltip>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!esPagoMixto) {
-                            setEsPagoMixto(true);
-                            const mitad = Math.floor(totalACobrar / 2);
-                            setMontoEfectivoMixto(String(mitad));
-                            setMontoDigitalMixto(String(totalACobrar - mitad));
-                            setEfectivoRecibido(String(mitad));
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${esPagoMixto
-                          ? "bg-blue-600 text-white shadow-xs"
-                          : "text-slate-600 hover:text-slate-900"
-                          }`}
-                      >
-                        <Split className="w-3.5 h-3.5" />
-                        <span>Pago Mixto (2 Métodos)</span>
-                      </button>
+                      <Tooltip content="Dividir la liquidación en dos montos: porción en efectivo y porción digital" position="top">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!esPagoMixto) {
+                              setEsPagoMixto(true);
+                              const mitad = Math.floor(totalACobrar / 2);
+                              setMontoEfectivoMixto(String(mitad));
+                              setMontoDigitalMixto(String(totalACobrar - mitad));
+                              setEfectivoRecibido(String(mitad));
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${esPagoMixto
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                            }`}
+                        >
+                          <Split className="w-3.5 h-3.5" />
+                          <span>Pago Mixto (2 Métodos)</span>
+                        </button>
+                      </Tooltip>
                     </div>
                   </div>
 

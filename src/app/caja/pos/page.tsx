@@ -2343,44 +2343,50 @@ export default function PosPage() {
                             </h3>
 
                             <div className="grid grid-cols-3 gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setModalidadPago("COMPLETO")}
-                                className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${modalidadPago === "COMPLETO"
-                                  ? "bg-emerald-50 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20"
-                                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                  }`}
-                              >
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                <span className="text-xs font-bold">Completo</span>
-                                <span className="text-[10px] text-slate-500">Saldo $0</span>
-                              </button>
+                              <Tooltip content="Pago Completo" subtext="Cancela el 100% de la orden hoy (Saldo $0)" position="top">
+                                <button
+                                  type="button"
+                                  onClick={() => setModalidadPago("COMPLETO")}
+                                  className={`w-full p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer ${modalidadPago === "COMPLETO"
+                                    ? "bg-emerald-50 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20"
+                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                                    }`}
+                                >
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                  <span className="text-xs font-bold">Completo</span>
+                                  <span className="text-[10px] text-slate-500">Saldo $0</span>
+                                </button>
+                              </Tooltip>
 
-                              <button
-                                type="button"
-                                onClick={() => setModalidadPago("ADELANTO")}
-                                className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${modalidadPago === "ADELANTO"
-                                  ? "bg-amber-50 border-amber-600 text-amber-800 ring-2 ring-amber-600/20"
-                                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                  }`}
-                              >
-                                <Coins className="w-4 h-4 text-amber-600" />
-                                <span className="text-xs font-bold">Adelanto</span>
-                                <span className="text-[10px] text-slate-500">Abono parcial</span>
-                              </button>
+                              <Tooltip content="Abono Parcial (Adelanto)" subtext="Registra un abono inicial y deja el saldo en Cartera" position="top">
+                                <button
+                                  type="button"
+                                  onClick={() => setModalidadPago("ADELANTO")}
+                                  className={`w-full p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer ${modalidadPago === "ADELANTO"
+                                    ? "bg-amber-50 border-amber-600 text-amber-800 ring-2 ring-amber-600/20"
+                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                                    }`}
+                                >
+                                  <Coins className="w-4 h-4 text-amber-600" />
+                                  <span className="text-xs font-bold">Adelanto</span>
+                                  <span className="text-[10px] text-slate-500">Abono parcial</span>
+                                </button>
+                              </Tooltip>
 
-                              <button
-                                type="button"
-                                onClick={() => setModalidadPago("PENDIENTE")}
-                                className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 ${modalidadPago === "PENDIENTE"
-                                  ? "bg-rose-50 border-rose-600 text-rose-800 ring-2 ring-rose-600/20"
-                                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                  }`}
-                              >
-                                <Clock className="w-4 h-4 text-rose-600" />
-                                <span className="text-xs font-bold">Pendiente</span>
-                                <span className="text-[10px] text-slate-500">Sin abono</span>
-                              </button>
+                              <Tooltip content="Crédito Pendiente" subtext="Genera la factura sin cobro inicial (100% por cobrar)" position="top">
+                                <button
+                                  type="button"
+                                  onClick={() => setModalidadPago("PENDIENTE")}
+                                  className={`w-full p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer ${modalidadPago === "PENDIENTE"
+                                    ? "bg-rose-50 border-rose-600 text-rose-800 ring-2 ring-rose-600/20"
+                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                                    }`}
+                                >
+                                  <Clock className="w-4 h-4 text-rose-600" />
+                                  <span className="text-xs font-bold">Pendiente</span>
+                                  <span className="text-[10px] text-slate-500">Sin abono</span>
+                                </button>
+                              </Tooltip>
                             </div>
 
                             {/* Campo Adelanto Parcial */}
@@ -2421,42 +2427,46 @@ export default function PosPage() {
                                   </div>
 
                                   <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200 self-start sm:self-auto">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (esPagoMixto) {
-                                          setEsPagoMixto(false);
-                                          setEfectivoRecibido(String(valorACobrarHoy));
-                                        }
-                                      }}
-                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${!esPagoMixto
-                                        ? "bg-white text-slate-900 shadow-xs"
-                                        : "text-slate-600 hover:text-slate-900"
-                                        }`}
-                                    >
-                                      <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                                      <span>1 Solo Método</span>
-                                    </button>
+                                    <Tooltip content="Cobrar el 100% con un único método de pago" position="top">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (esPagoMixto) {
+                                            setEsPagoMixto(false);
+                                            setEfectivoRecibido(String(valorACobrarHoy));
+                                          }
+                                        }}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${!esPagoMixto
+                                          ? "bg-white text-slate-900 shadow-xs"
+                                          : "text-slate-600 hover:text-slate-900"
+                                          }`}
+                                      >
+                                        <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                                        <span>1 Solo Método</span>
+                                      </button>
+                                    </Tooltip>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (!esPagoMixto) {
-                                          setEsPagoMixto(true);
-                                          const mitad = Math.floor(valorACobrarHoy / 2);
-                                          setMontoEfectivoMixto(String(mitad));
-                                          setMontoDigitalMixto(String(valorACobrarHoy - mitad));
-                                          setEfectivoRecibido(String(mitad));
-                                        }
-                                      }}
-                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${esPagoMixto
-                                        ? "bg-emerald-600 text-white shadow-xs"
-                                        : "text-slate-600 hover:text-slate-900"
-                                        }`}
-                                    >
-                                      <Split className="w-3.5 h-3.5" />
-                                      <span>Pago Mixto (2 Métodos)</span>
-                                    </button>
+                                    <Tooltip content="Dividir el cobro en dos montos: porción en efectivo y porción digital" position="top">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (!esPagoMixto) {
+                                            setEsPagoMixto(true);
+                                            const mitad = Math.floor(valorACobrarHoy / 2);
+                                            setMontoEfectivoMixto(String(mitad));
+                                            setMontoDigitalMixto(String(valorACobrarHoy - mitad));
+                                            setEfectivoRecibido(String(mitad));
+                                          }
+                                        }}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${esPagoMixto
+                                          ? "bg-emerald-600 text-white shadow-xs"
+                                          : "text-slate-600 hover:text-slate-900"
+                                          }`}
+                                      >
+                                        <Split className="w-3.5 h-3.5" />
+                                        <span>Pago Mixto (2 Métodos)</span>
+                                      </button>
+                                    </Tooltip>
                                   </div>
                                 </div>
 
@@ -2747,22 +2757,25 @@ export default function PosPage() {
                                   </span>
                                   <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
                                     {BILLETES_COLOMBIANOS.map((billete) => (
-                                      <button
-                                        key={billete}
-                                        type="button"
-                                        onClick={() => sumarBillete(billete)}
-                                        className="py-1 px-0.5 rounded-lg bg-white border border-emerald-200 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition font-mono text-center"
-                                      >
-                                        +${billete / 1000}k
-                                      </button>
+                                      <Tooltip key={billete} content={`Sumar $${billete.toLocaleString("es-CO")} en efectivo`} position="top">
+                                        <button
+                                          type="button"
+                                          onClick={() => sumarBillete(billete)}
+                                          className="py-1 px-0.5 rounded-lg bg-white border border-emerald-200 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition font-mono text-center cursor-pointer w-full"
+                                        >
+                                          +${billete / 1000}k
+                                        </button>
+                                      </Tooltip>
                                     ))}
-                                    <button
-                                      type="button"
-                                      onClick={fijarEfectivoExacto}
-                                      className="py-1 px-0.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition text-center"
-                                    >
-                                      Exacto
-                                    </button>
+                                    <Tooltip content="Fijar efectivo recibido exacto para cobro sin vueltas" position="top">
+                                      <button
+                                        type="button"
+                                        onClick={fijarEfectivoExacto}
+                                        className="py-1 px-0.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition text-center cursor-pointer w-full"
+                                      >
+                                        Exacto
+                                      </button>
+                                    </Tooltip>
                                   </div>
                                 </div>
 
