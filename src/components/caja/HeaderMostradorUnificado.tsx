@@ -244,28 +244,32 @@ export function HeaderMostradorUnificado({
           onClick={onNuevaOperacion}
         />
 
-        {/* Historial, Devoluciones y Moras (Destacado y Armónico) */}
-        <button
-          type="button"
-          onClick={onHistorial}
-          className={`h-9 px-3 rounded-xl flex items-center gap-2 border font-bold text-xs transition shadow-2xs cursor-pointer ${
+        {/* Historial, Devoluciones y Moras (Icono Uniforme con Tooltip Profesional) */}
+        <IconButtonTooltip
+          icon={History}
+          label={
+            historialLabel ||
+            (modulo === "ALQUILERES"
+              ? "Devoluciones de Prendas, Moras e Historial"
+              : modulo === "VENTAS"
+              ? "Historial de Ventas y Facturas"
+              : "Historial de Apartados y Saldos")
+          }
+          modulo={cfg.titulo}
+          destino="Consulta de operaciones, estados y comprobantes"
+          active={historialActivo}
+          variant={
             historialActivo
-              ? modulo === "ALQUILERES"
-                ? "bg-orange-600 text-white border-orange-700 ring-2 ring-orange-300"
-                : modulo === "VENTAS"
-                ? "bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-300"
-                : "bg-indigo-600 text-white border-indigo-700 ring-2 ring-indigo-300"
+              ? cfg.activeVariant
               : modulo === "ALQUILERES"
-              ? "bg-orange-50/90 hover:bg-orange-100 text-orange-900 border-orange-300/80 hover:border-orange-400"
-              : "bg-white hover:bg-slate-100 text-slate-800 border-slate-300"
-          }`}
-          title={historialLabel || (modulo === "ALQUILERES" ? "Historial, Devoluciones de Prendas y Moras" : "Historial y Cartera Pendiente")}
-        >
-          <History className={`w-4 h-4 shrink-0 ${historialActivo ? "text-white" : modulo === "ALQUILERES" ? "text-orange-700" : "text-slate-700"}`} />
-          <span className="hidden md:inline font-black tracking-tight whitespace-nowrap">
-            {modulo === "ALQUILERES" ? "Devoluciones y Moras" : "Historial"}
-          </span>
-        </button>
+              ? "orangeSoft"
+              : "neutral"
+          }
+          size="md"
+          badgeCount={historialBadgeCount}
+          badgeVariant={historialBadgeVariant}
+          onClick={onHistorial}
+        />
 
         {/* Tickets / Operaciones en Espera (Pausar y Reanudar) */}
         {onTicketsEnEspera && (

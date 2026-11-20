@@ -55,6 +55,7 @@ import {
   LogOut,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import Tooltip from "@/components/ui/Tooltip";
 import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
 import { HeaderMostradorUnificado, StepperMostradorUnificado } from "@/components/caja/HeaderMostradorUnificado";
 import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
@@ -2320,14 +2321,16 @@ export default function PosPage() {
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => setPasoActual(2)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0 cursor-pointer"
-                        >
-                          <ArrowLeft className="w-3.5 h-3.5" />
-                          <span>Modificar Ítems</span>
-                        </button>
+                        <Tooltip content="Regresar al Paso 2 para editar prendas o cantidades" position="bottom">
+                          <button
+                            type="button"
+                            onClick={() => setPasoActual(2)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0 cursor-pointer"
+                          >
+                            <ArrowLeft className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Modificar Ítems</span>
+                          </button>
+                        </Tooltip>
                       </div>
 
                       {/* Cuerpo de Cobro con Scroll Interno Propio */}
@@ -2471,23 +2474,24 @@ export default function PosPage() {
                                       const esActivo = metodoPagoPrincipal === met.id;
 
                                       return (
-                                        <button
-                                          key={met.id}
-                                          type="button"
-                                          onClick={() => {
-                                            setMetodoPagoPrincipal(met.id as MetodoPagoPos);
-                                            if (met.id === "EFECTIVO") {
-                                              setEfectivoRecibido(String(valorACobrarHoy));
-                                            }
-                                          }}
-                                          className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1.5 ${esActivo
-                                            ? "bg-emerald-600 text-white border-emerald-600 shadow-xs font-bold ring-2 ring-emerald-600/20"
-                                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
-                                            }`}
-                                        >
-                                          <IconComp className="w-4 h-4" />
-                                          <span className="text-xs">{met.label}</span>
-                                        </button>
+                                        <Tooltip key={met.id} content={met.label} subtext={`Medio de pago único: ${met.label}`} position="top">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setMetodoPagoPrincipal(met.id as MetodoPagoPos);
+                                              if (met.id === "EFECTIVO") {
+                                                setEfectivoRecibido(String(valorACobrarHoy));
+                                              }
+                                            }}
+                                            className={`w-full p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1.5 cursor-pointer ${esActivo
+                                              ? "bg-emerald-600 text-white border-emerald-600 shadow-xs font-bold ring-2 ring-emerald-600/20"
+                                              : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
+                                              }`}
+                                          >
+                                            <IconComp className="w-4 h-4" />
+                                            <span className="text-xs">{met.label}</span>
+                                          </button>
+                                        </Tooltip>
                                       );
                                     })}
                                   </div>
@@ -2569,40 +2573,41 @@ export default function PosPage() {
                                       </div>
                                     </div>
 
-                                    {/* Selector de Canal Digital con 5 Botones e Iconos */}
+                                    {/* Selector de Canal Digital con 5 Botones e Iconos con Tooltip */}
                                     <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
                                       <div className="flex items-center justify-between">
                                         <label className="text-[11px] font-bold text-slate-700 block">
-                                          Canal Digital Seleccionado:
+                                          Canal Digital: <strong className="text-blue-700">{metodoDigitalMixto}</strong>
                                         </label>
-                                        <span className="text-[10.5px] font-semibold text-slate-500">
-                                          Predeterminado: <strong className="text-slate-800">Bancolombia</strong>
+                                        <span className="text-[10.5px] font-semibold text-slate-400">
+                                          Predeterminado: <strong className="text-slate-700">Bancolombia</strong>
                                         </span>
                                       </div>
 
-                                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                                      <div className="grid grid-cols-5 gap-1.5">
                                         {[
-                                          { id: "BANCOLOMBIA", label: "Bancolombia", icon: Building2 },
-                                          { id: "NEQUI", label: "Nequi", icon: Smartphone },
-                                          { id: "LLAVE", label: "Bre-B", icon: Coins },
-                                          { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
-                                          { id: "TRANSFERENCIA", label: "Transf. Genérica", icon: CreditCard },
+                                          { id: "BANCOLOMBIA", label: "Bancolombia", desc: "Transferencia / QR Bancolombia (Predeterminado)", icon: Building2 },
+                                          { id: "NEQUI", label: "Nequi", desc: "Transferencia a cuenta Nequi", icon: Smartphone },
+                                          { id: "LLAVE", label: "Bre-B", desc: "Transferencia inmediata Bre-B / Llave", icon: Coins },
+                                          { id: "DAVIPLATA", label: "Daviplata", desc: "Transferencia a cuenta Daviplata", icon: Smartphone },
+                                          { id: "TRANSFERENCIA", label: "Transferencia", desc: "Otros bancos o consignación", icon: CreditCard },
                                         ].map((m) => {
                                           const IconM = m.icon;
                                           const esActivo = metodoDigitalMixto === m.id;
                                           return (
-                                            <button
-                                              key={m.id}
-                                              type="button"
-                                              onClick={() => setMetodoDigitalMixto(m.id as MetodoPagoPos)}
-                                              className={`py-2 px-2 rounded-xl text-[11px] font-bold border transition flex items-center justify-center gap-1.5 ${esActivo
-                                                ? "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-600/20"
-                                                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                                                }`}
-                                            >
-                                              <IconM className="w-3.5 h-3.5" />
-                                              <span className="truncate">{m.label}</span>
-                                            </button>
+                                            <Tooltip key={m.id} content={m.label} subtext={m.desc} position="top">
+                                              <button
+                                                type="button"
+                                                onClick={() => setMetodoDigitalMixto(m.id as MetodoPagoPos)}
+                                                className={`py-2 px-1 rounded-xl text-xs font-bold border transition flex flex-col sm:flex-row items-center justify-center gap-1 cursor-pointer w-full ${esActivo
+                                                  ? "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-600/20"
+                                                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                                                  }`}
+                                              >
+                                                <IconM className="w-4 h-4 shrink-0" />
+                                                <span className="hidden sm:inline text-[11px] font-semibold">{m.id === "TRANSFERENCIA" ? "Transf." : m.label}</span>
+                                              </button>
+                                            </Tooltip>
                                           );
                                         })}
                                       </div>

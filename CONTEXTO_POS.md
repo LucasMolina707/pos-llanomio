@@ -4940,3 +4940,26 @@ Se implementó el paquete integral de actualizaciones y optimizaciones operativa
 2. **Alquileres:** `src/app/caja/alquileres/page.tsx`
 3. **Apartados:** `src/app/caja/apartados/page.tsx`
 4. **Modal de Liquidación y Cobro de Saldos:** `src/components/facturas/ModalLiquidarFactura.tsx`
+
+---
+
+## 35. Regla Maestra de UI/UX: Minimalismo, Cero Textos Truncados y Tooltips Informativos Obligatorios
+
+### 1. Mandato Fundamental de Diseño
+- Se implanta de forma permanente en las reglas maestras del proyecto (`.antigravityrules` y arquitectura base) el principio de **Minimalismo e Iconografía Vectorial con Tooltips Emergentes Obligatorios**.
+- **Prohibición de Textos Truncados (`...`):** Ningún botón, control o selector debe comprimir palabras o recortarlas con puntos suspensivos que degraden la legibilidad de la interfaz de usuario.
+- **Iconografía con Revelación por Hover:** En botones, controles y barras de herramientas, se prioriza iconografía vectorial profesional de `lucide-react`. Al posar el mouse (`hover`) o al tocar en dispositivos táctiles, se revela la información completa, acción y descripción mediante tooltips limpios montados en el DOM superior con `createPortal`.
+
+### 2. Infraestructura Técnica Creada y Mejorada
+- **`src/components/ui/Tooltip.tsx`:**
+  - Componente universal de tooltip de alto rendimiento con renderizado en portal (`createPortal`), cálculo de posición inteligente (`top`, `bottom`, `left`, `right`, `auto`), prevención de desbordes de pantalla (`window.innerWidth`), soporte para subtítulos descriptivos (`subtext`) y animaciones fluidas con TailwindCSS.
+- **`src/components/ui/IconButtonTooltip.tsx`:**
+  - Componente especializado para botones de solo icono con variantes cromáticas empresariales (`neutral`, `primary`, `emerald`, `indigo`, `orange`, `amber`, `danger`), soporte para badges numéricos y tooltips descriptivos.
+
+### 3. Aplicación en Componentes y Vistas
+- **Canales Digitales (Ventas, Alquileres, Apartados y Liquidación):**
+  - Los 5 botones (`Bancolombia`, `Nequi`, `Bre-B`, `Daviplata`, `Transferencia`) eliminaron los textos truncados (`Banc...`, `Ne...`). En pantallas normales muestran su icono amplio y texto nítido, y en pantallas estrechas priorizan el icono centrado, desplegando en `hover` un Tooltip flotante con el nombre oficial y descripción del canal.
+- **Botonera de Cabecera Mostrador (`HeaderMostradorUnificado.tsx`):**
+  - El botón de `Historial` fue homologado a `IconButtonTooltip`, logrando una alineación perfecta de solo iconos profesionales (`Nueva Operación`, `Historial`, `En Espera`, `Sincronizar`, `Limpiar Mostrador`) con revelación instantánea de tooltip en hover.
+- **Navegación de Pasos:**
+  - El botón `Modificar Ítems` fue integrado con `Tooltip` informativo ("Regresar al Paso 2 para editar prendas o cantidades"), manteniendo un diseño limpio y adaptable.
