@@ -54,6 +54,7 @@ import {
   Building2,
   Split,
   Wallet,
+  ChevronDown,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import PanelPagosSecuenciales, { PagoAplicado } from "@/components/caja/PanelPagosSecuenciales";
@@ -206,7 +207,6 @@ export type VistaPrincipalAlquiler = "NUEVO_ALQUILER" | "HISTORIAL_CENTRO";
 export type PestanaHistorialAlquiler = "ACTIVAS" | "EN_MORA" | "POR_COBRAR" | "CERRADAS";
 
 const DEPOSITOS_SUGERIDOS = [0, 20000, 40000, 50000, 100000, 150000];
-const BILLETES_COLOMBIANOS = [20000, 50000, 100000, 200000];
 
 export default function TerminalAlquileresPage() {
   // Navegación principal y pasos
@@ -2518,7 +2518,7 @@ export default function TerminalAlquileresPage() {
                       <div className="shrink-0 p-3 border-b border-slate-100 bg-white">
                         <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                           <Banknote className="w-4 h-4 text-orange-600" />
-                          Paso 3: Cobro, Depósito en Garantía y Liquidación
+                          Paso 3: Cobro y Depósito en Garantía
                         </h2>
                         <p className="text-xs text-slate-500">
                           Depósito de respaldo en efectivo físico para custodia en gaveta.
@@ -2537,17 +2537,13 @@ export default function TerminalAlquileresPage() {
                                   <div className="flex items-center gap-1.5">
                                     <ShieldCheck className="w-4 h-4 text-amber-700" />
                                     <h3 className="text-xs font-black text-amber-950 uppercase tracking-wider">
-                                      BLOQUE 1 — Depósito / Respaldo
+                                      Depósito en Garantía
                                     </h3>
                                   </div>
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900 border border-amber-300">
                                     EFECTIVO GAVETA
                                   </span>
                                 </div>
-
-                                <p className="text-[11px] text-amber-900/90 leading-relaxed mb-3">
-                                  Depósito en custodia reintegrable al devolver las prendas a conformidad.
-                                </p>
 
                                 <label className="text-[11px] font-bold text-slate-700 block mb-1">
                                   Monto Sugerido:
@@ -2638,32 +2634,27 @@ export default function TerminalAlquileresPage() {
                               </div>
                             </div>
 
-                            {/* BLOQUE 2: VALOR DEL CANON DE ALQUILER Y PAGO COMPLETO OBLIGATORIO */}
+                            {/* BLOQUE 2: CANON DE ALQUILER */}
                             <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-200 space-y-2.5">
                               <div className="flex items-center justify-between">
                                 <h3 className="text-xs font-black text-blue-950 uppercase tracking-wider">
-                                  BLOQUE 2 — Canon de Alquiler
+                                  Canon de Alquiler
                                 </h3>
                                 <span className="font-mono font-black text-sm text-blue-900">
                                   ${subtotalPrendas.toLocaleString("es-CO")}
                                 </span>
                               </div>
 
-                              <div className="p-2.5 rounded-lg bg-white border border-blue-200">
-                                <div className="flex items-center justify-between text-xs font-black text-blue-950 mb-1">
-                                  <span>Modalidad de Cobro:</span>
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-300">
-                                    100% COMPLETO OBLIGATORIO
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-slate-600 leading-snug">
-                                  Para despachar las prendas, el cliente debe cubrir el 100% del canon de alquiler y el depósito en garantía. Si requiere dejar un abono parcial de reserva, diríjase al módulo de Apartados.
-                                </p>
+                              <div className="p-2.5 rounded-lg bg-white border border-blue-200 flex items-center justify-between text-xs font-black text-blue-950">
+                                <span>Modalidad de Cobro:</span>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-300">
+                                  100% COMPLETO OBLIGATORIO
+                                </span>
                               </div>
 
                               <div>
                                 <label className="text-[11px] font-bold text-slate-700 block mb-0.5">
-                                  Notas del Contrato (Opcional):
+                                  Notas:
                                 </label>
                                 <textarea
                                   rows={2}
@@ -2759,7 +2750,7 @@ export default function TerminalAlquileresPage() {
                       </div>
                       <div>
                         <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-bold text-slate-600 block">Devolución (8:00 p.m.) *</label>
+                          <label className="text-[10px] font-bold text-slate-600 block">Devolución *</label>
                           <span className="text-[9.5px] font-bold text-blue-800 capitalize truncate">
                             {formatearEtiquetaDiaYFecha(fechaDevolucion, true)}
                           </span>
@@ -2878,20 +2869,20 @@ export default function TerminalAlquileresPage() {
                     ) : (
                       <div className="p-2.5 rounded-xl border-2 border-slate-300 bg-white space-y-1 text-xs">
                         <div className="flex justify-between text-slate-700">
-                          <span>Total Valor Alquiler:</span>
+                          <span>Alquiler:</span>
                           <span className="font-mono font-bold text-slate-900">${subtotalPrendas.toLocaleString("es-CO")}</span>
                         </div>
                         <div className="flex justify-between text-slate-700">
-                          <span>Depósito en Garantía:</span>
+                          <span>Depósito:</span>
                           <span className="font-mono font-bold text-amber-800">${montoDeposito.toLocaleString("es-CO")}</span>
                         </div>
                         <div className="flex justify-between text-slate-950 font-black p-1 rounded bg-slate-100 border border-slate-200">
-                          <span>Total (Alquiler + Depósito):</span>
+                          <span>Total Exigido:</span>
                           <span className="font-mono text-emerald-700 text-sm">${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}</span>
                         </div>
                         {apartadoOrigen && (
                           <div className="flex justify-between text-indigo-700 font-bold">
-                            <span>(-) Abono Previo en Apartado:</span>
+                            <span>(-) Abono Previo:</span>
                             <span className="font-mono text-emerald-700">
                               -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
                             </span>
@@ -2900,10 +2891,6 @@ export default function TerminalAlquileresPage() {
                         <div className="flex justify-between text-slate-800 font-bold pt-0.5 border-t border-dashed border-slate-300">
                           <span>Recibido:</span>
                           <span className="font-mono">${efectivoRecibidoNum.toLocaleString("es-CO")}</span>
-                        </div>
-                        <div className="flex justify-between text-emerald-800 font-black pt-0.5">
-                          <span>Valor a Pagar:</span>
-                          <span className="font-mono">${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}</span>
                         </div>
                         <div className="flex justify-between text-emerald-800 font-black pt-0.5 border-t border-slate-200">
                           <span>Vueltas:</span>
@@ -2924,7 +2911,7 @@ export default function TerminalAlquileresPage() {
                             : "bg-slate-300 cursor-not-allowed"
                             }`}
                         >
-                          <span>Continuar al Catálogo de Prendas</span>
+                          <span>Continuar a Prendas</span>
                           <ArrowRight className="w-4 h-4" />
                         </button>
                       )}
@@ -3461,80 +3448,109 @@ export default function TerminalAlquileresPage() {
                   )}
                 </div>
 
-                {/* Selector de Método de Pago */}
+                {/* Selector de Método de Pago (Efectivo, Bancolombia y Desplegable) */}
                 <div>
                   <label className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block mb-1.5">
                     Método de Pago:
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(
-                      [
-                        { id: "EFECTIVO", label: "Efectivo", icon: Banknote },
-                        { id: "BANCOLOMBIA", label: "Bancolombia", icon: CreditCard },
-                        { id: "NEQUI", label: "Nequi", icon: Smartphone },
-                        { id: "LLAVE", label: "Llave", icon: CreditCard },
-                        { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
-                        { id: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },
-                      ] as const
-                    ).map((m) => {
-                      const IconComp = m.icon;
-                      const activo = metodoPagoAbonar === m.id;
-                      return (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => setMetodoPagoAbonar(m.id)}
-                          className={`p-2 rounded-xl border flex items-center justify-center gap-1.5 font-bold transition-all ${activo
-                            ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                            }`}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* Efectivo */}
+                    <button
+                      type="button"
+                      onClick={() => setMetodoPagoAbonar("EFECTIVO")}
+                      className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-1.5 font-bold transition-all ${
+                        metodoPagoAbonar === "EFECTIVO"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Banknote className="w-3.5 h-3.5" />
+                      <span className="text-[11px]">Efectivo</span>
+                    </button>
+
+                    {/* Bancolombia */}
+                    <button
+                      type="button"
+                      onClick={() => setMetodoPagoAbonar("BANCOLOMBIA")}
+                      className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-1.5 font-bold transition-all ${
+                        metodoPagoAbonar === "BANCOLOMBIA"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span className="text-[11px]">Bancolombia</span>
+                    </button>
+
+                    {/* Desplegable Otros Bancos */}
+                    <div className="relative">
+                      <div
+                        className={`relative flex items-center rounded-xl border transition cursor-pointer w-full ${
+                          metodoPagoAbonar !== "EFECTIVO" && metodoPagoAbonar !== "BANCOLOMBIA"
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="pl-2.5 py-1.5 flex items-center gap-1 pointer-events-none">
+                          <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                        </div>
+                        <select
+                          value={
+                            metodoPagoAbonar !== "EFECTIVO" && metodoPagoAbonar !== "BANCOLOMBIA"
+                              ? metodoPagoAbonar
+                              : ""
+                          }
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setMetodoPagoAbonar(e.target.value as MetodoPagoAlquiler);
+                            }
+                          }}
+                          className={`w-full py-1.5 pl-1 pr-6 text-[11px] font-bold bg-transparent outline-none cursor-pointer appearance-none ${
+                            metodoPagoAbonar !== "EFECTIVO" && metodoPagoAbonar !== "BANCOLOMBIA"
+                              ? "text-white font-black"
+                              : "text-slate-700"
+                          }`}
                         >
-                          <IconComp className="w-3.5 h-3.5" />
-                          <span className="text-[11px]">{m.label}</span>
-                        </button>
-                      );
-                    })}
+                          <option value="" disabled className="text-slate-800 bg-white">
+                            Otros Medios ▼
+                          </option>
+                          <option value="NEQUI" className="text-slate-800 bg-white">Nequi</option>
+                          <option value="DAVIPLATA" className="text-slate-800 bg-white">Daviplata</option>
+                          <option value="LLAVE" className="text-slate-800 bg-white">Bre-B / Llave</option>
+                          <option value="TRANSFERENCIA" className="text-slate-800 bg-white">Transferencia</option>
+                          <option value="CONSIGNACION" className="text-slate-800 bg-white">Consignación</option>
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 absolute right-2 pointer-events-none opacity-70" />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 {/* Calculadora de Efectivo si el método es EFECTIVO */}
                 {metodoPagoAbonar === "EFECTIVO" && (
                   <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="font-bold text-emerald-950 text-[11px]">
-                        Efectivo Recibido del Cliente:
-                      </label>
+                    <label className="font-bold text-emerald-950 text-[11px] block">
+                      Efectivo Recibido:
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <div className="relative flex-1">
+                        <DollarSign className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="number"
+                          value={efectivoRecibidoAbonar}
+                          onChange={(e) => setEfectivoRecibidoAbonar(e.target.value)}
+                          placeholder="0"
+                          className="w-full pl-9 pr-3 py-1.5 text-xs font-bold bg-white border border-emerald-300 rounded-lg text-emerald-950"
+                        />
+                      </div>
                       <button
                         type="button"
                         onClick={() => setEfectivoRecibidoAbonar(montoAbonar)}
-                        className="text-[10px] font-bold text-emerald-700 hover:underline"
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-2xs flex items-center gap-1 shrink-0 cursor-pointer"
                       >
-                        Monto Exacto
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Exacto</span>
                       </button>
-                    </div>
-                    <div className="relative">
-                      <DollarSign className="w-4 h-4 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="number"
-                        value={efectivoRecibidoAbonar}
-                        onChange={(e) => setEfectivoRecibidoAbonar(e.target.value)}
-                        placeholder="0"
-                        className="w-full pl-9 pr-3 py-1.5 text-xs font-bold bg-white border border-emerald-300 rounded-lg text-emerald-950"
-                      />
-                    </div>
-
-                    {/* Botones de denominaciones colombianas */}
-                    <div className="flex gap-1.5 pt-1">
-                      {BILLETES_COLOMBIANOS.map((den) => (
-                        <button
-                          key={den}
-                          type="button"
-                          onClick={() => setEfectivoRecibidoAbonar(String(den))}
-                          className="flex-1 py-1 px-1 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-900 text-[10px] font-bold"
-                        >
-                          ${(den / 1000).toFixed(0)}k
-                        </button>
-                      ))}
                     </div>
 
                     {/* Vueltas */}

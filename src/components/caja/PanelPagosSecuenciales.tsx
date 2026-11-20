@@ -375,7 +375,7 @@ export default function PanelPagosSecuenciales({
           <div className="flex items-center gap-1.5 min-w-0">
             <span className={`w-2 h-2 rounded-full ${estilosColor.accentDot}`} />
             <span className="text-slate-600 font-semibold truncate text-[11px]">
-              {subtitulo || "Abona con uno o varios métodos sucesivamente"}
+              {subtitulo || "Cobro secuencial"}
             </span>
           </div>
 
@@ -387,7 +387,7 @@ export default function PanelPagosSecuenciales({
           ) : (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-300">
               <Clock className="w-3 h-3 text-amber-700" />
-              Resta por Cubrir: ${saldoFaltante.toLocaleString("es-CO")}
+              Saldo Pendiente
             </span>
           )}
         </div>
@@ -398,11 +398,9 @@ export default function PanelPagosSecuenciales({
         <div className="flex items-center justify-between">
           <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
             <Wallet className="w-4 h-4 text-slate-600" />
-            <span>Seleccionar Medio y Aplicar Pago:</span>
+            <span>Medio de Pago:</span>
           </label>
-          <span className="text-[11px] font-semibold text-slate-400">
-            Predeterminado: <strong className="text-slate-700">Efectivo</strong>
-          </span>
+
         </div>
 
         {/* Selector de Métodos: Efectivo, Bancolombia y Desplegable de Otros Bancos */}
@@ -493,7 +491,7 @@ export default function PanelPagosSecuenciales({
           <div className={`${metodoSeleccionado === "EFECTIVO" ? "sm:col-span-5" : "sm:col-span-8"} space-y-1`}>
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-bold text-slate-700 block">
-                Monto ({metodoSeleccionado}):
+                Monto a Cobrar:
               </label>
               {saldoFaltante > 0 && montoAbonarNum !== saldoFaltante && (
                 <button
@@ -596,7 +594,7 @@ export default function PanelPagosSecuenciales({
         {/* Resumen de Vueltas en Efectivo si aplica */}
         {metodoSeleccionado === "EFECTIVO" && efectivoRecibidoNum > 0 && (
           <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200 flex items-center justify-between text-xs">
-            <span className="font-bold text-emerald-950">Vueltas / Cambio a Entregar en este Pago:</span>
+            <span className="font-bold text-emerald-950">Vueltas a Entregar:</span>
             <span className="font-mono text-base font-black text-emerald-800">
               ${vueltasCalculadas.toLocaleString("es-CO")}
             </span>
@@ -639,7 +637,7 @@ export default function PanelPagosSecuenciales({
           <div className="flex items-center gap-2">
             <Receipt className="w-4 h-4 text-slate-700" />
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-              Pagos Registrados en la Operación ({pagos.length})
+              Pagos Aplicados ({pagos.length})
             </h4>
           </div>
 
@@ -658,14 +656,9 @@ export default function PanelPagosSecuenciales({
         </div>
 
         {pagos.length === 0 ? (
-          <div className="p-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-1">
-            <p className="text-xs font-bold text-slate-700">
-              No se han agregado pagos a la lista (Modo Rápido Disponible)
-            </p>
-            <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-              Si el cliente paga el 100% con un único método (ej. ${totalExigible.toLocaleString("es-CO")} en{" "}
-              <strong className="text-slate-800">{metodoSeleccionado}</strong>), puedes confirmar y cobrar directamente
-              sin necesidad de agregar filas manualmente.
+          <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center">
+            <p className="text-xs text-slate-500">
+              Sin pagos en lista. Cobro directo con <strong className="text-slate-800 font-bold">{metodoSeleccionado}</strong> o agrega abonos parciales.
             </p>
           </div>
         ) : (

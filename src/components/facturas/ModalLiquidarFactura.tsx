@@ -134,11 +134,6 @@ export default function ModalLiquidarFactura({
       ? Math.round((efectivoRecibidoNum - totalACobrar) * 100) / 100
       : 0;
 
-  const sumarBillete = (monto: number) => {
-    const actual = parseFloat(efectivoRecibido) || 0;
-    setEfectivoRecibido(String(actual + monto));
-  };
-
   const ejecutarPagoYDevolucion = async () => {
     setMensajeError(null);
 

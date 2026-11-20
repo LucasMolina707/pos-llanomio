@@ -193,8 +193,6 @@ export type PestanaHistorial =
 
 export type EstadoSeguridadPos = EstadoSeguridadCajaInfo;
 
-const BILLETES_COLOMBIANOS = [2000, 5000, 10000, 20000, 50000, 100000];
-
 const SUGERENCIAS_ARREGLOS = [
   "Dobladillo / Bota de pantalón",
   "Entalle de chaqueta o prenda",
@@ -896,18 +894,6 @@ export default function PosPage() {
         return item;
       })
     );
-  };
-
-  // =========================================================
-  // HANDLERS DE CALCULADORA DE CAJA (VISTA 3)
-  // =========================================================
-  const sumarBillete = (montoBillete: number) => {
-    const actual = Number(efectivoRecibido) || 0;
-    setEfectivoRecibido(String(actual + montoBillete));
-  };
-
-  const fijarEfectivoExacto = () => {
-    setEfectivoRecibido(String(valorACobrarHoy));
   };
 
   // =========================================================
@@ -2285,7 +2271,7 @@ export default function PosPage() {
                               Servicios de Sastrería y Costura Personalizada
                             </p>
                             <p className="text-xs text-slate-500 mt-1">
-                              Escribe el concepto arriba o toca una plantilla rápida para agregar al carrito
+                              Selecciona una sugerencia o digita el arreglo
                             </p>
                           </div>
                         )}
@@ -2304,7 +2290,7 @@ export default function PosPage() {
                           </div>
                           <div>
                             <h2 className="text-sm font-black text-slate-900">
-                              Paso 3: Cobro de Caja & Liquidación
+                              Paso 3: Cobro y Liquidación
                             </h2>
                             <p className="text-xs text-slate-500">
                               Total: <strong className="text-emerald-600 font-mono">${totalFactura.toLocaleString("es-CO")}</strong>
@@ -2386,10 +2372,10 @@ export default function PosPage() {
                             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1">
                               <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
                                 <Clock className="w-4 h-4 text-amber-600" />
-                                Factura 100% a Crédito en Cartera
+                                Crédito en Cartera
                               </h4>
                               <p className="text-xs text-amber-700">
-                                Esta orden se registrará con saldo pendiente por cobrar de ${totalFactura.toLocaleString("es-CO")}. No se registrará ingreso de dinero en caja hoy.
+                                Sin ingreso inicial en caja. Saldo a cobrar: ${totalFactura.toLocaleString("es-CO")}.
                               </p>
                             </div>
                           ) : (
@@ -2412,7 +2398,7 @@ export default function PosPage() {
                           {/* Observaciones de Factura */}
                           <div>
                             <label className="text-xs font-bold text-slate-600 block mb-1">
-                              Observaciones de Factura (Opcional):
+                              Observaciones:
                             </label>
                             <input
                               type="text"
@@ -2601,7 +2587,7 @@ export default function PosPage() {
                           onClick={() => setPasoActual(2)}
                           className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         >
-                          <span>Ir a Productos (Paso 2)</span>
+                          <span>Continuar a Productos</span>
                           <ArrowRight className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -2613,7 +2599,7 @@ export default function PosPage() {
                           onClick={() => setPasoActual(3)}
                           className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         >
-                          <span>Ir a Caja (Paso 3)</span>
+                          <span>Continuar a Cobro</span>
                           <ArrowRight className="w-3.5 h-3.5" />
                         </button>
                       )}

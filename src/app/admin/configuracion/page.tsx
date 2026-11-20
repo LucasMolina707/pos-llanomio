@@ -1432,14 +1432,11 @@ export default function ConfiguracionAdminPage() {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-semibold"
                   >
-                    <option value="MEDIA_CARTA">Media Carta Individual (1 por hoja apaisada — Predeterminado en Ventas y Apartados)</option>
-                    <option value="MEDIA_CARTA_DOBLE">Media Carta Doble (2 en 1 Hoja Carta — Predeterminado en Alquileres)</option>
+                    <option value="MEDIA_CARTA">Media Carta Individual (1 por hoja — Ventas y Apartados)</option>
+                    <option value="MEDIA_CARTA_DOBLE">Media Carta Doble (2 por hoja — Alquileres)</option>
                     <option value="TIRILLA">Tirilla POS (80mm / Térmica)</option>
-                    <option value="CARTA">Carta Completa Vertical (1 página ejecutiva)</option>
+                    <option value="CARTA">Carta Completa Vertical (1 página)</option>
                   </select>
-                  <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                    Regla automática del sistema: Las ventas y los apartados se abren por defecto en 1 sola impresión de Media Carta; los alquileres se abren por defecto en 2 impresiones Media Carta en una sola hoja.
-                  </p>
                 </div>
               </div>
             </div>

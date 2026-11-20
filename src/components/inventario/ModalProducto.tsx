@@ -237,11 +237,8 @@ export default function ModalProducto({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900">
-                {formData.id ? "Editar Prenda / Producto" : "Registrar Nueva Prenda"}
+                {formData.id ? "Editar Prenda" : "Nueva Prenda"}
               </h2>
-              <p className="text-xs text-slate-500">
-                Configure datos de inventario, disponibilidad y reglas de mora
-              </p>
             </div>
           </div>
           <button
@@ -270,27 +267,27 @@ export default function ModalProducto({
               <button
                 type="button"
                 onClick={() => setFormData((p) => ({ ...p, tipo: "ALQUILER" }))}
-                className={`py-3 px-4 rounded-xl border text-xs font-bold flex items-center justify-center space-x-2 transition ${
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center space-x-2 transition ${
                   formData.tipo === "ALQUILER"
                     ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-sm ring-2 ring-emerald-500/20"
                     : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 <Tag className="h-4 w-4 text-emerald-600" />
-                <span>Alquiler de Prenda / Disfraz</span>
+                <span>Prenda de Alquiler</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setFormData((p) => ({ ...p, tipo: "VENTA" }))}
-                className={`py-3 px-4 rounded-xl border text-xs font-bold flex items-center justify-center space-x-2 transition ${
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center space-x-2 transition ${
                   formData.tipo === "VENTA"
                     ? "bg-blue-50 border-blue-500 text-blue-800 shadow-sm ring-2 ring-blue-500/20"
                     : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 <Package className="h-4 w-4 text-blue-600" />
-                <span>Ropa de Venta Directa</span>
+                <span>Prenda de Venta</span>
               </button>
             </div>
           </div>

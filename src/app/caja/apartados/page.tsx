@@ -1023,7 +1023,6 @@ export default function ApartadosPage() {
                       <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] block">FECHAS PACTADAS:</span>
                       <p className="text-slate-600">Fecha de Retiro / Salida: <strong className="text-indigo-900 font-bold capitalize">{fechaSalida ? formatearFechaConDia(fechaSalida, false, "completo") : "Inmediata"}</strong></p>
                       <p className="text-slate-600">Fecha Estimada de Llegada: <strong className="text-slate-900 font-bold capitalize">{fechaDevolucion ? formatearFechaConDia(fechaDevolucion, true, "completo") : "No pactada"}</strong></p>
-                      <p className="text-[11px] text-slate-500 italic mt-1">{reglaFechaTexto.mensajeInformativo}</p>
                     </div>
                   </div>
 
@@ -1259,7 +1258,7 @@ export default function ApartadosPage() {
                     {/* Fila de Fechas Compacta en Línea */}
                     <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-700">Fechas de Reserva / Contrato:</span>
+                        <span className="font-bold text-slate-700">Fechas de Reserva:</span>
                         {reglaFechaTexto.diaEntrega && (
                           <span className="text-[10.5px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-semibold">
                             Pactado: {reglaFechaTexto.diaEntrega} 8:00 p.m.
@@ -1270,7 +1269,7 @@ export default function ApartadosPage() {
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <label className="font-bold text-slate-700 block">
-                              Salida / Retiro:
+                              Salida:
                             </label>
                             <span className="text-[10.5px] font-bold text-emerald-800 capitalize truncate">
                               {formatearEtiquetaDiaYFecha(fechaSalida)}
@@ -1286,7 +1285,7 @@ export default function ApartadosPage() {
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <label className="font-bold text-slate-700 block">
-                              Devolución (8:00 p.m.):
+                              Devolución:
                             </label>
                             <span className="text-[10.5px] font-bold text-indigo-800 capitalize truncate">
                               {formatearEtiquetaDiaYFecha(fechaDevolucion, true)}
@@ -1430,9 +1429,11 @@ export default function ApartadosPage() {
                           <label className="text-xs font-bold text-slate-700">
                             Depósito en Garantía (Opcional):
                           </label>
-                          <span className="text-[10px] font-semibold text-indigo-700">
-                            Sugerido (${ultimoDepositoSugeridoApartado.toLocaleString("es-CO")}) — Editable
-                          </span>
+                          <Tooltip content="Valor sugerido del último registro. Editable libremente." position="top">
+                            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded cursor-help">
+                              Sugerido
+                            </span>
+                          </Tooltip>
                         </div>
                         <input
                           type="number"
@@ -1467,9 +1468,11 @@ export default function ApartadosPage() {
                           <label className="text-xs font-bold text-slate-700">
                             Abono Inicial (Hoy):
                           </label>
-                          <span className="text-[10px] font-semibold text-emerald-700">
-                            Sugerido según último abono (${ultimoAbonoSugeridoApartado.toLocaleString("es-CO")}) — Editable
-                          </span>
+                          <Tooltip content="Valor sugerido según último abono. Editable libremente." position="top">
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded cursor-help">
+                              Sugerido
+                            </span>
+                          </Tooltip>
                         </div>
                         <input
                           ref={inputEfectivoRef}
@@ -1546,15 +1549,8 @@ export default function ApartadosPage() {
                     {/* Subcolumna B: Métodos de Pago y Calculadora de Vueltas */}
                     <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3.5">
                       <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-1.5">
-                        Cobro Inmediato en Mostrador
+                        Cobro de Abono
                       </h3>
-
-                      <div>
-                        <span className="text-xs text-slate-500 block">Total a Recibir Hoy:</span>
-                        <span className="font-mono text-2xl font-black text-indigo-700">
-                          ${totalACobrarHoy.toLocaleString("es-CO")}
-                        </span>
-                      </div>
 
                       {totalACobrarHoy > 0 && (
                         <>
@@ -1744,7 +1740,7 @@ export default function ApartadosPage() {
                       onClick={() => setPaso(2)}
                       className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:cursor-not-allowed cursor-pointer"
                     >
-                      <span>Siguiente: Prendas</span>
+                      <span>Continuar a Prendas</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   )}
@@ -1756,7 +1752,7 @@ export default function ApartadosPage() {
                       onClick={() => setPaso(3)}
                       className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shadow-sm disabled:cursor-not-allowed cursor-pointer"
                     >
-                      <span>Siguiente: Cobro y Abono</span>
+                      <span>Continuar a Cobro</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   )}
@@ -1784,7 +1780,7 @@ export default function ApartadosPage() {
                       }}
                       className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                     >
-                      <span>Siguiente: Previsualizar Factura (Paso 4)</span>
+                      <span>Previsualizar Borrador</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   )}

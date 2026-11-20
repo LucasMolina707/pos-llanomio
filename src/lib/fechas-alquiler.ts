@@ -195,7 +195,7 @@ export function obtenerDescripcionReglaDevolucion(fechaSalidaInput?: string | Da
     diaSalida,
     diaEntrega,
     horaTexto,
-    mensajeInformativo: `Regla automática aplicada: Entrega pactada el ${diaEntrega} hasta las 8:00 p.m.`,
+    mensajeInformativo: `Entrega pactada: ${diaEntrega} 8:00 p.m.`,
   };
 }
 

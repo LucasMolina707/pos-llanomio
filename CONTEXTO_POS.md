@@ -5128,4 +5128,49 @@ En atención directa a la reducción de sobrecarga visual en mostrador y a los 5
 - `npm run build`: 0 errores, generación exitosa de 22 rutas.
 - Verificación de diseño responsive, iconografía vectorial `lucide-react` y cero emojis.
 
+---
+
+## 40. AUDITORÍA EXHAUSTIVA DE DES-REDUNDANCIA TEXTUAL Y HOMOLOGACIÓN TOTAL DE PAGO EN MOSTRADOR Y MODALES
+
+### 1. Resumen de la Auditoría y Correcciones Visuales
+A partir de la inspección detallada de las capturas de pantalla de la terminal y los flujos operativos en Ventas (`/caja/pos`), Alquileres (`/caja/alquileres`) y Apartados (`/caja/apartados`), se identificaron y subsanaron los siguientes puntos críticos de redundancia textual y elementos no homologados:
+
+1. **Eliminación de Textos Verbosos y Redundantes de Montos Sugeridos:**
+   - En `/caja/apartados` (Paso 3 y cálculo de abono), se eliminó la etiqueta redundante `"Sugerido según último abono ($...) — Editable"` y `"Sugerido ($...) — Editable"`, reemplazándolas por un badge minimalista `"Sugerido"` dotado de tooltip (`<Tooltip />`) con la aclaración respectiva.
+   - En `/caja/alquileres`, se unificó la presentación del depósito acordado bajo el mismo esquema limpio.
+
+2. **Supresión de Explicaciones Duplicadas en Fechas y Reglas Automáticas:**
+   - En `/caja/apartados` (Previsualización de Borrador), se suprimió la línea redundante `<p>{reglaFechaTexto.mensajeInformativo}</p>` que duplicaba exactamente la fecha pactada mostrada inmediatamente arriba.
+   - En el selector de fechas de reserva de Apartados y Alquileres, se simplificaron las etiquetas a `"Fechas de Reserva"`, `"Salida:"` y `"Devolución:"`, eliminando repeticiones del texto `"(8:00 p.m.)"` que ya se mostraba tanto en el valor del input como en el badge de cabecera.
+   - En `src/lib/fechas-alquiler.ts`, el mensaje informativo se sintetizó de `"Regla automática aplicada: Entrega pactada el Lunes hasta las 8:00 p.m."` a `"Entrega pactada: lunes 8:00 p.m."`.
+
+3. **Homologación Definitiva del Selector de Métodos y Erradicación de Billetes Rápidos en Modales:**
+   - En el modal de abonos posteriores de Alquileres (`/caja/alquileres`), se eliminó la grilla obsoleta de 6 botones y los botones de billetes rápidos (`$20k`, `$50k`, `$100k`, `$200k`). Se reemplazó por la tríada estándar:
+     1. Botón **Efectivo**
+     2. Botón **Bancolombia**
+     3. Desplegable **Otros Medios ▼** (`Nequi`, `Daviplata`, `Bre-B / Llave`, `Transferencia`, `Consignación`)
+     4. Calculadora de efectivo con **únicamente el botón "Exacto"**.
+   - Se removieron todas las definiciones huérfanas de `BILLETES_COLOMBIANOS`, `sumarBillete` y `fijarEfectivoExacto` en `pos/page.tsx`, `alquileres/page.tsx` y `ModalLiquidarFactura.tsx`.
+
+4. **Sintetización del Bloque de Información en `PanelPagosSecuenciales.tsx`:**
+   - Se reemplazó el párrafo explicativo de 3 líneas sobre "Modo Rápido Disponible" por una instrucción concisa de una sola línea: `"Sin pagos en lista. Cobro directo con [Método] o agrega abonos parciales."`.
+
+5. **Ajuste en Configuración de Impresión:**
+   - En `/admin/configuracion`, se eliminó el párrafo redundante bajo el selector de formato de impresión que repetía palabra por palabra las opciones del desplegable.
+
+### 2. Archivos Modificados
+- `src/lib/fechas-alquiler.ts`
+- `src/components/caja/PanelPagosSecuenciales.tsx`
+- `src/app/caja/alquileres/page.tsx`
+- `src/app/caja/apartados/page.tsx`
+- `src/app/caja/pos/page.tsx`
+- `src/components/facturas/ModalLiquidarFactura.tsx`
+- `src/app/admin/configuracion/page.tsx`
+- `CONTEXTO_POS.md`
+
+### 3. Verificación de Compilación y Calidad
+- `npx tsc --noEmit`: 0 errores.
+- `npm run build`: Éxito total en compilación Next.js 15 y exportación de las 22 rutas del sistema.
+
+
 
