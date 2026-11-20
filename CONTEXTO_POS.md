@@ -5041,3 +5041,39 @@ Se implementó el paquete integral de actualizaciones y optimizaciones operativa
   - `1_LEVANTAR_O_REINICIAR_SERVIDOR.bat`: Arranque resiliente y recuperación de servicios PM2.
   - `scripts/preparar-paquete-instalador.js`: Corregida la ruta a `scripts/restablecer-db-fabrica.js` e integrados los nuevos `.bat` críticos.
 
+---
+
+## 38. FOCO AUTOMÁTICO, INTEGRACIÓN CON LECTOR DE CÓDIGOS DE BARRAS, PRECIOS EDITABLES Y DETECCIÓN EN VIVO DE DUPLICADOS
+
+### 1. Foco Automático y Captura Inmediata con Lector de Códigos de Barras (Enter)
+- **Problemática:** Los lectores de código de barras USB emulan teclado (keyboard wedge) e inyectan el código seguido de un pulso de tecla `Enter`. Si el buscador no interceptaba `Enter` ni mantenía el cursor enfocado, el cajero debía recurrir manualmente al ratón para agregar la prenda y borrar el texto.
+- **Solución implementada:**
+  1. **Autofocus Garantizado:** En las 3 consolas (`/caja/pos`, `/caja/alquileres` y `/caja/apartados`), al ingresar al Paso 2, el cursor se posiciona inmediatamente en el buscador de prendas/productos (`searchInputProductoRef` / `inputBuscarPrendaRef`).
+  2. **Captura Rápida `onKeyDown` con `Enter`:**
+     - Evalúa coincidencia exacta (sin espacios, insensible a mayúsculas/minúsculas) contra `codigo` o `codigoBarras`.
+     - Si coincide, agrega inmediatamente la prenda/producto al carrito, limpia el campo de texto (`setBusqueda("")`) y devuelve el foco al input en 15 ms para que el cajero continúe escaneando sin tocar el ratón.
+     - Si no hay código idéntico pero el filtro arroja un único producto coincidente, lo añade también de forma automática.
+  3. **Buscador de Clientes (Paso 1):** Si el cajero escanea o digita la cédula y presiona `Enter`, el sistema selecciona automáticamente al cliente coincidente y avanza de inmediato al Paso 2.
+
+### 2. Precios Unitarios y Tarifas Editables en Segundos desde Mostrador
+- **Problemática:** En `/caja/pos`, los ítems del carrito mostraban el precio de venta en formato de texto estático, impidiendo realizar descuentos acordados o ajustes directos de precio unitario en mostrador.
+- **Solución implementada:**
+  1. **Edición Ágil en Carrito (`pos/page.tsx`):** Se implementó `actualizarPrecioItem(idTemporal, nuevoPrecio)` y se integró un input numérico compacto y estilizado (`w-20 px-1.5 py-0.5 text-xs font-mono font-bold text-right bg-white border border-slate-200 rounded focus:ring-1 focus:ring-emerald-500`) que recalcula al vuelo subtotales e impuestos.
+  2. **Homologación con Alquileres y Apartados:** Las 3 consolas disponen del mismo comportamiento ágil para editar precios unitarios sin necesidad de navegar a pantallas de inventario.
+  3. **Tarifas y Valores por Defecto (`ModalProducto.tsx`):** Carga valores útiles por defecto (tarifa de mora diaria de $15.000 COP, unidad por día), siempre 100% editables antes de guardar.
+
+### 3. Prevención de Duplicados en Tiempo Real (Clientes y Referencias)
+- **Directorio de Clientes (`src/app/api/clientes/route.ts` & `src/components/pos/ModalCrearClienteRapido.tsx`):**
+  1. **API:** Soporte de verificación ultra-rápida en `GET /api/clientes?verificar=true&doc=...&tel=...` y validación defensiva en `POST` que previene duplicidad tanto por Documento/NIT como por Teléfono (exceptuando números genéricos de consumidor final).
+  2. **UI en Vivo (Debounce 320 ms):** Al escribir el documento o teléfono en el modal de registro rápido, si el sistema detecta que ya existe en la base de datos, despliega un banner de advertencia visual con el nombre y datos del cliente registrado, ofreciendo dos botones de un solo clic:
+     - `Usar este Cliente`: Asigna el cliente existente a la venta actual y cierra el modal inmediatamente.
+     - `Cargar para Editar`: Vuelca los datos del cliente en el formulario para su actualización sin duplicar el registro.
+- **Catálogo de Inventario (`src/components/inventario/ModalProducto.tsx`):**
+  1. **Validación en Vivo:** Detección con debounce (320 ms) del campo `codigo`.
+  2. Si el código ya pertenece a otra prenda registrada, resalta el input con borde rojo suave, muestra el mensaje `Ya usado por: "[Nombre del Producto]"` y deshabilita el botón de guardar hasta que se corrija la referencia.
+
+### 4. Certificación de Calidad (QA)
+- **TypeScript:** `npx tsc --noEmit` completado con **código 0 y 0 errores**.
+- **Build de Producción:** `npm run build` ejecutado exitosamente con **código 0 y 22 rutas optimizadas**.
+- **Estándares:** Cero emojis, tipado estricto, iconografía `lucide-react`, CERO códigos QR de clientes.
+

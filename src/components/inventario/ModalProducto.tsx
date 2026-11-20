@@ -61,6 +61,61 @@ export default function ModalProducto({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Detección en tiempo real de código de referencia duplicado
+  const [productoDuplicado, setProductoDuplicado] = useState<{ id: string; nombre: string; codigo: string } | null>(null);
+  const [verificandoCodigo, setVerificandoCodigo] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setProductoDuplicado(null);
+      return;
+    }
+
+    const cod = formData.codigo.trim().toUpperCase();
+    if (!cod) {
+      setProductoDuplicado(null);
+      return;
+    }
+
+    // Si estamos editando y el código no cambió, no es duplicado
+    if (productoAEditar && productoAEditar.codigo?.toUpperCase() === cod) {
+      setProductoDuplicado(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setVerificandoCodigo(true);
+        const res = await fetch(`/api/inventario?busqueda=${encodeURIComponent(cod)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const lista = data.productos || data.catalogo || (Array.isArray(data) ? data : []);
+
+        const coincidente = lista.find(
+          (p: any) =>
+            p.codigo?.toUpperCase() === cod &&
+            (!productoAEditar || p.id !== productoAEditar.id)
+        );
+
+        if (coincidente) {
+          setProductoDuplicado({
+            id: coincidente.id,
+            nombre: coincidente.nombre,
+            codigo: coincidente.codigo,
+          });
+        } else {
+          setProductoDuplicado(null);
+        }
+      } catch (err) {
+        console.warn("Error verificando código duplicado:", err);
+      } finally {
+        setVerificandoCodigo(false);
+      }
+    }, 320);
+
+    return () => clearTimeout(timer);
+  }, [formData.codigo, isOpen, productoAEditar]);
+
   useEffect(() => {
     if (productoAEditar) {
       setFormData({
@@ -123,6 +178,11 @@ export default function ModalProducto({
       // Validaciones en cliente
       if (!formData.codigo.trim()) {
         throw new Error("El código de referencia es obligatorio.");
+      }
+      if (productoDuplicado) {
+        throw new Error(
+          `El código '${formData.codigo.trim().toUpperCase()}' ya pertenece a '${productoDuplicado.nombre}'. Por favor utilice otro código.`
+        );
       }
       if (!formData.nombre.trim()) {
         throw new Error(
@@ -238,9 +298,16 @@ export default function ModalProducto({
           {/* Fila: Código y Nombre */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Código / Ref *
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Código / Ref *
+                </label>
+                {verificandoCodigo && (
+                  <span className="text-[10px] text-slate-400 font-semibold animate-pulse">
+                    Verificando...
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 required
@@ -248,8 +315,18 @@ export default function ModalProducto({
                 value={formData.codigo}
                 onChange={handleChange}
                 placeholder="ej. LL-010"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 font-mono text-xs uppercase font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className={`w-full px-3.5 py-2.5 rounded-xl border text-slate-900 font-mono text-xs uppercase font-bold focus:outline-none transition ${
+                  productoDuplicado
+                    ? "border-rose-400 bg-rose-50/60 focus:ring-2 focus:ring-rose-500"
+                    : "border-slate-300 focus:ring-2 focus:ring-emerald-500"
+                }`}
               />
+              {productoDuplicado && (
+                <p className="text-[11px] text-rose-600 font-bold mt-1 leading-tight flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Ya usado por: "{productoDuplicado.nombre}"</span>
+                </p>
+              )}
             </div>
 
             <div className="sm:col-span-2">
@@ -451,8 +528,8 @@ export default function ModalProducto({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={guardando}
-            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center space-x-1.5 disabled:opacity-50"
+            disabled={guardando || Boolean(productoDuplicado)}
+            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
           >
             <Save className="h-4 w-4" />
             <span>{guardando ? "Guardando..." : "Guardar Prenda"}</span>

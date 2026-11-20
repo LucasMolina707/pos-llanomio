@@ -1162,9 +1162,16 @@ export default function ApartadosPage() {
                       <input
                         ref={inputBuscarClienteRef}
                         type="text"
-                        placeholder="Buscar cliente por nombre, cédula o celular..."
+                        placeholder="Buscar cliente por nombre, cédula o celular (Enter para seleccionar)..."
                         value={busquedaCliente}
                         onChange={(e) => setBusquedaCliente(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && clientesFiltrados.length > 0) {
+                            e.preventDefault();
+                            setClienteSeleccionado(clientesFiltrados[0]);
+                            setPaso(2);
+                          }
+                        }}
                         className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none text-xs sm:text-sm transition"
                       />
                     </div>
@@ -1316,9 +1323,36 @@ export default function ApartadosPage() {
                       <input
                         ref={inputBuscarProductoRef}
                         type="text"
-                        placeholder="Buscar en catálogo de prendas por nombre o código..."
+                        placeholder="Buscar en catálogo de prendas por nombre, código o pistola (+ Enter)..."
                         value={busquedaProducto}
                         onChange={(e) => setBusquedaProducto(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const query = busquedaProducto.trim().toLowerCase();
+                            if (!query) return;
+
+                            const coincidenciaExacta = productos.find(
+                              (p) =>
+                                p.codigo.trim().toLowerCase() === query ||
+                                (p as any).codigoBarras?.trim().toLowerCase() === query
+                            );
+
+                            if (coincidenciaExacta) {
+                              agregarProductoDesdeCatalogo(coincidenciaExacta);
+                              setBusquedaProducto("");
+                              setTimeout(() => inputBuscarProductoRef.current?.focus(), 15);
+                              return;
+                            }
+
+                            if (productosFiltrados.length === 1) {
+                              agregarProductoDesdeCatalogo(productosFiltrados[0]);
+                              setBusquedaProducto("");
+                              setTimeout(() => inputBuscarProductoRef.current?.focus(), 15);
+                              return;
+                            }
+                          }
+                        }}
                         className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-500"
                       />
                     </div>

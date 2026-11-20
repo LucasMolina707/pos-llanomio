@@ -82,6 +82,11 @@ export default function ModalCrearClienteRapido({
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Detección en tiempo real de duplicados (por documento o teléfono)
+  const [clienteDuplicado, setClienteDuplicado] = useState<ClienteCreado | null>(null);
+  const [motivoDuplicado, setMotivoDuplicado] = useState<"documento" | "telefono" | null>(null);
+  const [verificandoDuplicado, setVerificandoDuplicado] = useState(false);
+
   // Inicializar o cargar datos cuando se abre el modal
   useEffect(() => {
     if (isOpen) {
@@ -129,6 +134,77 @@ export default function ModalCrearClienteRapido({
       setDigitoVerificacion(dvCalculado);
     }
   }, [documento, tipoIdentificacion]);
+
+  // Verificación en tiempo real de cliente duplicado (por documento o por celular/teléfono)
+  useEffect(() => {
+    if (!isOpen) {
+      setClienteDuplicado(null);
+      setMotivoDuplicado(null);
+      return;
+    }
+
+    const docTrim = documento.trim();
+    const telTrim = telefono.trim().replace(/[^\d+]/g, "");
+
+    // Si ambos están vacíos o es consumidor final
+    if ((!docTrim && !telTrim) || docTrim === "222222222222") {
+      setClienteDuplicado(null);
+      setMotivoDuplicado(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setVerificandoDuplicado(true);
+        const params = new URLSearchParams({ verificar: "true" });
+        if (docTrim) params.set("doc", docTrim);
+        if (telTrim && telTrim.length >= 7) params.set("tel", telTrim);
+        if (clienteAEditar?.id) params.set("excluirId", clienteAEditar.id);
+
+        const res = await fetch(`/api/clientes?${params.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.success && data.existe && data.cliente) {
+          setClienteDuplicado(data.cliente);
+          setMotivoDuplicado(data.motivo);
+        } else {
+          setClienteDuplicado(null);
+          setMotivoDuplicado(null);
+        }
+      } catch (err) {
+        console.warn("Error comprobando duplicado de cliente:", err);
+      } finally {
+        setVerificandoDuplicado(false);
+      }
+    }, 320);
+
+    return () => clearTimeout(timer);
+  }, [documento, telefono, isOpen, clienteAEditar?.id]);
+
+  const seleccionarClienteDuplicado = (cli: ClienteCreado) => {
+    onClienteCreado(cli);
+    onClose();
+  };
+
+  const cargarDatosDuplicado = (cli: ClienteCreado) => {
+    setDocumento(cli.documento || "");
+    setNombre(cli.nombre || "");
+    setTelefono(cli.telefono || "");
+    setTelefonoSecundario(cli.telefonoSecundario || "");
+    setEmail(cli.email || "");
+    setDireccion(cli.direccion || "");
+    setNotas(cli.notas || "");
+    setEsResponsableIVA(Boolean(cli.esResponsableIVA));
+    setTipoIdentificacion(cli.tipoIdentificacion || (cli.esResponsableIVA ? "NIT" : "CC"));
+    setDigitoVerificacion(cli.digitoVerificacion || "");
+    setRazonSocial(cli.razonSocial || "");
+    setResponsabilidadFiscal(cli.responsabilidadFiscal || (cli.esResponsableIVA ? "O-48" : "O-99"));
+    setCodigoDaneMunicipio(cli.codigoDaneMunicipio || "50001");
+    setMunicipioPersonalizado(cli.municipio || "Villavicencio - Meta");
+    setClienteDuplicado(null);
+    setMotivoDuplicado(null);
+  };
 
   // Al conmutar el switch de Responsable de IVA
   const handleToggleResponsableIVA = (activo: boolean) => {
@@ -314,6 +390,40 @@ export default function ModalCrearClienteRapido({
           <div className="mx-5 sm:mx-6 mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-300 flex items-start gap-2.5 text-rose-950 text-xs sm:text-sm font-semibold shrink-0">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <span className="leading-snug">{error}</span>
+          </div>
+        )}
+
+        {/* Detección en Tiempo Real de Cliente Duplicado */}
+        {clienteDuplicado && (
+          <div className="mx-5 sm:mx-6 mt-4 p-3.5 rounded-2xl bg-amber-50 border border-amber-300 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shrink-0 animate-in fade-in duration-200">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-amber-950 font-bold block">
+                  Cliente ya registrado por {motivoDuplicado === "documento" ? "Documento / Cédula" : "Teléfono / Celular"}
+                </strong>
+                <span className="text-amber-900 block font-medium truncate">
+                  {clienteDuplicado.nombre} • Doc: {clienteDuplicado.documento} {clienteDuplicado.telefono ? `• Tel: ${clienteDuplicado.telefono}` : ""}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => cargarDatosDuplicado(clienteDuplicado)}
+                className="px-2.5 py-1.5 rounded-xl text-amber-800 bg-amber-100/80 hover:bg-amber-200 font-bold text-[11px] transition cursor-pointer"
+              >
+                Cargar para Editar
+              </button>
+              <button
+                type="button"
+                onClick={() => seleccionarClienteDuplicado(clienteDuplicado)}
+                className="px-3 py-1.5 rounded-xl text-white bg-amber-600 hover:bg-amber-700 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer shadow-xs"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Usar este Cliente</span>
+              </button>
+            </div>
           </div>
         )}
 

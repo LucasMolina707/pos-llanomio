@@ -881,6 +881,22 @@ export default function PosPage() {
     );
   };
 
+  const actualizarPrecioItem = (idTemporal: string, nuevoPrecio: number) => {
+    const precioLimpio = Math.max(0, nuevoPrecio);
+    setItemsCarrito((prev) =>
+      prev.map((item) => {
+        if (item.idTemporal === idTemporal) {
+          return {
+            ...item,
+            precioUnitario: precioLimpio,
+            subtotal: item.cantidad * precioLimpio,
+          };
+        }
+        return item;
+      })
+    );
+  };
+
   // =========================================================
   // HANDLERS DE CALCULADORA DE CAJA (VISTA 3)
   // =========================================================
@@ -2141,9 +2157,39 @@ export default function PosPage() {
                             <input
                               ref={searchInputProductoRef}
                               type="text"
-                              placeholder="Fuzzy: código, prenda, talla, color, precio..."
+                              placeholder="Fuzzy: código, prenda, talla, color, precio (Escanee con pistola o escriba + Enter)..."
                               value={busquedaVenta}
                               onChange={(e) => setBusquedaVenta(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  const query = busquedaVenta.trim().toLowerCase();
+                                  if (!query) return;
+
+                                  // 1. Coincidencia exacta por código o código de barras
+                                  const coincidenciaExacta = catalogoInventario.find(
+                                    (p) =>
+                                      p.tipo === "VENTA" &&
+                                      (p.codigo.trim().toLowerCase() === query ||
+                                        (p as any).codigoBarras?.trim().toLowerCase() === query)
+                                  );
+
+                                  if (coincidenciaExacta) {
+                                    agregarItemVenta(coincidenciaExacta);
+                                    setBusquedaVenta("");
+                                    setTimeout(() => searchInputProductoRef.current?.focus(), 15);
+                                    return;
+                                  }
+
+                                  // 2. Si el filtro arrojó 1 único resultado
+                                  if (productosVenta.length === 1) {
+                                    agregarItemVenta(productosVenta[0]);
+                                    setBusquedaVenta("");
+                                    setTimeout(() => searchInputProductoRef.current?.focus(), 15);
+                                    return;
+                                  }
+                                }
+                              }}
                               className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white transition"
                             />
                           </div>
@@ -2466,9 +2512,19 @@ export default function PosPage() {
                             <strong className="text-slate-900 truncate block text-xs font-bold">
                               {item.nombre}
                             </strong>
-                            <span className="text-[11px] text-slate-500 block truncate">
-                              {item.tipo} • ${item.precioUnitario.toLocaleString("es-CO")}
-                            </span>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] text-slate-500 font-semibold uppercase">
+                                {item.tipo}
+                              </span>
+                              <span className="text-slate-300">•</span>
+                              <input
+                                type="number"
+                                value={item.precioUnitario}
+                                onChange={(e) => actualizarPrecioItem(item.idTemporal, parseFloat(e.target.value) || 0)}
+                                className="w-20 px-1.5 py-0.5 text-xs font-mono font-bold text-right bg-white border border-slate-200 rounded focus:ring-1 focus:ring-emerald-500 outline-none"
+                                title="Modificar precio unitario de este ítem"
+                              />
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-1 shrink-0">

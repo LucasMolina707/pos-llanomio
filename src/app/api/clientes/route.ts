@@ -24,6 +24,71 @@ export async function GET(req: NextRequest | Request) {
     const q = searchParams.get("q")?.trim() || "";
     const limiteParam = searchParams.get("limite");
     const limite = limiteParam ? parseInt(limiteParam, 10) : undefined;
+    const verificar = searchParams.get("verificar") === "true";
+    const docVerificar = searchParams.get("doc")?.trim();
+    const telVerificar = searchParams.get("tel")?.trim()?.replace(/[^\d+]/g, "");
+    const excluirId = searchParams.get("excluirId")?.trim();
+
+    // Verificación ultra-rápida de duplicados para formularios de mostrador
+    if (verificar) {
+      if (!docVerificar && !telVerificar) {
+        return NextResponse.json({ success: true, existe: false }, { headers: NO_CACHE_HEADERS });
+      }
+
+      const orConditions: any[] = [];
+      if (docVerificar) {
+        orConditions.push({ documento: docVerificar.toUpperCase() });
+      }
+      if (telVerificar && telVerificar.length >= 7 && !["0000000000", "0000000", "1234567"].includes(telVerificar)) {
+        orConditions.push({ telefono: telVerificar });
+        orConditions.push({ telefonoSecundario: telVerificar });
+      }
+
+      if (orConditions.length === 0) {
+        return NextResponse.json({ success: true, existe: false }, { headers: NO_CACHE_HEADERS });
+      }
+
+      const clienteDuplicado = await prisma.cliente.findFirst({
+        where: {
+          AND: [
+            excluirId ? { id: { not: excluirId } } : {},
+            { OR: orConditions },
+          ],
+        },
+        select: {
+          id: true,
+          documento: true,
+          nombre: true,
+          telefono: true,
+          telefonoSecundario: true,
+          email: true,
+          direccion: true,
+          notas: true,
+          esResponsableIVA: true,
+          tipoIdentificacion: true,
+          digitoVerificacion: true,
+          razonSocial: true,
+          responsabilidadFiscal: true,
+          municipio: true,
+          codigoDaneMunicipio: true,
+        },
+      });
+
+      if (clienteDuplicado) {
+        const esMismoDoc = Boolean(docVerificar && clienteDuplicado.documento.toUpperCase() === docVerificar.toUpperCase());
+        return NextResponse.json(
+          {
+            success: true,
+            existe: true,
+            motivo: esMismoDoc ? "documento" : "telefono",
+            cliente: { ...clienteDuplicado, identificacion: clienteDuplicado.documento },
+          },
+          { headers: NO_CACHE_HEADERS }
+        );
+      }
+
+      return NextResponse.json({ success: true, existe: false }, { headers: NO_CACHE_HEADERS });
+    }
 
     let where: Record<string, unknown> = {};
 
@@ -233,7 +298,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verificar si ya existe un cliente con ese documento
-    const clienteExistente = await prisma.cliente.findUnique({
+    const clienteExistenteDoc = await prisma.cliente.findUnique({
       where: { documento: docSanitizado },
       select: {
         id: true,
@@ -256,16 +321,61 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (clienteExistente) {
+    if (clienteExistenteDoc) {
       return NextResponse.json(
         {
           success: true,
-          mensaje: "El cliente ya se encontraba registrado",
-          cliente: clienteExistente,
+          mensaje: `El cliente con documento ${docSanitizado} ya se encontraba registrado (${clienteExistenteDoc.nombre})`,
+          cliente: clienteExistenteDoc,
           yaExistia: true,
+          motivoDuplicado: "DOCUMENTO",
         },
         { status: 200 }
       );
+    }
+
+    // Verificar si ya existe un cliente con ese teléfono (exceptuando números genéricos)
+    if (telSanitizado && !["0000000000", "0000000", "1234567"].includes(telSanitizado)) {
+      const clienteExistenteTel = await prisma.cliente.findFirst({
+        where: {
+          OR: [
+            { telefono: telSanitizado },
+            { telefonoSecundario: telSanitizado },
+          ],
+        },
+        select: {
+          id: true,
+          documento: true,
+          nombre: true,
+          telefono: true,
+          telefonoSecundario: true,
+          email: true,
+          direccion: true,
+          notas: true,
+          esResponsableIVA: true,
+          tipoIdentificacion: true,
+          digitoVerificacion: true,
+          razonSocial: true,
+          responsabilidadFiscal: true,
+          municipio: true,
+          codigoDaneMunicipio: true,
+          fechaCreacion: true,
+          updatedAt: true,
+        },
+      });
+
+      if (clienteExistenteTel) {
+        return NextResponse.json(
+          {
+            success: true,
+            mensaje: `Ya existe un cliente registrado con el teléfono ${telSanitizado}: ${clienteExistenteTel.nombre}`,
+            cliente: clienteExistenteTel,
+            yaExistia: true,
+            motivoDuplicado: "TELEFONO",
+          },
+          { status: 200 }
+        );
+      }
     }
 
     const nuevoCliente = await prisma.cliente.create({

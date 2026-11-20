@@ -2208,9 +2208,16 @@ export default function TerminalAlquileresPage() {
                           <input
                             ref={inputBuscarClienteRef}
                             type="text"
-                            placeholder="Buscar cliente por nombre, cédula, teléfono..."
+                            placeholder="Buscar cliente por nombre, cédula, teléfono (Enter para seleccionar)..."
                             value={busquedaCliente}
                             onChange={(e) => setBusquedaCliente(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && clientesFiltrados.length > 0) {
+                                e.preventDefault();
+                                setClienteSeleccionado(clientesFiltrados[0]);
+                                setPasoActual(2);
+                              }
+                            }}
                             className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
                           />
                         </div>
@@ -2377,9 +2384,36 @@ export default function TerminalAlquileresPage() {
                           <input
                             ref={inputBuscarPrendaRef}
                             type="text"
-                            placeholder="Buscar prenda por nombre, código, color o talla..."
+                            placeholder="Buscar prenda por nombre, código o escanee con pistola (+ Enter)..."
                             value={busquedaPrenda}
                             onChange={(e) => setBusquedaPrenda(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const query = busquedaPrenda.trim().toLowerCase();
+                                if (!query) return;
+
+                                const coincidenciaExacta = prendas.find(
+                                  (p) =>
+                                    p.codigo.trim().toLowerCase() === query ||
+                                    (p as any).codigoBarras?.trim().toLowerCase() === query
+                                );
+
+                                if (coincidenciaExacta) {
+                                  agregarPrendaAlCarrito(coincidenciaExacta);
+                                  setBusquedaPrenda("");
+                                  setTimeout(() => inputBuscarPrendaRef.current?.focus(), 15);
+                                  return;
+                                }
+
+                                if (prendasFiltradas.length === 1) {
+                                  agregarPrendaAlCarrito(prendasFiltradas[0]);
+                                  setBusquedaPrenda("");
+                                  setTimeout(() => inputBuscarPrendaRef.current?.focus(), 15);
+                                  return;
+                                }
+                              }
+                            }}
                             className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
                           />
                         </div>
