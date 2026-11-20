@@ -19,6 +19,7 @@ import {
   Check,
   Receipt,
   Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import Tooltip from "@/components/ui/Tooltip";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
@@ -47,7 +48,7 @@ export const METODOS_PAGO_CATALOGO: MetodoOpcion[] = [
     nombre: "Efectivo",
     alias: "Efectivo",
     icono: Banknote,
-    descripcion: "Pago en efectivo en gaveta física con cálculo de vueltas",
+    descripcion: "Efectivo en gaveta física con cálculo de vueltas",
   },
   {
     id: "BANCOLOMBIA",
@@ -64,13 +65,6 @@ export const METODOS_PAGO_CATALOGO: MetodoOpcion[] = [
     descripcion: "Transferencia electrónica a cuenta Nequi",
   },
   {
-    id: "LLAVE",
-    nombre: "Bre-B",
-    alias: "Bre-B / Llave",
-    icono: Coins,
-    descripcion: "Transferencia inmediata interoperable Bre-B / Llave",
-  },
-  {
     id: "DAVIPLATA",
     nombre: "Daviplata",
     alias: "Daviplata",
@@ -78,22 +72,65 @@ export const METODOS_PAGO_CATALOGO: MetodoOpcion[] = [
     descripcion: "Transferencia electrónica a cuenta Daviplata",
   },
   {
+    id: "LLAVE",
+    nombre: "Bre-B",
+    alias: "Bre-B / Llave",
+    icono: Coins,
+    descripcion: "Transferencia interoperable Bre-B / Llave",
+  },
+  {
     id: "TRANSFERENCIA",
     nombre: "Transferencia",
     alias: "Transf. Genérica",
     icono: CreditCard,
-    descripcion: "Transferencia desde otros bancos o pasarelas",
+    descripcion: "Transferencia desde otros bancos",
   },
   {
     id: "CONSIGNACION",
     nombre: "Consignación",
     alias: "Consignación",
     icono: Landmark,
-    descripcion: "Consignación o depósito bancario certificado",
+    descripcion: "Depósito bancario certificado",
   },
 ];
 
-export const BILLETES_RAPIDOS_COL = [10000, 20000, 50000, 100000];
+export const OTROS_METODOS_CATALOGO: MetodoOpcion[] = [
+  {
+    id: "NEQUI",
+    nombre: "Nequi",
+    alias: "Nequi",
+    icono: Smartphone,
+    descripcion: "Transferencia a cuenta Nequi",
+  },
+  {
+    id: "DAVIPLATA",
+    nombre: "Daviplata",
+    alias: "Daviplata",
+    icono: Smartphone,
+    descripcion: "Transferencia a Daviplata",
+  },
+  {
+    id: "LLAVE",
+    nombre: "Bre-B / Llave",
+    alias: "Bre-B",
+    icono: Coins,
+    descripcion: "Transferencia Bre-B / Llave",
+  },
+  {
+    id: "TRANSFERENCIA",
+    nombre: "Transferencia",
+    alias: "Transf. Genérica",
+    icono: CreditCard,
+    descripcion: "Transferencia desde otros bancos",
+  },
+  {
+    id: "CONSIGNACION",
+    nombre: "Consignación",
+    alias: "Consignación",
+    icono: Landmark,
+    descripcion: "Depósito bancario certificado",
+  },
+];
 
 export interface PanelPagosSecuencialesProps {
   totalExigible: number;
@@ -368,33 +405,86 @@ export default function PanelPagosSecuenciales({
           </span>
         </div>
 
-        {/* Grilla Simétrica de los 7 Métodos con Iconos y Tooltip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
-          {METODOS_PAGO_CATALOGO.map((m) => {
-            const IconM = m.icono;
-            const esActivo = metodoSeleccionado === m.id;
-            return (
-              <Tooltip key={m.id} content={m.nombre} subtext={m.descripcion} position="top">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMetodoSeleccionado(m.id);
-                    if (m.id === "EFECTIVO" && !efectivoRecibidoInput) {
-                      setEfectivoRecibidoInput(String(montoAbonarNum || saldoFaltante));
-                    }
-                  }}
-                  className={`py-2 px-1.5 rounded-xl text-xs font-bold border transition flex flex-col items-center justify-center gap-1 cursor-pointer w-full ${
-                    esActivo
-                      ? `${estilosColor.botonPrimario} shadow-xs ring-2 ${estilosColor.ringFocus}`
-                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100/90"
-                  }`}
-                >
-                  <IconM className="w-4 h-4 shrink-0" />
-                  <span className="text-[11px] font-semibold truncate max-w-full">{m.alias}</span>
-                </button>
-              </Tooltip>
-            );
-          })}
+        {/* Selector de Métodos: Efectivo, Bancolombia y Desplegable de Otros Bancos */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {/* 1. Efectivo */}
+          <Tooltip content="Efectivo en caja física" subtext="Cálculo de vueltas en gaveta" position="top">
+            <button
+              type="button"
+              onClick={() => {
+                setMetodoSeleccionado("EFECTIVO");
+                if (!efectivoRecibidoInput) {
+                  setEfectivoRecibidoInput(String(montoAbonarNum || saldoFaltante));
+                }
+              }}
+              className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer w-full ${
+                metodoSeleccionado === "EFECTIVO"
+                  ? `${estilosColor.botonPrimario} shadow-xs ring-2 ${estilosColor.ringFocus}`
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <Banknote className="w-4 h-4 shrink-0" />
+              <span>Efectivo</span>
+            </button>
+          </Tooltip>
+
+          {/* 2. Bancolombia */}
+          <Tooltip content="Transferencia Bancolombia" subtext="QR o transferencia a cuenta Bancolombia" position="top">
+            <button
+              type="button"
+              onClick={() => setMetodoSeleccionado("BANCOLOMBIA")}
+              className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer w-full ${
+                metodoSeleccionado === "BANCOLOMBIA"
+                  ? `${estilosColor.botonPrimario} shadow-xs ring-2 ${estilosColor.ringFocus}`
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <Building2 className="w-4 h-4 shrink-0" />
+              <span>Bancolombia</span>
+            </button>
+          </Tooltip>
+
+          {/* 3. Desplegable Otros Bancos / Medios */}
+          <div className="relative">
+            <div
+              className={`relative flex items-center rounded-xl border transition cursor-pointer w-full ${
+                metodoSeleccionado !== "EFECTIVO" && metodoSeleccionado !== "BANCOLOMBIA"
+                  ? `${estilosColor.botonPrimario} shadow-xs ring-2 ${estilosColor.ringFocus}`
+                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <div className="pl-3 py-2 flex items-center gap-1.5 pointer-events-none">
+                <CreditCard className="w-4 h-4 shrink-0" />
+              </div>
+              <select
+                value={
+                  metodoSeleccionado !== "EFECTIVO" && metodoSeleccionado !== "BANCOLOMBIA"
+                    ? metodoSeleccionado
+                    : ""
+                }
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setMetodoSeleccionado(e.target.value);
+                  }
+                }}
+                className={`w-full py-2 pl-1.5 pr-8 text-xs font-bold bg-transparent outline-none cursor-pointer appearance-none ${
+                  metodoSeleccionado !== "EFECTIVO" && metodoSeleccionado !== "BANCOLOMBIA"
+                    ? "text-white font-black"
+                    : "text-slate-700"
+                }`}
+              >
+                <option value="" disabled className="text-slate-800 bg-white">
+                  Otros Bancos / Medios ▼
+                </option>
+                {OTROS_METODOS_CATALOGO.map((om) => (
+                  <option key={om.id} value={om.id} className="text-slate-800 bg-white">
+                    {om.alias}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-2.5 pointer-events-none opacity-70" />
+            </div>
+          </div>
         </div>
 
         {/* Campos de Entrada: Monto a Abonar + Efectivo Recibido / Referencia */}
@@ -403,7 +493,7 @@ export default function PanelPagosSecuenciales({
           <div className={`${metodoSeleccionado === "EFECTIVO" ? "sm:col-span-5" : "sm:col-span-8"} space-y-1`}>
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-bold text-slate-700 block">
-                Monto a Abonar con {metodoSeleccionado}:
+                Monto ({metodoSeleccionado}):
               </label>
               {saldoFaltante > 0 && montoAbonarNum !== saldoFaltante && (
                 <button
@@ -448,10 +538,10 @@ export default function PanelPagosSecuenciales({
           {metodoSeleccionado === "EFECTIVO" ? (
             <div className="sm:col-span-7 space-y-1">
               <label className="text-[11px] font-bold text-slate-700 block">
-                Efectivo Recibido (Cálculo de Vueltas):
+                Efectivo Recibido:
               </label>
-              <div className="space-y-1.5">
-                <div className="relative">
+              <div className="flex items-center gap-1.5">
+                <div className="relative flex-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
                   <input
                     type="number"
@@ -468,35 +558,23 @@ export default function PanelPagosSecuenciales({
                   />
                 </div>
 
-                {/* Billetes Rápidos */}
-                <div className="flex items-center gap-1">
-                  {BILLETES_RAPIDOS_COL.map((den) => (
-                    <Tooltip key={den} content={`Fijar billete de $${den.toLocaleString("es-CO")}`} position="top">
-                      <button
-                        type="button"
-                        onClick={() => setEfectivoRecibidoInput(String(den))}
-                        className="flex-1 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-[10px] font-bold transition font-mono cursor-pointer"
-                      >
-                        ${(den / 1000).toFixed(0)}k
-                      </button>
-                    </Tooltip>
-                  ))}
-                  <Tooltip content="Recibir monto exacto (vueltas $0)" position="top">
-                    <button
-                      type="button"
-                      onClick={() => setEfectivoRecibidoInput(String(montoAbonarNum || saldoFaltante))}
-                      className="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 text-[10px] font-bold hover:bg-emerald-100 transition cursor-pointer"
-                    >
-                      Exacto
-                    </button>
-                  </Tooltip>
-                </div>
+                {/* ÚNICO BOTÓN "EXACTO" */}
+                <Tooltip content="Fijar valor exacto a cobrar (vueltas $0)" position="top">
+                  <button
+                    type="button"
+                    onClick={() => setEfectivoRecibidoInput(String(montoAbonarNum || saldoFaltante))}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Exacto</span>
+                  </button>
+                </Tooltip>
               </div>
             </div>
           ) : (
             <div className="sm:col-span-4 space-y-1">
               <label className="text-[11px] font-bold text-slate-700 block">
-                N° Aprobación / Referencia (Opcional):
+                Referencia (Opcional):
               </label>
               <input
                 type="text"
@@ -508,7 +586,7 @@ export default function PanelPagosSecuenciales({
                     agregarPagoALista();
                   }
                 }}
-                placeholder="Ej. Últimos 4 dígitos o comprobante"
+                placeholder="Ej. N° aprobación o comprobante"
                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -533,13 +611,13 @@ export default function PanelPagosSecuenciales({
           </div>
         )}
 
-        {/* Botón de Acción Principal: Aplicar / Abonar Pago */}
+        {/* Botón de Acción Principal: Registrar Pago */}
         <div className="pt-1 flex items-center justify-between gap-2">
-          <p className="text-[11px] text-slate-500">
+          <span className="text-[11px] font-semibold text-slate-500">
             {saldoFaltante > 0
-              ? `Aplica el pago de $${montoAbonarNum.toLocaleString("es-CO")} para reducir el saldo restante.`
-              : "Operación 100% cubierta. Si deseas cambiar un pago, elimínalo de la lista abajo."}
-          </p>
+              ? `Abono: $${montoAbonarNum.toLocaleString("es-CO")}`
+              : "Total cubierto"}
+          </span>
 
           <Tooltip content="Agregar este pago a la orden actual" position="top">
             <button
@@ -549,7 +627,7 @@ export default function PanelPagosSecuenciales({
               className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs ${estilosColor.botonPrimario}`}
             >
               <Plus className="w-4 h-4" />
-              <span>Aplicar / Registrar Pago</span>
+              <span>Registrar Pago</span>
             </button>
           </Tooltip>
         </div>

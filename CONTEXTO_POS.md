@@ -5077,3 +5077,55 @@ Se implementó el paquete integral de actualizaciones y optimizaciones operativa
 - **Build de Producción:** `npm run build` ejecutado exitosamente con **código 0 y 22 rutas optimizadas**.
 - **Estándares:** Cero emojis, tipado estricto, iconografía `lucide-react`, CERO códigos QR de clientes.
 
+---
+
+## 39. MINIMALISMO VISUAL, BOTÓN EXACTO ÚNICO, 3 MÉTODOS DE PAGO Y NOMBRE DEL DÍA EN FECHAS Y FACTURAS
+
+### 1. Resumen de la Implementación
+En atención directa a la reducción de sobrecarga visual en mostrador y a los 5 lineamientos de simplificación operativa:
+1. **Eliminación de Textos Largos e Innecesarios:**
+   - Se suprimieron ayudas extensas, explicaciones redundantes y etiquetas saturadas en formularios y tarjetas.
+   - En `/caja/alquileres`, la etiqueta larga `"Sugerido según último abono ($...) — Editable"` fue sustituida por `"Monto Acordado ($)"` con un badge conciso `"Editable"` y tooltip informativo al posar el cursor (`<Tooltip />`).
+   - El banner de reglas de devolución `"Regla automática aplicada: Entrega pactada el Lunes hasta las 8:00 p.m."` se convirtió en un badge limpio `"Pactado: lunes 8:00 p.m."` con tooltip explicativo.
+   - En `/caja/apartados` se homogeneizó la misma estructura en selectores de fechas y encabezados.
+
+2. **Billetes Rápidos: Únicamente Botón "Exacto":**
+   - Se eliminaron por completo todos los botones de billetes rápidos (`+$2k`, `+$5k`, `+$10k`, `+$20k`, `+$50k`, `+$100k`) tanto en el panel secuencial de caja (`PanelPagosSecuenciales.tsx`) como en los modales de abonos posteriores de Alquileres (`/caja/alquileres`) y Apartados (`/caja/apartados`).
+   - Se dejó **únicamente el botón "Exacto"** (con ícono `Check`), permitiendo con un solo clic fijar el monto exacto a cobrar o abonar con vueltas $0.
+
+3. **Homologación de Métodos de Pago a 3 Canales Simétricos:**
+   - Se erradicó la grilla saturada de 7 botones angostos que truncaba textos (`Efec...`, `Banc...`, `Bre-...`, `Davi...`, `Tran...`, `Cons...`).
+   - La interfaz se reorganizó en **3 columnas limpias y amplias**:
+     1. **Efectivo** (Botón con ícono `Banknote`).
+     2. **Bancolombia** (Botón con ícono `Building2`).
+     3. **Desplegable Otros Bancos / Medios ▼** (Selector estilizado con ícono `CreditCard` y flecha `ChevronDown`) conteniendo: `Nequi`, `Bre-B / Llave`, `Daviplata`, `Transferencia` y `Consignación`.
+   - Se aplicó idéntica estructura simétrica en `PanelPagosSecuenciales.tsx`, en el modal de abonos de Alquileres y en el modal de abonos de Apartados.
+
+4. **Nombre del Día de la Semana en Calendarios y Fechas:**
+   - En `src/lib/fechas-alquiler.ts` se implementaron de forma segura con zona horaria local:
+     - `formatearFechaConDia(val, withTime, formato)`
+     - `formatearEtiquetaDiaYFecha(val, withTime)`
+     - Constantes en español: `NOMBRES_DIAS_SEMANA`, `NOMBRES_MESES_ESP`, `NOMBRES_MESES_CORTOS_ESP`.
+   - Los selectores de fechas en Alquileres y Apartados muestran de forma dinámica el día de la semana (`sábado, 21 nov 2026`, `lunes, 23 nov 2026 08:00 p. m.`).
+   - Las tablas de historial de Alquileres, Apartados y Ventas POS formatean las fechas de emisión y retiro con el día de la semana.
+
+5. **Nombre del Día en Comprobantes y Facturas (Pantalla, Impresión y PDF):**
+   - En `src/components/impresion/PlantillaImpresion.tsx`, la función central `safeDate` fue actualizada para renderizar fechas con el día de la semana en español (ej. `sábado, 21/11/2026` o `viernes, 20/11/2026 12:30 a. m.`).
+   - En `src/lib/pdf-media-carta.ts`, se homologó `safeDate` garantizando que todos los PDFs generados (Tirilla 80mm térmica, Media Carta 1 y 2 copias, Carta) reflejen el día de la semana.
+
+### 2. Archivos Modificados
+- `src/lib/fechas-alquiler.ts`
+- `src/components/caja/PanelPagosSecuenciales.tsx`
+- `src/app/caja/alquileres/page.tsx`
+- `src/app/caja/apartados/page.tsx`
+- `src/app/caja/pos/page.tsx`
+- `src/components/impresion/PlantillaImpresion.tsx`
+- `src/lib/pdf-media-carta.ts`
+- `CONTEXTO_POS.md`
+
+### 3. Control de Calidad (QA)
+- `npx tsc --noEmit`: 0 errores.
+- `npm run build`: 0 errores, generación exitosa de 22 rutas.
+- Verificación de diseño responsive, iconografía vectorial `lucide-react` y cero emojis.
+
+

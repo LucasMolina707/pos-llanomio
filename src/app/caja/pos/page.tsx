@@ -75,6 +75,7 @@ import { useMapaAtajosTeclado } from "@/hooks/useAtajoTeclado";
 import { ModalPinSupervisor } from "@/components/seguridad/ModalPinSupervisor";
 import ModalTicketsEnEspera, { TicketEnEspera } from "@/components/caja/ModalTicketsEnEspera";
 import PanelPagosSecuenciales, { PagoAplicado } from "@/components/caja/PanelPagosSecuenciales";
+import { formatearFechaConDia } from "@/lib/fechas-alquiler";
 
 export interface ProductoInventario {
   id: string;
@@ -191,8 +192,6 @@ export type PestanaHistorial =
   | "PAZ_Y_SALVOS";
 
 export type EstadoSeguridadPos = EstadoSeguridadCajaInfo;
-
-const BILLETES_COLOMBIANOS = [2000, 5000, 10000, 20000, 50000, 100000];
 
 const SUGERENCIAS_ARREGLOS = [
   "Dobladillo / Bota de pantalón",
@@ -900,11 +899,6 @@ export default function PosPage() {
   // =========================================================
   // HANDLERS DE CALCULADORA DE CAJA (VISTA 3)
   // =========================================================
-  const sumarBillete = (montoBillete: number) => {
-    const actual = Number(efectivoRecibido) || 0;
-    setEfectivoRecibido(String(actual + montoBillete));
-  };
-
   const fijarEfectivoExacto = () => {
     setEfectivoRecibido(String(valorACobrarHoy));
   };
@@ -1723,12 +1717,9 @@ export default function PosPage() {
                                     </strong>
                                   </div>
                                 </td>
-                                <td className="px-3.5 py-3 text-center text-xs font-mono text-slate-600">
+                                <td className="px-3.5 py-3 text-center text-xs font-mono text-slate-600 capitalize">
                                   {f.fechaDevolucionPactada
-                                    ? new Date(f.fechaDevolucionPactada).toLocaleString("es-CO", {
-                                      dateStyle: "short",
-                                      timeStyle: "short",
-                                    })
+                                    ? formatearFechaConDia(f.fechaDevolucionPactada, true, "corto")
                                     : "N/A"}
                                 </td>
                                 <td className="px-3.5 py-3 text-center">
@@ -1745,10 +1736,10 @@ export default function PosPage() {
                             {/* COLUMNAS SEGÚN PESTAÑA D: PAZ Y SALVOS */}
                             {pestanaHistorial === "PAZ_Y_SALVOS" && (
                               <>
-                                <td className="px-3.5 py-3 text-center text-xs font-mono text-slate-600">
+                                <td className="px-3.5 py-3 text-center text-xs font-mono text-slate-600 capitalize">
                                   {f.fechaDevolucionReal
-                                    ? new Date(f.fechaDevolucionReal).toLocaleDateString("es-CO")
-                                    : new Date(f.fechaCreacion).toLocaleDateString("es-CO")}
+                                    ? formatearFechaConDia(f.fechaDevolucionReal, false, "corto")
+                                    : formatearFechaConDia(f.fechaCreacion, false, "corto")}
                                 </td>
                                 <td className="px-3.5 py-3 text-right font-mono font-black text-slate-900 text-sm md:text-base">
                                   ${f.totalFactura.toLocaleString("es-CO")}

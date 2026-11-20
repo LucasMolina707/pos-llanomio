@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import { DatosImpresionFactura, FormatoImpresionTipo } from "@/components/impresion/PlantillaImpresion";
+import { formatearFechaConDia } from "@/lib/fechas-alquiler";
 
 /**
  * Dimensiones exactas de Media Carta (Half Letter) Horizontal:
@@ -58,11 +59,7 @@ const formatCOP = (val: unknown): string => {
 
 const safeDate = (val: unknown, withTime = false): string => {
   if (!val) return "—";
-  const d = new Date(val as string | number | Date);
-  if (isNaN(d.getTime())) return "—";
-  return withTime
-    ? d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })
-    : d.toLocaleDateString("es-CO");
+  return formatearFechaConDia(val, withTime, "corto");
 };
 
 /**
@@ -294,10 +291,7 @@ function dibujarPaginaMediaCarta(
 
   // Columna Derecha: Operación & Fechas
   const xColOp = ANCHO_MEDIA_CARTA_MM / 2 + 8;
-  const fechaTexto = new Date(factura.fechaCreacion).toLocaleString("es-CO", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+  const fechaTexto = safeDate(factura.fechaCreacion, true);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
   doc.setTextColor(100, 116, 139);
@@ -439,7 +433,7 @@ function dibujarPaginaMediaCarta(
     doc.setFont("helvetica", "bold");
     doc.setTextColor(185, 28, 28);
     const devTexto = factura.fechaDevolucionPactada
-      ? `${new Date(factura.fechaDevolucionPactada).toLocaleDateString("es-CO")} hasta 8:00 p.m. (20:00)`
+      ? `${safeDate(factura.fechaDevolucionPactada)} hasta 8:00 p.m. (20:00)`
       : "SEGÚN CONTRATO";
     doc.text(devTexto, xIzq + anchoCol - 3.5, ySub + 5, { align: "right" });
 
@@ -1047,10 +1041,7 @@ function dibujarPaginaCarta(
 
   // Columna derecha detalles
   const colDerX = anchoCartaMm / 2 + 5;
-  const fechaTexto = new Date(factura.fechaCreacion).toLocaleString("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const fechaTexto = safeDate(factura.fechaCreacion, true);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.text("DETALLES DE LA OPERACIÓN:", colDerX, cursorY + 5);
@@ -1061,10 +1052,7 @@ function dibujarPaginaCarta(
   doc.text(`Tipo Operación: ${factura.tipoOperacion}`, colDerX, cursorY + 13.5);
 
   if (esAlquiler && factura.fechaDevolucionPactada) {
-    const devTexto = new Date(factura.fechaDevolucionPactada).toLocaleString("es-CO", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
+    const devTexto = safeDate(factura.fechaDevolucionPactada, true);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(180, 83, 9);
     doc.text(`Devolución Pactada: ${devTexto}`, colDerX, cursorY + 17.5);
@@ -1191,7 +1179,7 @@ function dibujarPaginaCarta(
     doc.setFont("helvetica", "bold");
     doc.setTextColor(185, 28, 28);
     const devTexto = factura.fechaDevolucionPactada
-      ? `${new Date(factura.fechaDevolucionPactada).toLocaleDateString("es-CO")} hasta 8:00 p.m. (20:00)`
+      ? `${safeDate(factura.fechaDevolucionPactada)} hasta 8:00 p.m. (20:00)`
       : "SEGÚN CONTRATO";
     doc.text(devTexto, xIzq + anchoCol - 4.5, ySub + 6.2, { align: "right" });
 
@@ -1689,7 +1677,7 @@ function dibujarContenidoTirilla(
   cursorY += 3.2;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.2);
-  doc.text(`Fecha: ${new Date(factura.fechaCreacion).toLocaleString("es-CO")}`, margen, cursorY);
+  doc.text(`Fecha: ${safeDate(factura.fechaCreacion, true)}`, margen, cursorY);
 
   if (empresa.mostrarVendedorFactura !== false && factura.usuarioCajero?.nombre) {
     cursorY += 3;
@@ -1724,7 +1712,7 @@ function dibujarContenidoTirilla(
     doc.text(`FINANCIERO: ${infoTir.textoEstadoFinanciero}`, margen, cursorY);
     cursorY += 3;
     doc.setFont("helvetica", "normal");
-    doc.text(`Salida: ${new Date(factura.fechaEntregaAlquiler || factura.fechaCreacion).toLocaleDateString("es-CO")}`, margen, cursorY);
+    doc.text(`Salida: ${safeDate(factura.fechaEntregaAlquiler || factura.fechaCreacion)}`, margen, cursorY);
     cursorY += 3;
     doc.setFont("helvetica", "bold");
     if (infoTir.estaEnMora) {
@@ -1808,7 +1796,7 @@ function dibujarContenidoTirilla(
     doc.setFont("helvetica", "bold");
     doc.setTextColor(185, 28, 28);
     const devTextoTir = factura.fechaDevolucionPactada
-      ? `• FECHA LÍMITE DE ENTREGA: ${new Date(factura.fechaDevolucionPactada).toLocaleDateString("es-CO")} hasta 8:00 p.m. (20:00)`
+      ? `• FECHA LÍMITE DE ENTREGA: ${safeDate(factura.fechaDevolucionPactada)} hasta 8:00 p.m. (20:00)`
       : "• FECHA LÍMITE DE ENTREGA: SEGÚN CONTRATO";
     doc.text(devTextoTir, margen, cursorY);
     doc.setTextColor(0, 0, 0);

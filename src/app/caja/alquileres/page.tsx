@@ -54,6 +54,7 @@ import {
   Building2,
   Split,
   Wallet,
+  ChevronDown,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import PanelPagosSecuenciales, { PagoAplicado } from "@/components/caja/PanelPagosSecuenciales";
@@ -71,7 +72,7 @@ import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
-import { calcularFechaDevolucionAlquiler, obtenerDescripcionReglaDevolucion } from "@/lib/fechas-alquiler";
+import { calcularFechaDevolucionAlquiler, obtenerDescripcionReglaDevolucion, formatearEtiquetaDiaYFecha, formatearFechaConDia } from "@/lib/fechas-alquiler";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useMapaAtajosTeclado } from "@/hooks/useAtajoTeclado";
 import { ModalPinSupervisor } from "@/components/seguridad/ModalPinSupervisor";
@@ -206,7 +207,6 @@ export type VistaPrincipalAlquiler = "NUEVO_ALQUILER" | "HISTORIAL_CENTRO";
 export type PestanaHistorialAlquiler = "ACTIVAS" | "EN_MORA" | "POR_COBRAR" | "CERRADAS";
 
 const DEPOSITOS_SUGERIDOS = [0, 20000, 40000, 50000, 100000, 150000];
-const BILLETES_COLOMBIANOS = [20000, 50000, 100000, 200000];
 
 export default function TerminalAlquileresPage() {
   // Navegación principal y pasos
@@ -1879,8 +1879,8 @@ export default function TerminalAlquileresPage() {
                                 <span className="font-black text-slate-900 block">
                                   N° {factura.numeroFactura}
                                 </span>
-                                <span className="text-[11px] text-slate-400">
-                                  {new Date(factura.fechaCreacion).toLocaleDateString("es-CO")}
+                                <span className="text-[11px] text-slate-400 capitalize">
+                                  {formatearFechaConDia(factura.fechaCreacion, false, "corto")}
                                 </span>
                               </td>
 
@@ -1915,8 +1915,8 @@ export default function TerminalAlquileresPage() {
                               <td className="py-3 px-3">
                                 {fechaDev ? (
                                   <div>
-                                    <span className="font-bold text-slate-800 block">
-                                      {fechaDev.toLocaleDateString("es-CO", { dateStyle: "medium" })}
+                                    <span className="font-bold text-slate-800 block capitalize">
+                                      {formatearFechaConDia(fechaDev, true, "corto")}
                                     </span>
                                     <span className="text-[11px] text-slate-500">
                                       {fechaDev.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}
@@ -2521,7 +2521,7 @@ export default function TerminalAlquileresPage() {
                           Paso 3: Cobro, Depósito en Garantía y Liquidación
                         </h2>
                         <p className="text-xs text-slate-500">
-                          El depósito de respaldo debe cobrarse obligatoriamente en efectivo físico para custodia en gaveta.
+                          Depósito de respaldo en efectivo físico para custodia en gaveta.
                         </p>
                       </div>
 
@@ -2546,11 +2546,11 @@ export default function TerminalAlquileresPage() {
                                 </div>
 
                                 <p className="text-[11px] text-amber-900/90 leading-relaxed mb-3">
-                                  Custodia en efectivo para respaldo contra pérdida o daños. Se reintegra al devolver las prendas en óptimas condiciones.
+                                  Depósito en custodia reintegrable al devolver las prendas a conformidad.
                                 </p>
 
                                 <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                                  Monto de Depósito Sugerido:
+                                  Monto Sugerido:
                                 </label>
                                 <div className="flex flex-wrap gap-1.5 mb-2.5">
                                   {DEPOSITOS_SUGERIDOS.map((sug) => (
@@ -2579,13 +2579,15 @@ export default function TerminalAlquileresPage() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                   <div>
-                                    <div className="flex flex-col mb-1">
+                                    <div className="flex items-center justify-between mb-1">
                                       <label className="text-[11px] font-bold text-slate-700">
                                         Monto Acordado ($)
                                       </label>
-                                      <span className="text-[10px] font-semibold text-amber-800">
-                                        Sugerido según último abono (${ultimoAbonoSugeridoAlquiler.toLocaleString("es-CO")}) — Editable
-                                      </span>
+                                      <Tooltip content={`Sugerido de último abono: $${ultimoAbonoSugeridoAlquiler.toLocaleString("es-CO")}`} position="top">
+                                        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded cursor-help">
+                                          Editable
+                                        </span>
+                                      </Tooltip>
                                     </div>
                                     <input
                                       type="number"
@@ -2731,18 +2733,23 @@ export default function TerminalAlquileresPage() {
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block shrink-0">
                     Fechas del Contrato
                   </span>
-                  {itemsCarrito.length > 0 && reglaFechaTexto.mensajeInformativo && (
+                  {itemsCarrito.length > 0 && reglaFechaTexto.diaEntrega && (
                     <span
                       className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-semibold truncate max-w-[190px]"
                       title={reglaFechaTexto.mensajeInformativo}
                     >
-                      {reglaFechaTexto.mensajeInformativo}
+                      Pactado: {reglaFechaTexto.diaEntrega} 8:00 p.m.
                     </span>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-600 block">Salida / Entrega *</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-slate-600 block">Salida *</label>
+                      <span className="text-[9.5px] font-bold text-emerald-700 capitalize truncate">
+                        {formatearEtiquetaDiaYFecha(fechaSalida)}
+                      </span>
+                    </div>
                     <input
                       type="date"
                       value={fechaSalida}
@@ -2751,7 +2758,12 @@ export default function TerminalAlquileresPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-600 block">Devolución Pactada (8:00 p.m.) *</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-slate-600 block">Devolución (8:00 p.m.) *</label>
+                      <span className="text-[9.5px] font-bold text-blue-800 capitalize truncate">
+                        {formatearEtiquetaDiaYFecha(fechaDevolucion, true)}
+                      </span>
+                    </div>
                     <input
                       type="datetime-local"
                       value={fechaDevolucion}
@@ -3449,39 +3461,88 @@ export default function TerminalAlquileresPage() {
             )}
           </div>
 
-          {/* Selector de Método de Pago */}
+          {/* Selector de Método de Pago: Efectivo, Bancolombia y Desplegable Otros Bancos */}
           <div>
             <label className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block mb-1.5">
               Método de Pago:
             </label>
             <div className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  { id: "EFECTIVO", label: "Efectivo", icon: Banknote },
-                  { id: "BANCOLOMBIA", label: "Bancolombia", icon: CreditCard },
-                  { id: "NEQUI", label: "Nequi", icon: Smartphone },
-                  { id: "LLAVE", label: "Llave", icon: CreditCard },
-                  { id: "DAVIPLATA", label: "Daviplata", icon: Smartphone },
-                  { id: "TRANSFERENCIA", label: "Transferencia", icon: CreditCard },
-                ] as const
-              ).map((m) => {
-                const IconComp = m.icon;
-                const activo = metodoPagoAbonar === m.id;
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setMetodoPagoAbonar(m.id)}
-                    className={`p-2 rounded-xl border flex items-center justify-center gap-1.5 font-bold transition-all ${activo
+              {/* 1. Efectivo */}
+              <button
+                type="button"
+                onClick={() => setMetodoPagoAbonar("EFECTIVO")}
+                className={`p-2 rounded-xl border flex items-center justify-center gap-1.5 font-bold transition-all ${
+                  metodoPagoAbonar === "EFECTIVO"
+                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <Banknote className="w-3.5 h-3.5" />
+                <span className="text-xs">Efectivo</span>
+              </button>
+
+              {/* 2. Bancolombia */}
+              <button
+                type="button"
+                onClick={() => setMetodoPagoAbonar("BANCOLOMBIA")}
+                className={`p-2 rounded-xl border flex items-center justify-center gap-1.5 font-bold transition-all ${
+                  metodoPagoAbonar === "BANCOLOMBIA"
+                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                <span className="text-xs">Bancolombia</span>
+              </button>
+
+              {/* 3. Desplegable Otros Bancos / Medios */}
+              <div className="relative">
+                <select
+                  value={
+                    ["EFECTIVO", "BANCOLOMBIA"].includes(metodoPagoAbonar)
+                      ? ""
+                      : metodoPagoAbonar
+                  }
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setMetodoPagoAbonar(e.target.value as MetodoPagoAlquiler);
+                    }
+                  }}
+                  className={`w-full h-full p-2 pr-6 rounded-xl border font-bold text-xs appearance-none transition-all cursor-pointer ${
+                    !["EFECTIVO", "BANCOLOMBIA"].includes(metodoPagoAbonar)
                       ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
                       : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                      }`}
-                  >
-                    <IconComp className="w-3.5 h-3.5" />
-                    <span className="text-[11px]">{m.label}</span>
-                  </button>
-                );
-              })}
+                  }`}
+                >
+                  <option value="" disabled className="text-slate-700 bg-white">
+                    {["EFECTIVO", "BANCOLOMBIA"].includes(metodoPagoAbonar)
+                      ? "Otros Bancos..."
+                      : `Canal: ${metodoPagoAbonar}`}
+                  </option>
+                  <option value="NEQUI" className="text-slate-900 bg-white">
+                    Nequi
+                  </option>
+                  <option value="LLAVE" className="text-slate-900 bg-white">
+                    Bre-B / Llave
+                  </option>
+                  <option value="DAVIPLATA" className="text-slate-900 bg-white">
+                    Daviplata
+                  </option>
+                  <option value="TRANSFERENCIA" className="text-slate-900 bg-white">
+                    Transferencia
+                  </option>
+                  <option value="CONSIGNACION" className="text-slate-900 bg-white">
+                    Consignación
+                  </option>
+                </select>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${
+                    !["EFECTIVO", "BANCOLOMBIA"].includes(metodoPagoAbonar)
+                      ? "text-white"
+                      : "text-slate-500"
+                  }`}
+                />
+              </div>
             </div>
           </div>
 
@@ -3495,9 +3556,10 @@ export default function TerminalAlquileresPage() {
                 <button
                   type="button"
                   onClick={() => setEfectivoRecibidoAbonar(montoAbonar)}
-                  className="text-[10px] font-bold text-emerald-700 hover:underline"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10.5px] font-bold transition shadow-2xs cursor-pointer"
                 >
-                  Monto Exacto
+                  <Check className="w-3 h-3" />
+                  <span>Exacto</span>
                 </button>
               </div>
               <div className="relative">
@@ -3509,20 +3571,6 @@ export default function TerminalAlquileresPage() {
                   placeholder="0"
                   className="w-full pl-9 pr-3 py-1.5 text-xs font-bold bg-white border border-emerald-300 rounded-lg text-emerald-950"
                 />
-              </div>
-
-              {/* Botones de denominaciones colombianas */}
-              <div className="flex gap-1.5 pt-1">
-                {BILLETES_COLOMBIANOS.map((den) => (
-                  <button
-                    key={den}
-                    type="button"
-                    onClick={() => setEfectivoRecibidoAbonar(String(den))}
-                    className="flex-1 py-1 px-1 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-900 text-[10px] font-bold"
-                  >
-                    ${(den / 1000).toFixed(0)}k
-                  </button>
-                ))}
               </div>
 
               {/* Vueltas */}

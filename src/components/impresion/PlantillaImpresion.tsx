@@ -25,6 +25,7 @@ import {
   descargarPdfSegunFormato,
 } from "@/lib/pdf-media-carta";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
+import { formatearFechaConDia } from "@/lib/fechas-alquiler";
 
 export type FormatoImpresionTipo =
   | "TIRILLA"
@@ -178,11 +179,7 @@ const formatCOP = (val: unknown): string => {
 
 const safeDate = (val: unknown, withTime = false): string => {
   if (!val) return "—";
-  const d = new Date(val as string | number | Date);
-  if (isNaN(d.getTime())) return "—";
-  return withTime
-    ? d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })
-    : d.toLocaleDateString("es-CO");
+  return formatearFechaConDia(val, withTime, "corto");
 };
 
 export default function PlantillaImpresion({
