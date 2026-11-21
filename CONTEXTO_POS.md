@@ -5174,3 +5174,36 @@ A partir de la inspección detallada de las capturas de pantalla de la terminal 
 
 
 
+
+
+---
+
+## 15. Homologación de Entradas a Historiales y Experiencia de Vista Única en PC
+
+### 1. Resumen de Homologación de Entradas a Historiales
+Se unificó de extremo a extremo la experiencia de acceso, conmutación y visualización de los centros de historial en las 3 terminales de mostrador (`/caja/pos`, `/caja/alquileres` y `/caja/apartados`), así como en la navegación global (`Navbar` y `Sidebar`):
+
+1. **Botón de Historial en Barra Superior (`HeaderMostradorUnificado.tsx`):**
+   - **Comportamiento Toggle Simétrico:** En las 3 terminales, al hacer clic en el botón de Historial se abre el centro de historial correspondiente; y al volver a hacer clic sobre él, se regresa inmediatamente a la terminal de trabajo activa (`NUEVA_FACTURA` / `NUEVO_ALQUILER` / `NUEVO`).
+   - **Variante de Color Activa Uniforme:** Al estar activo, adopta el color temático de la sección (`emerald` en Ventas POS, `orange` en Alquileres, `indigo` en Apartados). Al estar inactivo, se mantiene uniformemente en estilo neutral en las tres páginas.
+   - **Badges Numéricos Precisos:** Reflejan el conteo en tiempo real de registros pendientes o en alerta de cada módulo específico.
+
+2. **Cabeceras Internas de Historial Homologadas 1:1:**
+   - **Identidad Visual Temática:** Icono vectorial `History` en recuadro suave con borde temático (`bg-emerald-50 text-emerald-600` para Ventas, `bg-orange-50 text-orange-600` para Alquileres, `bg-indigo-50 text-indigo-600` para Apartados).
+   - **Títulos Claros y Concretos:**
+     - Ventas: `Historial de Facturas y Ventas POS`
+     - Alquileres: `Historial de Alquileres, Devoluciones y Moras`
+     - Apartados: `Historial de Apartados y Reservas`
+   - **Badge de Registros:** Etiqueta estándar `{N} en vista` con tipografía monoespaciada en las 3 vistas.
+   - **Buscador Difuso Multicampo:** Campo de búsqueda rápida con icono `Search` y botón `X` de limpieza instantánea.
+   - **Recarga y Sincronización:** Botón unificado `<IconButtonTooltip />` con icono `RefreshCw` y tooltip explicativo.
+   - **Botón Destacado de Retorno:** Botón explícito para regresar al mostrador (`Volver a Ventas`, `Volver a Alquileres`, `Volver a Apartados`) con icono `ArrowLeft` y el color representativo del módulo.
+
+3. **Arquitectura de Vista Única en PC (Cero Scroll Global de Ventana):**
+   - Contenedores `<main>` con `flex-1 min-h-0 overflow-hidden` y grilla interna `h-full min-h-0 min-w-0 w-full grid grid-cols-12 gap-2.5 sm:gap-3 overflow-hidden`.
+   - Se eliminaron las clases conflictivas `overflow-y-auto lg:overflow-hidden` y alturas fijas `min-h-[460px]` / `min-h-[420px]` que provocaban scrollbar exterior en resoluciones 1366x768 o escala 125%.
+   - En el panel derecho de Alquileres, se erradicó la caja punteada que empujaba los botones de navegación hacia abajo cuando el carrito estaba vacío, reemplazándola por la tarjeta compacta permanente de totales (`Alquiler`, `Depósito en Garantía`, `TOTAL EXIGIDO`).
+   - Se integró el bloque de `Fechas de Reserva` en el panel derecho de Apartados con formato de día en español, manteniendo el 100% de los botones de avance visibles sin scroll.
+
+4. **Homologación de Iconografía en Menú Global (`Navbar.tsx` y `Sidebar.tsx`):**
+   - Se unificó el icono del módulo de Alquileres al icono `Shirt` (en lugar de `Clock`), armonizando la representación gráfica de las tres ramas comerciales: `ShoppingBag` (Ventas), `Shirt` (Alquileres) y `CalendarClock` (Apartados).

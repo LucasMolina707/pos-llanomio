@@ -258,13 +258,7 @@ export function HeaderMostradorUnificado({
           modulo={cfg.titulo}
           destino="Consulta de operaciones, estados y comprobantes"
           active={historialActivo}
-          variant={
-            historialActivo
-              ? cfg.activeVariant
-              : modulo === "ALQUILERES"
-              ? "orangeSoft"
-              : "neutral"
-          }
+          variant={historialActivo ? cfg.activeVariant : "neutral"}
           size="md"
           badgeCount={historialBadgeCount}
           badgeVariant={historialBadgeVariant}

@@ -1728,49 +1728,73 @@ export default function TerminalAlquileresPage() {
       )}
 
       {/* 2. CONTENIDO PRINCIPAL (VISTA A: NUEVO ALQUILER VS VISTA B: CENTRO DE HISTORIAL) */}
-      <main className="flex-1 overflow-hidden flex flex-col relative bg-slate-100/70">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col relative bg-[#F4F6F9]">
         {vistaPrincipal === "HISTORIAL_CENTRO" ? (
           /* ========================================================================= */
           /* VISTA B: CENTRO INTEGRADO DE HISTORIAL DE ALQUILERES, FECHAS Y MORAS      */
           /* ========================================================================= */
           <div className="flex-1 flex flex-col overflow-hidden p-3 sm:p-5 max-w-7xl mx-auto w-full">
-            {/* Cabecera del Centro de Historial */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-3 shrink-0">
+            {/* Cabecera del Centro de Historial Homologada 1:1 */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs mb-3 shrink-0">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-                    <History className="w-5 h-5 text-amber-600" />
-                    Centro de Monitoreo de Alquileres, Llegadas y Liquidación de Depósito
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Controle las prendas en manos de clientes, calcule recargos por mora y liquide la devolución del depósito en garantía.
-                  </p>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-orange-50 text-orange-600 border border-orange-200 shrink-0">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-black text-slate-900 tracking-tight">
+                        Historial de Alquileres, Devoluciones y Moras
+                      </h2>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 font-mono font-bold text-slate-600 border border-slate-200">
+                        {facturasHistorialVisibles.length} en vista
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Monitorea prendas alquiladas, calcula recargos por mora y liquida devoluciones de depósitos.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="relative w-64">
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <div className="relative w-full sm:w-64">
                     <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Buscar por cliente, tel o prenda..."
                       value={filtroTextoHistorial}
                       onChange={(e) => setFiltroTextoHistorial(e.target.value)}
-                      className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full pl-9 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
+                    {filtroTextoHistorial && (
+                      <button
+                        type="button"
+                        onClick={() => setFiltroTextoHistorial("")}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                  <button
+
+                  <IconButtonTooltip
+                    icon={RefreshCw}
+                    label="Recargar y sincronizar alquileres"
+                    variant="neutral"
+                    size="md"
                     onClick={cargarHistorialAlquileres}
-                    className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600"
-                    title="Recargar datos"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${cargandoHistorial ? "animate-spin" : ""}`} />
-                  </button>
+                    disabled={cargandoHistorial}
+                    iconClassName={cargandoHistorial ? "animate-spin text-orange-600" : "text-orange-600"}
+                  />
+
                   <button
+                    type="button"
                     onClick={() => setVistaPrincipal("NUEVO_ALQUILER")}
-                    className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
+                    title="Regresar a la terminal de alquileres"
                   >
-                    <Plus className="w-4 h-4" />
-                    <span>Nuevo Alquiler</span>
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Volver a Alquileres</span>
                   </button>
                 </div>
               </div>
@@ -2090,7 +2114,7 @@ export default function TerminalAlquileresPage() {
           /* ========================================================================= */
           /* VISTA A: FLUJO LINEAL DE NUEVO ALQUILER (4 PASOS HOMOLOGADOS)            */
           /* ========================================================================= */
-          <div className="flex-1 min-h-0 overflow-hidden p-3 flex flex-col">
+          <div className="flex-1 min-h-0 overflow-hidden p-2.5 sm:p-3 flex flex-col">
             {/* PASO 4: VISOR DOCUMENTAL A 12 COLUMNAS */}
             {pasoActual === 4 ? (
               <div className="h-full min-h-0 min-w-0 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden p-3 shadow-2xs">
@@ -2170,11 +2194,11 @@ export default function TerminalAlquileresPage() {
               </div>
             ) : (
               /* PASOS 1, 2 Y 3: ARQUITECTURA RESPONSIVA (12 COLS EN MOVIL / 8+4 EN ESCRITORIO) */
-              <div className="h-full min-h-0 min-w-0 w-full grid grid-cols-12 gap-3 overflow-y-auto lg:overflow-hidden">
+              <div className="h-full min-h-0 min-w-0 w-full grid grid-cols-12 gap-2.5 sm:gap-3 overflow-hidden">
                 {/* ======================================================================= */}
                 {/* PANEL IZQUIERDO DE TRABAJO (col-span-12 lg:col-span-8)                  */}
                 {/* ======================================================================= */}
-                <div className="col-span-12 lg:col-span-8 min-h-[460px] lg:h-full lg:min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+                <div className="col-span-12 lg:col-span-8 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
                   {/* --- SUB-VISTA PASO 1: DIRECTORIO DE CLIENTES --- */}
                   {pasoActual === 1 && (
                     <>
@@ -2692,7 +2716,7 @@ export default function TerminalAlquileresPage() {
                 {/* ======================================================================= */}
                 {/* PANEL DERECHO DE RESUMEN Y CARRITO PERMANENTE (col-span-12 lg:col-span-4)*/}
                 {/* ======================================================================= */}
-                <div className="col-span-12 lg:col-span-4 min-h-[420px] lg:h-full lg:min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+                <div className="col-span-12 lg:col-span-4 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
                   {/* Encabezado Cliente Asignado (shrink-0) */}
                   <div className="shrink-0 p-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2">
                     <div className="min-w-0">
@@ -2787,8 +2811,8 @@ export default function TerminalAlquileresPage() {
                   {/* Lista de Ítems con Scroll Interno Propio */}
                   <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2.5 space-y-2">
                     {itemsCarrito.length === 0 ? (
-                      <div className="p-6 text-center text-slate-400">
-                        <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <div className="p-4 sm:p-5 text-center text-slate-400">
+                        <ShoppingBag className="w-7 h-7 text-slate-300 mx-auto mb-1.5" />
                         <p className="text-xs font-semibold text-slate-600">Sin trajes en el contrato</p>
                         <p className="text-[11px] text-slate-500">Haz clic en el catálogo en el Paso 2</p>
                       </div>
@@ -2862,42 +2886,40 @@ export default function TerminalAlquileresPage() {
 
                   {/* Pie Fijo de Totales y Botones de Avance (shrink-0) */}
                   <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
-                    {itemsCarrito.length === 0 && !apartadoOrigen ? (
-                      <div className="p-3.5 rounded-xl border border-dashed border-slate-300 bg-white text-center text-xs text-slate-500 font-medium leading-relaxed">
-                        Seleccione un traje o tome un apartado para calcular precio y depósito en garantía
+                    <div className="p-2.5 rounded-xl border border-slate-200 bg-white space-y-1 text-xs">
+                      <div className="flex justify-between text-slate-600">
+                        <span>Alquiler:</span>
+                        <span className="font-mono font-bold text-slate-900">${subtotalPrendas.toLocaleString("es-CO")}</span>
                       </div>
-                    ) : (
-                      <div className="p-2.5 rounded-xl border-2 border-slate-300 bg-white space-y-1 text-xs">
-                        <div className="flex justify-between text-slate-700">
-                          <span>Alquiler:</span>
-                          <span className="font-mono font-bold text-slate-900">${subtotalPrendas.toLocaleString("es-CO")}</span>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Depósito en Garantía:</span>
+                        <span className="font-mono font-bold text-amber-800">${montoDeposito.toLocaleString("es-CO")}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-950 font-black p-1 rounded bg-slate-100 border border-slate-200">
+                        <span>TOTAL EXIGIDO:</span>
+                        <span className="font-mono text-emerald-700 text-sm font-black">${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}</span>
+                      </div>
+                      {apartadoOrigen && (
+                        <div className="flex justify-between text-indigo-700 font-bold">
+                          <span>(-) Abono Previo:</span>
+                          <span className="font-mono text-emerald-700">
+                            -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
+                          </span>
                         </div>
-                        <div className="flex justify-between text-slate-700">
-                          <span>Depósito:</span>
-                          <span className="font-mono font-bold text-amber-800">${montoDeposito.toLocaleString("es-CO")}</span>
-                        </div>
-                        <div className="flex justify-between text-slate-950 font-black p-1 rounded bg-slate-100 border border-slate-200">
-                          <span>Total Exigido:</span>
-                          <span className="font-mono text-emerald-700 text-sm">${(subtotalPrendas + montoDeposito).toLocaleString("es-CO")}</span>
-                        </div>
-                        {apartadoOrigen && (
-                          <div className="flex justify-between text-indigo-700 font-bold">
-                            <span>(-) Abono Previo:</span>
-                            <span className="font-mono text-emerald-700">
-                              -${apartadoOrigen.abonoPrevio.toLocaleString("es-CO")}
-                            </span>
+                      )}
+                      {pasoActual === 3 && (
+                        <>
+                          <div className="flex justify-between text-slate-800 font-bold pt-0.5 border-t border-dashed border-slate-300">
+                            <span>Recibido:</span>
+                            <span className="font-mono">${efectivoRecibidoNum.toLocaleString("es-CO")}</span>
                           </div>
-                        )}
-                        <div className="flex justify-between text-slate-800 font-bold pt-0.5 border-t border-dashed border-slate-300">
-                          <span>Recibido:</span>
-                          <span className="font-mono">${efectivoRecibidoNum.toLocaleString("es-CO")}</span>
-                        </div>
-                        <div className="flex justify-between text-emerald-800 font-black pt-0.5 border-t border-slate-200">
-                          <span>Vueltas:</span>
-                          <span className="font-mono">${vueltasCambioFinal.toLocaleString("es-CO")}</span>
-                        </div>
-                      </div>
-                    )}
+                          <div className="flex justify-between text-emerald-800 font-black pt-0.5 border-t border-slate-200">
+                            <span>Vueltas:</span>
+                            <span className="font-mono">${vueltasCambioFinal.toLocaleString("es-CO")}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
 
                     {/* Botones de Navegación del Flujo */}
                     <div className="pt-1">

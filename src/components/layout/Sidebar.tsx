@@ -8,6 +8,7 @@ import {
   Vault,
   CalendarClock,
   Clock,
+  Shirt,
   Package,
   BarChart3,
   Settings,
@@ -145,7 +146,7 @@ export default function Sidebar({
         {
           name: "Sistema de Alquileres",
           href: "/caja/alquileres",
-          icon: Clock,
+          icon: Shirt,
           accentColor: {
             bg: "bg-orange-50",
             text: "text-orange-800",

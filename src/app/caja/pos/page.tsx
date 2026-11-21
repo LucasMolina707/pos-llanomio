@@ -1363,8 +1363,12 @@ export default function PosPage() {
         }}
         nuevaOperacionActiva={vistaPrincipal === "NUEVA_FACTURA"}
         onHistorial={() => {
-          setVistaPrincipal("HISTORIAL");
-          cargarMonitoreo(false);
+          if (vistaPrincipal === "HISTORIAL") {
+            setVistaPrincipal("NUEVA_FACTURA");
+          } else {
+            setVistaPrincipal("HISTORIAL");
+            cargarMonitoreo(false);
+          }
         }}
         historialActivo={vistaPrincipal === "HISTORIAL"}
         historialBadgeCount={estadisticasMonitoreo.totalEnMora + estadisticasMonitoreo.conteoPendientesAlDia}
@@ -1403,7 +1407,7 @@ export default function PosPage() {
       {/* ========================================================================= */}
       {/* 2. CUERPO DE TRABAJO FIJO SIN SCROLL VERTICAL (flex-1 min-h-0 overflow-hidden) */}
       {/* ========================================================================= */}
-      <main className="flex-1 min-h-0 overflow-hidden p-3 flex flex-col">
+      <main className="flex-1 min-h-0 overflow-hidden p-2.5 sm:p-3 flex flex-col bg-[#F4F6F9]">
         {/* ======================================================================= */}
         {/* RAMA 1: CENTRO DE HISTORIAL, CARTERA, MORAS Y PAZ Y SALVOS (4 PESTAÑAS) */}
         {/* ======================================================================= */}
@@ -1412,30 +1416,35 @@ export default function PosPage() {
             {/* Header del Historial Fijo (shrink-0) */}
             <div className="shrink-0 pb-3 border-b border-slate-200 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base font-black text-slate-900 tracking-tight">
-                      Centro de Historial, Cartera, Moras y Paz y Salvos
-                    </h2>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 font-mono font-bold text-slate-600">
-                      {facturasHistorialFiltradas.length} en vista
-                    </span>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+                    <History className="w-5 h-5" />
                   </div>
-                  <p className="text-xs text-slate-500">
-                    Consulta el estado de facturas, liquida saldos pendientes, cobra recargos por retraso en entrega y reimprime comprobantes.
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-black text-slate-900 tracking-tight">
+                        Historial de Facturas y Ventas POS
+                      </h2>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 font-mono font-bold text-slate-600 border border-slate-200">
+                        {facturasHistorialFiltradas.length} en vista
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Consulta facturas, liquida saldos de cartera y reimprime comprobantes oficiales.
+                    </p>
+                  </div>
                 </div>
 
-                {/* Buscador Difuso y Botón de Sincronización */}
-                <div className="flex items-center gap-2">
-                  <div className="relative w-full sm:w-72">
+                {/* Buscador Difuso y Botones de Acción Homologados */}
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <div className="relative w-full sm:w-64">
                     <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                     <input
                       type="text"
                       placeholder="Fuzzy: Factura, Cliente, CC, Prenda..."
                       value={busquedaHistorial}
                       onChange={(e) => setBusquedaHistorial(e.target.value)}
-                      className="w-full pl-9 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full pl-9 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                     {busquedaHistorial && (
                       <button
@@ -1448,15 +1457,24 @@ export default function PosPage() {
                     )}
                   </div>
 
-                  <button
-                    type="button"
+                  <IconButtonTooltip
+                    icon={RefreshCw}
+                    label="Recargar y sincronizar moras en tiempo real"
+                    variant="neutral"
+                    size="md"
                     onClick={() => cargarMonitoreo(true)}
                     disabled={sincronizandoMoras}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition disabled:opacity-50"
-                    title="Actualizar estados y recalcular moras en tiempo real"
+                    iconClassName={sincronizandoMoras ? "animate-spin text-emerald-600" : "text-emerald-600"}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setVistaPrincipal("NUEVA_FACTURA")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
+                    title="Regresar a la terminal de facturación"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${sincronizandoMoras ? "animate-spin text-amber-600" : ""}`} />
-                    <span className="hidden sm:inline">Sincronizar Moras</span>
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Volver a Ventas</span>
                   </button>
                 </div>
               </div>
@@ -1937,11 +1955,11 @@ export default function PosPage() {
               </div>
             ) : (
               /* PASOS 1, 2 Y 3: ARQUITECTURA RESPONSIVA (12 COLS EN MOVIL / 8+4 EN ESCRITORIO) */
-              <div className="h-full min-h-0 min-w-0 w-full grid grid-cols-12 gap-3 overflow-y-auto lg:overflow-hidden">
+              <div className="h-full min-h-0 min-w-0 w-full grid grid-cols-12 gap-2.5 sm:gap-3 overflow-hidden">
                 {/* ======================================================================= */}
                 {/* PANEL IZQUIERDO DE TRABAJO (col-span-12 lg:col-span-8)                  */}
                 {/* ======================================================================= */}
-                <div className="col-span-12 lg:col-span-8 min-h-[460px] lg:h-full lg:min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+                <div className="col-span-12 lg:col-span-8 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
                   {/* --- SUB-VISTA PASO 1: DIRECTORIO DE CLIENTES --- */}
                   {pasoActual === 1 && (
                     <>
@@ -2417,7 +2435,7 @@ export default function PosPage() {
                 {/* ======================================================================= */}
                 {/* PANEL DERECHO DE RESUMEN Y CARRITO (col-span-12 lg:col-span-4)         */}
                 {/* ======================================================================= */}
-                <div className="col-span-12 lg:col-span-4 min-h-[420px] lg:h-full lg:min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+                <div className="col-span-12 lg:col-span-4 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
                   {/* Encabezado Cliente Asignado (shrink-0) */}
                   <div className="shrink-0 p-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2">
                     <div className="min-w-0">
@@ -2481,8 +2499,8 @@ export default function PosPage() {
                   {/* Lista de Ítems con Scroll Interno Propio */}
                   <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2.5 space-y-2">
                     {itemsCarrito.length === 0 ? (
-                      <div className="p-8 text-center text-slate-400">
-                        <ShoppingBag className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <div className="p-4 sm:p-5 text-center text-slate-400">
+                        <ShoppingBag className="w-7 h-7 text-slate-300 mx-auto mb-1.5" />
                         <p className="text-xs sm:text-sm font-semibold text-slate-600">El carrito está vacío</p>
                         <p className="text-xs text-slate-500">Agrega productos o arreglos en el Paso 2</p>
                       </div>
@@ -2547,7 +2565,7 @@ export default function PosPage() {
 
                   {/* Pie Fijo de Totales y Botones de Avance (shrink-0) */}
                   <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
-                    <div className="space-y-1 text-xs">
+                    <div className="p-2.5 rounded-xl border border-slate-200 bg-white space-y-1 text-xs">
                       {subtotalVenta > 0 && (
                         <div className="flex justify-between text-slate-600">
                           <span>Venta:</span>
@@ -2560,9 +2578,9 @@ export default function PosPage() {
                           <span className="font-mono font-medium">${subtotalArreglos.toLocaleString("es-CO")}</span>
                         </div>
                       )}
-                      <div className="flex justify-between text-sm sm:text-base font-black text-slate-900 pt-1 border-t border-slate-200 font-mono items-center">
+                      <div className="flex justify-between text-slate-950 font-black p-1 rounded bg-slate-100 border border-slate-200 items-center">
                         <span>TOTAL:</span>
-                        <span className="text-base sm:text-lg text-emerald-600">
+                        <span className="font-mono text-emerald-700 text-sm font-black">
                           ${totalFactura.toLocaleString("es-CO")}
                         </span>
                       </div>

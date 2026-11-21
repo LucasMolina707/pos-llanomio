@@ -18,6 +18,7 @@ import {
   Receipt,
   LayoutDashboard,
   Clock,
+  Shirt,
   Wifi,
   HelpCircle,
 } from "lucide-react";
@@ -58,7 +59,7 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
       return { titulo: "Terminal de Facturación POS (Ventas y Arreglos)", seccion: "Mostrador", icono: ShoppingBag };
     }
     if (pathname === "/caja/alquileres") {
-      return { titulo: "Sistema de Alquileres de Prendas", seccion: "Alquileres", icono: CalendarClock };
+      return { titulo: "Sistema de Alquileres de Prendas", seccion: "Alquileres", icono: Shirt };
     }
     if (pathname === "/caja/apartados") {
       return { titulo: "Sistema de Apartados y Reservas", seccion: "Apartados", icono: CalendarClock };
@@ -186,7 +187,7 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
 
         {/* Sistema de Alquileres */}
         <IconButtonTooltip
-          icon={Clock}
+          icon={Shirt}
           label="Control de Alquileres"
           modulo="Mostrador"
           destino="Ruta: /caja/alquileres"

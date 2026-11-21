@@ -1110,58 +1110,42 @@ export default function ApartadosPage() {
           </main>
         ) : (
           /* PASOS 1, 2 Y 3: ARQUITECTURA RESPONSIVA (12 COLS EN MOVIL / 8+4 EN ESCRITORIO) */
-          <main className="flex-1 min-h-0 grid grid-cols-12 gap-3 p-3 overflow-y-auto lg:overflow-hidden bg-[#F4F6F9]">
-            {/* ======================================================================= */}
-            {/* COLUMNA IZQUIERDA / CENTRAL (lg:col-span-8)                             */}
-            {/* ======================================================================= */}
-            <div className="col-span-12 lg:col-span-8 flex flex-col min-h-[460px] lg:h-full lg:min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-              {/* Cabecera Interna de Columna Izquierda con Buscador y Acción */}
-              <div className="h-12 shrink-0 px-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5 truncate">
-                    {paso === 1 && (
-                      <>
-                        <User className="w-4 h-4 text-indigo-600" />
-                        Paso 1: Directorio de Clientes
-                      </>
-                    )}
-                    {paso === 2 && (
-                      <>
-                        <Tag className="w-4 h-4 text-indigo-600" />
-                        Paso 2: Catálogo de Prendas y Registro de Reserva
-                      </>
-                    )}
-                    {paso === 3 && (
-                      <>
-                        <Banknote className="w-4 h-4 text-indigo-600" />
-                        Paso 3: Liquidación de Apartado y Calculadora de Vueltas
-                      </>
-                    )}
-                  </span>
-                </div>
-
+          <main className="flex-1 min-h-0 overflow-hidden p-2.5 sm:p-3 flex flex-col bg-[#F4F6F9]">
+            <div className="h-full min-h-0 min-w-0 w-full grid grid-cols-12 gap-2.5 sm:gap-3 overflow-hidden">
+              {/* ======================================================================= */}
+              {/* COLUMNA IZQUIERDA / CENTRAL (lg:col-span-8)                             */}
+              {/* ======================================================================= */}
+              <div className="col-span-12 lg:col-span-8 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+                {/* Cabecera Fija Paso 1 (shrink-0) */}
                 {paso === 1 && (
-                  <IconButtonTooltip
-                    icon={UserPlus}
-                    label="Crear Nuevo Cliente Rápido"
-                    variant="indigo"
-                    size="md"
-                    onClick={() => setMostrarModalCrearCliente(true)}
-                  />
-                )}
-              </div>
+                  <div className="shrink-0 p-3 border-b border-slate-100 bg-white space-y-2.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                          <User className="w-4 h-4 text-indigo-600" />
+                          Paso 1: Directorio y Selección de Cliente
+                        </h2>
+                        <p className="text-xs text-slate-500">
+                          Selecciona un cliente de la lista o crea uno nuevo para registrar el apartado
+                        </p>
+                      </div>
 
-              {/* Contenido con Scroll Interno Exclusivo según el Paso */}
-              <div className="flex-1 min-h-0 overflow-y-auto p-3">
-                {/* PASO 1: SELECCIÓN DE CLIENTE */}
-                {paso === 1 && (
-                  <div className="space-y-3">
+                      <IconButtonTooltip
+                        icon={UserPlus}
+                        label="Crear Nuevo Cliente Rápido"
+                        variant="indigo"
+                        size="md"
+                        onClick={() => setMostrarModalCrearCliente(true)}
+                      />
+                    </div>
+
+                    {/* Buscador Difuso */}
                     <div className="relative">
-                      <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                       <input
                         ref={inputBuscarClienteRef}
                         type="text"
-                        placeholder="Buscar cliente por nombre, cédula o celular (Enter para seleccionar)..."
+                        placeholder="Buscar cliente por nombre, cédula o teléfono (Enter para seleccionar)..."
                         value={busquedaCliente}
                         onChange={(e) => setBusquedaCliente(e.target.value)}
                         onKeyDown={(e) => {
@@ -1171,9 +1155,129 @@ export default function ApartadosPage() {
                             setPaso(2);
                           }
                         }}
-                        className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none text-xs sm:text-sm transition"
+                        className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:bg-white transition"
+                        autoFocus
                       />
+                      {busquedaCliente && (
+                        <button
+                          type="button"
+                          onClick={() => setBusquedaCliente("")}
+                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
+                  </div>
+                )}
+
+                {/* Cabecera Fija Paso 2 (shrink-0) */}
+                {paso === 2 && (
+                  <div className="shrink-0 p-3 border-b border-slate-100 bg-white space-y-2.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                          <Tag className="w-4 h-4 text-indigo-600" />
+                          Paso 2: Catálogo de Prendas y Registro de Reserva
+                        </h2>
+                        <p className="text-xs text-slate-500">
+                          Agrega prendas al apartado y ajusta las fechas de retiro y devolución en el panel derecho
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Fila Compacta de Búsqueda y Agregar Ítem Libre */}
+                    <div className="flex flex-col sm:flex-row items-center gap-2">
+                      <div className="relative flex-1 w-full">
+                        <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                        <input
+                          ref={inputBuscarProductoRef}
+                          type="text"
+                          placeholder="Buscar prenda por nombre, código o pistola (+ Enter)..."
+                          value={busquedaProducto}
+                          onChange={(e) => setBusquedaProducto(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const query = busquedaProducto.trim().toLowerCase();
+                              if (!query) return;
+
+                              const coincidenciaExacta = productos.find(
+                                (p) =>
+                                  p.codigo.trim().toLowerCase() === query ||
+                                  (p as any).codigoBarras?.trim().toLowerCase() === query
+                              );
+
+                              if (coincidenciaExacta) {
+                                agregarProductoDesdeCatalogo(coincidenciaExacta);
+                                setBusquedaProducto("");
+                                setTimeout(() => inputBuscarProductoRef.current?.focus(), 15);
+                                return;
+                              }
+
+                              if (productosFiltrados.length === 1) {
+                                agregarProductoDesdeCatalogo(productosFiltrados[0]);
+                                setBusquedaProducto("");
+                                setTimeout(() => inputBuscarProductoRef.current?.focus(), 15);
+                                return;
+                              }
+                            }
+                          }}
+                          className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        <input
+                          type="text"
+                          placeholder="Prenda libre / personalizada..."
+                          value={descripcionLibreInput}
+                          onChange={(e) => setDescripcionLibreInput(e.target.value)}
+                          className="w-44 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs outline-none focus:border-indigo-500"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Precio $"
+                          value={precioLibreInput}
+                          onChange={(e) => setPrecioLibreInput(e.target.value)}
+                          className="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white font-mono font-bold text-xs outline-none"
+                        />
+                        <IconButtonTooltip
+                          icon={Plus}
+                          label="Agregar Ítem Libre al Apartado"
+                          variant="indigo"
+                          size="md"
+                          onClick={agregarItemLibre}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cabecera Fija Paso 3 (shrink-0) */}
+                {paso === 3 && (
+                  <div className="shrink-0 p-3 border-b border-slate-100 bg-white flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">
+                        <Banknote className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h2 className="text-sm font-black text-slate-900">
+                          Paso 3: Liquidación de Apartado y Abono Inicial
+                        </h2>
+                        <p className="text-xs text-slate-500">
+                          Total: <strong className="text-indigo-600 font-mono">${totalAlquiler.toLocaleString("es-CO")}</strong> • Abono: <strong className="text-emerald-700 font-mono">${abonoNumerico.toLocaleString("es-CO")}</strong>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Contenido con Scroll Interno Exclusivo según el Paso */}
+                <div className="flex-1 min-h-0 overflow-y-auto p-3">
+                  {/* PASO 1: SELECCIÓN DE CLIENTE */}
+                  {paso === 1 && (
+                    <div className="space-y-3">
 
                     {cargandoClientes ? (
                       <div className="text-center py-12 text-slate-400 text-xs">
@@ -1252,159 +1356,44 @@ export default function ApartadosPage() {
                   </div>
                 )}
 
-                {/* PASO 2: CATÁLOGO DE PRENDAS Y FECHAS */}
+                {/* PASO 2: CATÁLOGO DE PRENDAS PARA APARTADO */}
                 {paso === 2 && (
-                  <div className="space-y-3">
-                    {/* Fila de Fechas Compacta en Línea */}
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-700">Fechas de Reserva:</span>
-                        {reglaFechaTexto.diaEntrega && (
-                          <span className="text-[10.5px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-semibold">
-                            Pactado: {reglaFechaTexto.diaEntrega} 8:00 p.m.
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="font-bold text-slate-700 block">
-                              Salida:
-                            </label>
-                            <span className="text-[10.5px] font-bold text-emerald-800 capitalize truncate">
-                              {formatearEtiquetaDiaYFecha(fechaSalida)}
-                            </span>
-                          </div>
-                          <input
-                            type="date"
-                            value={fechaSalida}
-                            onChange={(e) => handleCambioFechaSalida(e.target.value)}
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold text-slate-800 text-xs outline-none"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="font-bold text-slate-700 block">
-                              Devolución:
-                            </label>
-                            <span className="text-[10.5px] font-bold text-indigo-800 capitalize truncate">
-                              {formatearEtiquetaDiaYFecha(fechaDevolucion, true)}
-                            </span>
-                          </div>
-                          <input
-                            type="datetime-local"
-                            value={fechaDevolucion}
-                            onChange={(e) => setFechaDevolucion(e.target.value)}
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white font-mono font-bold text-indigo-900 text-xs outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Fila Compacta de Ítem Libre / Personalizado */}
-                    <div className="p-3 rounded-xl bg-indigo-50/50 border border-indigo-200/80 flex flex-col sm:flex-row items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Descripción de prenda libre o reserva personalizada..."
-                        value={descripcionLibreInput}
-                        onChange={(e) => setDescripcionLibreInput(e.target.value)}
-                        className="flex-1 w-full px-3 py-1.5 rounded-lg border border-indigo-200 bg-white text-xs outline-none focus:border-indigo-500"
-                      />
-                      <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <input
-                          type="number"
-                          placeholder="Precio $"
-                          value={precioLibreInput}
-                          onChange={(e) => setPrecioLibreInput(e.target.value)}
-                          className="w-24 px-3 py-1.5 rounded-lg border border-indigo-200 bg-white font-mono font-bold text-xs outline-none"
-                        />
-                        <IconButtonTooltip
-                          icon={Plus}
-                          label="Agregar Ítem Libre al Apartado"
-                          variant="indigo"
-                          size="md"
-                          onClick={agregarItemLibre}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Buscador de Catálogo */}
-                    <div className="relative">
-                      <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                      <input
-                        ref={inputBuscarProductoRef}
-                        type="text"
-                        placeholder="Buscar en catálogo de prendas por nombre, código o pistola (+ Enter)..."
-                        value={busquedaProducto}
-                        onChange={(e) => setBusquedaProducto(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            const query = busquedaProducto.trim().toLowerCase();
-                            if (!query) return;
-
-                            const coincidenciaExacta = productos.find(
-                              (p) =>
-                                p.codigo.trim().toLowerCase() === query ||
-                                (p as any).codigoBarras?.trim().toLowerCase() === query
-                            );
-
-                            if (coincidenciaExacta) {
-                              agregarProductoDesdeCatalogo(coincidenciaExacta);
-                              setBusquedaProducto("");
-                              setTimeout(() => inputBuscarProductoRef.current?.focus(), 15);
-                              return;
-                            }
-
-                            if (productosFiltrados.length === 1) {
-                              agregarProductoDesdeCatalogo(productosFiltrados[0]);
-                              setBusquedaProducto("");
-                              setTimeout(() => inputBuscarProductoRef.current?.focus(), 15);
-                              return;
-                            }
-                          }
-                        }}
-                        className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-indigo-500"
-                      />
-                    </div>
-
+                  <div className="space-y-2">
                     {/* Grid de Productos */}
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
-                        {productosPaginados.map((prod) => (
-                          <div
-                            key={prod.id}
-                            onClick={() => agregarProductoDesdeCatalogo(prod)}
-                            className="relative flex flex-col justify-between p-2.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer transition min-w-0 overflow-hidden"
-                          >
-                            <div className="min-w-0">
-                              <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                                <span className="font-mono bg-slate-100 px-1 rounded truncate">
-                                  {prod.codigo}
-                                </span>
-                                <span className="px-1.5 py-0.2 rounded font-bold bg-slate-100 text-slate-700 shrink-0">
-                                  {prod.talla || "Talla Única"}
-                                </span>
-                              </div>
-                              <p className="font-bold text-xs text-slate-900 truncate">
-                                {prod.nombre}
-                              </p>
-                            </div>
-                            <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
-                              <span className="font-mono font-black text-xs text-indigo-700">
-                                ${Number(prod.precioAlquilerBase || prod.precioVenta || 0).toLocaleString("es-CO")}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start min-w-0 overflow-hidden">
+                      {productosPaginados.map((prod) => (
+                        <div
+                          key={prod.id}
+                          onClick={() => agregarProductoDesdeCatalogo(prod)}
+                          className="relative flex flex-col justify-between p-2.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer transition min-w-0 overflow-hidden"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                              <span className="font-mono bg-slate-100 px-1 rounded truncate">
+                                {prod.codigo}
                               </span>
-                              <span className="text-[11px] font-bold text-indigo-600">+ Separar</span>
+                              <span className="px-1.5 py-0.2 rounded font-bold bg-slate-100 text-slate-700 shrink-0">
+                                {prod.talla || "Talla Única"}
+                              </span>
                             </div>
+                            <p className="font-bold text-xs text-slate-900 truncate">
+                              {prod.nombre}
+                            </p>
                           </div>
-                        ))}
-                      </div>
-                      {productosFiltrados.length > 48 && (
-                        <div className="p-2 text-center text-[11px] font-semibold text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
-                          Mostrando las primeras 48 prendas de {productosFiltrados.length} encontradas. Use el buscador para acotar.
+                          <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
+                            <span className="font-mono font-black text-xs text-indigo-700">
+                              ${Number(prod.precioAlquilerBase || prod.precioVenta || 0).toLocaleString("es-CO")}
+                            </span>
+                            <span className="text-[11px] font-bold text-indigo-600">+ Separar</span>
+                          </div>
                         </div>
-                      )}
+                      ))}
                     </div>
+                    {productosFiltrados.length > 48 && (
+                      <div className="p-2 text-center text-[11px] font-semibold text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
+                        Mostrando las primeras 48 prendas de {productosFiltrados.length} encontradas. Use el buscador para acotar.
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1580,61 +1569,105 @@ export default function ApartadosPage() {
             {/* ======================================================================= */}
             {/* COLUMNA DERECHA: RESUMEN PERMANENTE Y BOTONES DE AVANCE (lg:col-span-4)  */}
             {/* ======================================================================= */}
-            <div className="col-span-12 lg:col-span-4 flex flex-col min-h-[420px] lg:h-full lg:min-h-0 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-              {/* Cabecera Derecha: Cliente Seleccionado y Fechas */}
-              <div className="shrink-0 p-3 border-b border-slate-100 bg-slate-50/70">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Resumen de Reserva
+            <div className="col-span-12 lg:col-span-4 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+              {/* Encabezado Cliente Asignado (shrink-0) */}
+              <div className="shrink-0 p-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider block">
+                    Cliente Reserva:
                   </span>
-                  {clienteSeleccionado && (
-                    <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
-                      Cliente Listo
+                  <strong className="text-xs sm:text-sm font-black text-slate-900 truncate block">
+                    {clienteSeleccionado?.nombre || "Sin cliente seleccionado"}
+                  </strong>
+                  {clienteSeleccionado?.telefono && (
+                    <span className="text-[11px] text-slate-500 font-mono block truncate">
+                      Tel: {clienteSeleccionado.telefono}
                     </span>
                   )}
                 </div>
 
-                {clienteSeleccionado ? (
-                  <div className="mt-2 space-y-0.5">
-                    <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">
-                      {clienteSeleccionado.nombre}
-                    </p>
-                    <p className="text-xs text-slate-500 font-mono truncate">
-                      CC: {clienteSeleccionado.documento} | Tel: {clienteSeleccionado.telefono}
-                    </p>
-                    <p className="text-[11px] text-slate-600 font-medium">
-                      Retiro: <strong className="text-slate-800">{fechaSalida || "Por definir"}</strong>
-                    </p>
+                <IconButtonTooltip
+                  icon={User}
+                  label={clienteSeleccionado ? "Cambiar Cliente Reserva" : "Seleccionar Cliente"}
+                  size="sm"
+                  variant="neutral"
+                  onClick={() => setPaso(1)}
+                />
+              </div>
+
+              {/* Fechas de Reserva (shrink-0) */}
+              <div className="shrink-0 px-3 py-2 border-b border-slate-200 bg-slate-50/70">
+                <div className="flex items-center justify-between gap-1 mb-1 min-w-0">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block shrink-0">
+                    Fechas de Reserva
+                  </span>
+                  {itemsApartado.length > 0 && reglaFechaTexto.diaEntrega && (
+                    <span
+                      className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded font-semibold truncate max-w-[190px]"
+                      title={reglaFechaTexto.mensajeInformativo}
+                    >
+                      Pactado: {reglaFechaTexto.diaEntrega} 8:00 p.m.
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-slate-600 block">Salida *</label>
+                      <span className="text-[9.5px] font-bold text-emerald-700 capitalize truncate">
+                        {formatearEtiquetaDiaYFecha(fechaSalida)}
+                      </span>
+                    </div>
+                    <input
+                      type="date"
+                      value={fechaSalida}
+                      onChange={(e) => handleCambioFechaSalida(e.target.value)}
+                      className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg font-mono"
+                    />
                   </div>
-                ) : (
-                  <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                    Aún no has seleccionado un cliente.
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-slate-600 block">Devolución *</label>
+                      <span className="text-[9.5px] font-bold text-indigo-800 capitalize truncate">
+                        {formatearEtiquetaDiaYFecha(fechaDevolucion, true)}
+                      </span>
+                    </div>
+                    <input
+                      type="datetime-local"
+                      value={fechaDevolucion}
+                      onChange={(e) => setFechaDevolucion(e.target.value)}
+                      className="w-full px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg font-mono font-semibold text-indigo-900"
+                    />
                   </div>
+                </div>
+              </div>
+
+              {/* Título Prendas Separadas (shrink-0) */}
+              <div className="shrink-0 px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <CalendarClock className="w-4 h-4 text-slate-700" />
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                    Prendas Separadas ({itemsApartado.length})
+                  </h3>
+                </div>
+                {itemsApartado.length > 0 && (
+                  <IconButtonTooltip
+                    icon={RotateCcw}
+                    label="Vaciar todas las prendas del apartado"
+                    size="sm"
+                    variant="danger"
+                    onClick={() => setItemsApartado([])}
+                  />
                 )}
               </div>
 
               {/* Centro: Lista de Prendas en el Carrito con Scroll Interno Propio */}
-              <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
-                <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-                  <span className="text-xs font-bold text-slate-700">
-                    Prendas Separadas ({itemsApartado.length})
-                  </span>
-                  {itemsApartado.length > 0 && (
-                    <IconButtonTooltip
-                      icon={RotateCcw}
-                      label="Vaciar todas las prendas del apartado"
-                      size="sm"
-                      variant="danger"
-                      onClick={() => setItemsApartado([])}
-                    />
-                  )}
-                </div>
-
+              <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2">
                 {itemsApartado.length === 0 ? (
-                  <div className="text-center py-8 text-slate-400">
-                    <CalendarClock className="w-8 h-8 text-slate-300 mx-auto mb-1.5" />
-                    <p className="text-xs font-bold text-slate-600">No hay prendas agregadas</p>
-                    <p className="text-[11px] text-slate-500">Agrega prendas o reserva personalizada</p>
+                  <div className="p-4 sm:p-5 text-center text-slate-400">
+                    <CalendarClock className="w-7 h-7 text-slate-300 mx-auto mb-1.5" />
+                    <p className="text-xs font-semibold text-slate-600">No hay prendas agregadas</p>
+                    <p className="text-[11px] text-slate-500">Agrega prendas en el Paso 2</p>
                   </div>
                 ) : (
                   itemsApartado.map((item) => (
@@ -1674,7 +1707,7 @@ export default function ApartadosPage() {
                           type="text"
                           value={item.descripcionDetallada || ""}
                           onChange={(e) => actualizarDescripcionDetallada(item.idTemporal, e.target.value)}
-                          placeholder="Detalles: (ej. Camisa blanca cuello normal, corbata roja, pantalón azul...)"
+                          placeholder="Detalles: (ej. Camisa blanca, pantalón azul...)"
                           className="w-full text-[11px] px-2 py-1 rounded-lg border border-slate-200 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
                         />
                       </div>
@@ -1685,7 +1718,7 @@ export default function ApartadosPage() {
 
               {/* Pie Fijo con Resumen Numérico y Botones Grandes de Navegación Siempre Visibles */}
               <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
-                <div className="space-y-1 text-xs">
+                <div className="p-2.5 rounded-xl border border-slate-200 bg-white space-y-1 text-xs">
                   <div className="flex justify-between text-slate-600">
                     <span>Total Operación:</span>
                     <span className="font-mono font-bold text-slate-900">
@@ -1787,28 +1820,86 @@ export default function ApartadosPage() {
                 </div>
               </div>
             </div>
-          </main>
+          </div>
+        </main>
         )
       ) : (
         /* ========================================================================= */
         /* VISTA: HISTORIAL DE APARTADOS (PANTALLA COMPLETA CON SCROLL INTERNO)      */
         /* ========================================================================= */
-        <main className="flex-1 min-h-0 flex flex-col p-3 overflow-hidden bg-[#F3F6F9]">
-          <div className="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden p-3 min-h-0">
-            {/* Barra de Filtros */}
-            <div className="shrink-0 pb-3 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="relative flex-1 w-full sm:max-w-md">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por cliente, documento o N° de factura..."
-                  value={busquedaHistorial}
-                  onChange={(e) => setBusquedaHistorial(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-indigo-500"
-                />
+        <main className="flex-1 min-h-0 flex flex-col p-2.5 sm:p-3 overflow-hidden bg-[#F4F6F9]">
+          <div className="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden p-3 sm:p-4 min-h-0">
+            {/* Header del Historial Fijo (shrink-0) Homologado 1:1 */}
+            <div className="shrink-0 pb-3 border-b border-slate-200 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 shrink-0">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-black text-slate-900 tracking-tight">
+                        Historial de Apartados y Reservas
+                      </h2>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 font-mono font-bold text-slate-600 border border-slate-200">
+                        {apartadosHistorialFiltrados.length} en vista
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Gestiona apartados vigentes, registra abonos adicionales y convierte reservas a alquiler.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Buscador Difuso y Botones de Acción Homologados */}
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por cliente, documento o N°..."
+                      value={busquedaHistorial}
+                      onChange={(e) => setBusquedaHistorial(e.target.value)}
+                      className="w-full pl-9 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    {busquedaHistorial && (
+                      <button
+                        type="button"
+                        onClick={() => setBusquedaHistorial("")}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <IconButtonTooltip
+                    icon={RefreshCw}
+                    label="Recargar y sincronizar historial de apartados"
+                    variant="neutral"
+                    size="md"
+                    onClick={cargarHistorial}
+                    disabled={cargandoHistorial}
+                    iconClassName={cargandoHistorial ? "animate-spin text-indigo-600" : "text-indigo-600"}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setPestaña("NUEVO")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
+                    title="Regresar a la terminal de apartados"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Volver a Apartados</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Barra de Filtros de Estado */}
+              <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">
+                  Filtrar Estado:
+                </span>
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
                   <Tooltip content="Ver todos los apartados registrados" position="bottom">
                     <button
@@ -1817,7 +1908,7 @@ export default function ApartadosPage() {
                       className={`px-3 py-1 rounded-lg transition cursor-pointer ${filtroEstadoHistorial === "TODOS" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-600"
                         }`}
                     >
-                      Todos
+                      Todos ({apartadosHistorial.length})
                     </button>
                   </Tooltip>
                   <Tooltip content="Ver apartados vigentes pendientes de retiro" position="bottom">
@@ -1827,7 +1918,7 @@ export default function ApartadosPage() {
                       className={`px-3 py-1 rounded-lg transition cursor-pointer ${filtroEstadoHistorial === "PENDIENTES" ? "bg-white text-amber-800 shadow-2xs" : "text-slate-600"
                         }`}
                     >
-                      Pendientes
+                      Pendientes ({apartadosHistorial.filter((a) => a.tipoOperacion === "SEPARE" && a.estado !== "CERRADA").length})
                     </button>
                   </Tooltip>
                   <Tooltip content="Ver apartados que ya fueron entregados como alquileres activos" position="bottom">
@@ -1837,20 +1928,10 @@ export default function ApartadosPage() {
                       className={`px-3 py-1 rounded-lg transition cursor-pointer ${filtroEstadoHistorial === "CONVERTIDOS" ? "bg-white text-emerald-800 shadow-2xs" : "text-slate-600"
                         }`}
                     >
-                      Alquileres
+                      Alquileres ({apartadosHistorial.filter((a) => a.tipoOperacion === "ALQUILER").length})
                     </button>
                   </Tooltip>
                 </div>
-
-                <IconButtonTooltip
-                  icon={RefreshCw}
-                  label="Recargar y sincronizar historial de apartados"
-                  variant="neutral"
-                  size="sm"
-                  onClick={cargarHistorial}
-                  disabled={cargandoHistorial}
-                  iconClassName={cargandoHistorial ? "animate-spin text-indigo-600" : "text-indigo-600"}
-                />
               </div>
             </div>
 
