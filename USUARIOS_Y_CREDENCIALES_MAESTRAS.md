@@ -1,6 +1,6 @@
 # REGISTRO MAESTRO DE USUARIOS, CREDENCIALES Y PROTOCOLO DE RECUPERACIÓN POS LOCAL
 
-> **AVISO DE SEGURIDAD OPERATIVA:** Este documento reside en el servidor local de la tienda (`C:\Proyectos\pos-llanomio`). Contiene las credenciales base, la matriz oficial de roles y permisos (RBAC), el Protocolo Criptográfico de 3 Factores Locales contra SQLite (`database/llanomio.db`) y el registro auto-sincronizado de cuentas.
+> **AVISO DE SEGURIDAD OPERATIVA:** Este documento reside en el directorio raíz del servidor local de la tienda (`./USUARIOS_Y_CREDENCIALES_MAESTRAS.md`). Contiene las credenciales base, la matriz oficial de roles y permisos (RBAC), el Protocolo Criptográfico de 3 Factores Locales contra SQLite (`database/llanomio.db`) y el registro auto-sincronizado de cuentas.
 
 ---
 
@@ -52,7 +52,7 @@ El sistema opera bajo un modelo de control de acceso basado en roles con permiso
 
 ## 3. Directorio Auto-Sincronizado de Usuarios en SQLite (`database/llanomio.db`)
 
-> **Última sincronización automática: 21/11/2026, 2:01:50 a. m. (Hora Colombia)
+> **Última sincronización automática: 21/11/2026, 4:17:49 a. m. (Hora Colombia)
 > Total de cuentas registradas: **1** (1 Administradores, 0 Cajeros)
 
 | Nombre Completo | Usuario (`username`) | Rol | Estado | Seguridad 3-Factores | Intentos Fallidos | Transacciones | Último Cambio de Clave |

@@ -44,6 +44,7 @@ import {
   ShieldCheck,
   Tag,
   Building2,
+  ChevronDown,
   Coins,
   LogOut,
   Split,
@@ -1123,11 +1124,8 @@ export default function ApartadosPage() {
                       <div>
                         <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                           <User className="w-4 h-4 text-indigo-600" />
-                          Paso 1: Directorio y Selección de Cliente
+                          Paso 1: Selección de Cliente
                         </h2>
-                        <p className="text-xs text-slate-500">
-                          Selecciona un cliente de la lista o crea uno nuevo para registrar el apartado
-                        </p>
                       </div>
 
                       <IconButtonTooltip
@@ -1145,7 +1143,7 @@ export default function ApartadosPage() {
                       <input
                         ref={inputBuscarClienteRef}
                         type="text"
-                        placeholder="Buscar cliente por nombre, cédula o teléfono (Enter para seleccionar)..."
+                        placeholder="Buscar por cédula, nombre o celular..."
                         value={busquedaCliente}
                         onChange={(e) => setBusquedaCliente(e.target.value)}
                         onKeyDown={(e) => {
@@ -1178,11 +1176,8 @@ export default function ApartadosPage() {
                       <div>
                         <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                           <Tag className="w-4 h-4 text-indigo-600" />
-                          Paso 2: Catálogo de Prendas y Registro de Reserva
+                          Paso 2: Catálogo de Prendas
                         </h2>
-                        <p className="text-xs text-slate-500">
-                          Agrega prendas al apartado y ajusta las fechas de retiro y devolución en el panel derecho
-                        </p>
                       </div>
                     </div>
 
@@ -1193,7 +1188,7 @@ export default function ApartadosPage() {
                         <input
                           ref={inputBuscarProductoRef}
                           type="text"
-                          placeholder="Buscar prenda por nombre, código o pistola (+ Enter)..."
+                          placeholder="Buscar por código, nombre o pistola (+ Enter)..."
                           value={busquedaProducto}
                           onChange={(e) => setBusquedaProducto(e.target.value)}
                           onKeyDown={(e) => {
@@ -2109,20 +2104,72 @@ export default function ApartadosPage() {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
+              <label className="text-xs font-bold text-slate-700 block mb-1.5">
                 Método de Pago:
               </label>
-              <select
-                value={metodoNuevoAbono}
-                onChange={(e) => setMetodoNuevoAbono(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white outline-none"
-              >
-                <option value="EFECTIVO">EFECTIVO</option>
-                <option value="NEQUI">NEQUI</option>
-                <option value="DAVIPLATA">DAVIPLATA</option>
-                <option value="TARJETA">TARJETA</option>
-                <option value="TRANSFERENCIA">TRANSFERENCIA</option>
-              </select>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setMetodoNuevoAbono("EFECTIVO")}
+                  className={`py-1.5 px-2 rounded-xl border flex items-center justify-center gap-1 font-bold text-xs transition-all cursor-pointer ${
+                    metodoNuevoAbono === "EFECTIVO"
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <Banknote className="w-3.5 h-3.5" />
+                  <span>Efectivo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMetodoNuevoAbono("BANCOLOMBIA")}
+                  className={`py-1.5 px-2 rounded-xl border flex items-center justify-center gap-1 font-bold text-xs transition-all cursor-pointer ${
+                    metodoNuevoAbono === "BANCOLOMBIA"
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>Bancolombia</span>
+                </button>
+
+                <div className="relative">
+                  <div
+                    className={`relative flex items-center rounded-xl border transition cursor-pointer w-full ${
+                      metodoNuevoAbono !== "EFECTIVO" && metodoNuevoAbono !== "BANCOLOMBIA"
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <select
+                      value={
+                        metodoNuevoAbono !== "EFECTIVO" && metodoNuevoAbono !== "BANCOLOMBIA"
+                          ? metodoNuevoAbono
+                          : ""
+                      }
+                      onChange={(e) => {
+                        if (e.target.value) setMetodoNuevoAbono(e.target.value);
+                      }}
+                      className={`w-full py-1.5 pl-2 pr-6 text-xs font-bold bg-transparent outline-none cursor-pointer appearance-none ${
+                        metodoNuevoAbono !== "EFECTIVO" && metodoNuevoAbono !== "BANCOLOMBIA"
+                          ? "text-white font-black"
+                          : "text-slate-700"
+                      }`}
+                    >
+                      <option value="" disabled className="text-slate-800 bg-white">
+                        Otros ▼
+                      </option>
+                      <option value="NEQUI" className="text-slate-800 bg-white">Nequi</option>
+                      <option value="DAVIPLATA" className="text-slate-800 bg-white">Daviplata</option>
+                      <option value="LLAVE" className="text-slate-800 bg-white">Bre-B / Llave</option>
+                      <option value="TRANSFERENCIA" className="text-slate-800 bg-white">Transferencia</option>
+                      <option value="CONSIGNACION" className="text-slate-800 bg-white">Consignación</option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 absolute right-1.5 pointer-events-none opacity-70" />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center gap-2 pt-2">

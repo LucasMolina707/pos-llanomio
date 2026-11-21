@@ -12,6 +12,7 @@ import {
   Tag,
   CheckCircle,
   Clock,
+  Shirt,
   Wrench,
   Ban,
   Edit,
@@ -312,7 +313,7 @@ export default function InventarioAdminPage() {
           />
 
           <IconButtonTooltip
-            icon={Clock}
+            icon={Shirt}
             label="Ir a Terminal de Alquileres"
             modulo="Mostrador"
             destino="Ruta: /caja/alquileres"

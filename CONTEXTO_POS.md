@@ -5207,3 +5207,32 @@ Se unificó de extremo a extremo la experiencia de acceso, conmutación y visual
 
 4. **Homologación de Iconografía en Menú Global (`Navbar.tsx` y `Sidebar.tsx`):**
    - Se unificó el icono del módulo de Alquileres al icono `Shirt` (en lugar de `Clock`), armonizando la representación gráfica de las tres ramas comerciales: `ShoppingBag` (Ventas), `Shirt` (Alquileres) y `CalendarClock` (Apartados).
+
+
+---
+
+## 16. Blindaje de Portabilidad, Erradicación de Rutas Quemadas y Homologación Final de Mostrador
+
+### 1. Resumen de Cambios y Optimizaciones
+1. **Blindaje de Portabilidad y Eliminación de Rutas Absolutas:**
+   - **`scripts/InstaladorMaestroGUI.cs`:** Se sustituyeron las rutas rígidas `C:\POS_BACKUPS` y llamadas rígidas a scripts por `Path.Combine(Environment.GetEnvironmentVariable("SystemDrive") ?? "C:", "POS_BACKUPS")`. Además, se corrigió la invocación del comando de reseteo a fábrica de base de datos, apuntando al script real `scripts/restablecer-db-fabrica.js`.
+   - **`scripts/reset-db-fabrica.js`:** Creado como wrapper ejecutable de compatibilidad retroactiva que delega en `scripts/restablecer-db-fabrica.js`.
+   - **`scripts/restablecer-db-fabrica.js` y `scripts/asegurar-admin.js`:** La carpeta de archivado histórico y respaldos se parametrizó dinámicamente con `process.env.SystemDrive || "C:"`.
+   - **`src/lib/usuarios-sync.ts`:** Se erradicó la ruta quemada `C:\Proyectos\pos-llanomio` en la cabecera autogenerada de `USUARIOS_Y_CREDENCIALES_MAESTRAS.md`, dejándola relativa y portable (`./USUARIOS_Y_CREDENCIALES_MAESTRAS.md`).
+   - **`src/app/admin/configuracion/page.tsx`:** Corregida la referencia tipada de `config.rutaCarpetaRespaldo` para evitar errores de compilación.
+   - **`src/app/admin/gastos/page.tsx`:** Corregido el manejador de recarga `onClick={cargarGastos}` en el botón de actualización.
+
+2. **Homologación Visual y Erradicación de Redundancias Textuales en Mostrador:**
+   - **Paso 1 (Selección de Cliente) en las 3 Vistas (`pos`, `alquileres`, `apartados`):**
+     - Títulos unificados: `Paso 1: Selección de Cliente`.
+     - Eliminación de párrafos explicativos redundantes (`Selecciona un cliente de la lista...`, `O busque un cliente existente...`).
+     - Placeholder simétrico: `Buscar por cédula, nombre o celular...`.
+   - **Paso 2 (Catálogo de Ítems / Prendas) en las 3 Vistas:**
+     - Títulos unificados y sin textos explicativos sobrantes.
+     - Icono temático `Shirt` en Alquileres y `Tag` en Apartados.
+     - Placeholder simétrico: `Buscar por código, nombre o pistola (+ Enter)...`.
+   - **Modal de Abonos en Historial de Apartados:**
+     - Homologado al estándar corporativo de 3 opciones: Botón **Efectivo**, Botón **Bancolombia** y selector desplegable **Otros ▼** (`Nequi`, `Daviplata`, `Bre-B / Llave`, `Transferencia`, `Consignación`).
+
+3. **Verificación de Integridad:**
+   - `npx tsc --noEmit`: 0 errores de TypeScript en toda la aplicación.

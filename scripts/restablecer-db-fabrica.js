@@ -58,7 +58,8 @@ async function restablecerAFabrica() {
   } catch {}
 
   const timestamp = obtenerMarcaTiempo();
-  const rutaPrincipal = 'C:\\POS_BACKUPS\\backups_antiguos_historicos';
+  const systemDrive = process.env.SystemDrive || 'C:';
+  const rutaPrincipal = path.join(systemDrive + '\\', 'POS_BACKUPS', 'backups_antiguos_historicos');
   const rutaFallback = path.join(dbDir, 'backups_antiguos_historicos');
   const carpetaHistoricos = asegurarDirectorioSeguro(rutaPrincipal, rutaFallback);
   const destinoArchivado = path.join(carpetaHistoricos, `archivado_${timestamp}`);

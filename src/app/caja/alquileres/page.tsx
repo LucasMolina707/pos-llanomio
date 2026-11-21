@@ -2208,11 +2208,8 @@ export default function TerminalAlquileresPage() {
                           <div>
                             <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                               <User className="w-4 h-4 text-orange-600" />
-                              Paso 1: Selección del Cliente Arrendatario
+                              Paso 1: Selección de Cliente
                             </h2>
-                            <p className="text-xs text-slate-500">
-                              O busque un cliente existente o cree uno nuevo con su teléfono primario para el contrato
-                            </p>
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
@@ -2232,7 +2229,7 @@ export default function TerminalAlquileresPage() {
                           <input
                             ref={inputBuscarClienteRef}
                             type="text"
-                            placeholder="Buscar cliente por nombre, cédula, teléfono (Enter para seleccionar)..."
+                            placeholder="Buscar por cédula, nombre o celular..."
                             value={busquedaCliente}
                             onChange={(e) => setBusquedaCliente(e.target.value)}
                             onKeyDown={(e) => {
@@ -2349,12 +2346,9 @@ export default function TerminalAlquileresPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div>
                             <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-                              <ShoppingBag className="w-4 h-4 text-orange-600" />
-                              Paso 2: Catálogo de Trajes para Alquiler
+                              <Shirt className="w-4 h-4 text-orange-600" />
+                              Paso 2: Catálogo de Prendas
                             </h2>
-                            <p className="text-xs text-slate-500">
-                              Agrega trajes al contrato y verifica las fechas de retiro y devolución en el panel derecho
-                            </p>
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0">
@@ -2408,7 +2402,7 @@ export default function TerminalAlquileresPage() {
                           <input
                             ref={inputBuscarPrendaRef}
                             type="text"
-                            placeholder="Buscar prenda por nombre, código o escanee con pistola (+ Enter)..."
+                            placeholder="Buscar por código, nombre o pistola (+ Enter)..."
                             value={busquedaPrenda}
                             onChange={(e) => setBusquedaPrenda(e.target.value)}
                             onKeyDown={(e) => {

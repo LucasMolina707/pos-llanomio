@@ -733,6 +733,18 @@ export default function GastosAdminPage() {
           </div>
 
           <IconButtonTooltip
+            icon={RefreshCw}
+            label="Recargar Gastos"
+            modulo="Gastos"
+            destino="Actualiza balances y registros en tiempo real"
+            variant="neutral"
+            size="md"
+            onClick={cargarGastos}
+            disabled={cargando}
+            iconClassName={cargando ? "animate-spin text-indigo-600" : "text-indigo-600"}
+          />
+
+          <IconButtonTooltip
             icon={Download}
             label="Exportar Gastos a Excel"
             modulo="Reportes"

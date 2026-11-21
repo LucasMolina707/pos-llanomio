@@ -1969,11 +1969,8 @@ export default function PosPage() {
                           <div>
                             <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                               <User className="w-4 h-4 text-emerald-600" />
-                              Paso 1: Directorio y Selección de Cliente
+                              Paso 1: Selección de Cliente
                             </h2>
-                            <p className="text-xs text-slate-500">
-                              Selecciona un cliente de la lista o crea uno nuevo para asociar a la venta
-                            </p>
                           </div>
 
                           <IconButtonTooltip
@@ -1991,7 +1988,7 @@ export default function PosPage() {
                           <input
                             ref={searchInputClienteRef}
                             type="text"
-                            placeholder="Fuzzy: Cédula, nombre, teléfono o dirección..."
+                            placeholder="Buscar por cédula, nombre o celular..."
                             value={busquedaCliente}
                             onChange={(e) => setBusquedaCliente(e.target.value)}
                             onKeyDown={(e) => {
@@ -2159,7 +2156,7 @@ export default function PosPage() {
                             <input
                               ref={searchInputProductoRef}
                               type="text"
-                              placeholder="Fuzzy: código, prenda, talla, color, precio (Escanee con pistola o escriba + Enter)..."
+                              placeholder="Buscar por código, nombre o pistola (+ Enter)..."
                               value={busquedaVenta}
                               onChange={(e) => setBusquedaVenta(e.target.value)}
                               onKeyDown={(e) => {

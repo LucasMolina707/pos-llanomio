@@ -391,7 +391,7 @@ namespace AuroraHost.POS.Instalador
                 worker.ReportProgress(55, "Sincronizando esquema de base de datos SQLite...");
                 if (resetDb)
                 {
-                    EjecutarNodeScript("scripts\\reset-db-fabrica.js");
+                    EjecutarNodeScript("scripts\\restablecer-db-fabrica.js");
                 }
                 EjecutarNodeScript("scripts\\asegurar-admin.js");
                 Thread.Sleep(600);
@@ -494,19 +494,24 @@ namespace AuroraHost.POS.Instalador
 
         private void AsegurarCarpetas()
         {
+            string systemDrive = Environment.GetEnvironmentVariable("SystemDrive");
+            if (string.IsNullOrEmpty(systemDrive)) systemDrive = "C:";
+            if (!systemDrive.EndsWith("\\")) systemDrive += "\\";
+            string backupBase = Path.Combine(systemDrive, "POS_BACKUPS");
+
             string[] dirs = new string[] {
                 Path.Combine(baseDir, ".tmp"),
                 Path.Combine(baseDir, "database"),
                 Path.Combine(baseDir, "database", "backups_locales"),
                 Path.Combine(baseDir, "actualizaciones"),
-                "C:\\POS_BACKUPS",
-                "C:\\POS_BACKUPS\\historial",
-                "C:\\POS_BACKUPS\\inventario",
-                "C:\\POS_BACKUPS\\clientes",
-                "C:\\POS_BACKUPS\\historial_facturas",
-                "C:\\POS_BACKUPS\\movimientos_caja",
-                "C:\\POS_BACKUPS\\gastos_operativos",
-                "C:\\POS_BACKUPS\\salvaguarda_pre_actualizacion"
+                backupBase,
+                Path.Combine(backupBase, "historial"),
+                Path.Combine(backupBase, "inventario"),
+                Path.Combine(backupBase, "clientes"),
+                Path.Combine(backupBase, "historial_facturas"),
+                Path.Combine(backupBase, "movimientos_caja"),
+                Path.Combine(backupBase, "gastos_operativos"),
+                Path.Combine(backupBase, "salvaguarda_pre_actualizacion")
             };
 
             foreach (string d in dirs)

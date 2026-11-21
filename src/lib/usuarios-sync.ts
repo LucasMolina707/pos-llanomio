@@ -64,7 +64,7 @@ const RUTA_ARCHIVO_MAESTRO = path.join(process.cwd(), "USUARIOS_Y_CREDENCIALES_M
 function generarContenidoBase(): string {
   return `# REGISTRO MAESTRO DE USUARIOS, CREDENCIALES Y PROTOCOLO DE RECUPERACIÓN POS LOCAL
 
-> **AVISO DE SEGURIDAD OPERATIVA:** Este documento reside en el servidor local de la tienda (\`C:\\Proyectos\\pos-llanomio\`). Contiene las credenciales base, la matriz oficial de roles y permisos (RBAC), el Protocolo Criptográfico de 3 Factores Locales contra SQLite (\`database/llanomio.db\`) y el registro auto-sincronizado de cuentas.
+> **AVISO DE SEGURIDAD OPERATIVA:** Este documento reside en el directorio raíz del servidor local de la tienda (\`./USUARIOS_Y_CREDENCIALES_MAESTRAS.md\`). Contiene las credenciales base, la matriz oficial de roles y permisos (RBAC), el Protocolo Criptográfico de 3 Factores Locales contra SQLite (\`database/llanomio.db\`) y el registro auto-sincronizado de cuentas.
 
 ---
 

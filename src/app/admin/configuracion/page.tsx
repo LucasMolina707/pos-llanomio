@@ -428,7 +428,7 @@ export default function ConfiguracionAdminPage() {
           bytes: data.resultado.tamanioBytes,
           timestamp: new Date().toISOString(),
         });
-        setMensajeExito("Respaldo SQLite generado con éxito en C:\\POS_BACKUPS.");
+        setMensajeExito(`Respaldo SQLite generado con éxito en ${config.rutaCarpetaRespaldo || "POS_BACKUPS"}.`);
         setTimeout(() => setMensajeExito(null), 4000);
       }
     } catch {
@@ -481,15 +481,16 @@ export default function ConfiguracionAdminPage() {
 
   /**
    * Abre la carpeta local de respaldos en el Explorador de Windows en el servidor
-   * y copia la ruta C:\POS_BACKUPS al portapapeles del navegador.
+   * y copia la ruta de respaldos al portapapeles del navegador.
    */
   const handleAbrirCarpetaExplorador = async () => {
     setAbriendoCarpeta(true);
     setMensajeExito(null);
     setMensajeError(null);
     try {
+      const rutaDestino = config.rutaCarpetaRespaldo || "C:\\POS_BACKUPS";
       if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText("C:\\POS_BACKUPS").catch(() => {});
+        await navigator.clipboard.writeText(rutaDestino).catch(() => {});
       }
 
       const res = await fetch("/api/backup?abrirCarpeta=true", { cache: "no-store" });
@@ -497,11 +498,12 @@ export default function ConfiguracionAdminPage() {
       if (data.ok) {
         setMensajeExito("Carpeta de respaldos abierta en el Explorador de Windows y ruta copiada al portapapeles.");
       } else {
-        setMensajeExito("Ruta de respaldos copiada al portapapeles: C:\\POS_BACKUPS");
+        setMensajeExito(`Ruta de respaldos copiada al portapapeles: ${rutaDestino}`);
       }
       setTimeout(() => setMensajeExito(null), 5000);
     } catch {
-      setMensajeExito("Ruta de respaldos copiada al portapapeles: C:\\POS_BACKUPS");
+      const rutaDestino = config.rutaCarpetaRespaldo || "C:\\POS_BACKUPS";
+      setMensajeExito(`Ruta de respaldos copiada al portapapeles: ${rutaDestino}`);
       setTimeout(() => setMensajeExito(null), 5000);
     } finally {
       setAbriendoCarpeta(false);

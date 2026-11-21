@@ -157,7 +157,7 @@ async function asegurarCredencialesMaestras() {
         piePaginaFactura: "¡Gracias por su compra!",
         formatoPredeterminado: "MEDIA_CARTA_DOBLE",
         formatoImpresionDefault: "MEDIA_CARTA_DOBLE",
-        rutaCarpetaRespaldo: "C:\\POS_BACKUPS",
+        rutaCarpetaRespaldo: path.join((process.env.SystemDrive || "C:") + "\\", "POS_BACKUPS"),
         tarifaMoraDiariaDefault: 3000,
         ultimoAbonoAlquiler: 20000,
         ultimoAbonoApartado: 20000,
