@@ -230,6 +230,39 @@ for (const relPath of archivosCriticos) {
   }
 }
 
+// 7. Compilacion de la Interfaz Grafica del Instalador Maestro (C# WinForms)
+console.log("\n[7/7] Compilando InstaladorMaestroGUI.exe con csc.exe...");
+const cscPaths = [
+  "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe",
+  "C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\csc.exe",
+];
+
+const cscExe = cscPaths.find((p) => fs.existsSync(p));
+const fuenteCs = path.join(PROJECT_ROOT, "scripts", "InstaladorMaestroGUI.cs");
+const dirInstaladorTienda = path.join(PROJECT_ROOT, "instalador_tienda");
+if (!fs.existsSync(dirInstaladorTienda)) fs.mkdirSync(dirInstaladorTienda, { recursive: true });
+
+const salidaExeTienda = path.join(dirInstaladorTienda, "InstaladorMaestroGUI.exe");
+const salidaExeRaiz = path.join(PROJECT_ROOT, "InstaladorMaestroGUI.exe");
+const iconoPath = path.join(PROJECT_ROOT, "instalador_tienda", "recursos", "llanomio.ico");
+
+if (cscExe && fs.existsSync(fuenteCs)) {
+  try {
+    const iconFlag = fs.existsSync(iconoPath) ? `/win32icon:"${iconoPath}"` : "";
+    const cmdCsc = `"${cscExe}" /target:winexe /nologo ${iconFlag} /out:InstaladorMaestroGUI.exe "scripts\\InstaladorMaestroGUI.cs"`;
+    execSync(cmdCsc, { cwd: PROJECT_ROOT, stdio: "inherit" });
+    fs.copyFileSync(salidaExeRaiz, salidaExeTienda);
+    const statExe = fs.statSync(salidaExeTienda);
+    console.log(`      [OK] InstaladorMaestroGUI.exe compilado exitosamente (${(statExe.size / 1024).toFixed(1)} KB).`);
+    console.log(`           Ubicacion 1: ${salidaExeTienda}`);
+    console.log(`           Ubicacion 2: ${salidaExeRaiz}`);
+  } catch (errCsc) {
+    console.warn(`      [ADVERTENCIA] No se pudo compilar InstaladorMaestroGUI.cs:`, errCsc.message);
+  }
+} else {
+  console.warn("      [AVISO] csc.exe o InstaladorMaestroGUI.cs no encontrado.");
+}
+
 console.log("\n===============================================================================");
 console.log("   PAQUETE PREPARADO Y LISTO PARA SMART INSTALL MAKER / INNO SETUP");
 console.log("===============================================================================\n");

@@ -18,6 +18,8 @@ import {
   Hash,
   ShieldAlert,
   LogOut,
+  Delete,
+  Smartphone,
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
@@ -37,6 +39,18 @@ export default function LoginPage() {
     mensaje: string;
   } | null>(null);
   const [liberandoRemoto, setLiberandoRemoto] = useState(false);
+  const [mostrarPadTactil, setMostrarPadTactil] = useState(true);
+
+  // Acciones rápidas del Pad Numérico Táctil
+  const handleDigitoPad = (d: string) => {
+    setPassword((prev) => prev + d);
+  };
+  const handleBorrarDigito = () => {
+    setPassword((prev) => prev.slice(0, -1));
+  };
+  const handleLimpiarPassword = () => {
+    setPassword("");
+  };
 
   // Estados del modal de recuperación de 3 factores
   const [modalRecuperarAbierto, setModalRecuperarAbierto] = useState(false);
@@ -103,9 +117,12 @@ export default function LoginPage() {
         return;
       }
 
-      const destino = data.redirectTo || "/";
+      const terminalGuardada = typeof window !== "undefined" ? localStorage.getItem("pos_terminal_preferida") : null;
+      const destino = (data.user?.rol !== "ADMIN" && terminalGuardada)
+        ? terminalGuardada
+        : (data.redirectTo || (data.user?.rol === "ADMIN" ? "/" : "/caja/pos"));
 
-      // Redirigir de inmediato según el rol
+      // Redirigir de inmediato a la terminal de trabajo sin pantallas intermedias
       router.push(destino);
       router.refresh();
     } catch {
@@ -140,7 +157,10 @@ export default function LoginPage() {
       }
 
       setSesionBloqueadaInfo(null);
-      const destino = data.redirectTo || "/";
+      const terminalGuardada = typeof window !== "undefined" ? localStorage.getItem("pos_terminal_preferida") : null;
+      const destino = (data.user?.rol !== "ADMIN" && terminalGuardada)
+        ? terminalGuardada
+        : (data.redirectTo || (data.user?.rol === "ADMIN" ? "/" : "/caja/pos"));
       router.push(destino);
       router.refresh();
     } catch {
@@ -374,6 +394,62 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+
+            {/* Control para alternar el Pad Numérico Táctil */}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Teclado Numérico en Pantalla
+              </span>
+              <button
+                type="button"
+                onClick={() => setMostrarPadTactil(!mostrarPadTactil)}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 transition flex items-center gap-1 cursor-pointer"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>{mostrarPadTactil ? "Ocultar Pad" : "Mostrar Pad"}</span>
+              </button>
+            </div>
+
+            {/* Pad Numérico Táctil de Mostrador */}
+            {mostrarPadTactil && (
+              <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200/90 shadow-2xs space-y-1.5">
+                <div className="grid grid-cols-3 gap-1.5">
+                  {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digito) => (
+                    <button
+                      key={digito}
+                      type="button"
+                      onClick={() => handleDigitoPad(digito)}
+                      className="h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black font-mono bg-white hover:bg-slate-100 active:scale-95 transition-all text-slate-800 border border-slate-200 shadow-2xs flex items-center justify-center cursor-pointer select-none"
+                    >
+                      {digito}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={handleLimpiarPassword}
+                    className="h-11 sm:h-12 rounded-xl text-xs font-black font-mono bg-rose-50 hover:bg-rose-100 active:scale-95 transition-all text-rose-700 border border-rose-200 shadow-2xs flex items-center justify-center cursor-pointer select-none"
+                    title="Limpiar campo"
+                  >
+                    C
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDigitoPad("0")}
+                    className="h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black font-mono bg-white hover:bg-slate-100 active:scale-95 transition-all text-slate-800 border border-slate-200 shadow-2xs flex items-center justify-center cursor-pointer select-none"
+                  >
+                    0
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBorrarDigito}
+                    className="h-11 sm:h-12 rounded-xl text-sm font-bold bg-amber-50 hover:bg-amber-100 active:scale-95 transition-all text-amber-800 border border-amber-200 shadow-2xs flex items-center justify-center cursor-pointer select-none"
+                    title="Borrar último dígito"
+                  >
+                    <Delete className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"

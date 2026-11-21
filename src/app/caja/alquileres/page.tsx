@@ -1480,14 +1480,16 @@ export default function TerminalAlquileresPage() {
       cajon.actualizarCajon(true);
       cajon.notificarCajaActualizada();
 
-      // Disparar apertura de cajón monedero para devolución de depósito en efectivo
-      safeFetchJson("/api/caja/abrir-cajon", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          motivo: `LIQUIDACION_DEPOSITO_EFECTIVO · Alquiler ${alquilerLiquidar.numeroFactura}`,
-        }),
-      }).catch(() => { });
+      // Disparar apertura de cajón monedero para devolución de depósito en efectivo o cobro en efectivo
+      if (montoDevueltoFinal > 0 || (cobrarSaldoPendiente && metodoPagoSaldo === "EFECTIVO")) {
+        safeFetchJson("/api/caja/abrir-cajon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            motivo: `LIQUIDACION_DEPOSITO · Alquiler ${alquilerLiquidar.numeroFactura}`,
+          }),
+        }).catch(() => { });
+      }
 
       setMensajeExito(`¡Contrato N° ${alquilerLiquidar.numeroFactura} liquidado con éxito! Prendas recibidas y depósito gestionado.`);
       setModalLiquidarAbierto(false);
@@ -3065,7 +3067,10 @@ export default function TerminalAlquileresPage() {
                           <option value="EFECTIVO">Efectivo</option>
                           <option value="BANCOLOMBIA">Bancolombia</option>
                           <option value="NEQUI">Nequi</option>
-                          <option value="LLAVE">Llave</option>
+                          <option value="DAVIPLATA">Daviplata</option>
+                          <option value="LLAVE">Bre-B / Llave</option>
+                          <option value="TRANSFERENCIA">Transferencia</option>
+                          <option value="CONSIGNACION">Consignación</option>
                         </select>
                       </div>
                     )}
@@ -3162,134 +3167,137 @@ export default function TerminalAlquileresPage() {
                 </div>
 
                 {/* SELECCIÓN DE RESOLUCIÓN DEL DEPÓSITO */}
-                <div>
-                  <label className="font-black text-slate-800 uppercase tracking-wider block mb-2">
-                    Estado de las Prendas y Destino del Depósito:
+                <div className="space-y-2">
+                  <label className="font-black text-slate-800 uppercase tracking-wider block text-[11px]">
+                    Destino del Depósito en Garantía:
                   </label>
 
                   <div className="space-y-2">
                     {/* Opción 1: Devolver 100% */}
-                    <label className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${resolucionDeposito === "DEVUELTO_COMPLETO"
-                      ? "bg-emerald-50 border-emerald-300"
+                    <label className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${resolucionDeposito === "DEVUELTO_COMPLETO"
+                      ? "bg-emerald-50 border-emerald-400 ring-2 ring-emerald-500/20"
                       : "bg-white border-slate-200 hover:bg-slate-50"
                       }`}>
-                      <input
-                        type="radio"
-                        name="resolucion"
-                        checked={resolucionDeposito === "DEVUELTO_COMPLETO"}
-                        onChange={() => {
-                          setResolucionDeposito("DEVUELTO_COMPLETO");
-                          setMontoRetencion(0);
-                          setMotivoRetencion("");
-                        }}
-                        className="mt-0.5 text-emerald-600"
-                      />
-                      <div>
-                        <span className="font-bold text-slate-900 block">
-                          Prendas en Perfecto Estado — Devolver Depósito 100%
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          No hay daños ni pérdidas. Se reembolsan ${alquilerLiquidar.montoDeposito.toLocaleString("es-CO")} al cliente.
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="radio"
+                          name="resolucion"
+                          checked={resolucionDeposito === "DEVUELTO_COMPLETO"}
+                          onChange={() => {
+                            setResolucionDeposito("DEVUELTO_COMPLETO");
+                            setMontoRetencion(0);
+                            setMotivoRetencion("");
+                          }}
+                          className="text-emerald-600"
+                        />
+                        <span className="font-bold text-slate-900 text-xs">
+                          Buen Estado — Devolver Depósito 100%
                         </span>
                       </div>
+                      <span className="font-mono font-black text-xs text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-lg border border-emerald-300">
+                        +${alquilerLiquidar.montoDeposito.toLocaleString("es-CO")}
+                      </span>
                     </label>
 
                     {/* Opción 2: Retener Parcial por Daño */}
-                    <label className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${resolucionDeposito === "RETENIDO_PARCIAL"
-                      ? "bg-amber-50 border-amber-300"
+                    <label className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${resolucionDeposito === "RETENIDO_PARCIAL"
+                      ? "bg-amber-50 border-amber-400 ring-2 ring-amber-500/20"
                       : "bg-white border-slate-200 hover:bg-slate-50"
                       }`}>
-                      <input
-                        type="radio"
-                        name="resolucion"
-                        checked={resolucionDeposito === "RETENIDO_PARCIAL"}
-                        onChange={() => {
-                          setResolucionDeposito("RETENIDO_PARCIAL");
-                          if (montoRetencion <= 0) {
-                            setMontoRetencion(Math.round(alquilerLiquidar.montoDeposito / 2));
-                          }
-                        }}
-                        className="mt-0.5 text-amber-600"
-                      />
-                      <div className="flex-1">
-                        <span className="font-bold text-slate-900 block">
-                          Daño o Pérdida Parcial — Retener Parte del Depósito
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          Se cobra costo de reparación o tintorería y se devuelve el remanente.
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="radio"
+                          name="resolucion"
+                          checked={resolucionDeposito === "RETENIDO_PARCIAL"}
+                          onChange={() => {
+                            setResolucionDeposito("RETENIDO_PARCIAL");
+                            if (montoRetencion <= 0) {
+                              setMontoRetencion(Math.round(alquilerLiquidar.montoDeposito / 2));
+                            }
+                          }}
+                          className="text-amber-600"
+                        />
+                        <span className="font-bold text-slate-900 text-xs">
+                          Retención Parcial por Daño o Tintorería
                         </span>
                       </div>
+                      <span className="font-mono font-bold text-xs text-amber-900 bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-300">
+                        Ajustable
+                      </span>
                     </label>
 
                     {/* Formulario de retención parcial */}
                     {resolucionDeposito === "RETENIDO_PARCIAL" && (
-                      <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 ml-6 space-y-2">
+                      <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 ml-5 space-y-2">
                         <div className="flex items-center gap-2">
-                          <label className="font-bold text-amber-900 shrink-0">
+                          <label className="font-bold text-amber-900 text-xs shrink-0">
                             Monto a Retener ($):
                           </label>
                           <input
                             type="number"
                             value={montoRetencion}
                             onChange={(e) => setMontoRetencion(parseFloat(e.target.value) || 0)}
-                            className="w-full px-2 py-1 text-xs font-bold bg-white border border-amber-300 rounded text-right"
+                            className="w-full px-2.5 py-1 text-xs font-black font-mono bg-white border border-amber-300 rounded-lg text-right text-slate-900"
                           />
                         </div>
-                        <div className="text-[11px] font-bold text-amber-800">
-                          Devolver al cliente: ${Math.max(0, alquilerLiquidar.montoDeposito - montoRetencion).toLocaleString("es-CO")}
+                        <div className="flex items-center justify-between text-xs font-bold text-amber-950 pt-1 border-t border-amber-200">
+                          <span>Reembolso al cliente:</span>
+                          <span className="font-mono text-emerald-800 font-black">
+                            ${Math.max(0, alquilerLiquidar.montoDeposito - montoRetencion).toLocaleString("es-CO")}
+                          </span>
                         </div>
                         <div>
-                          <label className="font-bold text-amber-900 block mb-0.5">
-                            Descripción Obligatoria del Daño / Afectación:
+                          <label className="font-bold text-amber-900 text-[11px] block mb-0.5">
+                            Motivo de la retención:
                           </label>
                           <input
                             type="text"
                             value={motivoRetencion}
                             onChange={(e) => setMotivoRetencion(e.target.value)}
-                            placeholder="Ej: Mancha de grasa en solapa, descosido de dobladillo..."
-                            className="w-full px-2 py-1 text-xs bg-white border border-amber-300 rounded"
+                            placeholder="Ej. Mancha de grasa o costura suelta"
+                            className="w-full px-2.5 py-1 text-xs bg-white border border-amber-300 rounded-lg text-slate-800"
                           />
                         </div>
                       </div>
                     )}
 
                     {/* Opción 3: Retención Total */}
-                    <label className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${resolucionDeposito === "RETENIDO_TOTAL"
-                      ? "bg-rose-50 border-rose-300"
+                    <label className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${resolucionDeposito === "RETENIDO_TOTAL"
+                      ? "bg-rose-50 border-rose-400 ring-2 ring-rose-500/20"
                       : "bg-white border-slate-200 hover:bg-slate-50"
                       }`}>
-                      <input
-                        type="radio"
-                        name="resolucion"
-                        checked={resolucionDeposito === "RETENIDO_TOTAL"}
-                        onChange={() => {
-                          setResolucionDeposito("RETENIDO_TOTAL");
-                          setMontoRetencion(alquilerLiquidar.montoDeposito);
-                        }}
-                        className="mt-0.5 text-rose-600"
-                      />
-                      <div className="flex-1">
-                        <span className="font-bold text-slate-900 block">
-                          Daño Irreparable o Pérdida — Retener 100% del Depósito
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          Se retienen ${alquilerLiquidar.montoDeposito.toLocaleString("es-CO")} completos para reposición de la prenda.
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="radio"
+                          name="resolucion"
+                          checked={resolucionDeposito === "RETENIDO_TOTAL"}
+                          onChange={() => {
+                            setResolucionDeposito("RETENIDO_TOTAL");
+                            setMontoRetencion(alquilerLiquidar.montoDeposito);
+                          }}
+                          className="text-rose-600"
+                        />
+                        <span className="font-bold text-slate-900 text-xs">
+                          Retención Total por Daño Irreparable o Pérdida
                         </span>
                       </div>
+                      <span className="font-mono font-black text-xs text-rose-800 bg-rose-100 px-2 py-0.5 rounded-lg border border-rose-300">
+                        100% Retenido
+                      </span>
                     </label>
 
                     {/* Formulario de retención total */}
                     {resolucionDeposito === "RETENIDO_TOTAL" && (
-                      <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 ml-6">
-                        <label className="font-bold text-rose-900 block mb-0.5">
-                          Motivo Obligatorio de Retención Total:
+                      <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 ml-5 space-y-1">
+                        <label className="font-bold text-rose-900 text-[11px] block">
+                          Motivo de la pérdida o daño irreparable:
                         </label>
                         <input
                           type="text"
                           value={motivoRetencion}
                           onChange={(e) => setMotivoRetencion(e.target.value)}
-                          placeholder="Ej: Prenda rasgada sin posibilidad de reparación, extravío de pieza..."
-                          className="w-full px-2 py-1 text-xs bg-white border border-rose-300 rounded"
+                          placeholder="Ej. Prenda quemada o no devuelta"
+                          className="w-full px-2.5 py-1 text-xs bg-white border border-rose-300 rounded-lg text-slate-800"
                         />
                       </div>
                     )}

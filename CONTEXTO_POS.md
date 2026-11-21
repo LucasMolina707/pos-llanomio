@@ -5236,3 +5236,29 @@ Se unificó de extremo a extremo la experiencia de acceso, conmutación y visual
 
 3. **Verificación de Integridad:**
    - `npx tsc --noEmit`: 0 errores de TypeScript en toda la aplicación.
+
+
+---
+
+## 17. Cierre Integral de Validación Operativa: Login Táctil, Liquidación de Garantías, Build de Producción y Paquete Portable
+
+### 1. Resumen de Implementaciones y Validaciones
+1. **Acceso Rápido y Apertura de Turno (`/login`):**
+   - **Pad Numérico Táctil de PIN:** Integrada botonera táctil en pantalla de 12 teclas (`1-9`, `0`, `C` para limpiar y `⌫` para borrar) con dimensiones táctiles generosas (`h-11 sm:h-12`), efecto de pulsación inmediata (`active:scale-95`) y soporte simultáneo para teclado físico (`Enter` y `Backspace`).
+   - **Redirección Inmediata para Cajeros:** Se eliminaron pantallas intermedias; tras autenticarse con éxito, el cajero es conducido de forma instantánea a su terminal operativa (`/caja/pos`, `/caja/alquileres` o `/caja/apartados` según preferencia persistida).
+   - **Apertura de Gaveta Fluida:** El flujo de base inicial de caja ($100.000 COP por defecto con sugerencias rápidas de $50k, $100k, $150k y $200k) se activa sin fricción al iniciar la jornada.
+
+2. **Recepción y Liquidación de Garantías en Alquileres:**
+   - **Eliminación de Textos Extensos:** Se sintetizaron las opciones de resolución de depósito a estados concisos: `Buen Estado — Devolver Depósito 100%`, `Retención Parcial por Daño o Tintorería` y `Retención Total por Daño Irreparable o Pérdida`.
+   - **Apertura Automática de Gaveta:** Se aseguró que al devolver dinero en efectivo o registrar cobro de saldo en efectivo se dispare de forma transparente la señal a `/api/caja/abrir-cajon`.
+   - **Selector de Métodos Completo:** El cobro de saldo faltante en liquidación ahora incluye la gama bancaria completa (`Efectivo`, `Bancolombia`, `Nequi`, `Daviplata`, `Bre-B / Llave`, `Transferencia`, `Consignación`).
+
+3. **Validación de Compilación y Build de Producción:**
+   - **TypeScript (`npx tsc --noEmit`):** 0 errores de tipado estricto.
+   - **Next.js 15 (`npm run build`):** Compilación exitosa en 31.4s de las 22 páginas estáticas y todas las rutas dinámicas y APIs (`BUILD_ID: DTORfa14-W_O72LVcfUIM`).
+   - **Punto de Entrada Standalone:** Sincronización íntegra de `.next/standalone`, recursos públicos y base de datos canónica sin Split-Brain.
+
+4. **Generación y Prueba del Paquete Portable (`instalador_tienda`):**
+   - Ejecutado `node scripts/preparar-paquete-instalador.js` con purga de temporales, seed neutro de fábrica, copia de runtime de Node.js (88 MB) y generación de `.env` de producción.
+   - Compilación exitosa de `InstaladorMaestroGUI.exe` (290 KB con icono oficial `llanomio.ico`) mediante `csc.exe` de Microsoft .NET Framework.
+   - Rutas 100% dinámicas y relativas aptas para despliegue desde memoria USB en cualquier equipo Windows.

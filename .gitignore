@@ -78,3 +78,5 @@ desktop.ini
 manifest_actualizacion.json
 *.bak
 .pm2*
+InstaladorMaestroGUI.exe
+/instalador_tienda/*.exe
