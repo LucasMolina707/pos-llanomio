@@ -897,47 +897,41 @@ export default function PlantillaImpresion({
                 )}
               </div>
 
-              {/* CELDA DE TOTALES DE PAGO DE ALQUILER */}
+              {/* CELDA DE TOTALES DE COBRO DE ALQUILER */}
               <div className="py-2 border-2 border-black bg-slate-100 p-2 rounded my-1.5 text-xs space-y-1">
                 <p className="text-[10.5px] font-black uppercase text-slate-900 border-b border-black pb-0.5">
-                  TOTALES DE PAGO DE ALQUILER
+                  COBRO POR SERVICIO DE ALQUILER
                 </p>
                 <div className="flex justify-between">
                   <span>Total Valor Alquiler:</span>
                   <span className="font-bold font-mono">{formatCOP(totalOperacionPrincipal)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Depósito en Garantía:</span>
-                  <span className="font-bold font-mono">{formatCOP(montoDepositoEfectivo)}</span>
-                </div>
-                <div className="flex justify-between font-black text-slate-950 pt-0.5 border-t border-black bg-slate-200/60 px-1 rounded">
-                  <span>Total (Alquiler + Depósito):</span>
-                  <span className="font-mono text-[13px]">{formatCOP(totalAlquilerConDeposito)}</span>
-                </div>
                 {abonoPrevioApartado > 0 && (
                   <div className="flex justify-between text-indigo-700 font-bold pt-0.5">
-                    <span>Abono Previo en Apartado:</span>
+                    <span>(-) Abono Previo en Apartado:</span>
                     <span className="font-mono">-{formatCOP(abonoPrevioApartado)}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-bold text-slate-900 pt-0.5 border-t border-dashed border-black">
-                  <span>Recibido:</span>
-                  <span className="font-mono">{formatCOP(efectivoRecibidoAlquiler)}</span>
-                </div>
-                <div className="flex justify-between text-emerald-900 font-black pt-0.5">
-                  <span>Valor Pagado ({textoMedioPagoPrincipal}):</span>
-                  <span className="font-mono">{formatCOP(totalPagadoOperacionAlquiler)}</span>
-                </div>
-                <div className="flex justify-between font-black text-emerald-800 text-[13px] pt-0.5 border-t border-black">
-                  <span>Vueltas:</span>
-                  <span className="font-mono">{formatCOP(vueltasAlquiler)}</span>
+                <div className="flex justify-between text-emerald-900 font-black pt-0.5 border-t border-black">
+                  <span>Valor Pagado Alquiler ({textoMedioPagoPrincipal}):</span>
+                  <span className="font-mono">{formatCOP(totalAbonadoOperacion)}</span>
                 </div>
                 {saldoPendienteOperacion > 0 && (
                   <div className="flex justify-between text-xs font-black pt-1 border-t border-black">
-                    <span>Falta por pagar:</span>
+                    <span>Saldo Pendiente Alquiler:</span>
                     <span className="text-rose-700 font-black">
                       {formatCOP(saldoPendienteOperacion)}
                     </span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-slate-900 pt-0.5 border-t border-dashed border-black">
+                  <span>Recibido Alquiler:</span>
+                  <span className="font-mono">{formatCOP(efectivoRecibidoAlquiler)}</span>
+                </div>
+                {vueltasAlquiler > 0 && (
+                  <div className="flex justify-between font-black text-emerald-800 text-[13px] pt-0.5 border-t border-black">
+                    <span>Vueltas Alquiler:</span>
+                    <span className="font-mono">{formatCOP(vueltasAlquiler)}</span>
                   </div>
                 )}
               </div>
@@ -1375,47 +1369,41 @@ export default function PlantillaImpresion({
                     </div>
                   </div>
 
-                  {/* COLUMNA 2: CELDA DE TOTALES DE PAGO DE ALQUILER */}
+                  {/* COLUMNA 2: CELDA DE TOTALES DE COBRO DE ALQUILER */}
                   <div className="p-1.5 bg-slate-50 border border-slate-400 space-y-1">
                     <p className="font-black text-[9px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
-                      TOTALES DE PAGO DE ALQUILER
+                      COBRO POR SERVICIO DE ALQUILER
                     </p>
                     <div className="flex justify-between font-bold text-[9.5px]">
                       <span>Total Valor Alquiler:</span>
                       <span className="font-mono">{formatCOP(totalOperacionPrincipal)}</span>
                     </div>
-                    <div className="flex justify-between font-bold text-[9.5px]">
-                      <span>Depósito en Garantía:</span>
-                      <span className="font-mono">{formatCOP(montoDepositoEfectivo)}</span>
-                    </div>
-                    <div className="flex justify-between font-black text-slate-950 text-[10px] bg-slate-200/70 px-1 py-0.5 border border-slate-300">
-                      <span>Total (Alquiler + Depósito):</span>
-                      <span className="font-mono">{formatCOP(totalAlquilerConDeposito)}</span>
-                    </div>
                     {abonoPrevioApartado > 0 && (
                       <div className="flex justify-between text-indigo-700 font-bold text-[9.5px] pt-0.5">
-                        <span>Abono Previo en Apartado:</span>
+                        <span>(-) Abono Previo en Apartado:</span>
                         <span className="font-mono">-{formatCOP(abonoPrevioApartado)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-slate-800 font-bold text-[9.5px] pt-0.5 border-t border-dashed border-slate-300">
-                      <span>Recibido:</span>
-                      <span className="font-mono">{formatCOP(efectivoRecibidoAlquiler)}</span>
-                    </div>
-                    <div className="flex justify-between text-emerald-800 font-black text-[9.5px] pt-0.5">
-                      <span>Valor Pagado ({textoMedioPagoPrincipal}):</span>
-                      <span className="font-mono">{formatCOP(totalPagadoOperacionAlquiler)}</span>
-                    </div>
-                    <div className="flex justify-between font-black text-emerald-800 text-[10px] pt-0.5 border-t border-slate-300">
-                      <span>Vueltas:</span>
-                      <span className="font-mono">{formatCOP(vueltasAlquiler)}</span>
+                    <div className="flex justify-between text-emerald-800 font-black text-[9.5px] pt-0.5 border-t border-slate-200">
+                      <span>Valor Pagado Alquiler ({textoMedioPagoPrincipal}):</span>
+                      <span className="font-mono">{formatCOP(totalAbonadoOperacion)}</span>
                     </div>
                     {saldoPendienteOperacion > 0 && (
                       <div className="flex justify-between font-black border-t border-slate-300 pt-0.5 text-[9.5px]">
-                        <span>Falta por pagar:</span>
-                        <span className="text-rose-700">
+                        <span>Saldo Pendiente Alquiler:</span>
+                        <span className="text-rose-700 font-black">
                           {formatCOP(saldoPendienteOperacion)}
                         </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-slate-800 font-bold text-[9.5px] pt-0.5 border-t border-dashed border-slate-300">
+                      <span>Recibido Alquiler:</span>
+                      <span className="font-mono">{formatCOP(efectivoRecibidoAlquiler)}</span>
+                    </div>
+                    {vueltasAlquiler > 0 && (
+                      <div className="flex justify-between font-black text-emerald-800 text-[10px] pt-0.5 border-t border-slate-300">
+                        <span>Vueltas Alquiler:</span>
+                        <span className="font-mono">{formatCOP(vueltasAlquiler)}</span>
                       </div>
                     )}
                   </div>
@@ -1856,47 +1844,41 @@ export default function PlantillaImpresion({
                     </div>
                   </div>
 
-                  {/* COLUMNA 2: CELDA DE TOTALES DE PAGO DE ALQUILER */}
+                  {/* COLUMNA 2: CELDA DE TOTALES DE COBRO DE ALQUILER */}
                   <div className="p-3 bg-slate-50 border-2 border-slate-400 space-y-1.5">
                     <p className="font-black text-[10px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
-                      TOTALES DE PAGO DE ALQUILER
+                      COBRO POR SERVICIO DE ALQUILER
                     </p>
                     <div className="flex justify-between text-xs font-bold">
                       <span>Total Valor Alquiler:</span>
                       <span className="font-mono text-sm">{formatCOP(totalOperacionPrincipal)}</span>
                     </div>
-                    <div className="flex justify-between text-xs font-bold">
-                      <span>Depósito en Garantía:</span>
-                      <span className="font-mono text-sm">{formatCOP(montoDepositoEfectivo)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-black text-slate-950 bg-slate-200/80 px-2 py-1 border border-slate-300">
-                      <span>Total (Alquiler + Depósito):</span>
-                      <span className="font-mono text-base">{formatCOP(totalAlquilerConDeposito)}</span>
-                    </div>
                     {abonoPrevioApartado > 0 && (
                       <div className="flex justify-between text-xs text-indigo-700 font-bold pt-1">
-                        <span>Abono Previo en Apartado:</span>
+                        <span>(-) Abono Previo en Apartado:</span>
                         <span className="font-mono text-sm">-{formatCOP(abonoPrevioApartado)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-xs text-slate-800 font-bold pt-1 border-t border-dashed border-slate-300">
-                      <span>Recibido:</span>
-                      <span className="font-mono text-sm">{formatCOP(efectivoRecibidoAlquiler)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-emerald-800 font-black pt-1">
-                      <span>Valor Pagado ({textoMedioPagoPrincipal}):</span>
-                      <span className="font-mono text-sm">{formatCOP(totalPagadoOperacionAlquiler)}</span>
-                    </div>
-                    <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-300 pt-1">
-                      <span>Vueltas:</span>
-                      <span className="font-mono">{formatCOP(vueltasAlquiler)}</span>
+                    <div className="flex justify-between text-xs text-emerald-800 font-black pt-1 border-t border-slate-200">
+                      <span>Valor Pagado Alquiler ({textoMedioPagoPrincipal}):</span>
+                      <span className="font-mono text-sm">{formatCOP(totalAbonadoOperacion)}</span>
                     </div>
                     {saldoPendienteOperacion > 0 && (
                       <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-1">
-                        <span>Falta por pagar:</span>
-                        <span className="text-rose-700">
+                        <span>Saldo Pendiente Alquiler:</span>
+                        <span className="text-rose-700 font-black">
                           {formatCOP(saldoPendienteOperacion)}
                         </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs text-slate-800 font-bold pt-1 border-t border-dashed border-slate-300">
+                      <span>Recibido Alquiler:</span>
+                      <span className="font-mono text-sm">{formatCOP(efectivoRecibidoAlquiler)}</span>
+                    </div>
+                    {vueltasAlquiler > 0 && (
+                      <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-300 pt-1">
+                        <span>Vueltas Alquiler:</span>
+                        <span className="font-mono">{formatCOP(vueltasAlquiler)}</span>
                       </div>
                     )}
                   </div>

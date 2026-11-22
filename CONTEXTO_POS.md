@@ -5297,3 +5297,35 @@ Se unificó de extremo a extremo la experiencia de acceso, conmutación y visual
 - **Estándares Visuales:**
   - Tipografía `font-mono tabular-nums font-black` de alto contraste para lectura rápida de montos sin saltos visuales.
   - Cero emojis en interfaz y mensajes; uso estricto de iconografía vectorial profesional (`lucide-react`).
+
+
+---
+
+## 19. Refactorización del Módulo 3 de Alquileres: Separación Estricta de Saldos (Alquiler vs. Custodia) y Formalización de Fechas
+
+### 1. Desacoplamiento Financiero y Contable
+- **Cobro por Servicio de Alquiler (Ingreso Operacional):**
+  - Corresponde estrictamente al canon pactado por el servicio de alquiler de prendas.
+  - Se gestiona en su propia columna izquierda con el `PanelPagosSecuenciales`, permitiendo pagos mixtos y abonos parciales (o deducción automática del abono previo si la operación proviene de un apartado).
+  - El total exigido en mostrador para este concepto es únicamente el valor del alquiler (`totalExigible = valorAbonoAlquilerHoy`).
+- **Abono en Custodia (Garantía / Depósito Devoluble):**
+  - Fondo independiente en custodia que respalda la integridad de la prenda entregada.
+  - **Prohibición de Suma en Bolsa Única:** No se suma al total del alquiler ni altera el cuadre de ingresos operacionales del negocio.
+  - Gestionado en su propia columna derecha con monto pactado sugerido ($0, $10.000, $20.000, $30.000, $50.000), medio de custodia (`metodoPagoDeposito`: Efectivo en gaveta o Banco), tarifa oficial de mora ($3.000/día) y notas de estado.
+  - En el panel lateral de resumen, se eliminó la fila fusionada `TOTAL EXIGIDO` y se reemplazó por desglose dual transparente:
+    1. `1. Servicio Alquiler: $XX.XXX`
+    2. `2. Custodia (Garantía): $XX.XXX (Devoluble)`
+
+### 2. Formalización Visible de Fechas de Retiro y Devolución
+- En la cabecera superior del Paso 3 de cobro de alquileres (`src/app/caja/alquileres/page.tsx`), se implementó un banner formal de cronograma de contrato con nombres de día en español nativo:
+  - **Fecha de Retiro:** Día y fecha formal en que el cliente retira las prendas (ej. `sábado, 21 de noviembre de 2026`).
+  - **Fecha Límite de Devolución:** Día, fecha y hora límite de entrega en el establecimiento (ej. `lunes, 23 de noviembre de 2026 hasta las 8:00 p. m.`).
+
+### 3. Homologación en Comprobantes de Impresión y Exportación PDF
+- En [PlantillaImpresion.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/components/impresion/PlantillaImpresion.tsx) (formatos Tirilla, Media Carta y Carta Completa):
+  - Erradicada la franja fusionada `Total (Alquiler + Depósito)`.
+  - El fondo de custodia se mantiene aislado en su recuadro amarillo/dorado de garantía reembolsable.
+  - La sección contable detalla con precisión: Total Valor Alquiler, Abono Previo (si aplica), Cobro Alquiler Pagado y Saldo Pendiente de Alquiler.
+- En [src/lib/pdf-media-carta.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/lib/pdf-media-carta.ts) (formatos PDF Media Carta, Carta Completa y Tirilla):
+  - Retirada la suma combinada `Total (Alquiler + Depósito)`.
+  - Resaltado exclusivo `Cobro Alquiler Pagado` en la columna contable, preservando la garantía en su recuadro independiente de custodia.

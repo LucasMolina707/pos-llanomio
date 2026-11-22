@@ -457,22 +457,6 @@ function dibujarPaginaMediaCarta(
     doc.setTextColor(15, 23, 42);
     doc.text(formatCOP(totalOperacionPrincipal), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
 
-    yTotAlq += 3.2;
-    doc.setTextColor(71, 85, 105);
-    doc.text("Depósito en Garantía:", xDer + 2.5, yTotAlq);
-    doc.setTextColor(146, 64, 14);
-    doc.text(formatCOP(montoDepositoEfectivo), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
-
-    // Franja resaltada Total (Alquiler + Depósito)
-    yTotAlq += 3.4;
-    doc.setFillColor(226, 232, 240); // Slate 200
-    doc.rect(xDer + 1, yTotAlq - 2.5, anchoCol - 2, 4.2, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Total (Alquiler + Depósito):", xDer + 2.5, yTotAlq + 0.6);
-    doc.text(formatCOP(totalAlquilerConDeposito), xDer + anchoCol - 2.5, yTotAlq + 0.6, { align: "right" });
-
     if (abonoPrevioApartado > 0) {
       yTotAlq += 3.4;
       doc.setFont("helvetica", "bold");
@@ -481,6 +465,16 @@ function dibujarPaginaMediaCarta(
       doc.text("Abono Previo en Apartado:", xDer + 2.5, yTotAlq);
       doc.text(`-${formatCOP(abonoPrevioApartado)}`, xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
     }
+
+    // Franja resaltada Cobro Alquiler Pagado
+    yTotAlq += 3.4;
+    doc.setFillColor(226, 232, 240); // Slate 200
+    doc.rect(xDer + 1, yTotAlq - 2.5, anchoCol - 2, 4.2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Cobro Alquiler Pagado:", xDer + 2.5, yTotAlq + 0.6);
+    doc.text(formatCOP(totalAbonado), xDer + anchoCol - 2.5, yTotAlq + 0.6, { align: "right" });
 
     yTotAlq += 3.2;
     doc.setFont("helvetica", "bold");
@@ -1203,22 +1197,6 @@ function dibujarPaginaCarta(
     doc.setTextColor(15, 23, 42);
     doc.text(formatCOP(totalOperacionPrincipal), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
 
-    yTotAlq += 4;
-    doc.setTextColor(71, 85, 105);
-    doc.text("Depósito en Garantía:", xDer + 3.5, yTotAlq);
-    doc.setTextColor(146, 64, 14);
-    doc.text(formatCOP(montoDepositoEfectivo), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
-
-    // Franja resaltada Total (Alquiler + Depósito)
-    yTotAlq += 4.2;
-    doc.setFillColor(226, 232, 240); // Slate 200
-    doc.rect(xDer + 1.5, yTotAlq - 3.2, anchoCol - 3, 5.2, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Total (Alquiler + Depósito):", xDer + 3.5, yTotAlq + 0.6);
-    doc.text(formatCOP(totalAlquilerConDeposito), xDer + anchoCol - 3.5, yTotAlq + 0.6, { align: "right" });
-
     if (abonoPrevioApartado > 0) {
       yTotAlq += 4;
       doc.setFont("helvetica", "bold");
@@ -1227,6 +1205,16 @@ function dibujarPaginaCarta(
       doc.text("Abono Previo en Apartado:", xDer + 3.5, yTotAlq);
       doc.text(`-${formatCOP(abonoPrevioApartado)}`, xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
     }
+
+    // Franja resaltada Cobro Alquiler Pagado (Independiente del fondo en custodia)
+    yTotAlq += 4.2;
+    doc.setFillColor(226, 232, 240); // Slate 200
+    doc.rect(xDer + 1.5, yTotAlq - 3.2, anchoCol - 3, 5.2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Cobro Alquiler Pagado:", xDer + 3.5, yTotAlq + 0.6);
+    doc.text(formatCOP(totalAbonado), xDer + anchoCol - 3.5, yTotAlq + 0.6, { align: "right" });
 
     yTotAlq += 4;
     doc.setFont("helvetica", "bold");
@@ -1823,21 +1811,17 @@ function dibujarContenidoTirilla(
     doc.text("TOTAL VALOR ALQUILER:", margen, cursorY);
     doc.text(formatCOP(totalOperacionPrincipal), margenDer, cursorY, { align: "right" });
 
-    cursorY += 3.2;
-    doc.text("DEPÓSITO EN GARANTÍA:", margen, cursorY);
-    doc.text(formatCOP(montoDepositoEfectivo), margenDer, cursorY, { align: "right" });
-
-    cursorY += 3.6;
-    doc.setFontSize(8);
-    doc.text("TOTAL (ALQUILER + DEPÓSITO):", margen, cursorY);
-    doc.text(formatCOP(totalAlquilerConDeposito), margenDer, cursorY, { align: "right" });
-
     if (abonoPrevioApartado > 0) {
       cursorY += 3.2;
       doc.setFontSize(7.2);
       doc.text("ABONO PREVIO APARTADO:", margen, cursorY);
       doc.text(`-${formatCOP(abonoPrevioApartado)}`, margenDer, cursorY, { align: "right" });
     }
+
+    cursorY += 3.6;
+    doc.setFontSize(8);
+    doc.text("COBRO ALQUILER PAGADO:", margen, cursorY);
+    doc.text(formatCOP(totalAbonado), margenDer, cursorY, { align: "right" });
 
     // 5. RECIBIDO (Anterior a Valor Pagado)
     cursorY += 3.5;
