@@ -5262,3 +5262,38 @@ Se unificó de extremo a extremo la experiencia de acceso, conmutación y visual
    - Ejecutado `node scripts/preparar-paquete-instalador.js` con purga de temporales, seed neutro de fábrica, copia de runtime de Node.js (88 MB) y generación de `.env` de producción.
    - Compilación exitosa de `InstaladorMaestroGUI.exe` (290 KB con icono oficial `llanomio.ico`) mediante `csc.exe` de Microsoft .NET Framework.
    - Rutas 100% dinámicas y relativas aptas para despliegue desde memoria USB en cualquier equipo Windows.
+
+
+---
+
+## 18. Rediseño Minimalista del Flujo de Cobro, Pagos Parciales/Mixtos y Ergonomía Zero-Mouse
+
+### 1. Léxico Contable Profesional y Erradicación de Redundancias
+- **Condición de Pago en Mostrador (`src/app/caja/pos/page.tsx`):**
+  - Botón **Contado** (con icono `CheckCircle2` o `Wallet`): cancela el 100% de la orden en el momento. Eliminado subtexto redundante `"Saldo $0"`.
+  - Botón **Pago Parcial** (con icono `Coins` o `Percent`): registra abono inicial y deja el saldo restante a crédito en cartera. Eliminado subtexto redundante `"Abono parcial"`.
+  - Botón **Crédito** (con icono `Clock`): genera la factura sin cobro inicial (100% por cobrar). Eliminado subtexto redundante `"Sin abono"`.
+  - Títulos limpios sin numeración innecesaria (`Condición de Pago` en lugar de `1. Condición de Pago`).
+  - En la tarjeta de totales de cobro: removida la frase obvia `● Cobro secuencial` y el badge duplicado `Saldo Pendiente`, dejando una barra compacta y estilizada con ahorro de ~45px verticales.
+
+### 2. Flujo de Cobro Inteligente y Pagos Parciales / Mixtos (`src/components/caja/PanelPagosSecuenciales.tsx`)
+- **Saldo Pendiente en Tiempo Real:**
+  - Al iniciar, el saldo pendiente es igual al total de la venta (`$totalExigible`).
+  - Con cada abono registrado, el saldo se descuenta en vivo y se destaca con alto contraste (`text-rose-700 bg-rose-50 border-rose-300` mientras exista saldo, o `text-emerald-700 bg-emerald-50 border-emerald-300` al quedar saldado).
+- **Lógica de Cierre y Emisión:**
+  - **Abono Parcial (Saldo > 0):** La venta no se cierra. Se agrega el abono a la lista, se recalcula y resalta el saldo pendiente restante, y el foco vuelve automáticamente al input de monto con el saldo restante precargado y seleccionado.
+  - **Saldo Saldado (Saldo = 0):** Al registrar el abono que completa el total, el componente dispara `onCompletarCobroAuto(nuevaLista)` cerrando la venta y emitiendo la factura y apertura de gaveta de forma automática e inmediata.
+  - **Efectivo Superior al Saldo (Vueltas):** Si el cliente entrega un billete de mayor denominación (ej. $50.000 para saldo de $25.000), el sistema aplica $25.000 a la factura, registra $50.000 recibidos, calcula $25.000 de cambio, muestra el banner prominente de vueltas y dispara la facturación directa.
+
+### 3. Ergonomía de Teclado y Control Total (Zero-Mouse Priority)
+- **Navegación Inmediata de Métodos:**
+  - `Alt+1` o `F5`: Selecciona Efectivo y enfoca el input de monto.
+  - `Alt+2` o `F6`: Selecciona Bancolombia y enfoca el input de monto.
+  - `Alt+3` o `F7`: Despliega y enfoca el selector de Otros Bancos / Medios (`Nequi`, `Daviplata`, `Bre-B / Llave`, `Transferencia`, `Consignación`).
+- **Confirmación y Deshacer:**
+  - `Enter`: Aplica el abono digitado o completa el cobro si el saldo queda cubierto.
+  - `F3` o `Alt+Z`: Deshace y elimina el último abono registrado inmediatamente, restituyendo el saldo pendiente y devolviendo el foco al input.
+  - `Esc`: Restablece el monto al saldo original o regresa a productos en caso de no haber abonos.
+- **Estándares Visuales:**
+  - Tipografía `font-mono tabular-nums font-black` de alto contraste para lectura rápida de montos sin saltos visuales.
+  - Cero emojis en interfaz y mensajes; uso estricto de iconografía vectorial profesional (`lucide-react`).

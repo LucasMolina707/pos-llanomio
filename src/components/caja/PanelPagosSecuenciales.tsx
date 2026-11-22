@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Banknote,
   Building2,
@@ -18,8 +18,9 @@ import {
   ArrowRight,
   Check,
   Receipt,
-  Sparkles,
   ChevronDown,
+  CornerDownLeft,
+  Undo2,
 } from "lucide-react";
 import Tooltip from "@/components/ui/Tooltip";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
@@ -146,6 +147,10 @@ export interface PanelPagosSecuencialesProps {
   etiquetaTotal?: string;
   subtitulo?: string;
   className?: string;
+  // Ergonomía de alta velocidad
+  onCompletarCobroAuto?: (pagosFinales: PagoAplicado[]) => void;
+  onCancelarOVolver?: () => void;
+  autoFocus?: boolean;
 }
 
 export default function PanelPagosSecuenciales({
@@ -161,6 +166,9 @@ export default function PanelPagosSecuenciales({
   etiquetaTotal = "Total a Cobrar Hoy",
   subtitulo,
   className = "",
+  onCompletarCobroAuto,
+  onCancelarOVolver,
+  autoFocus = true,
 }: PanelPagosSecuencialesProps) {
   // 1. Cálculos de Totales y Saldos en Cascada
   const totalPagado = useMemo(() => {
@@ -171,13 +179,22 @@ export default function PanelPagosSecuenciales({
     return Math.max(0, Math.round((totalExigible - totalPagado) * 100) / 100);
   }, [totalExigible, totalPagado]);
 
+  // Vueltas registradas en los pagos ya aplicados
+  const vueltasHistoricas = useMemo(() => {
+    return pagos.reduce((acc, p) => acc + (Number(p.vueltasEntregadas) || 0), 0);
+  }, [pagos]);
+
   // 2. Estado del formulario para agregar un nuevo tramo / abono
   const [metodoSeleccionado, setMetodoSeleccionado] = useState<string>(metodoActivoAtajo || "EFECTIVO");
   const [montoAbonarInput, setMontoAbonarInput] = useState<string>("");
   const [montoModificadoManualmente, setMontoModificadoManualmente] = useState<boolean>(false);
-  const [efectivoRecibidoInput, setEfectivoRecibidoInput] = useState<string>(efectivoRecibidoAtajo || "");
   const [referenciaInput, setReferenciaInput] = useState<string>("");
   const [errorInput, setErrorInput] = useState<string | null>(null);
+  const [ultimasVueltas, setUltimasVueltas] = useState<number>(0);
+
+  // Referencias a los inputs para control de foco inmediato
+  const inputMontoRef = useRef<HTMLInputElement>(null);
+  const selectOtrosBancosRef = useRef<HTMLSelectElement>(null);
 
   // Sincronizar el input de monto por defecto al saldo faltante si no ha sido editado a mano
   useEffect(() => {
@@ -186,19 +203,30 @@ export default function PanelPagosSecuenciales({
     }
   }, [saldoFaltante, montoModificadoManualmente]);
 
-  // Notificar al padre el método seleccionado (para el atajo de 1 solo clic)
+  // Foco automático al montar y cuando se active autoFocus
+  useEffect(() => {
+    if (autoFocus) {
+      const timer = setTimeout(() => {
+        inputMontoRef.current?.focus();
+        inputMontoRef.current?.select();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [autoFocus]);
+
+  // Notificar al padre el método seleccionado
   useEffect(() => {
     if (onMetodoActivoAtajoChange) {
       onMetodoActivoAtajoChange(metodoSeleccionado);
     }
   }, [metodoSeleccionado, onMetodoActivoAtajoChange]);
 
-  // Notificar al padre el efectivo recibido (para vueltas en atajo de 1 clic)
+  // Notificar al padre el efectivo recibido
   useEffect(() => {
     if (onEfectivoRecibidoAtajoChange) {
-      onEfectivoRecibidoAtajoChange(efectivoRecibidoInput);
+      onEfectivoRecibidoAtajoChange(montoAbonarInput);
     }
-  }, [efectivoRecibidoInput, onEfectivoRecibidoAtajoChange]);
+  }, [montoAbonarInput, onEfectivoRecibidoAtajoChange]);
 
   // Si cambia externamente metodoActivoAtajo, reflejarlo
   useEffect(() => {
@@ -207,55 +235,69 @@ export default function PanelPagosSecuenciales({
     }
   }, [metodoActivoAtajo]);
 
-  // Cálculos de vueltas si el método es efectivo
+  // Cálculos de vueltas en vivo si el método es efectivo y el monto supera el saldo
   const montoAbonarNum = Number(montoAbonarInput) || 0;
-  const efectivoRecibidoNum = Number(efectivoRecibidoInput) || 0;
-  const vueltasCalculadas =
-    metodoSeleccionado === "EFECTIVO" && efectivoRecibidoNum > montoAbonarNum
-      ? Math.max(0, efectivoRecibidoNum - montoAbonarNum)
-      : 0;
+  const vueltasEnVivo = useMemo(() => {
+    if (metodoSeleccionado === "EFECTIVO" && montoAbonarNum > saldoFaltante && saldoFaltante > 0) {
+      return montoAbonarNum - saldoFaltante;
+    }
+    return 0;
+  }, [metodoSeleccionado, montoAbonarNum, saldoFaltante]);
 
-  // Manejador para agregar un abono a la lista
-  const agregarPagoALista = () => {
+  // Manejador para aplicar un abono (total o parcial)
+  const agregarPagoALista = useCallback(() => {
     setErrorInput(null);
-    const monto = Math.round(montoAbonarNum * 100) / 100;
+    const montoDigitado = Math.round(montoAbonarNum * 100) / 100;
 
-    if (monto <= 0) {
+    if (montoDigitado <= 0) {
       setErrorInput("Digite un monto válido mayor a $0.");
+      inputMontoRef.current?.focus();
       return;
     }
 
     if (saldoFaltante <= 0 && pagos.length > 0) {
       setErrorInput("El total de la operación ya se encuentra 100% cubierto.");
+      if (onCompletarCobroAuto) {
+        onCompletarCobroAuto(pagos);
+      }
       return;
     }
 
-    if (monto > saldoFaltante && saldoFaltante > 0) {
-      setErrorInput(`El monto no puede exceder el saldo faltante de $${saldoFaltante.toLocaleString("es-CO")}.`);
-      return;
-    }
-
+    let montoAplicado = montoDigitado;
     let montoRecibido: number | null = null;
     let vueltasEntregadas: number | null = null;
 
     if (metodoSeleccionado === "EFECTIVO") {
-      if (efectivoRecibidoNum > 0) {
-        if (efectivoRecibidoNum < monto) {
-          setErrorInput(`El efectivo recibido ($${efectivoRecibidoNum.toLocaleString("es-CO")}) es menor que el valor a abonar.`);
-          return;
-        }
-        montoRecibido = efectivoRecibidoNum;
-        vueltasEntregadas = vueltasCalculadas;
+      if (montoDigitado >= saldoFaltante && saldoFaltante > 0) {
+        // Cubre o supera el saldo pendiente restante
+        montoAplicado = saldoFaltante;
+        montoRecibido = montoDigitado;
+        vueltasEntregadas = montoDigitado - saldoFaltante;
       } else {
-        montoRecibido = monto;
+        // Abono parcial en efectivo
+        montoAplicado = montoDigitado;
+        montoRecibido = montoDigitado;
         vueltasEntregadas = 0;
       }
+    } else {
+      // Transferencia / Bancos / Bre-B: no permite cambio en efectivo
+      if (montoDigitado > saldoFaltante && saldoFaltante > 0) {
+        setErrorInput(
+          `En transferencias el monto no puede exceder el saldo de $${saldoFaltante.toLocaleString("es-CO")}.`
+        );
+        inputMontoRef.current?.focus();
+        inputMontoRef.current?.select();
+        return;
+      }
+      montoAplicado = montoDigitado;
+      montoRecibido = null;
+      vueltasEntregadas = null;
     }
 
     const nuevoPago: PagoAplicado = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       metodoPago: metodoSeleccionado,
-      monto,
+      monto: montoAplicado,
       montoRecibido,
       vueltasEntregadas,
       referencia: referenciaInput.trim() || null,
@@ -264,25 +306,74 @@ export default function PanelPagosSecuenciales({
     const nuevaLista = [...pagos, nuevoPago];
     onChangePagos(nuevaLista);
 
-    // Resetear formulario para el siguiente abono
+    // Calcular nuevo saldo faltante tras aplicar este pago
     const nuevoTotalPagado = nuevaLista.reduce((acc, p) => acc + p.monto, 0);
-    const nuevoSaldoFaltante = Math.max(0, totalExigible - nuevoTotalPagado);
+    const nuevoSaldo = Math.max(0, Math.round((totalExigible - nuevoTotalPagado) * 100) / 100);
 
-    setMontoAbonarInput(nuevoSaldoFaltante > 0 ? String(nuevoSaldoFaltante) : "0");
+    if (vueltasEntregadas && vueltasEntregadas > 0) {
+      setUltimasVueltas(vueltasEntregadas);
+    }
+
+    // Si el saldo llega exactamente a 0 y existe callback de auto-completar:
+    if (nuevoSaldo === 0 && onCompletarCobroAuto) {
+      onCompletarCobroAuto(nuevaLista);
+      return;
+    }
+
+    // Si el saldo sigue siendo mayor a 0 (Abono Parcial):
+    setMontoAbonarInput(nuevoSaldo > 0 ? String(nuevoSaldo) : "0");
     setMontoModificadoManualmente(false);
-    setEfectivoRecibidoInput("");
     setReferenciaInput("");
     setErrorInput(null);
-  };
 
-  // Manejador para quitar un pago
+    // Re-enfocar automáticamente el input para el siguiente pago (Zero-Mouse)
+    setTimeout(() => {
+      inputMontoRef.current?.focus();
+      inputMontoRef.current?.select();
+    }, 40);
+  }, [
+    montoAbonarNum,
+    saldoFaltante,
+    pagos,
+    metodoSeleccionado,
+    referenciaInput,
+    onChangePagos,
+    totalExigible,
+    onCompletarCobroAuto,
+  ]);
+
+  // Manejador para quitar el último abono (Deshacer rápido)
+  const eliminarUltimoPago = useCallback(() => {
+    if (pagos.length === 0) return;
+    const nuevaLista = pagos.slice(0, pagos.length - 1);
+    onChangePagos(nuevaLista);
+
+    const nuevoTotalPagado = nuevaLista.reduce((acc, p) => acc + p.monto, 0);
+    const nuevoSaldo = Math.max(0, Math.round((totalExigible - nuevoTotalPagado) * 100) / 100);
+
+    setMontoAbonarInput(String(nuevoSaldo));
+    setMontoModificadoManualmente(false);
+    setUltimasVueltas(0);
+    setErrorInput(null);
+
+    setTimeout(() => {
+      inputMontoRef.current?.focus();
+      inputMontoRef.current?.select();
+    }, 40);
+  }, [pagos, onChangePagos, totalExigible]);
+
+  // Manejador para quitar un pago individual
   const eliminarPago = (id: string) => {
     const nuevaLista = pagos.filter((p) => p.id !== id);
     onChangePagos(nuevaLista);
     const nuevoTotalPagado = nuevaLista.reduce((acc, p) => acc + p.monto, 0);
-    const nuevoSaldoFaltante = Math.max(0, totalExigible - nuevoTotalPagado);
-    setMontoAbonarInput(String(nuevoSaldoFaltante));
+    const nuevoSaldo = Math.max(0, Math.round((totalExigible - nuevoTotalPagado) * 100) / 100);
+    setMontoAbonarInput(String(nuevoSaldo));
     setMontoModificadoManualmente(false);
+    setTimeout(() => {
+      inputMontoRef.current?.focus();
+      inputMontoRef.current?.select();
+    }, 40);
   };
 
   // Restablecer todos los pagos aplicados
@@ -290,9 +381,56 @@ export default function PanelPagosSecuenciales({
     onChangePagos([]);
     setMontoAbonarInput(String(totalExigible));
     setMontoModificadoManualmente(false);
-    setEfectivoRecibidoInput("");
     setReferenciaInput("");
+    setUltimasVueltas(0);
+    setTimeout(() => {
+      inputMontoRef.current?.focus();
+      inputMontoRef.current?.select();
+    }, 40);
   };
+
+  // Atajos de teclado en el panel de cobro (Zero-Mouse Priority)
+  useEffect(() => {
+    const handleKeyDownGlobal = (e: KeyboardEvent) => {
+      // Alt+1 o F5 -> Efectivo
+      if ((e.altKey && e.key === "1") || e.key === "F5") {
+        e.preventDefault();
+        setMetodoSeleccionado("EFECTIVO");
+        inputMontoRef.current?.focus();
+        inputMontoRef.current?.select();
+        return;
+      }
+      // Alt+2 o F6 -> Bancolombia
+      if ((e.altKey && e.key === "2") || e.key === "F6") {
+        e.preventDefault();
+        setMetodoSeleccionado("BANCOLOMBIA");
+        inputMontoRef.current?.focus();
+        inputMontoRef.current?.select();
+        return;
+      }
+      // Alt+3 o F7 -> Otros Medios
+      if ((e.altKey && e.key === "3") || e.key === "F7") {
+        e.preventDefault();
+        selectOtrosBancosRef.current?.focus();
+        return;
+      }
+      // F3 o Alt+Z -> Deshacer último abono
+      if (e.key === "F3" || (e.altKey && e.key.toLowerCase() === "z")) {
+        e.preventDefault();
+        eliminarUltimoPago();
+        return;
+      }
+      // Alt+L -> Limpiar todos los abonos
+      if (e.altKey && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        limpiarTodosLosPagos();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDownGlobal);
+    return () => window.removeEventListener("keydown", handleKeyDownGlobal);
+  }, [eliminarUltimoPago]);
 
   // Clases por paleta de color
   const estilosColor = {
@@ -325,26 +463,28 @@ export default function PanelPagosSecuenciales({
     },
   }[accentColor];
 
+  const totalVueltasVisibles = vueltasEnVivo > 0 ? vueltasEnVivo : ultimasVueltas;
+
   return (
-    <div className={`space-y-3.5 select-none ${className}`}>
-      {/* 1. Barra de Control de Montos: Total Exigible, Pagado y Saldo en Vivo */}
-      <div className="p-3.5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-2.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
+    <div className={`space-y-3 select-none ${className}`}>
+      {/* 1. Barra de Control de Montos: Total Factura, Pagado y Saldo */}
+      <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
               {etiquetaTotal}
             </span>
-            <span className="font-mono text-xl sm:text-2xl font-black text-slate-900">
+            <span className="font-mono text-2xl font-black text-slate-900 tabular-nums">
               ${totalExigible.toLocaleString("es-CO")}
             </span>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <span className="text-[10.5px] font-bold uppercase text-slate-400 block">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block">
                 Total Aplicado:
               </span>
-              <span className={`font-mono text-base sm:text-lg font-black ${estilosColor.textoPrimario}`}>
+              <span className={`font-mono text-base sm:text-lg font-black tabular-nums ${estilosColor.textoPrimario}`}>
                 ${totalPagado.toLocaleString("es-CO")}
               </span>
             </div>
@@ -352,16 +492,14 @@ export default function PanelPagosSecuenciales({
             <div className="h-8 w-px bg-slate-200" />
 
             <div className="text-right">
-              <span className="text-[10.5px] font-bold uppercase text-slate-400 block">
-                Saldo Faltante:
+              <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                Saldo Pendiente:
               </span>
               <span
-                className={`font-mono text-base sm:text-lg font-black ${
+                className={`font-mono text-base sm:text-lg font-black tabular-nums px-2 py-0.5 rounded-lg border transition ${
                   saldoFaltante === 0
-                    ? "text-emerald-700"
-                    : saldoFaltante > 0
-                    ? "text-rose-600"
-                    : "text-slate-900"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                    : "bg-rose-50 text-rose-700 border-rose-300"
                 }`}
               >
                 ${saldoFaltante.toLocaleString("es-CO")}
@@ -369,29 +507,22 @@ export default function PanelPagosSecuenciales({
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Indicador de Progreso Visual */}
-        <div className="flex items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className={`w-2 h-2 rounded-full ${estilosColor.accentDot}`} />
-            <span className="text-slate-600 font-semibold truncate text-[11px]">
-              {subtitulo || "Cobro secuencial"}
+      {/* Banner Prominente de Vueltas / Cambio si aplica */}
+      {totalVueltasVisibles > 0 && (
+        <div className="p-3 rounded-2xl bg-emerald-600 text-white flex items-center justify-between shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <Coins className="w-5 h-5 shrink-0 text-emerald-200" />
+            <span className="text-xs font-black uppercase tracking-wider">
+              Cambio / Vueltas a Entregar:
             </span>
           </div>
-
-          {saldoFaltante === 0 ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-              <Check className="w-3.5 h-3.5 text-emerald-700" />
-              100% Cubierto
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-300">
-              <Clock className="w-3 h-3 text-amber-700" />
-              Saldo Pendiente
-            </span>
-          )}
+          <span className="font-mono text-2xl font-black tabular-nums">
+            ${totalVueltasVisibles.toLocaleString("es-CO")}
+          </span>
         </div>
-      </div>
+      )}
 
       {/* 2. Formulario de Selección de Método y Registro de Pago */}
       <div className="p-3.5 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-3 shadow-2xs">
@@ -401,46 +532,72 @@ export default function PanelPagosSecuenciales({
             <span>Medio de Pago:</span>
           </label>
 
+          <span className="text-[10.5px] font-semibold text-slate-400">
+            Atajos: <kbd className="px-1 py-0.5 bg-slate-200 text-slate-700 rounded font-mono text-[9.5px]">Alt+1</kbd>{" "}
+            <kbd className="px-1 py-0.5 bg-slate-200 text-slate-700 rounded font-mono text-[9.5px]">Alt+2</kbd>{" "}
+            <kbd className="px-1 py-0.5 bg-slate-200 text-slate-700 rounded font-mono text-[9.5px]">Alt+3</kbd>
+          </span>
         </div>
 
         {/* Selector de Métodos: Efectivo, Bancolombia y Desplegable de Otros Bancos */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {/* 1. Efectivo */}
-          <Tooltip content="Efectivo en caja física" subtext="Cálculo de vueltas en gaveta" position="top">
-            <button
-              type="button"
-              onClick={() => {
-                setMetodoSeleccionado("EFECTIVO");
-                if (!efectivoRecibidoInput) {
-                  setEfectivoRecibidoInput(String(montoAbonarNum || saldoFaltante));
-                }
-              }}
-              className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer w-full ${
-                metodoSeleccionado === "EFECTIVO"
-                  ? `${estilosColor.botonPrimario} shadow-xs ring-2 ${estilosColor.ringFocus}`
-                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
-              }`}
-            >
+          <button
+            type="button"
+            onClick={() => {
+              setMetodoSeleccionado("EFECTIVO");
+              setTimeout(() => {
+                inputMontoRef.current?.focus();
+                inputMontoRef.current?.select();
+              }, 30);
+            }}
+            className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-between gap-2 cursor-pointer w-full ${
+              metodoSeleccionado === "EFECTIVO"
+                ? `${estilosColor.botonPrimario} shadow-xs ring-2 ${estilosColor.ringFocus}`
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <div className="flex items-center gap-2">
               <Banknote className="w-4 h-4 shrink-0" />
               <span>Efectivo</span>
-            </button>
-          </Tooltip>
-
-          {/* 2. Bancolombia */}
-          <Tooltip content="Transferencia Bancolombia" subtext="QR o transferencia a cuenta Bancolombia" position="top">
-            <button
-              type="button"
-              onClick={() => setMetodoSeleccionado("BANCOLOMBIA")}
-              className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer w-full ${
-                metodoSeleccionado === "BANCOLOMBIA"
-                  ? `${estilosColor.botonPrimario} shadow-xs ring-2 ${estilosColor.ringFocus}`
-                  : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+            </div>
+            <span
+              className={`text-[9.5px] font-mono px-1 rounded ${
+                metodoSeleccionado === "EFECTIVO" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
               }`}
             >
+              Alt+1
+            </span>
+          </button>
+
+          {/* 2. Bancolombia */}
+          <button
+            type="button"
+            onClick={() => {
+              setMetodoSeleccionado("BANCOLOMBIA");
+              setTimeout(() => {
+                inputMontoRef.current?.focus();
+                inputMontoRef.current?.select();
+              }, 30);
+            }}
+            className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-between gap-2 cursor-pointer w-full ${
+              metodoSeleccionado === "BANCOLOMBIA"
+                ? `${estilosColor.botonPrimario} shadow-xs ring-2 ${estilosColor.ringFocus}`
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 shrink-0" />
               <span>Bancolombia</span>
-            </button>
-          </Tooltip>
+            </div>
+            <span
+              className={`text-[9.5px] font-mono px-1 rounded ${
+                metodoSeleccionado === "BANCOLOMBIA" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+              }`}
+            >
+              Alt+2
+            </span>
+          </button>
 
           {/* 3. Desplegable Otros Bancos / Medios */}
           <div className="relative">
@@ -455,6 +612,7 @@ export default function PanelPagosSecuenciales({
                 <CreditCard className="w-4 h-4 shrink-0" />
               </div>
               <select
+                ref={selectOtrosBancosRef}
                 value={
                   metodoSeleccionado !== "EFECTIVO" && metodoSeleccionado !== "BANCOLOMBIA"
                     ? metodoSeleccionado
@@ -463,6 +621,10 @@ export default function PanelPagosSecuenciales({
                 onChange={(e) => {
                   if (e.target.value) {
                     setMetodoSeleccionado(e.target.value);
+                    setTimeout(() => {
+                      inputMontoRef.current?.focus();
+                      inputMontoRef.current?.select();
+                    }, 30);
                   }
                 }}
                 className={`w-full py-2 pl-1.5 pr-8 text-xs font-bold bg-transparent outline-none cursor-pointer appearance-none ${
@@ -485,23 +647,22 @@ export default function PanelPagosSecuenciales({
           </div>
         </div>
 
-        {/* Campos de Entrada: Monto a Abonar + Efectivo Recibido / Referencia */}
+        {/* Campo Único de Entrada de Monto / Recibido + Botón Exacto */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 pt-1">
-          {/* Campo Monto a Abonar */}
-          <div className={`${metodoSeleccionado === "EFECTIVO" ? "sm:col-span-5" : "sm:col-span-8"} space-y-1`}>
+          {/* Monto principal */}
+          <div className={`${metodoSeleccionado === "EFECTIVO" ? "sm:col-span-8" : "sm:col-span-8"} space-y-1`}>
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-bold text-slate-700 block">
-                Monto a Cobrar:
+                {metodoSeleccionado === "EFECTIVO" ? "Efectivo Recibido:" : "Monto a Pagar:"}
               </label>
+
               {saldoFaltante > 0 && montoAbonarNum !== saldoFaltante && (
                 <button
                   type="button"
                   onClick={() => {
                     setMontoAbonarInput(String(saldoFaltante));
                     setMontoModificadoManualmente(false);
-                    if (metodoSeleccionado === "EFECTIVO") {
-                      setEfectivoRecibidoInput(String(saldoFaltante));
-                    }
+                    inputMontoRef.current?.focus();
                   }}
                   className="text-[10.5px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                 >
@@ -510,66 +671,56 @@ export default function PanelPagosSecuenciales({
               )}
             </div>
 
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-              <input
-                type="number"
-                value={montoAbonarInput}
-                onChange={(e) => {
-                  setMontoAbonarInput(e.target.value);
-                  setMontoModificadoManualmente(true);
-                  setErrorInput(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    agregarPagoALista();
-                  }
-                }}
-                placeholder={String(saldoFaltante)}
-                className={`w-full pl-7 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono text-sm font-black text-slate-900 focus:outline-none focus:ring-2 ${estilosColor.ringFocus}`}
-              />
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
+                <input
+                  ref={inputMontoRef}
+                  type="number"
+                  value={montoAbonarInput}
+                  onChange={(e) => {
+                    setMontoAbonarInput(e.target.value);
+                    setMontoModificadoManualmente(true);
+                    setErrorInput(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      agregarPagoALista();
+                    } else if (e.key === "Escape") {
+                      if (montoModificadoManualmente) {
+                        setMontoAbonarInput(String(saldoFaltante));
+                        setMontoModificadoManualmente(false);
+                      } else if (pagos.length === 0 && onCancelarOVolver) {
+                        onCancelarOVolver();
+                      }
+                    }
+                  }}
+                  placeholder={String(saldoFaltante)}
+                  className={`w-full pl-7 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono text-base font-black tabular-nums text-slate-900 focus:outline-none focus:ring-2 ${estilosColor.ringFocus}`}
+                />
+              </div>
+
+              {/* Botón Exacto (Fija el saldo faltante exacto) */}
+              <Tooltip content="Cobrar el valor exacto del saldo faltante" position="top">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMontoAbonarInput(String(saldoFaltante));
+                    setMontoModificadoManualmente(false);
+                    inputMontoRef.current?.focus();
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Exacto</span>
+                </button>
+              </Tooltip>
             </div>
           </div>
 
-          {/* Subcampos Dinámicos: Si es Efectivo (Recibido y Vueltas) o si es Banco (Referencia) */}
-          {metodoSeleccionado === "EFECTIVO" ? (
-            <div className="sm:col-span-7 space-y-1">
-              <label className="text-[11px] font-bold text-slate-700 block">
-                Efectivo Recibido:
-              </label>
-              <div className="flex items-center gap-1.5">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                  <input
-                    type="number"
-                    value={efectivoRecibidoInput}
-                    onChange={(e) => setEfectivoRecibidoInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        agregarPagoALista();
-                      }
-                    }}
-                    placeholder={String(montoAbonarNum || saldoFaltante)}
-                    className="w-full pl-7 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-
-                {/* ÚNICO BOTÓN "EXACTO" */}
-                <Tooltip content="Fijar valor exacto a cobrar (vueltas $0)" position="top">
-                  <button
-                    type="button"
-                    onClick={() => setEfectivoRecibidoInput(String(montoAbonarNum || saldoFaltante))}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Exacto</span>
-                  </button>
-                </Tooltip>
-              </div>
-            </div>
-          ) : (
+          {/* Si no es efectivo, campo de Referencia Opcional */}
+          {metodoSeleccionado !== "EFECTIVO" && (
             <div className="sm:col-span-4 space-y-1">
               <label className="text-[11px] font-bold text-slate-700 block">
                 Referencia (Opcional):
@@ -584,22 +735,25 @@ export default function PanelPagosSecuenciales({
                     agregarPagoALista();
                   }
                 }}
-                placeholder="Ej. N° aprobación o comprobante"
+                placeholder="N° aprobación o comprobante"
                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           )}
-        </div>
 
-        {/* Resumen de Vueltas en Efectivo si aplica */}
-        {metodoSeleccionado === "EFECTIVO" && efectivoRecibidoNum > 0 && (
-          <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200 flex items-center justify-between text-xs">
-            <span className="font-bold text-emerald-950">Vueltas a Entregar:</span>
-            <span className="font-mono text-base font-black text-emerald-800">
-              ${vueltasCalculadas.toLocaleString("es-CO")}
-            </span>
+          {/* Botón Registrar Abono */}
+          <div className={`${metodoSeleccionado === "EFECTIVO" ? "sm:col-span-4" : "sm:col-span-12"} flex items-end`}>
+            <button
+              type="button"
+              disabled={montoAbonarNum <= 0 || (saldoFaltante <= 0 && pagos.length > 0)}
+              onClick={agregarPagoALista}
+              className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs ${estilosColor.botonPrimario}`}
+            >
+              <CornerDownLeft className="w-4 h-4" />
+              <span>{saldoFaltante <= montoAbonarNum && saldoFaltante > 0 ? "Completar Cobro [Enter]" : "Registrar Abono [Enter]"}</span>
+            </button>
           </div>
-        )}
+        </div>
 
         {/* Alerta de Error si hay validación fallida */}
         {errorInput && (
@@ -608,57 +762,51 @@ export default function PanelPagosSecuenciales({
             <span>{errorInput}</span>
           </div>
         )}
-
-        {/* Botón de Acción Principal: Registrar Pago */}
-        <div className="pt-1 flex items-center justify-between gap-2">
-          <span className="text-[11px] font-semibold text-slate-500">
-            {saldoFaltante > 0
-              ? `Abono: $${montoAbonarNum.toLocaleString("es-CO")}`
-              : "Total cubierto"}
-          </span>
-
-          <Tooltip content="Agregar este pago a la orden actual" position="top">
-            <button
-              type="button"
-              disabled={montoAbonarNum <= 0 || (saldoFaltante <= 0 && pagos.length > 0)}
-              onClick={agregarPagoALista}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs ${estilosColor.botonPrimario}`}
-            >
-              <Plus className="w-4 h-4" />
-              <span>Registrar Pago</span>
-            </button>
-          </Tooltip>
-        </div>
       </div>
 
-      {/* 3. Lista de Pagos Aplicados en Cascada */}
-      <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2.5">
+      {/* 3. Lista de Abonos / Pagos Registrados */}
+      <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2.5">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
           <div className="flex items-center gap-2">
             <Receipt className="w-4 h-4 text-slate-700" />
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-              Pagos Aplicados ({pagos.length})
+              Abonos Registrados ({pagos.length})
             </h4>
           </div>
 
-          {pagos.length > 0 && (
-            <Tooltip content="Eliminar todos los pagos y reiniciar desde cero" position="left">
-              <button
-                type="button"
-                onClick={limpiarTodosLosPagos}
-                className="text-[11px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 hover:underline cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Limpiar Pagos</span>
-              </button>
-            </Tooltip>
-          )}
+          <div className="flex items-center gap-2">
+            {pagos.length > 0 && (
+              <Tooltip content="Eliminar el último abono registrado (F3 o Alt+Z)" position="left">
+                <button
+                  type="button"
+                  onClick={eliminarUltimoPago}
+                  className="text-[11px] font-bold text-amber-700 hover:text-amber-900 flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <Undo2 className="w-3 h-3" />
+                  <span>Deshacer [F3]</span>
+                </button>
+              </Tooltip>
+            )}
+
+            {pagos.length > 1 && (
+              <Tooltip content="Eliminar todos los abonos y reiniciar desde cero" position="left">
+                <button
+                  type="button"
+                  onClick={limpiarTodosLosPagos}
+                  className="text-[11px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 hover:underline cursor-pointer ml-1"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Limpiar</span>
+                </button>
+              </Tooltip>
+            )}
+          </div>
         </div>
 
         {pagos.length === 0 ? (
-          <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center">
-            <p className="text-xs text-slate-500">
-              Sin pagos en lista. Cobro directo con <strong className="text-slate-800 font-bold">{metodoSeleccionado}</strong> o agrega abonos parciales.
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center">
+            <p className="text-xs text-slate-500 font-medium">
+              Sin abonos registrados. Presione <kbd className="px-1 py-0.5 bg-slate-200 rounded font-mono font-bold text-slate-700 text-[10px]">Enter</kbd> para cobrar con {metodoSeleccionado}.
             </p>
           </div>
         ) : (
@@ -690,7 +838,7 @@ export default function PanelPagosSecuenciales({
                         )}
                       </div>
                       {p.metodoPago === "EFECTIVO" && p.montoRecibido && p.montoRecibido > p.monto && (
-                        <span className="text-[10px] text-slate-500 block">
+                        <span className="text-[10px] text-slate-500 block tabular-nums">
                           Recibido: ${p.montoRecibido.toLocaleString("es-CO")} • Cambio: $
                           {(p.vueltasEntregadas || 0).toLocaleString("es-CO")}
                         </span>
@@ -699,12 +847,12 @@ export default function PanelPagosSecuenciales({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="font-mono text-sm font-black text-slate-900">
+                    <span className="font-mono text-sm font-black tabular-nums text-slate-900">
                       ${p.monto.toLocaleString("es-CO")}
                     </span>
                     <IconButtonTooltip
                       icon={Trash2}
-                      label={`Quitar pago de $${p.monto.toLocaleString("es-CO")} en ${p.metodoPago}`}
+                      label={`Quitar abono de $${p.monto.toLocaleString("es-CO")}`}
                       variant="danger"
                       size="sm"
                       onClick={() => eliminarPago(p.id)}

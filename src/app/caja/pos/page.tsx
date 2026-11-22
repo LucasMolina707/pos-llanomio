@@ -899,7 +899,7 @@ export default function PosPage() {
   // =========================================================
   // FINALIZAR TRANSACCIÓN Y GENERAR FACTURA
   // =========================================================
-  const finalizarTransaccion = async () => {
+  const finalizarTransaccion = async (pagosSobreescritura?: PagoAplicado[]) => {
     // Control Estricto de Caja: Apertura Obligatoria y Bloqueo Día Anterior
     if (seguridadCaja.bloqueadoParaFacturar) {
       setMensajeError(
@@ -921,6 +921,7 @@ export default function PosPage() {
       return;
     }
 
+    const fuentePagos = pagosSobreescritura || pagosAplicados;
     let listaPagosFinal: Array<{
       monto: number;
       metodoPago: string;
@@ -930,8 +931,8 @@ export default function PosPage() {
       notas?: string | null;
     }> = [];
 
-    if (pagosAplicados.length > 0) {
-      listaPagosFinal = pagosAplicados.map((p) => ({
+    if (fuentePagos.length > 0) {
+      listaPagosFinal = fuentePagos.map((p) => ({
         monto: p.monto,
         metodoPago: p.metodoPago,
         montoRecibido: p.montoRecibido ?? null,
@@ -2328,14 +2329,14 @@ export default function PosPage() {
                       {/* Cuerpo de Cobro con Scroll Interno Propio */}
                       <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4">
                         <div className="space-y-4 max-w-4xl mx-auto">
-                          {/* 1. Condición de Pago */}
+                          {/* Condición de Pago */}
                           <div className="space-y-2">
                             <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wider">
-                              1. Condición de Pago
+                              Condición de Pago
                             </h3>
 
                             <div className="grid grid-cols-3 gap-2">
-                              <Tooltip content="Pago Completo" subtext="Cancela el 100% de la orden hoy (Saldo $0)" position="top">
+                              <Tooltip content="Pago de Contado" subtext="Cancela el total de la factura hoy" position="top">
                                 <button
                                   type="button"
                                   onClick={() => setModalidadPago("COMPLETO")}
@@ -2345,12 +2346,11 @@ export default function PosPage() {
                                     }`}
                                 >
                                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                  <span className="text-xs font-bold">Completo</span>
-                                  <span className="text-[10px] text-slate-500">Saldo $0</span>
+                                  <span className="text-xs font-bold">Contado</span>
                                 </button>
                               </Tooltip>
 
-                              <Tooltip content="Abono Parcial (Adelanto)" subtext="Registra un abono inicial y deja el saldo en Cartera" position="top">
+                              <Tooltip content="Pago Parcial" subtext="Registra un abono inicial y saldo a crédito" position="top">
                                 <button
                                   type="button"
                                   onClick={() => setModalidadPago("ADELANTO")}
@@ -2360,12 +2360,11 @@ export default function PosPage() {
                                     }`}
                                 >
                                   <Coins className="w-4 h-4 text-amber-600" />
-                                  <span className="text-xs font-bold">Adelanto</span>
-                                  <span className="text-[10px] text-slate-500">Abono parcial</span>
+                                  <span className="text-xs font-bold">Pago Parcial</span>
                                 </button>
                               </Tooltip>
 
-                              <Tooltip content="Crédito Pendiente" subtext="Genera la factura sin cobro inicial (100% por cobrar)" position="top">
+                              <Tooltip content="Venta a Crédito" subtext="Genera la factura sin cobro inicial" position="top">
                                 <button
                                   type="button"
                                   onClick={() => setModalidadPago("PENDIENTE")}
@@ -2375,22 +2374,21 @@ export default function PosPage() {
                                     }`}
                                 >
                                   <Clock className="w-4 h-4 text-rose-600" />
-                                  <span className="text-xs font-bold">Pendiente</span>
-                                  <span className="text-[10px] text-slate-500">Sin abono</span>
+                                  <span className="text-xs font-bold">Crédito</span>
                                 </button>
                               </Tooltip>
                             </div>
                           </div>
 
-                          {/* 2. Flujo de Pagos Secuenciales / Abonos */}
+                          {/* Registro de Pago */}
                           {modalidadPago === "PENDIENTE" ? (
                             <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1">
                               <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
                                 <Clock className="w-4 h-4 text-amber-600" />
-                                Crédito en Cartera
+                                Venta a Crédito
                               </h4>
                               <p className="text-xs text-amber-700">
-                                Sin ingreso inicial en caja. Saldo a cobrar: ${totalFactura.toLocaleString("es-CO")}.
+                                Sin cobro inicial en caja. Saldo a cobrar: ${totalFactura.toLocaleString("es-CO")}.
                               </p>
                             </div>
                           ) : (
@@ -2405,7 +2403,12 @@ export default function PosPage() {
                                 onEfectivoRecibidoAtajoChange={setEfectivoRecibido}
                                 accentColor="emerald"
                                 permitirSaldoPendiente={modalidadPago === "ADELANTO"}
-                                etiquetaTotal={modalidadPago === "ADELANTO" ? "Total Factura (Abono Parcial)" : "Total Factura"}
+                                etiquetaTotal="Total Factura"
+                                onCompletarCobroAuto={(pagosFinales) => {
+                                  finalizarTransaccion(pagosFinales);
+                                }}
+                                onCancelarOVolver={() => setPasoActual(2)}
+                                autoFocus={pasoActual === 3}
                               />
                             </div>
                           )}
@@ -2631,7 +2634,7 @@ export default function PosPage() {
                               valorACobrarHoy > 0 &&
                               efectivoRecibidoNum < valorACobrarHoy)
                           }
-                          onClick={finalizarTransaccion}
+                          onClick={() => finalizarTransaccion()}
                           className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                         >
                           {procesandoFactura ? (
