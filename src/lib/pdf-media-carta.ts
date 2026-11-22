@@ -142,7 +142,7 @@ function dibujarPaginaMediaCarta(
   const totalAbonado = safeNum(factura.totalAbonado);
   const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
   const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
-  const saldoPendienteTotalApartado = Math.max(0, (totalOperacionPrincipal + saldoDepositoAlRetirar) - totalAbonado);
+  const saldoPendienteTotalApartado = Math.max(0, totalOperacionPrincipal - totalAbonado);
 
   const desgloseMetodosPagados = (factura.abonos || []).reduce((acc: Record<string, number>, a) => {
     const met = (a.metodoPago || "EFECTIVO").toUpperCase();
@@ -588,7 +588,7 @@ function dibujarPaginaMediaCarta(
     doc.setFontSize(8.5);
     doc.text(`-${formatCOP(totalAbonado)}`, curX + anchoCaja / 2, yCajas + 9, { align: "center" });
 
-    // Caja 4: Falta por pagar al retirar
+    // Caja 4: Saldo Alquiler al retirar
     if (saldoPendienteTotalApartado > 0) {
       curX += anchoCaja + gap;
       doc.setFillColor(255, 241, 242);
@@ -597,7 +597,7 @@ function dibujarPaginaMediaCarta(
       doc.setFont("helvetica", "bold");
       doc.setFontSize(5.8);
       doc.setTextColor(190, 18, 60);
-      doc.text("4. FALTA AL RETIRAR", curX + anchoCaja / 2, yCajas + 3.5, { align: "center" });
+      doc.text("4. SALDO ALQUILER", curX + anchoCaja / 2, yCajas + 3.5, { align: "center" });
       doc.setFontSize(8.5);
       doc.text(formatCOP(saldoPendienteTotalApartado), curX + anchoCaja / 2, yCajas + 9, { align: "center" });
     }
@@ -857,7 +857,7 @@ function dibujarPaginaCarta(
   const totalAbonado = safeNum(factura.totalAbonado);
   const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
   const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
-  const saldoPendienteTotalApartado = Math.max(0, (totalOperacionPrincipal + saldoDepositoAlRetirar) - totalAbonado);
+  const saldoPendienteTotalApartado = Math.max(0, totalOperacionPrincipal - totalAbonado);
 
   const desgloseMetodosPagados = (factura.abonos || []).reduce((acc: Record<string, number>, a) => {
     const met = (a.metodoPago || "EFECTIVO").toUpperCase();
@@ -1326,7 +1326,7 @@ function dibujarPaginaCarta(
     doc.setFontSize(10);
     doc.text(`-${formatCOP(totalAbonado)}`, curX + anchoCaja / 2, yCajas + 11.5, { align: "center" });
 
-    // Caja 4: Falta por pagar al retirar
+    // Caja 4: Saldo Alquiler al retirar
     if (saldoPendienteTotalApartado > 0) {
       curX += anchoCaja + gap;
       doc.setFillColor(255, 241, 242);
@@ -1335,7 +1335,7 @@ function dibujarPaginaCarta(
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6.8);
       doc.setTextColor(190, 18, 60);
-      doc.text("4. FALTA AL RETIRAR", curX + anchoCaja / 2, yCajas + 4.5, { align: "center" });
+      doc.text("4. SALDO ALQUILER", curX + anchoCaja / 2, yCajas + 4.5, { align: "center" });
       doc.setFontSize(10);
       doc.text(formatCOP(saldoPendienteTotalApartado), curX + anchoCaja / 2, yCajas + 11.5, { align: "center" });
     }
@@ -1560,7 +1560,7 @@ function dibujarContenidoTirilla(
   const totalAbonado = safeNum(factura.totalAbonado);
   const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
   const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
-  const saldoPendienteTotalApartado = Math.max(0, (totalOperacionPrincipal + saldoDepositoAlRetirar) - totalAbonado);
+  const saldoPendienteTotalApartado = Math.max(0, totalOperacionPrincipal - totalAbonado);
 
   const desgloseMetodosPagados = (factura.abonos || []).reduce((acc: Record<string, number>, a) => {
     const met = (a.metodoPago || "EFECTIVO").toUpperCase();
@@ -1767,7 +1767,7 @@ function dibujarContenidoTirilla(
     if (saldoPendienteTotalApartado > 0) {
       cursorY += 3.6;
       doc.setFontSize(8);
-      doc.text("FALTA POR PAGAR AL RETIRAR:", margen, cursorY);
+      doc.text("SALDO ALQUILER AL RETIRAR:", margen, cursorY);
       doc.text(formatCOP(saldoPendienteTotalApartado), margenDer, cursorY, { align: "right" });
     }
   } else if (esAlquiler) {

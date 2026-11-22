@@ -408,14 +408,14 @@ export default function PlantillaImpresion({
     const totalAbonadoAlquiler = totalAbonadoOperacion;
     const saldoPendienteAlquiler = saldoPendienteOperacion;
 
-    // 2. REGLA CONTABLE PARA APARTADOS:
-    // Saldo Pendiente Total al Retirar = (Valor Alquiler + Saldo Depósito al Retirar) - Abono consigna
+    // 2. REGLA CONTABLE PARA APARTADOS (SEPARACIÓN ESTRICTA ALQUILER VS CUSTODIA):
+    // Saldo Pendiente de Alquiler al Retirar = Valor Alquiler - Abono consignado
     const montoDepositoEfectivo = safeNumber(factura.montoDeposito);
     const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
     const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
     const saldoPendienteTotalApartado = Math.max(
       0,
-      (totalOperacionAlquiler + saldoDepositoAlRetirar) - totalAbonadoAlquiler
+      totalOperacionAlquiler - totalAbonadoAlquiler
     );
 
     // 3. REGLA CONTABLE PARA ALQUILER — ETIQUETA AMARILLA Y COBROS ADICIONALES
@@ -673,8 +673,8 @@ export default function PlantillaImpresion({
                 <span className="font-mono">{formatCOP(totalOperacionAlquiler)}</span>
               </div>
               <div className="flex justify-between text-slate-900 font-semibold">
-                <span>2. Saldo Depósito (Custodia al Retirar):</span>
-                <span className="font-mono">{formatCOP(saldoDepositoAlRetirar)}</span>
+                <span>2. Depósito en Garantía (Custodia):</span>
+                <span className="font-mono">{formatCOP(montoDepositoEfectivo)}</span>
               </div>
               <div className="flex justify-between text-emerald-800 font-bold">
                 <span>3. Abono (Pagado hoy en consigna):</span>
@@ -682,7 +682,7 @@ export default function PlantillaImpresion({
               </div>
               {saldoPendienteTotalApartado > 0 && (
                 <div className="flex justify-between font-black text-sm pt-1 border-t-2 border-black">
-                  <span className="text-[11px] leading-tight max-w-[48mm]">Falta por pagar al retirar:</span>
+                  <span className="text-[11px] leading-tight max-w-[48mm]">Saldo Alquiler al Retirar:</span>
                   <span className="font-mono text-rose-700 font-black">
                     {formatCOP(saldoPendienteTotalApartado)}
                   </span>
@@ -1146,7 +1146,7 @@ export default function PlantillaImpresion({
                 </div>
                 {saldoPendienteTotalApartado > 0 && (
                   <div className="p-0.5 bg-rose-50 border border-rose-400">
-                    <p className="text-[7.5px] uppercase font-bold text-rose-800">4. FALTA POR PAGAR AL RETIRAR</p>
+                    <p className="text-[7.5px] uppercase font-bold text-rose-800">4. SALDO ALQUILER AL RETIRAR</p>
                     <p className="text-[11px] font-black font-mono text-rose-900">{formatCOP(saldoPendienteTotalApartado)}</p>
                   </div>
                 )}
@@ -1641,7 +1641,7 @@ export default function PlantillaImpresion({
                 </div>
                 {saldoPendienteTotalApartado > 0 && (
                   <div className="p-3 bg-rose-50 border border-rose-400">
-                    <p className="text-[9px] font-bold uppercase text-rose-800">4. FALTA POR PAGAR AL RETIRAR</p>
+                    <p className="text-[9px] font-bold uppercase text-rose-800">4. SALDO ALQUILER AL RETIRAR</p>
                     <p className="text-sm font-black font-mono text-rose-900 mt-1">{formatCOP(saldoPendienteTotalApartado)}</p>
                   </div>
                 )}

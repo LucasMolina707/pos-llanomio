@@ -5329,3 +5329,50 @@ Se unificó de extremo a extremo la experiencia de acceso, conmutación y visual
 - En [src/lib/pdf-media-carta.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/lib/pdf-media-carta.ts) (formatos PDF Media Carta, Carta Completa y Tirilla):
   - Retirada la suma combinada `Total (Alquiler + Depósito)`.
   - Resaltado exclusivo `Cobro Alquiler Pagado` en la columna contable, preservando la garantía en su recuadro independiente de custodia.
+
+
+---
+
+## 20. Portal y Flujo de Apartados para Reserva de Alquiler Futuro: Condiciones Flexibles, Separación Estricta y Conversión a Alquiler Activo
+
+### 1. Propósito y Filosofía del Flujo de Apartados
+- **Reserva de Disponibilidad sin Retiro Inmediato:** Permite reservar una o más prendas de cara a un alquiler futuro (ej. en 3 días, la semana entrante, o semanas posteriores), garantizando la disponibilidad del traje y congelando las condiciones del servicio.
+- **Prendas en Tienda:** En el modelo de inventario, las prendas apartadas permanecen disponibles físicamente en la tienda hasta el día pactado de retiro (no pasan al estado de prendas fuera de almacén hasta que se conviertan en alquiler activo).
+
+### 2. Módulo 3: Liquidación, Fechas Futuras y Condiciones Flexibles (`src/app/caja/apartados/page.tsx`)
+- **Banner Formal de Cronograma (Salida y Devolución):**
+  - Muestra en la cabecera del Paso 3 la fecha y día formal de retiro (ej. `viernes, 28 de noviembre de 2026`) y la fecha/hora límite de devolución al negocio calculada según las reglas comerciales de la tienda (ej. `lunes, 30 de noviembre de 2026 hasta las 8:00 p. m.`).
+- **Abono Parcial Flexible (Sin Obligatoriedad de Pago Total):**
+  - Botones rápidos de selección: `Sin Abono ($0)`, `$20.000`, `$30.000`, `$50.000` y `Total Alquiler`.
+  - Campo numérico para acordar cualquier cifra libre.
+  - Si el abono es > $0: opera mediante `PanelPagosSecuenciales` (`accentColor="indigo"`, `permitirSaldoPendiente={false}`), admitiendo pagos mixtos, transferencias, efectivo con cálculo de cambio/vueltas y atajos `Alt+1`, `Alt+2`, `Alt+3`.
+  - Si el abono es $0: tarjeta informativa indicando reserva confirmada sin desembolso inicial, dejando el 100% como saldo pendiente al retiro.
+- **Separación Estricta Alquiler vs. Fondo de Custodia (Garantía):**
+  - **Servicio de Alquiler:** Canon proyectado del alquiler, abono recibido hoy y saldo pendiente de alquiler al momento de retirar (`saldoPendienteAlquiler = totalAlquiler - abonoNumerico`).
+  - **Fondo de Garantía en Custodia:** Depósito en garantía devoluble con opciones sugeridas ($0, $10k, $20k, $30k, $50k) y selector de condición:
+    - *A entregar el día del retiro* (predeterminado para apartados futuros, no cobra hoy en caja).
+    - *Entrega hoy en mostrador* (custodiado anticipadamente con selector de medio: `Efectivo en Gaveta` o `Banco / QR`).
+  - **Prohibición de Suma en Bolsa Única:** El depósito NO se mezcla ni suma con el canon del alquiler.
+
+### 3. Columna Lateral de Resumen y Previsualización Documental (Paso 4)
+- **Desglose Dual en Panel Lateral:**
+  - `1. Servicio Alquiler: $XX.XXX`
+  - `• Abono Alquiler Hoy: -$XX.XXX`
+  - `• Saldo Alquiler al Retirar: $XX.XXX`
+  - `2. Custodia (Garantía): $XX.XXX` (A entregar al retiro | Custodiado hoy)
+  - `TOTAL A COBRAR HOY EN CAJA: $XX.XXX`
+- **Previsualización de Hoja de Apartado (Paso 4):**
+  - Borrador documental con cronograma de fechas, clientes, prendas y cuadro contable separado antes de expedir la factura definitiva.
+
+### 4. Soporte Documental y Homologación en Impresión y PDF
+- En [PlantillaImpresion.tsx](file:///d:/Proyectos%20IA/pos-llanomio/src/components/impresion/PlantillaImpresion.tsx) y [src/lib/pdf-media-carta.ts](file:///d:/Proyectos%20IA/pos-llanomio/src/lib/pdf-media-carta.ts):
+  - Las 4 columnas de apartado se homologaron estrictamente:
+    1. `Valor Alquiler`
+    2. `Depósito Custodia (Garantía)`
+    3. `Abono (Consignado hoy)`
+    4. `Saldo Alquiler al Retirar`
+  - El fondo de depósito no se suma al saldo por cobrar del alquiler.
+
+### 5. Conversión Fluida a Alquiler Activo
+- **Desde el Historial de Apartados:** Botón directo `Entregar / Convertir en Alquiler Activo` (`href="/caja/alquileres?apartadoId=${item.id}"`).
+- **Desde la Caja de Alquileres:** Botón `Cargar Apartado / Reserva` que toma cliente, prendas, descuenta el abono previo (`abonoPrevioApartado`), traslada el depósito estipulado y calcula automáticamente el saldo exacto restante a liquidar el día del retiro.

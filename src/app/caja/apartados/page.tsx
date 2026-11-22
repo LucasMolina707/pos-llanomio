@@ -232,6 +232,7 @@ export default function ApartadosPage() {
   // Paso 3: Valores Financieros
   const [montoDepositoInput, setMontoDepositoInput] = useState<string>("0");
   const [depositoEntregadoHoy, setDepositoEntregadoHoy] = useState(false);
+  const [metodoPagoDeposito, setMetodoPagoDeposito] = useState<string>("EFECTIVO");
   const [abonoInicialInput, setAbonoInicialInput] = useState<string>("0");
   const [metodoPagoAbono, setMetodoPagoAbono] = useState<string>("EFECTIVO");
   const [pagosAplicados, setPagosAplicados] = useState<PagoAplicado[]>([]);
@@ -399,29 +400,32 @@ export default function ApartadosPage() {
   const clientesPaginados = useMemo(() => clientesFiltrados.slice(0, 48), [clientesFiltrados]);
   const productosPaginados = useMemo(() => productosFiltrados.slice(0, 48), [productosFiltrados]);
 
-  // Total de Alquiler de los ítems en el carrito
+  // Total de Alquiler de los ítems en el carrito (Valor Proyectado)
   const totalAlquiler = useMemo(() => {
     return itemsApartado.reduce((acc, item) => acc + item.subtotal, 0);
   }, [itemsApartado]);
 
-  // Cálculo de Saldo en Vivo según Regla Contable Oficial:
-  // Saldo Pendiente Total al Retirar = (Valor Alquiler + Saldo Depósito al Retirar) - Abono consigna
+  // Desacoplamiento Contable Oficial:
+  // 1. Abono inicial asignado al canon del servicio de alquiler
   const abonoNumerico = Math.max(0, Number(abonoInicialInput) || 0);
+  // 2. Fondo de custodia acordado en garantía (Devoluble)
   const depositoNumerico = Math.max(0, Number(montoDepositoInput) || 0);
-  const saldoDepositoAlRetirar = depositoEntregadoHoy ? 0 : depositoNumerico;
-  const saldoPendienteCalculado = Math.max(
-    0,
-    (totalAlquiler + saldoDepositoAlRetirar) - abonoNumerico
-  );
 
-  // Cuadre de pagos en cascada
+  // 3. Saldo pendiente EXCLUSIVO del servicio de alquiler al retirar
+  const saldoPendienteAlquiler = Math.max(0, totalAlquiler - abonoNumerico);
+  const saldoPendienteCalculado = saldoPendienteAlquiler; // Alias para compatibilidad
+
+  // 4. Depósito en custodia pendiente para entrega al retirar
+  const saldoDepositoAlRetirar = depositoEntregadoHoy ? 0 : depositoNumerico;
+
+  // Cuadre de pagos en cascada aplicados hoy al abono del alquiler
   const totalPagadoEnCascada = useMemo(() => {
     return pagosAplicados.reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
   }, [pagosAplicados]);
 
-  const totalACobrarHoy = pagosAplicados.length > 0
-    ? totalPagadoEnCascada
-    : (depositoEntregadoHoy ? depositoNumerico : 0) + abonoNumerico;
+  // Total exigido hoy en caja (Abono Alquiler hoy + Depósito si se entrega hoy)
+  const totalACobrarHoy = (pagosAplicados.length > 0 ? totalPagadoEnCascada : abonoNumerico) +
+    (depositoEntregadoHoy ? depositoNumerico : 0);
 
   const efectivoRecibidoNum = Number(efectivoRecibidoInput) || 0;
   const montoObjetivoEfectivo = metodoPagoAbono === "EFECTIVO" ? totalACobrarHoy : (depositoEntregadoHoy ? depositoNumerico : 0);
@@ -561,30 +565,38 @@ export default function ApartadosPage() {
         notas?: string | null;
       }> = [];
 
-      if (pagosAplicados.length > 0) {
-        listaPagosFinal = pagosAplicados.map((p) => ({
-          monto: p.monto,
-          metodoPago: p.metodoPago,
-          montoRecibido: p.montoRecibido ?? null,
-          vueltasEntregadas: p.vueltasEntregadas ?? null,
-          referenciaComprobante: p.referencia || undefined,
-          notas: p.notas || `Abono ${p.metodoPago} Apartado`,
-        }));
-      } else if (totalACobrarHoy > 0) {
-        const efRecibido = Number(efectivoRecibidoInput) || totalACobrarHoy;
-        if (metodoPagoAbono === "EFECTIVO" && efRecibido < totalACobrarHoy) {
-          throw new Error(`El efectivo recibido (${efRecibido.toLocaleString("es-CO")}) es menor que el valor a cobrar hoy (${totalACobrarHoy.toLocaleString("es-CO")}).`);
+      if (abonoNumerico > 0) {
+        if (pagosAplicados.length > 0) {
+          listaPagosFinal = pagosAplicados.map((p) => ({
+            monto: p.monto,
+            metodoPago: p.metodoPago,
+            montoRecibido: p.montoRecibido ?? null,
+            vueltasEntregadas: p.vueltasEntregadas ?? null,
+            referenciaComprobante: p.referencia || undefined,
+            notas: p.notas || `Abono ${p.metodoPago} Apartado Alquiler`,
+          }));
+        } else {
+          const efRecibido = Number(efectivoRecibidoInput) || abonoNumerico;
+          if (metodoPagoAbono === "EFECTIVO" && efRecibido < abonoNumerico) {
+            throw new Error(`El efectivo recibido (${efRecibido.toLocaleString("es-CO")}) es menor que el abono al alquiler (${abonoNumerico.toLocaleString("es-CO")}).`);
+          }
+          listaPagosFinal = [
+            {
+              monto: abonoNumerico,
+              metodoPago: metodoPagoAbono,
+              montoRecibido: metodoPagoAbono === "EFECTIVO" ? efRecibido : undefined,
+              vueltasEntregadas: metodoPagoAbono === "EFECTIVO" ? Math.max(0, efRecibido - abonoNumerico) : undefined,
+              notas: `Abono inicial apartado (${metodoPagoAbono})`,
+            },
+          ];
         }
-        listaPagosFinal = [
-          {
-            monto: totalACobrarHoy,
-            metodoPago: metodoPagoAbono,
-            montoRecibido: metodoPagoAbono === "EFECTIVO" ? efRecibido : undefined,
-            vueltasEntregadas: metodoPagoAbono === "EFECTIVO" ? Math.max(0, efRecibido - totalACobrarHoy) : undefined,
-            notas: `Abono inicial apartado (${metodoPagoAbono})`,
-          },
-        ];
       }
+
+      const metodoPrincipalFinal = listaPagosFinal.length === 1
+        ? listaPagosFinal[0].metodoPago
+        : listaPagosFinal.length > 1
+          ? "MIXTO"
+          : (abonoNumerico > 0 ? metodoPagoAbono : "PENDIENTE");
 
       const payloadBase = {
         clienteId: clienteSeleccionado.id,
@@ -595,11 +607,15 @@ export default function ApartadosPage() {
         montoDeposito: depositoNumerico,
         depositoEntregado: depositoEntregadoHoy,
         depositoRecibidoHoy: depositoEntregadoHoy && depositoNumerico > 0,
-        metodoPagoDeposito: depositoEntregadoHoy && depositoNumerico > 0 ? "EFECTIVO" : null,
+        metodoPagoDeposito: depositoEntregadoHoy && depositoNumerico > 0 ? metodoPagoDeposito : null,
         turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
         observaciones: observaciones.trim() || null,
-        metodoPago: listaPagosFinal.length === 1 ? listaPagosFinal[0].metodoPago : listaPagosFinal.length > 1 ? "MIXTO" : metodoPagoAbono,
-        metodoPagoPrincipal: listaPagosFinal.length === 1 ? listaPagosFinal[0].metodoPago : listaPagosFinal.length > 1 ? "MIXTO" : metodoPagoAbono,
+        notas: observaciones.trim() || null,
+        totalFactura: totalAlquiler,
+        totalAbonado: abonoNumerico,
+        saldoPendiente: saldoPendienteAlquiler,
+        metodoPago: metodoPrincipalFinal,
+        metodoPagoPrincipal: metodoPrincipalFinal,
         pagos: listaPagosFinal,
         abonos: listaPagosFinal,
         abonoInicial: listaPagosFinal.length === 1 ? listaPagosFinal[0] : undefined,
@@ -1084,24 +1100,33 @@ export default function ApartadosPage() {
                       )}
                     </div>
 
-                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5 font-medium">
-                      <div className="flex justify-between text-slate-600">
-                        <span>Valor Total de Alquiler:</span>
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2 font-medium">
+                      <div className="flex justify-between text-slate-700">
+                        <span className="font-bold">1. Valor Total Alquiler:</span>
                         <span className="font-mono font-bold text-slate-900">${totalAlquiler.toLocaleString("es-CO")}</span>
                       </div>
-                      <div className="flex justify-between text-slate-600">
-                        <span>Depósito en Garantía:</span>
-                        <span className="font-mono font-bold text-amber-800">
-                          ${depositoNumerico.toLocaleString("es-CO")} {depositoEntregadoHoy ? "(Entregado hoy)" : "(Al retirar)"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-emerald-700 font-bold pt-1 border-t border-slate-200">
-                        <span>Abono Inicial Pactado:</span>
+                      <div className="flex justify-between text-emerald-700 font-bold">
+                        <span>• Abono Inicial Alquiler:</span>
                         <span className="font-mono text-emerald-700">-${abonoNumerico.toLocaleString("es-CO")}</span>
                       </div>
-                      <div className="flex justify-between text-rose-700 font-black text-sm pt-1 border-t border-slate-300">
-                        <span>SALDO PENDIENTE AL RETIRAR:</span>
-                        <span className="font-mono text-rose-700 text-base">${saldoPendienteCalculado.toLocaleString("es-CO")}</span>
+                      <div className="flex justify-between text-rose-700 font-black pt-1 border-t border-slate-200">
+                        <span>SALDO ALQUILER AL RETIRAR:</span>
+                        <span className="font-mono text-rose-700 font-black">${saldoPendienteAlquiler.toLocaleString("es-CO")}</span>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200 space-y-0.5">
+                        <div className="flex justify-between text-amber-900 font-bold">
+                          <span>2. Custodia en Garantía (Devoluble):</span>
+                          <span className="font-mono text-amber-900">${depositoNumerico.toLocaleString("es-CO")}</span>
+                        </div>
+                        <span className="text-[10.5px] text-amber-800 block">
+                          Condición: {depositoEntregadoHoy ? `Entregado hoy en custodia (${metodoPagoDeposito})` : "Se entrega el día del retiro"}
+                        </span>
+                      </div>
+
+                      <div className="pt-2 border-t-2 border-slate-300 flex justify-between items-center bg-white p-2 rounded-lg border border-slate-200">
+                        <span className="text-xs font-black text-slate-900">TOTAL COBRADO HOY EN CAJA:</span>
+                        <span className="font-mono text-base font-black text-indigo-700">${totalACobrarHoy.toLocaleString("es-CO")}</span>
                       </div>
                     </div>
                   </div>
@@ -1392,155 +1417,143 @@ export default function ApartadosPage() {
                   </div>
                 )}
 
-                {/* PASO 3: LIQUIDACIÓN, ABONO Y CALCULADORA DE VUELTAS */}
+                {/* PASO 3: LIQUIDACIÓN, FECHAS Y COBRO/ABONO FLEXIBLE */}
                 {paso === 3 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Subcolumna A: Valores y Liquidación */}
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3.5">
-                      <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-1.5">
-                        Condición Financiera del Apartado
-                      </h3>
-
-                      <div>
-                        <span className="text-xs text-slate-500 block">Total de las Prendas Separadas:</span>
-                        <span className="font-mono text-xl font-black text-slate-900">
-                          ${totalAlquiler.toLocaleString("es-CO")}
-                        </span>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="text-xs font-bold text-slate-700">
-                            Depósito en Garantía (Opcional):
-                          </label>
-                          <Tooltip content="Valor sugerido del último registro. Editable libremente." position="top">
-                            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded cursor-help">
-                              Sugerido
-                            </span>
-                          </Tooltip>
+                  <div className="space-y-3.5">
+                    {/* BANNER FORMAL DE CRONOGRAMA: FECHAS DE RETIRO Y DEVOLUCIÓN */}
+                    <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200/90 shadow-2xs space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-100 pb-2">
+                        <div className="flex items-center gap-2">
+                          <CalendarClock className="w-4 h-4 text-indigo-700 shrink-0" />
+                          <h3 className="text-xs font-black uppercase tracking-wider text-indigo-950">
+                            Cronograma de Reserva y Alquiler Futuro
+                          </h3>
                         </div>
-                        <input
-                          type="number"
-                          value={montoDepositoInput}
-                          onChange={(e) => {
-                            const valStr = e.target.value;
-                            setMontoDepositoInput(valStr);
-                            const valNum = parseFloat(valStr) || 0;
-                            if (valNum > 0) {
-                              setUltimoDepositoSugeridoApartado(valNum);
-                              if (typeof window !== "undefined") {
-                                localStorage.setItem("pos_ultimo_deposito_apartado", String(valNum));
-                              }
-                            }
-                          }}
-                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-sm bg-white outline-none focus:border-indigo-500"
-                          placeholder="0"
-                        />
-                        <label className="flex items-center gap-2 mt-1.5 text-xs text-slate-600 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={depositoEntregadoHoy}
-                            onChange={(e) => setDepositoEntregadoHoy(e.target.checked)}
-                            className="rounded text-indigo-600"
-                          />
-                          <span>Cliente entrega el depósito hoy en mostrador</span>
-                        </label>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="text-xs font-bold text-slate-700">
-                            Abono Inicial (Hoy):
-                          </label>
-                          <Tooltip content="Valor sugerido según último abono. Editable libremente." position="top">
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded cursor-help">
-                              Sugerido
-                            </span>
-                          </Tooltip>
-                        </div>
-                        <input
-                          ref={inputEfectivoRef}
-                          type="number"
-                          value={abonoInicialInput}
-                          onChange={(e) => {
-                            const valStr = e.target.value;
-                            setAbonoInicialInput(valStr);
-                            const valNum = parseFloat(valStr) || 0;
-                            if (valNum > 0) {
-                              setUltimoAbonoSugeridoApartado(valNum);
-                              if (typeof window !== "undefined") {
-                                localStorage.setItem("pos_ultimo_abono_apartado", String(valNum));
-                              }
-                            }
-                          }}
-                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono font-bold text-base bg-white text-emerald-700 outline-none focus:border-emerald-500"
-                          placeholder="0"
-                        />
-                      </div>
-
-                      {/* Desglose Contable de los 4 Conceptos Oficiales de Apartado */}
-                      <div className="pt-2.5 pb-2 border-t border-slate-200 space-y-1.5 bg-slate-50 p-2.5 rounded-xl border">
-                        <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-                          <span>1. Valor de Alquiler:</span>
-                          <span className="font-mono font-bold">${totalAlquiler.toLocaleString("es-CO")}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs font-semibold text-amber-900">
-                          <span>2. Saldo Depósito (Custodia al Retirar):</span>
-                          <span className="font-mono font-bold">${saldoDepositoAlRetirar.toLocaleString("es-CO")}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs font-bold text-emerald-700">
-                          <span>3. Abono Inicial (Consigna Hoy):</span>
-                          <span className="font-mono">-${abonoNumerico.toLocaleString("es-CO")}</span>
-                        </div>
-                        <div className="pt-1.5 border-t border-slate-300 flex items-center justify-between">
-                          <span className="text-xs font-black text-slate-900">4. SALDO TOTAL AL RETIRAR:</span>
-                          <span className="font-mono text-base font-black text-rose-600">
-                            ${saldoPendienteCalculado.toLocaleString("es-CO")}
+                        {reglaFechaTexto.mensajeInformativo && (
+                          <span className="text-[11px] font-semibold text-indigo-700 bg-white/80 border border-indigo-200 px-2 py-0.5 rounded-lg truncate max-w-md">
+                            {reglaFechaTexto.mensajeInformativo}
                           </span>
-                        </div>
+                        )}
                       </div>
 
-                      {/* Edición de Detalles por Traje en Liquidación */}
-                      <div className="space-y-2 pt-2 border-t border-slate-200">
-                        <label className="text-xs font-bold text-slate-700 block">
-                          Detalles por Prenda / Traje Separado:
-                        </label>
-                        {itemsApartado.map((item) => (
-                          <div key={item.idTemporal} className="p-2 bg-white rounded-lg border border-slate-200 space-y-1">
-                            <div className="flex justify-between text-xs font-bold text-slate-900">
-                              <span>{item.nombre}</span>
-                              <span className="font-mono">${item.precioUnitario.toLocaleString("es-CO")}</span>
-                            </div>
-                            <input
-                              type="text"
-                              value={item.descripcionDetallada || ""}
-                              onChange={(e) => actualizarDescripcionDetallada(item.idTemporal, e.target.value)}
-                              placeholder="Detalles (ej. Camisa blanca cuello normal, corbata roja, pantalón azul...)"
-                              className="w-full text-xs px-2 py-1 rounded border border-slate-300 bg-slate-50 focus:bg-white outline-none focus:border-indigo-500 font-sans"
-                            />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        {/* Fecha de Retiro / Salida */}
+                        <div className="p-2.5 rounded-xl bg-white border border-indigo-100 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
+                              Día y Fecha de Retiro (Inicio del Alquiler):
+                            </label>
+                            <span className="text-xs font-black text-indigo-950 capitalize font-sans">
+                              {formatearEtiquetaDiaYFecha(fechaSalida)}
+                            </span>
                           </div>
-                        ))}
-                      </div>
+                          <input
+                            type="date"
+                            value={fechaSalida}
+                            onChange={(e) => handleCambioFechaSalida(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
 
-                      {/* Observación Oficial Fija de Apartados */}
-                      <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-center">
-                        <p className="text-xs font-black text-amber-950 uppercase tracking-wide">
-                          PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
-                        </p>
+                        {/* Fecha Límite de Devolución */}
+                        <div className="p-2.5 rounded-xl bg-white border border-indigo-100 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500">
+                              Día y Hora Límite de Devolución:
+                            </label>
+                            <span className="text-xs font-black text-indigo-800 capitalize font-sans">
+                              {formatearEtiquetaDiaYFecha(fechaDevolucion, true)}
+                            </span>
+                          </div>
+                          <input
+                            type="datetime-local"
+                            value={fechaDevolucion}
+                            onChange={(e) => setFechaDevolucion(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg font-mono font-bold text-indigo-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    {/* Subcolumna B: Métodos de Pago y Calculadora de Vueltas */}
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3.5">
-                      <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-1.5">
-                        Cobro de Abono
-                      </h3>
+                    {/* DOS COLUMNAS INDEPENDIENTES: ALQUILER VS CUSTODIA */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {/* COLUMNA 1: COBRO POR SERVICIO DE ALQUILER */}
+                      <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3.5">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                          <div className="flex items-center gap-2">
+                            <Shirt className="w-4 h-4 text-indigo-600" />
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                              1. Servicio de Alquiler de Prendas
+                            </h4>
+                          </div>
+                          <span className="font-mono text-base font-black text-slate-900 tabular-nums">
+                            ${totalAlquiler.toLocaleString("es-CO")}
+                          </span>
+                        </div>
 
-                      {totalACobrarHoy > 0 && (
-                        <>
-                          <div className="space-y-3 pt-1">
+                        {/* Selector de Abono Inicial Flexible */}
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                            Condición de Abono de Alquiler Hoy:
+                          </label>
+
+                          <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                            {[
+                              { label: "Sin Abono ($0)", val: 0 },
+                              { label: "$20.000", val: 20000 },
+                              { label: "$30.000", val: 30000 },
+                              { label: "$50.000", val: 50000 },
+                              { label: `Total ($${totalAlquiler.toLocaleString("es-CO")})`, val: totalAlquiler },
+                            ].map((opc) => {
+                              const activo = abonoNumerico === opc.val;
+                              return (
+                                <button
+                                  key={opc.label}
+                                  type="button"
+                                  onClick={() => {
+                                    setAbonoInicialInput(String(opc.val));
+                                    setPagosAplicados([]);
+                                    setEfectivoRecibidoInput("");
+                                  }}
+                                  className={`py-1.5 px-1 rounded-xl text-[11px] font-bold border transition text-center cursor-pointer ${
+                                    activo
+                                      ? "bg-indigo-600 text-white border-indigo-700 shadow-xs ring-2 ring-indigo-500/20"
+                                      : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  {opc.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <span className="text-xs font-bold text-slate-500 whitespace-nowrap">
+                              Abono Acordado:
+                            </span>
+                            <div className="relative flex-1">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">$</span>
+                              <input
+                                ref={inputEfectivoRef}
+                                type="number"
+                                value={abonoInicialInput}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setAbonoInicialInput(val);
+                                  setPagosAplicados([]);
+                                }}
+                                className="w-full pl-6 pr-3 py-1.5 rounded-xl border border-slate-300 font-mono font-black text-sm text-indigo-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Pasarela de Cobro del Abono del Alquiler */}
+                        {abonoNumerico > 0 ? (
+                          <div className="space-y-2 pt-2 border-t border-slate-100">
                             <PanelPagosSecuenciales
-                              totalExigible={abonoNumerico > 0 ? abonoNumerico : totalAlquiler + (depositoEntregadoHoy ? depositoNumerico : 0)}
+                              totalExigible={abonoNumerico}
                               pagos={pagosAplicados}
                               onChangePagos={setPagosAplicados}
                               metodoActivoAtajo={metodoPagoAbono}
@@ -1548,13 +1561,204 @@ export default function ApartadosPage() {
                               efectivoRecibidoAtajo={efectivoRecibidoInput}
                               onEfectivoRecibidoAtajoChange={setEfectivoRecibidoInput}
                               accentColor="indigo"
-                              permitirSaldoPendiente={true}
-                              etiquetaTotal="Abono a Registrar Hoy"
-                              subtitulo="Registre uno o varios pagos para cubrir el abono de reserva de hoy"
+                              permitirSaldoPendiente={false}
+                              etiquetaTotal="Abono a Cobrar Hoy"
+                              subtitulo="Registre el cobro del abono pactado para reservar el alquiler"
                             />
                           </div>
-                        </>
-                      )}
+                        ) : (
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 space-y-1">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                              <Clock className="w-4 h-4 text-indigo-600" />
+                              <span>Reserva sin desembolso inicial hoy</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500">
+                              El valor completo del servicio (${totalAlquiler.toLocaleString("es-CO")}) quedará registrado como saldo pendiente para abonar o saldar el día del retiro.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Desglose Exclusivo del Alquiler */}
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs font-medium">
+                          <div className="flex justify-between text-slate-700">
+                            <span>Canon Total Alquiler:</span>
+                            <span className="font-mono font-bold text-slate-900">${totalAlquiler.toLocaleString("es-CO")}</span>
+                          </div>
+                          <div className="flex justify-between text-emerald-700 font-bold">
+                            <span>Abono Recibido Hoy:</span>
+                            <span className="font-mono">-${abonoNumerico.toLocaleString("es-CO")}</span>
+                          </div>
+                          <div className="flex justify-between text-rose-700 font-black pt-1 border-t border-slate-200">
+                            <span>Saldo Alquiler al Retirar:</span>
+                            <span className="font-mono text-sm">${saldoPendienteAlquiler.toLocaleString("es-CO")}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* COLUMNA 2: ABONO EN CUSTODIA (GARANTÍA / DEPÓSITO DEVOLUBLE) */}
+                      <div className="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-3.5">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4 text-amber-600" />
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                              2. Fondo de Garantía en Custodia
+                            </h4>
+                          </div>
+                          <span className="font-mono text-base font-black text-amber-900 tabular-nums">
+                            ${depositoNumerico.toLocaleString("es-CO")}
+                          </span>
+                        </div>
+
+                        {/* Montos Sugeridos de Garantía */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                              Monto de Respaldo Pactado:
+                            </label>
+                            <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                              Devoluble
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-5 gap-1.5">
+                            {[0, 10000, 20000, 30000, 50000].map((v) => {
+                              const activo = depositoNumerico === v;
+                              return (
+                                <button
+                                  key={v}
+                                  type="button"
+                                  onClick={() => setMontoDepositoInput(String(v))}
+                                  className={`py-1.5 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                                    activo
+                                      ? "bg-amber-600 text-white border-amber-700 shadow-xs ring-2 ring-amber-500/20"
+                                      : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  ${v === 0 ? "0" : `${v / 1000}k`}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">$</span>
+                            <input
+                              type="number"
+                              value={montoDepositoInput}
+                              onChange={(e) => setMontoDepositoInput(e.target.value)}
+                              placeholder="0"
+                              className="w-full pl-6 pr-3 py-1.5 rounded-xl border border-slate-300 font-mono font-bold text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Momento de Entrega de Custodia */}
+                        <div className="space-y-2 pt-2 border-t border-slate-100">
+                          <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                            Entrega del Fondo de Custodia:
+                          </label>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setDepositoEntregadoHoy(false)}
+                              className={`p-2 rounded-xl text-xs font-bold border text-left transition flex flex-col justify-between cursor-pointer ${
+                                !depositoEntregadoHoy
+                                  ? "bg-indigo-50 border-indigo-400 text-indigo-950 ring-2 ring-indigo-500/20 shadow-xs"
+                                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                              }`}
+                            >
+                              <span className="text-[11px] font-black">Al Retirar Prenda</span>
+                              <span className="text-[10px] text-slate-500 font-normal">Se entrega el día del retiro</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setDepositoEntregadoHoy(true)}
+                              className={`p-2 rounded-xl text-xs font-bold border text-left transition flex flex-col justify-between cursor-pointer ${
+                                depositoEntregadoHoy
+                                  ? "bg-amber-50 border-amber-500 text-amber-950 ring-2 ring-amber-500/20 shadow-xs"
+                                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                              }`}
+                            >
+                              <span className="text-[11px] font-black">Entrega Hoy en Caja</span>
+                              <span className="text-[10px] text-slate-500 font-normal">Custodia física anticipada</span>
+                            </button>
+                          </div>
+
+                          {/* Si entrega hoy, selector de medio de depósito */}
+                          {depositoEntregadoHoy && depositoNumerico > 0 && (
+                            <div className="p-2.5 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1.5">
+                              <label className="text-[10.5px] font-bold text-amber-950 uppercase tracking-wider block">
+                                Medio de Recepción de la Custodia:
+                              </label>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setMetodoPagoDeposito("EFECTIVO")}
+                                  className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1 cursor-pointer ${
+                                    metodoPagoDeposito === "EFECTIVO"
+                                      ? "bg-amber-600 text-white border-amber-700 shadow-xs"
+                                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  <Banknote className="w-3.5 h-3.5" />
+                                  <span>Efectivo Gaveta</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setMetodoPagoDeposito("BANCOLOMBIA")}
+                                  className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition flex items-center justify-center gap-1 cursor-pointer ${
+                                    metodoPagoDeposito === "BANCOLOMBIA"
+                                      ? "bg-amber-600 text-white border-amber-700 shadow-xs"
+                                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  <Building2 className="w-3.5 h-3.5" />
+                                  <span>Banco / QR</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Recuadro Legal y Condiciones */}
+                        <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1.5 text-xs">
+                          <p className="text-[11px] text-amber-950 font-medium">
+                            • <strong>Devolución 100%:</strong> Se reintegra al retornar las prendas completas y en perfecto estado.
+                          </p>
+                          <p className="text-[11px] text-amber-900 font-medium">
+                            • <strong>Tarifa de Mora Oficial:</strong> $3.000 COP / día de retraso.
+                          </p>
+                          <p className="text-[10.5px] font-bold text-amber-950 uppercase pt-1 border-t border-amber-200">
+                            PLATA DE PRENDAS APARTADAS NO SE DEVUELVE
+                          </p>
+                        </div>
+
+                        {/* Detalles y Notas por Prenda */}
+                        <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                          <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                            Notas de Confección / Prendas ({itemsApartado.length}):
+                          </label>
+                          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                            {itemsApartado.map((item) => (
+                              <div key={item.idTemporal} className="p-2 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                                <div className="flex justify-between text-xs font-bold text-slate-900">
+                                  <span>{item.nombre}</span>
+                                  <span className="font-mono text-indigo-700">${item.precioUnitario.toLocaleString("es-CO")}</span>
+                                </div>
+                                <input
+                                  type="text"
+                                  value={item.descripcionDetallada || ""}
+                                  onChange={(e) => actualizarDescripcionDetallada(item.idTemporal, e.target.value)}
+                                  placeholder="Detalles (ej. Cuello almidonado, corbata roja, basta pantalón...)"
+                                  className="w-full text-xs px-2.5 py-1 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1713,37 +1917,37 @@ export default function ApartadosPage() {
 
               {/* Pie Fijo con Resumen Numérico y Botones Grandes de Navegación Siempre Visibles */}
               <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
-                <div className="p-2.5 rounded-xl border border-slate-200 bg-white space-y-1 text-xs">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Total Operación:</span>
+                <div className="p-2.5 rounded-xl border border-slate-200 bg-white space-y-1.5 text-xs">
+                  <div className="flex justify-between text-slate-700">
+                    <span className="font-bold">1. Servicio Alquiler:</span>
                     <span className="font-mono font-bold text-slate-900">
                       ${totalAlquiler.toLocaleString("es-CO")}
                     </span>
                   </div>
-                  {depositoNumerico > 0 && (
-                    <div className="flex justify-between text-slate-600">
-                      <span>Depósito (Garantía):</span>
-                      <span className="font-mono font-bold text-slate-800">
-                        ${depositoNumerico.toLocaleString("es-CO")} {depositoEntregadoHoy ? "(Hoy)" : "(Al Retiro)"}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-indigo-700 font-bold">
-                    <span>Abono Hoy:</span>
-                    <span className="font-mono font-bold">
-                      ${abonoNumerico.toLocaleString("es-CO")}
+                  <div className="flex justify-between text-emerald-700 font-bold">
+                    <span>• Abono Alquiler Hoy:</span>
+                    <span className="font-mono">
+                      -${abonoNumerico.toLocaleString("es-CO")}
                     </span>
                   </div>
-                  <div className="flex justify-between text-slate-900 font-black text-sm pt-1 border-t border-slate-200">
+                  <div className="flex justify-between text-rose-700 font-black pt-0.5 border-t border-slate-100">
+                    <span>Saldo Alquiler al Retirar:</span>
+                    <span className="font-mono">
+                      ${saldoPendienteAlquiler.toLocaleString("es-CO")}
+                    </span>
+                  </div>
+
+                  <div className="pt-1.5 border-t border-slate-200 flex justify-between text-amber-900 font-bold">
+                    <span>2. Custodia (Garantía):</span>
+                    <span className="font-mono">
+                      ${depositoNumerico.toLocaleString("es-CO")} {depositoEntregadoHoy ? "(Hoy)" : "(Al Retiro)"}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between text-slate-900 font-black text-sm pt-1.5 border-t-2 border-slate-300 bg-indigo-50/50 p-1.5 rounded-lg">
                     <span>TOTAL A COBRAR HOY:</span>
                     <span className="font-mono text-indigo-700 text-base">
                       ${totalACobrarHoy.toLocaleString("es-CO")}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-rose-600 font-bold pt-0.5">
-                    <span>Saldo Pendiente:</span>
-                    <span className="font-mono font-black text-sm">
-                      ${saldoPendienteCalculado.toLocaleString("es-CO")}
                     </span>
                   </div>
                 </div>
