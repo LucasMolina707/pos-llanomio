@@ -90,7 +90,11 @@ docker compose -f "$RemoteDir/docker-compose.yml" --env-file "$RemoteDir/.env" u
 "@
 
 $RemoteScriptUnix = $RemoteScript -replace "`r`n", "`n"
-$RemoteScriptUnix | ssh $SshHost "bash -s"
+$TempRemoteSh = Join-Path $env:TEMP "aurorapos_remote_deploy.sh"
+[System.IO.File]::WriteAllBytes($TempRemoteSh, [System.Text.Encoding]::UTF8.GetBytes($RemoteScriptUnix))
+scp $TempRemoteSh "${SshHost}:${RemoteDir}/remote_deploy.sh"
+Remove-Item $TempRemoteSh -Force
+ssh $SshHost "bash $RemoteDir/remote_deploy.sh && rm -f $RemoteDir/remote_deploy.sh"
 
 if ($ResetVitrina) {
   Write-Host "[AURORA DEPLOY] Reiniciando base de datos de vitrina a estado limpio..."
