@@ -406,18 +406,18 @@ function dibujarPaginaMediaCarta(
     const xColDesc = margenIzquierdo + 28;
     const anchoMaxDesc = (margenDerecho - 40) - xColDesc;
 
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(esContenidoDenso ? 5.2 : 5.8);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(esContenidoDenso ? 6.0 : 6.6);
     const lineasDetalleRaw: string[] = tieneDetalle
       ? doc.splitTextToSize(`Detalle / Modificaciones: ${det.descripcionDetallada!.trim()}`, anchoMaxDesc)
       : [];
-    // En contenido denso limitar a 2 líneas para preservar márgenes y firmas
-    const lineasDetalle = esContenidoDenso && lineasDetalleRaw.length > 2
-      ? [lineasDetalleRaw[0], lineasDetalleRaw[1] + "..."]
+    // En contenido denso limitar a 3 líneas para preservar márgenes y firmas
+    const lineasDetalle = esContenidoDenso && lineasDetalleRaw.length > 3
+      ? [lineasDetalleRaw[0], lineasDetalleRaw[1], lineasDetalleRaw[2] + "..."]
       : lineasDetalleRaw;
 
-    const altoFilaBase = esContenidoDenso ? 4.0 : 4.8;
-    const stepLineas = esContenidoDenso ? 2.1 : 2.6;
+    const altoFilaBase = esContenidoDenso ? 4.2 : 4.8;
+    const stepLineas = esContenidoDenso ? 2.4 : 2.8;
     const altoFila = lineasDetalle.length > 0 ? altoFilaBase + (lineasDetalle.length * stepLineas) : altoFilaBase;
 
     if (i % 2 === 0) {
@@ -458,9 +458,9 @@ function dibujarPaginaMediaCarta(
     doc.text(formatCOP(det.subtotal), margenDerecho - 3, cursorY + (esContenidoDenso ? 2.9 : 3.4), { align: "right" });
 
     if (lineasDetalle.length > 0) {
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(esContenidoDenso ? 5.2 : 5.8);
-      doc.setTextColor(71, 85, 105);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(esContenidoDenso ? 6.0 : 6.6);
+      doc.setTextColor(15, 23, 42);
       doc.text(lineasDetalle, xColDesc, cursorY + (esContenidoDenso ? 2.9 : 3.4) + stepLineas);
     }
 
@@ -597,21 +597,23 @@ function dibujarPaginaMediaCarta(
       doc.setTextColor(15, 23, 42);
     }
 
-    // BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO)
+    // BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO) - ROJO Y GRANDE
     const yStrip = yBloque + altoBloque + (esContenidoDenso ? 0.8 : 1.2);
-    const altoStrip = esContenidoDenso ? 4.4 : 5.2;
-    doc.setFillColor(254, 252, 232); // Amber 50
-    doc.setDrawColor(217, 119, 6);   // Amber 600
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(esContenidoDenso ? 6.8 : 7.6);
+    const obsMora = `OBSERVACIÓN: A partir del día siguiente hábil a la fecha pactada de entrega (excluyendo domingos no laborales) se descontará ${formatCOP(tarifaMoraDiariaOficial)} por día de mora del depósito en garantía.`;
+    const lineasObsMora: string[] = doc.splitTextToSize(obsMora, margenDerecho - margenIzquierdo - 4);
+    const altoStrip = Math.max(esContenidoDenso ? 6.2 : 7.0, lineasObsMora.length * 3.1 + 2.2);
+    doc.setFillColor(254, 242, 242); // Red 50
+    doc.setDrawColor(220, 38, 38);   // Red 600
+    doc.setLineWidth(0.5);
     doc.rect(margenIzquierdo, yStrip, margenDerecho - margenIzquierdo, altoStrip, "FD");
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(esContenidoDenso ? 5.2 : 5.8);
-    doc.setTextColor(146, 64, 14);
-    const obsMora = `OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.`;
-    doc.text(obsMora, (margenIzquierdo + margenDerecho) / 2, yStrip + (esContenidoDenso ? 2.9 : 3.5), { align: "center" });
+    doc.setTextColor(185, 28, 28);   // Red 700
+    doc.text(lineasObsMora, (margenIzquierdo + margenDerecho) / 2, yStrip + 3.2, { align: "center" });
 
     // FIRMAS PARALELAS AL PIE DE PÁGINA
-    const yFirmas = yStrip + (esContenidoDenso ? 6.5 : 8.5);
+    const yFirmas = yStrip + altoStrip + (esContenidoDenso ? 3.5 : 5.0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.2);
     doc.setTextColor(15, 23, 42);
@@ -696,19 +698,20 @@ function dibujarPaginaMediaCarta(
     doc.setTextColor(159, 18, 57);
     doc.text(formatCOP(saldoPendienteTotalRetiro), x4 + anchoCol / 2, yBloque + (esContenidoDenso ? 9.5 : 11.2), { align: "center" });
 
-    // BANNER OFICIAL DE POLÍTICAS DE APARTADO (DEBAJO DEL CUADRO)
+    // BANNER OFICIAL DE POLÍTICAS DE APARTADO (DEBAJO DEL CUADRO) - ROJO Y GRANDE
     const yStripAp = yBloque + altoBloque + (esContenidoDenso ? 1.2 : 1.8);
-    const altoStripAp = esContenidoDenso ? 4.4 : 5.2;
-    doc.setFillColor(241, 245, 249);
-    doc.setDrawColor(15, 23, 42);
+    const altoStripAp = esContenidoDenso ? 6.4 : 7.4;
+    doc.setFillColor(254, 242, 242); // Red 50
+    doc.setDrawColor(220, 38, 38);   // Red 600
+    doc.setLineWidth(0.5);
     doc.rect(margenIzquierdo, yStripAp, margenDerecho - margenIzquierdo, altoStripAp, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(esContenidoDenso ? 5.5 : 6.2);
-    doc.setTextColor(15, 23, 42);
-    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVE. Retiro según plazo pactado.", (margenIzquierdo + margenDerecho) / 2, yStripAp + (esContenidoDenso ? 2.9 : 3.5), { align: "center" });
+    doc.setFontSize(esContenidoDenso ? 8.2 : 9.2);
+    doc.setTextColor(185, 28, 28);   // Red 700
+    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", (margenIzquierdo + margenDerecho) / 2, yStripAp + (esContenidoDenso ? 4.3 : 5.0), { align: "center" });
 
     // FIRMAS PARALELAS AL PIE DE PÁGINA
-    const yFirmasAp = yStripAp + (esContenidoDenso ? 6.5 : 8.5);
+    const yFirmasAp = yStripAp + altoStripAp + (esContenidoDenso ? 3.5 : 5.0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.2);
     doc.setTextColor(15, 23, 42);
@@ -1232,12 +1235,12 @@ function dibujarPaginaCarta(
     const xColDesc = margenIzquierdo + 38;
     const anchoMaxDesc = (margenDerecho - 52) - xColDesc;
 
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(7.0);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.8);
     const lineasDetalle: string[] = tieneDetalle
       ? doc.splitTextToSize(`Detalle / Modificaciones: ${det.descripcionDetallada!.trim()}`, anchoMaxDesc)
       : [];
-    const altoFila = lineasDetalle.length > 0 ? 6.2 + (lineasDetalle.length * 3.4) : 6.2;
+    const altoFila = lineasDetalle.length > 0 ? 6.4 + (lineasDetalle.length * 3.8) : 6.4;
 
     if (i % 2 === 0) {
       doc.setFillColor(255, 255, 255);
@@ -1278,10 +1281,10 @@ function dibujarPaginaCarta(
     doc.text(formatCOP(det.subtotal), margenDerecho - 4, cursorY + 4.5, { align: "right" });
 
     if (lineasDetalle.length > 0) {
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(7.0);
-      doc.setTextColor(71, 85, 105);
-      doc.text(lineasDetalle, xColDesc, cursorY + 4.3 + 3.4);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.8);
+      doc.setTextColor(15, 23, 42);
+      doc.text(lineasDetalle, xColDesc, cursorY + 4.3 + 3.6);
     }
 
     cursorY += altoFila;
@@ -1401,20 +1404,23 @@ function dibujarPaginaCarta(
       doc.setTextColor(15, 23, 42);
     }
 
-    // BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO)
+    // BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO) - ROJO Y GRANDE
     const yStrip = yBloque + altoBloque + 2;
-    doc.setFillColor(254, 252, 232);
-    doc.setDrawColor(217, 119, 6);
-    doc.rect(margenIzquierdo, yStrip, margenDerecho - margenIzquierdo, 6.8, "FD");
-
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(146, 64, 14);
-    const obsMora = `OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.`;
-    doc.text(obsMora, (margenIzquierdo + margenDerecho) / 2, yStrip + 4.5, { align: "center" });
+    doc.setFontSize(9.0);
+    const obsMora = `OBSERVACIÓN: A partir del día siguiente hábil a la fecha pactada de entrega (excluyendo domingos no laborales) se descontará ${formatCOP(tarifaMoraDiariaOficial)} por día de mora del depósito en garantía.`;
+    const lineasObsCarta: string[] = doc.splitTextToSize(obsMora, margenDerecho - margenIzquierdo - 6);
+    const altoStripCarta = Math.max(9.5, lineasObsCarta.length * 4.2 + 3.5);
+    doc.setFillColor(254, 242, 242); // Red 50
+    doc.setDrawColor(220, 38, 38);   // Red 600
+    doc.setLineWidth(0.6);
+    doc.rect(margenIzquierdo, yStrip, margenDerecho - margenIzquierdo, altoStripCarta, "FD");
+
+    doc.setTextColor(185, 28, 28);   // Red 700
+    doc.text(lineasObsCarta, (margenIzquierdo + margenDerecho) / 2, yStrip + 4.6, { align: "center" });
 
     // FIRMAS PARALELAS
-    const yFirmas = yStrip + 15;
+    const yFirmas = yStrip + altoStripCarta + 10;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(15, 23, 42);
@@ -1497,18 +1503,20 @@ function dibujarPaginaCarta(
     doc.setTextColor(159, 18, 57);
     doc.text(formatCOP(saldoPendienteTotalRetiro), x4 + anchoCol / 2, yBloque + 14, { align: "center" });
 
-    // BANNER OFICIAL DE POLÍTICAS DE APARTADO (DEBAJO DEL CUADRO)
+    // BANNER OFICIAL DE POLÍTICAS DE APARTADO (DEBAJO DEL CUADRO) - ROJO Y GRANDE
     const yStripAp = yBloque + altoBloque + 2;
-    doc.setFillColor(241, 245, 249);
-    doc.setDrawColor(15, 23, 42);
-    doc.rect(margenIzquierdo, yStripAp, margenDerecho - margenIzquierdo, 6.8, "FD");
+    const altoStripApCarta = 9.5;
+    doc.setFillColor(254, 242, 242); // Red 50
+    doc.setDrawColor(220, 38, 38);   // Red 600
+    doc.setLineWidth(0.6);
+    doc.rect(margenIzquierdo, yStripAp, margenDerecho - margenIzquierdo, altoStripApCarta, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
-    doc.setTextColor(15, 23, 42);
-    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVE. Retiro según plazo pactado.", (margenIzquierdo + margenDerecho) / 2, yStripAp + 4.5, { align: "center" });
+    doc.setFontSize(11.5);
+    doc.setTextColor(185, 28, 28);   // Red 700
+    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", (margenIzquierdo + margenDerecho) / 2, yStripAp + 6.3, { align: "center" });
 
     // FIRMAS PARALELAS
-    const yFirmasAp = yStripAp + 15;
+    const yFirmasAp = yStripAp + altoStripApCarta + 10;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(15, 23, 42);
@@ -1935,14 +1943,14 @@ function dibujarContenidoTirilla(
     cursorY += 3.2;
 
     if (det.descripcionDetallada && det.descripcionDetallada.trim()) {
-      doc.setFont("helvetica", "italic");
-      doc.setFontSize(6.2);
-      doc.setTextColor(71, 85, 105);
-      const lineasDet = doc.splitTextToSize(`* Detalle: ${det.descripcionDetallada.trim()}`, margenDer - margen - 4);
-      doc.text(lineasDet, margen + 3, cursorY);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.8);
+      doc.setTextColor(15, 23, 42);
+      const lineasDet = doc.splitTextToSize(`* Detalle / Modif.: ${det.descripcionDetallada.trim()}`, margenDer - margen - 4);
+      doc.text(lineasDet, margen + 2, cursorY);
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(7.2);
-      cursorY += (lineasDet.length * 2.8);
+      cursorY += (lineasDet.length * 3.1);
     }
   });
 
@@ -2015,18 +2023,21 @@ function dibujarContenidoTirilla(
 
     cursorY = yFila2 + altoBloque + 2;
 
-    // OBSERVACIONES Y LEYENDA OFICIAL (DEBAJO DEL CUADRO)
-    cursorY += 1.0;
-    doc.setFillColor(241, 245, 249);
-    doc.setDrawColor(15, 23, 42);
-    doc.rect(margen, cursorY, margenDer - margen, 6.0, "FD");
+    // OBSERVACIONES Y LEYENDA OFICIAL (DEBAJO DEL CUADRO) - ROJO Y GRANDE
+    cursorY += 1.2;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(es58 ? 5.2 : 6.0);
-    doc.setTextColor(15, 23, 42);
-    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", anchoMm / 2, cursorY + 3.8, { align: "center" });
+    doc.setFontSize(es58 ? 6.8 : 8.0);
+    const lineasApartadoTir: string[] = doc.splitTextToSize("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", margenDer - margen - 3);
+    const altoCajaApTir = Math.max(7.5, lineasApartadoTir.length * 3.5 + 3.0);
+    doc.setFillColor(254, 242, 242); // Red 50
+    doc.setDrawColor(220, 38, 38);   // Red 600
+    doc.setLineWidth(0.45);
+    doc.rect(margen, cursorY, margenDer - margen, altoCajaApTir, "FD");
+    doc.setTextColor(185, 28, 28);   // Red 700
+    doc.text(lineasApartadoTir, anchoMm / 2, cursorY + 4.2, { align: "center" });
     doc.setTextColor(0, 0, 0);
 
-    cursorY += 7.0;
+    cursorY += altoCajaApTir + 2.0;
 
     if (factura.observaciones) {
       doc.setFont("helvetica", "italic");
@@ -2086,16 +2097,21 @@ function dibujarContenidoTirilla(
       doc.setTextColor(0, 0, 0);
     }
 
-    // BANNER OBSERVACIONES Y MORA (DEBAJO DEL CUADRO)
-    cursorY += 4.0;
-    doc.setFillColor(254, 243, 199);
-    doc.rect(margen, cursorY - 2.5, margenDer - margen, 7.5, "F");
+    // BANNER OBSERVACIONES Y MORA (DEBAJO DEL CUADRO) - ROJO Y GRANDE
+    cursorY += 3.5;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6);
-    doc.setTextColor(146, 64, 14);
-    doc.text(`OBSERVACIONES: A partir del día siguiente se descontará`, margen + 1, cursorY + 0.5);
-    doc.text(`${formatCOP(tarifaMoraDiariaOficial)}/día de mora del depósito en garantía.`, margen + 1, cursorY + 3.2);
+    doc.setFontSize(es58 ? 6.4 : 7.2);
+    const obsMoraTir = `OBSERVACIÓN: A partir del día siguiente hábil a la fecha pactada de entrega (excluyendo domingos no laborales) se descontará ${formatCOP(tarifaMoraDiariaOficial)} por día de mora del depósito en garantía.`;
+    const lineasMoraTir: string[] = doc.splitTextToSize(obsMoraTir, margenDer - margen - 3);
+    const altoCajaMoraTir = Math.max(9.0, lineasMoraTir.length * 3.2 + 3.0);
+    doc.setFillColor(254, 242, 242); // Red 50
+    doc.setDrawColor(220, 38, 38);   // Red 600
+    doc.setLineWidth(0.45);
+    doc.rect(margen, cursorY - 2.0, margenDer - margen, altoCajaMoraTir, "FD");
+    doc.setTextColor(185, 28, 28);   // Red 700
+    doc.text(lineasMoraTir, anchoMm / 2, cursorY + 1.4, { align: "center" });
     doc.setTextColor(0, 0, 0);
+    cursorY += altoCajaMoraTir - 1.5;
 
     if (factura.observaciones) {
       cursorY += 6.5;

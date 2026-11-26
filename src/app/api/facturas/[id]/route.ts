@@ -1112,6 +1112,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       productoId: string | null;
       esServicioLibre: boolean;
       descripcionLibre: string | null;
+      descripcionDetallada: string | null;
       cantidad: number;
       precioUnitario: number;
       subtotal: number;
@@ -1122,6 +1123,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
       const cantidad = Math.max(1, Math.round(Number(item.cantidad) || 1));
       const precioUnitario = Math.max(0, Number(item.precioUnitario) || 0);
       const subtotalItem = Math.round(cantidad * precioUnitario * 100) / 100;
+      const descripcionDetallada =
+        typeof item.descripcionDetallada === "string" && item.descripcionDetallada.trim().length > 0
+          ? item.descripcionDetallada.trim()
+          : null;
 
       if (item.esServicioLibre || !item.productoId) {
         const descripcionLibre = (item.descripcionLibre || item.nombre || "").trim();
@@ -1138,6 +1143,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
           productoId: null,
           esServicioLibre: esArreglo,
           descripcionLibre: descripcionLibre || "Servicio de sastrería",
+          descripcionDetallada,
           cantidad,
           precioUnitario,
           subtotal: subtotalItem,
@@ -1159,6 +1165,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
             productoId: producto.id,
             esServicioLibre: false,
             descripcionLibre: item.descripcionLibre?.trim() || null,
+            descripcionDetallada,
             cantidad,
             precioUnitario,
             subtotal: subtotalItem,
@@ -1324,6 +1331,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
           productoId: d.productoId,
           esServicioLibre: d.esServicioLibre,
           descripcionLibre: d.descripcionLibre,
+          descripcionDetallada: d.descripcionDetallada,
           cantidad: d.cantidad,
           precioUnitario: d.precioUnitario,
           subtotal: d.subtotal,
