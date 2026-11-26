@@ -13,7 +13,19 @@ const bcrypt = require("bcryptjs");
 const fs = require("fs");
 const path = require("path");
 
-const prisma = new PrismaClient();
+// Resolucion canonica absoluta de la base de datos SQLite para evitar Split-Brain en cualquier PC
+const rootDir = path.resolve(__dirname, "..");
+const mainDb = path.join(rootDir, "database", "llanomio.db");
+const normalizedDbPath = mainDb.replace(/\\/g, "/");
+process.env.DATABASE_URL = `file:${normalizedDbPath}`;
+
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+});
 
 const ADMIN_USERNAME = "admin";
 const ADMIN_PASSWORD_CLARA = "admin123";
