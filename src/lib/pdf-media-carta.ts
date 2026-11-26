@@ -446,7 +446,11 @@ function dibujarPaginaMediaCarta(
     let desc = det.esServicioLibre
       ? (det.descripcionLibre || "Arreglo de sastrería")
       : (det.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje"));
-    if (det.producto?.codigo) desc = `[${det.producto.codigo}] ${desc}`;
+    if (det.producto?.codigo) {
+      const extraTalla = det.producto.talla ? ` T:${det.producto.talla}` : "";
+      const extraColor = det.producto.color ? ` ${det.producto.color}` : "";
+      desc = `[${det.producto.codigo}${extraTalla}${extraColor}] ${desc}`;
+    }
     doc.text(desc.substring(0, 56), xColDesc, cursorY + (esContenidoDenso ? 2.9 : 3.4));
 
     doc.text(formatCOP(det.precioUnitario), margenDerecho - 36, cursorY + (esContenidoDenso ? 2.9 : 3.4), { align: "right" });
@@ -1261,7 +1265,11 @@ function dibujarPaginaCarta(
     let desc = det.esServicioLibre
       ? (det.descripcionLibre || "Servicio de Sastrería")
       : (det.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje"));
-    if (det.producto?.codigo) desc = `[${det.producto.codigo}] ${desc}`;
+    if (det.producto?.codigo) {
+      const extraTalla = det.producto.talla ? ` T:${det.producto.talla}` : "";
+      const extraColor = det.producto.color ? ` ${det.producto.color}` : "";
+      desc = `[${det.producto.codigo}${extraTalla}${extraColor}] ${desc}`;
+    }
     doc.text(desc.substring(0, 68), xColDesc, cursorY + 4.3);
 
     doc.setFont("helvetica", "normal");

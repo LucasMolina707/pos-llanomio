@@ -3112,14 +3112,18 @@ export default function TerminalAlquileresPage() {
                             </div>
                           </div>
 
-                          {/* Campo Opcional: Detalle de piezas / modificaciones */}
-                          <div className="pt-1.5 border-t border-slate-200">
+                          {/* Campo: Detalle de piezas y modificaciones de cada traje */}
+                          <div className="pt-1.5 border-t border-slate-200 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-slate-700">Detalles y Modificaciones:</span>
+                              <span className="text-[9px] font-medium text-slate-400">Piezas, ajustes, bastilla</span>
+                            </div>
                             <input
                               type="text"
                               value={item.descripcionDetallada || ""}
                               onChange={(e) => modificarDescripcionDetalladaItem(item.idTemporal, e.target.value)}
-                              placeholder="Opcional: Detalle piezas o modificaciones del traje (ej. Saco azul, pantalón negro, camisa, corbatín...)"
-                              className="w-full text-[11px] px-2 py-1 rounded-lg border border-slate-200 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-sans"
+                              placeholder="Ej. Bastilla a 2cm, saco azul, corbata roja..."
+                              className="w-full text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-orange-500 font-sans"
                             />
                           </div>
                         </div>

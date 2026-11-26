@@ -784,14 +784,17 @@ export default function PlantillaImpresion({
                     <span className="font-semibold max-w-[52mm] break-words">
                       {safeNumber(d.cantidad)}x {d.esServicioLibre ? (d.descripcionLibre || "Traje libre") : (d.producto?.nombre || d.descripcionLibre || "Prenda")}
                       {d.producto?.codigo ? ` [${d.producto.codigo}]` : ""}
+                      {d.producto?.talla ? ` | T:${d.producto.talla}` : ""}
+                      {d.producto?.color ? ` | C:${d.producto.color}` : ""}
                       {safeNumber(d.cantidad) > 1 && (
                         <span className="text-[8.5px] text-slate-600 font-normal ml-1">
                           ({formatCOP(d.precioUnitario)} c/u)
                         </span>
                       )}
                       {d.descripcionDetallada?.trim() && (
-                        <span className="block text-[9px] text-slate-700 italic font-medium break-words whitespace-pre-wrap mt-0.5">
-                          * Detalle: {d.descripcionDetallada.trim()}
+                        <span className="block text-[9.5px] text-slate-900 bg-slate-100 p-1 rounded border border-slate-300 font-medium break-words whitespace-pre-wrap mt-1">
+                          <strong className="text-black uppercase text-[8.5px] block">Detalles / Modificaciones:</strong>
+                          {d.descripcionDetallada.trim()}
                         </span>
                       )}
                     </span>
@@ -1071,15 +1074,22 @@ export default function PlantillaImpresion({
                     </span>
                     <span className="font-mono font-bold">{formatCOP(d.subtotal)}</span>
                   </div>
-                  {d.producto?.codigo && (
+                  {(d.producto?.codigo || d.producto?.talla || d.producto?.color) && (
                     <p className="text-[10px] text-slate-700">
-                      Cód: {d.producto.codigo} {d.producto.talla ? `| T: ${d.producto.talla}` : ""}
+                      {d.producto?.codigo ? `Cód: ${d.producto.codigo}` : ""}
+                      {d.producto?.talla ? ` | Talla: ${d.producto.talla}` : ""}
+                      {d.producto?.color ? ` | Color: ${d.producto.color}` : ""}
                     </p>
                   )}
                   {d.descripcionDetallada?.trim() && (
-                    <p className="text-[9.5px] text-slate-800 italic font-medium leading-tight break-words whitespace-pre-wrap mt-0.5">
-                      * Detalle: {d.descripcionDetallada.trim()}
-                    </p>
+                    <div className="bg-slate-100 border border-slate-300 rounded p-1.5 text-[10px] leading-tight text-slate-900 mt-1">
+                      <span className="font-bold text-black uppercase tracking-tight text-[9px] block">
+                        Detalles y Modificaciones:
+                      </span>
+                      <span className="font-medium text-slate-950 break-words whitespace-pre-wrap block mt-0.5">
+                        {d.descripcionDetallada.trim()}
+                      </span>
+                    </div>
                   )}
                 </div>
               ))}
@@ -1597,27 +1607,43 @@ export default function PlantillaImpresion({
               <tbody className="divide-y divide-slate-200">
                 {detalles.map((d, idx) => (
                   <tr key={idx} className="hover:bg-slate-50">
-                    <td className="py-0.5 px-1.5 text-center font-bold">{safeNumber(d.cantidad)}</td>
-                    <td className="py-0.5 px-1.5">
-                      <span className="font-bold text-slate-950">
-                        {d.esServicioLibre
-                          ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
-                          : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje")}
-                      </span>
-                      {d.producto?.codigo && (
-                        <span className="text-[9px] font-mono text-slate-600 ml-1">
-                          [{d.producto.codigo}]
+                    <td className="py-1 px-1.5 text-center font-bold align-top">{safeNumber(d.cantidad)}</td>
+                    <td className="py-1 px-1.5 align-top">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-bold text-slate-950 text-[11px] sm:text-xs">
+                          {d.esServicioLibre
+                            ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
+                            : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje")}
                         </span>
-                      )}
+                        {d.producto?.codigo && (
+                          <span className="text-[9px] font-mono font-bold bg-slate-100 text-slate-800 px-1 py-0.5 rounded border border-slate-300">
+                            [{d.producto.codigo}]
+                          </span>
+                        )}
+                        {d.producto?.talla && (
+                          <span className="text-[9px] font-semibold text-slate-700 bg-slate-50 px-1 py-0.5 rounded border border-slate-200">
+                            Talla: {d.producto.talla}
+                          </span>
+                        )}
+                        {d.producto?.color && (
+                          <span className="text-[9px] font-semibold text-slate-700 bg-slate-50 px-1 py-0.5 rounded border border-slate-200">
+                            Color: {d.producto.color}
+                          </span>
+                        )}
+                      </div>
                       {d.descripcionDetallada?.trim() && (
-                        <div className="text-[8.5px] text-slate-700 italic font-medium leading-normal mt-0.5 break-words whitespace-pre-wrap bg-slate-50/80 px-1.5 py-0.5 rounded border border-slate-200">
-                          <span className="font-bold text-slate-800 not-italic">Detalle / Modificaciones: </span>
-                          {d.descripcionDetallada.trim()}
+                        <div className="text-[9.5px] sm:text-[10px] text-slate-900 leading-snug mt-1 break-words whitespace-pre-wrap bg-slate-50 p-1.5 rounded border border-slate-300">
+                          <span className="font-bold text-black uppercase tracking-tight text-[8.5px] block">
+                            Detalles y Modificaciones:
+                          </span>
+                          <span className="font-medium text-slate-950 block mt-0.5">
+                            {d.descripcionDetallada.trim()}
+                          </span>
                         </div>
                       )}
                     </td>
-                    <td className="py-0.5 px-1.5 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
-                    <td className="py-0.5 px-1.5 text-right font-mono font-bold">{formatCOP(d.subtotal)}</td>
+                    <td className="py-1 px-1.5 text-right font-mono align-top">{formatCOP(d.precioUnitario)}</td>
+                    <td className="py-1 px-1.5 text-right font-mono font-bold align-top">{formatCOP(d.subtotal)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -2158,26 +2184,42 @@ export default function PlantillaImpresion({
               {detalles.map((d, idx) => (
                 <tr key={idx} className="hover:bg-slate-50">
                   <td className="py-1 px-3 text-center font-bold">{safeNumber(d.cantidad)}</td>
-                  <td className="py-1 px-3">
-                    <span className="font-bold text-slate-900">
-                      {d.esServicioLibre
-                        ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
-                        : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje")}
-                    </span>
-                    {d.producto?.codigo && (
-                      <span className="text-[10px] font-mono text-slate-500 ml-2">
-                        [{d.producto.codigo}] {d.producto.talla ? `| Talla: ${d.producto.talla}` : ""}
+                  <td className="py-2 px-3 align-top">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-slate-900 text-sm">
+                        {d.esServicioLibre
+                          ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
+                          : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje")}
                       </span>
-                    )}
+                      {d.producto?.codigo && (
+                        <span className="text-[10.5px] font-mono font-bold bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded border border-slate-300">
+                          [{d.producto.codigo}]
+                        </span>
+                      )}
+                      {d.producto?.talla && (
+                        <span className="text-[10px] font-semibold text-slate-700 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">
+                          Talla: {d.producto.talla}
+                        </span>
+                      )}
+                      {d.producto?.color && (
+                        <span className="text-[10px] font-semibold text-slate-700 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">
+                          Color: {d.producto.color}
+                        </span>
+                      )}
+                    </div>
                     {d.descripcionDetallada?.trim() && (
-                      <div className="text-[9.5px] text-slate-700 italic font-medium leading-normal mt-0.5 break-words whitespace-pre-wrap bg-slate-50/80 px-2 py-0.5 rounded border border-slate-200">
-                        <span className="font-bold text-slate-800 not-italic">Detalle / Modificaciones: </span>
-                        {d.descripcionDetallada.trim()}
+                      <div className="text-xs text-slate-900 leading-normal mt-1.5 break-words whitespace-pre-wrap bg-slate-50 p-2 rounded-lg border border-slate-300">
+                        <span className="font-bold text-black uppercase tracking-tight text-[10px] block">
+                          Detalles y Modificaciones del Traje:
+                        </span>
+                        <span className="font-medium text-slate-950 block mt-0.5">
+                          {d.descripcionDetallada.trim()}
+                        </span>
                       </div>
                     )}
                   </td>
-                  <td className="py-1 px-3 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
-                  <td className="py-1 px-3 text-right font-mono font-bold">{formatCOP(d.subtotal)}</td>
+                  <td className="py-2 px-3 text-right font-mono align-top">{formatCOP(d.precioUnitario)}</td>
+                  <td className="py-2 px-3 text-right font-mono font-bold align-top">{formatCOP(d.subtotal)}</td>
                 </tr>
               ))}
             </tbody>
