@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { obtenerSesionDesdeRequest, NOMBRE_COOKIE_SESION, OPCIONES_COOKIE_SESION } from "@/lib/auth";
+import {
+  obtenerSesionDesdeRequest,
+  NOMBRE_COOKIE_SESION,
+  resolverOpcionesCookie,
+} from "@/lib/auth";
 import { ejecutarRespaldoEnCaliente, ResultadoRespaldo } from "@/lib/backup";
 
 export const dynamic = "force-dynamic";
@@ -68,10 +72,11 @@ export async function POST(req: NextRequest) {
       redirectTo: "/login",
     });
 
+    const opcionesCookie = resolverOpcionesCookie(req);
     respuesta.cookies.set({
       name: NOMBRE_COOKIE_SESION,
       value: "",
-      ...OPCIONES_COOKIE_SESION,
+      ...opcionesCookie,
       maxAge: 0,
       expires: new Date(0),
     });
@@ -93,10 +98,11 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
 
+    const opcionesCookieEmergencia = resolverOpcionesCookie(req);
     respuestaEmergencia.cookies.set({
       name: NOMBRE_COOKIE_SESION,
       value: "",
-      ...OPCIONES_COOKIE_SESION,
+      ...opcionesCookieEmergencia,
       maxAge: 0,
       expires: new Date(0),
     });

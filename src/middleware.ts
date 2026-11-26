@@ -26,6 +26,22 @@ const RUTAS_EXCLUSIVAS_ADMIN = [
   "/api/admin",
 ];
 
+function construirUrlPublica(req: NextRequest, destinoPath: string): URL {
+  const forwardedHost = req.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || req.headers.get("host") || req.nextUrl.host;
+  const forwardedProto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto = forwardedProto || req.nextUrl.protocol.replace(":", "") || "http";
+
+  if (host && !host.startsWith("0.0.0.0")) {
+    return new URL(destinoPath, `${proto}://${host}`);
+  }
+
+  const clone = req.nextUrl.clone();
+  clone.pathname = destinoPath;
+  clone.search = "";
+  return clone;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -71,7 +87,7 @@ export async function middleware(req: NextRequest) {
     // Si ya tiene sesión activa y válida, redirigir según su rol
     if (sesionValida) {
       const destino = sesionValida.rol === "ADMIN" ? "/" : "/caja/pos";
-      return NextResponse.redirect(new URL(destino, req.url));
+      return NextResponse.redirect(construirUrlPublica(req, destino));
     }
     // Si no está autenticado, permitir ver la pantalla de login
     const res = NextResponse.next();
@@ -96,7 +112,7 @@ export async function middleware(req: NextRequest) {
         { status: 401, headers: NO_CACHE_HEADERS }
       );
     }
-    const loginUrl = new URL("/login", req.url);
+    const loginUrl = construirUrlPublica(req, "/login");
     const redirectRes = NextResponse.redirect(loginUrl);
     Object.entries(NO_CACHE_HEADERS).forEach(([k, v]) => redirectRes.headers.set(k, v));
     return redirectRes;
@@ -122,7 +138,7 @@ export async function middleware(req: NextRequest) {
         );
       }
       // Redirección silenciosa sin fricción
-      const posUrl = new URL("/caja/pos", req.url);
+      const posUrl = construirUrlPublica(req, "/caja/pos");
       const redirectPos = NextResponse.redirect(posUrl);
       Object.entries(NO_CACHE_HEADERS).forEach(([k, v]) => redirectPos.headers.set(k, v));
       return redirectPos;

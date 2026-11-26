@@ -1,0 +1,26 @@
+services:
+  aurora-pos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aurora-pos
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3010:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - TZ=America/Bogota
+      - INICIAR_MDNS_PROCESO=false
+      - DATABASE_URL=file:/app/database/aurorapos.db
+      - POS_BACKUP_DIR=/app/backups
+      - APP_NAME=Aurora POS
+      - JWT_SECRET=${JWT_SECRET}
+      - MASTER_RECOVERY_KEY=${MASTER_RECOVERY_KEY:-AURORA-POS-2026}
+      - AURORA_ADMIN_USER=${AURORA_ADMIN_USER:-admin}
+      - AURORA_ADMIN_PASSWORD=${AURORA_ADMIN_PASSWORD:-admin123}
+      - AURORA_CAJERO_PASSWORD=${AURORA_CAJERO_PASSWORD:-cajero123}
+    volumes:
+      - ./data/database:/app/database
+      - ./data/backups:/app/backups

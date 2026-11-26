@@ -32,9 +32,11 @@ process.env.TEMP = localTmp;
 process.env.TMP = localTmp;
 
 // Resolucion canonica y unificacion de SQLite para evitar Split-Brain entre root y standalone
-const dbFileName = (process.env.DATABASE_URL || envConfig.DATABASE_URL || "file:./llanomio.db")
-  .replace(/^file:(\.\/)?(database\/)?/, "");
-const canonicalDbPath = path.resolve(__dirname, "database", dbFileName);
+const rawDbTarget = (process.env.DATABASE_URL || envConfig.DATABASE_URL || "file:./llanomio.db")
+  .replace(/^file:/, "");
+const canonicalDbPath = path.isAbsolute(rawDbTarget)
+  ? rawDbTarget
+  : path.resolve(__dirname, "database", path.basename(rawDbTarget));
 const normalizedDbPath = canonicalDbPath.replace(/\\/g, "/");
 process.env.DATABASE_URL = `file:${normalizedDbPath}`;
 console.log(`[SQLITE] Base de datos canonica unificada: ${normalizedDbPath}`);

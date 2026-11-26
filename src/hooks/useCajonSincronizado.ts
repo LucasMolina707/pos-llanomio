@@ -54,7 +54,7 @@ export type TipoModalCajonRequerido =
   | null;
 
 const STORAGE_DEVICE_KEY = "pos_device_id";
-const CAJA_CHANNEL_NAME = "pos_llanomio_caja_channel";
+const CAJA_CHANNEL_NAME = "aurora_pos_caja_channel";
 const CAJA_SYNC_STORAGE_KEY = "pos_caja_sync_ts";
 
 const getStorageCajonKey = (userId?: string) =>

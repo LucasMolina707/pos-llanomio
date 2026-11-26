@@ -1,68 +1,44 @@
 import { PrismaClient, TipoProducto, EstadoPrenda, UnidadMora } from "@prisma/client";
 
 /**
- * DATOS DEMO PERMANENTES PARA POS LLANOMIO
- * 
- * Diseñados para pruebas inmediatas de:
- * - 1 Cliente oficial con datos completos y formato DIAN
- * - 2 Productos de ALQUILER (con tarifas de mora, tallas y categorías)
- * - 2 Productos de VENTA (con precios de venta y stock controlado)
- * 
- * Regla de negocio:
- * Estos datos se conservan permanentemente y son idempotentes.
- * Durante cualquier actualización del sistema o sincronización de esquema,
- * se verifican y se mantienen intactos mediante upsert.
+ * DATOS DEMO PERMANENTES PARA AURORA POS (EDICIÓN VITRINA)
+ *
+ * Diseñados para demostraciones comerciales limpias:
+ * - Clientes demostrativos con soporte DIAN y cartera
+ * - Productos de ALQUILER neutros (gala y etiqueta)
+ * - Productos de VENTA neutros (ejecutivos y accesorios)
  */
 
 export const CLIENTE_DEMO = {
-  documento: "1000000001",
-  nombre: "Cliente Demo POS",
-  telefono: "3101234567",
+  documento: "1020456789",
+  nombre: "Carlos Andrés Gómez",
+  telefono: "3104567890",
   telefonoSecundario: "3209876543",
-  email: "clientedemo@posllanomio.com",
-  direccion: "Avenida Principal Demo # 12-34",
-  notas: "Cliente demo permanente para demostración de ventas y alquileres.",
+  email: "carlos.gomez@aurorapos.com",
+  direccion: "Calle 85 # 15-24 Oficina 302",
+  notas: "Cliente demostrativo de Aurora POS para pruebas de ventas y alquileres.",
   esResponsableIVA: false,
   tipoIdentificacion: "CC",
   digitoVerificacion: null,
   razonSocial: null,
   responsabilidadFiscal: "R-99-PN",
-  municipio: "Villavicencio - Meta",
-  codigoDaneMunicipio: "50001",
+  municipio: "Bogotá D.C.",
+  codigoDaneMunicipio: "11001",
 };
 
 export const PRODUCTOS_DEMO_ALQUILER = [
   {
-    codigo: "DEMO-ALQ-01",
-    nombre: "Traje Llanero Gala Demo [Alquiler]",
+    codigo: "ALQ-001",
+    nombre: "Smoking Clásico de Gala Completo",
     tipo: TipoProducto.ALQUILER,
-    categoria: "Trajes Típicos",
-    talla: "M",
-    color: "Blanco / Negro",
-    stockActual: 3,
+    categoria: "Trajes de Gala",
+    talla: "L",
+    color: "Negro",
+    stockActual: 4,
     estado: EstadoPrenda.DISPONIBLE,
     estadoPrenda: EstadoPrenda.DISPONIBLE,
-    precioBase: 80000,
-    precioAlquilerBase: 85000,
-    tiempoAlquilerBaseHoras: 24,
-    tarifaMora: 15000,
-    unidadMora: UnidadMora.DIA,
-    tarifaMoraPorDia: 15000,
-    tarifaMoraPorHora: 2000,
-    activo: true,
-  },
-  {
-    codigo: "DEMO-ALQ-02",
-    nombre: "Vestido Quinceañera Demo [Alquiler]",
-    tipo: TipoProducto.ALQUILER,
-    categoria: "Vestidos de Fiesta",
-    talla: "S",
-    color: "Azul Rey",
-    stockActual: 2,
-    estado: EstadoPrenda.DISPONIBLE,
-    estadoPrenda: EstadoPrenda.DISPONIBLE,
-    precioBase: 110000,
-    precioAlquilerBase: 120000,
+    precioBase: 140000,
+    precioAlquilerBase: 160000,
     tiempoAlquilerBaseHoras: 48,
     tarifaMora: 20000,
     unidadMora: UnidadMora.DIA,
@@ -70,45 +46,59 @@ export const PRODUCTOS_DEMO_ALQUILER = [
     tarifaMoraPorHora: 3000,
     activo: true,
   },
+  {
+    codigo: "ALQ-002",
+    nombre: "Vestido Largo de Noche Corte Imperial",
+    tipo: TipoProducto.ALQUILER,
+    categoria: "Vestidos de Fiesta",
+    talla: "S",
+    color: "Azul Rey",
+    stockActual: 3,
+    estado: EstadoPrenda.DISPONIBLE,
+    estadoPrenda: EstadoPrenda.DISPONIBLE,
+    precioBase: 160000,
+    precioAlquilerBase: 185000,
+    tiempoAlquilerBaseHoras: 48,
+    tarifaMora: 25000,
+    unidadMora: UnidadMora.DIA,
+    tarifaMoraPorDia: 25000,
+    tarifaMoraPorHora: 3500,
+    activo: true,
+  },
 ];
 
 export const PRODUCTOS_DEMO_VENTA = [
   {
-    codigo: "DEMO-VTA-01",
-    nombre: "Camisa Llanera Tradicional Demo [Venta]",
+    codigo: "VTA-001",
+    nombre: "Camisa Oxford Ejecutiva Slim Fit",
     tipo: TipoProducto.VENTA,
-    categoria: "Prendas de Venta",
-    talla: "L",
+    categoria: "Camisería Ejecutiva",
+    talla: "M",
     color: "Blanca",
-    stockActual: 10,
-    estado: EstadoPrenda.DISPONIBLE,
-    estadoPrenda: EstadoPrenda.DISPONIBLE,
-    precioBase: 45000,
-    precioVenta: 65000,
-    activo: true,
-  },
-  {
-    codigo: "DEMO-VTA-02",
-    nombre: "Sombrero Peloeguama Demo [Venta]",
-    tipo: TipoProducto.VENTA,
-    categoria: "Accesorios y Sombreros",
-    talla: "Única",
-    color: "Café",
     stockActual: 15,
     estado: EstadoPrenda.DISPONIBLE,
     estadoPrenda: EstadoPrenda.DISPONIBLE,
-    precioBase: 30000,
-    precioVenta: 45000,
+    precioBase: 55000,
+    precioVenta: 89000,
+    activo: true,
+  },
+  {
+    codigo: "VTA-002",
+    nombre: "Cinturón en Cuero Genuino Doble Faz",
+    tipo: TipoProducto.VENTA,
+    categoria: "Accesorios",
+    talla: "Única",
+    color: "Negro / Café",
+    stockActual: 20,
+    estado: EstadoPrenda.DISPONIBLE,
+    estadoPrenda: EstadoPrenda.DISPONIBLE,
+    precioBase: 38000,
+    precioVenta: 65000,
     activo: true,
   },
 ];
 
-/**
- * Garantiza de forma idempotente que el cliente demo y los 4 productos demo
- * existan y estén activos en la base de datos sin duplicarse.
- */
 export async function sembrarDatosDemoPermanentes(prismaClient: PrismaClient) {
-  // 1. Cliente Demo
   const cliente = await prismaClient.cliente.upsert({
     where: { documento: CLIENTE_DEMO.documento },
     update: {
@@ -124,7 +114,6 @@ export async function sembrarDatosDemoPermanentes(prismaClient: PrismaClient) {
     create: CLIENTE_DEMO,
   });
 
-  // 2. Productos Demo de Alquiler (2 ítems)
   const prodsAlquilerCreados = [];
   for (const prod of PRODUCTOS_DEMO_ALQUILER) {
     const p = await prismaClient.producto.upsert({
@@ -149,7 +138,6 @@ export async function sembrarDatosDemoPermanentes(prismaClient: PrismaClient) {
     prodsAlquilerCreados.push(p);
   }
 
-  // 3. Productos Demo de Venta (2 ítems)
   const prodsVentaCreados = [];
   for (const prod of PRODUCTOS_DEMO_VENTA) {
     const p = await prismaClient.producto.upsert({
@@ -175,4 +163,3 @@ export async function sembrarDatosDemoPermanentes(prismaClient: PrismaClient) {
     venta: prodsVentaCreados,
   };
 }
-

@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import AppLayout from "@/components/layout/AppLayout";
 
 export const metadata: Metadata = {
-  title: "POS Llanomio - Sistema de Facturación e Inventario Local",
-  description: "Sistema POS local para gestión de ventas, alquiler de prendas y control de caja",
+  title: "Aurora POS - Sistema de Facturación, Ventas y Alquileres",
+  description: "Aurora POS: Plataforma integral para gestión de ventas, alquileres, cartera y control de caja",
   manifest: "/manifest.json",
   icons: {
     icon: [

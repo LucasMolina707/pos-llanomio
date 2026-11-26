@@ -1,7 +1,7 @@
 {
-  "name": "POS Llanomio",
-  "short_name": "POS Llanomio",
-  "description": "Sistema POS local para gestión de ventas, alquiler de prendas y control de caja",
+  "name": "Aurora POS",
+  "short_name": "Aurora POS",
+  "description": "Aurora POS: Plataforma integral de facturación, ventas, alquileres y control de caja",
   "start_url": "/login",
   "display": "standalone",
   "background_color": "#F4F6F9",

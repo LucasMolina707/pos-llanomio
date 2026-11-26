@@ -18,6 +18,7 @@
 !/dist_instalador/LEEME_INSTRUCCIONES_INSTALACION.txt
 
 # SQLite database local files & locks (Protect actual store data from Git overwrites)
+/data/
 /database/*.db
 /database/*.db-journal
 /database/*.db-wal

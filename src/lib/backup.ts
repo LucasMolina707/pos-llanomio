@@ -200,6 +200,8 @@ export function purgarRespaldosExcedentes(directorio: string, limiteMaximo = 15)
           f.endsWith(".db") &&
           f !== "pos_ULTIMO.db" &&
           f !== "llanomio.db" &&
+          f !== "aurorapos.db" &&
+          f !== "aurorapos_ULTIMO.db" &&
           f !== ".gitkeep" &&
           !f.startsWith("pos_EMERGENCIA")
       )
@@ -752,9 +754,11 @@ export async function restaurarBaseDeDatosDesdeBuffer(
 ): Promise<ResultadoRestauracion> {
   const timestamp = obtenerTimestamp();
   const carpetaDatabase = path.join(process.cwd(), "database");
-  const rutaDbActiva = path.join(carpetaDatabase, "llanomio.db");
-  const rutaDbWal = path.join(carpetaDatabase, "llanomio.db-wal");
-  const rutaDbShm = path.join(carpetaDatabase, "llanomio.db-shm");
+  const envDbUrl = process.env.DATABASE_URL || "file:./aurorapos.db";
+  const nombreDbActiva = path.basename(envDbUrl.replace(/^file:/, "")) || "aurorapos.db";
+  const rutaDbActiva = path.join(carpetaDatabase, nombreDbActiva);
+  const rutaDbWal = `${rutaDbActiva}-wal`;
+  const rutaDbShm = `${rutaDbActiva}-shm`;
 
   const rutaTemp = path.join(carpetaDatabase, `temp_restauracion_${timestamp}.db`);
   const carpetaBackupsLocales = path.join(carpetaDatabase, "backups_locales");

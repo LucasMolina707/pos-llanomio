@@ -62,9 +62,9 @@ const RUTA_ARCHIVO_MAESTRO = path.join(process.cwd(), "docs", "CREDENCIALES_MAES
  * Genera el encabezado y contenido estático de las Secciones 1 y 2 del archivo maestro.
  */
 function generarContenidoBase(): string {
-  return `# REGISTRO MAESTRO DE USUARIOS, CREDENCIALES Y PROTOCOLO DE RECUPERACIÓN POS LOCAL
+  return `# REGISTRO MAESTRO DE USUARIOS, CREDENCIALES Y PROTOCOLO DE RECUPERACIÓN AURORA POS
 
-> **AVISO DE SEGURIDAD OPERATIVA:** Este documento reside en el directorio de documentación técnica del servidor local (\`./docs/CREDENCIALES_MAESTRAS_SISTEMA.md\`). Contiene las credenciales base, la matriz oficial de roles y permisos (RBAC), el Protocolo Criptográfico de 3 Factores Locales contra SQLite (\`database/llanomio.db\`) y el registro auto-sincronizado de cuentas.
+> **AVISO DE SEGURIDAD OPERATIVA:** Este documento reside en el directorio de documentación técnica del servidor (\`./docs/CREDENCIALES_MAESTRAS_SISTEMA.md\`). Contiene las credenciales base, la matriz oficial de roles y permisos (RBAC), el Protocolo Criptográfico de 3 Factores contra SQLite y el registro auto-sincronizado de cuentas.
 
 ---
 
@@ -162,7 +162,7 @@ export async function sincronizarArchivoCredencialesMaestras(prisma: PrismaClien
       timeStyle: "short",
     });
 
-    let tablaUsuarios = `## 3. Directorio Auto-Sincronizado de Usuarios en SQLite (\`database/llanomio.db\`)
+    let tablaUsuarios = `## 3. Directorio Auto-Sincronizado de Usuarios en Aurora POS (SQLite)
 
 > **Última sincronización automática:** ${ahoraStr} (Hora Colombia)
 > Total de cuentas registradas: **${usuarios.length}** (${usuarios.filter((u) => u.rol === RolUsuario.ADMIN).length} Administradores, ${usuarios.filter((u) => u.rol === RolUsuario.CAJERO).length} Cajeros)

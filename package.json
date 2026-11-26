@@ -19,7 +19,9 @@
     "db:barrido-fabrica": "node scripts/barrido-inicial-fabrica.js",
     "admin:asegurar": "node scripts/asegurar-admin.js",
     "respaldo:crear": "node scripts/respaldo-servicio.js",
-    "actualizar:sistema": "node scripts/aplicar-actualizacion-segura.js"
+    "actualizar:sistema": "node scripts/aplicar-actualizacion-segura.js",
+    "vitrina:seed": "node scripts/seed-aurora-vitrina.js",
+    "vitrina:reset": "node scripts/seed-aurora-vitrina.js --reset"
   },
   "prisma": {
     "schema": "database/schema.prisma",

@@ -32,15 +32,15 @@ export async function GET() {
     });
 
     const empresaData = config || {
-      nombreTienda: "Mi Empresa",
-      nombreComercial: "Mi Empresa",
-      eslogan: "Punto de Venta y Servicios",
-      logoUrl: null,
-      nit: "000.000.000-0",
-      telefono: "000 000 0000",
-      direccion: "Dirección de la empresa",
-      ciudad: "Ciudad, Departamento",
-      email: "contacto@miempresa.com",
+      nombreTienda: "Aurora POS",
+      nombreComercial: "Aurora POS",
+      eslogan: "Sistema Inteligente de Ventas, Alquileres y Control de Caja",
+      logoUrl: "/iconos/aurora.png",
+      nit: "901.450.890-1",
+      telefono: "300 123 4567",
+      direccion: "Centro Empresarial Aurora - Local 101",
+      ciudad: "Bogotá D.C. - Colombia",
+      email: "contacto@aurorapos.com",
     };
 
     return NextResponse.json(
@@ -58,15 +58,15 @@ export async function GET() {
         ok: false,
         error: errorMensaje,
         empresa: {
-          nombreTienda: "Mi Empresa",
-          nombreComercial: "Mi Empresa",
-          eslogan: "Punto de Venta y Servicios",
-          logoUrl: null,
-          nit: "000.000.000-0",
-          telefono: "000 000 0000",
-          direccion: "Dirección de la empresa",
-          ciudad: "Ciudad, Departamento",
-          email: "contacto@miempresa.com",
+          nombreTienda: "Aurora POS",
+          nombreComercial: "Aurora POS",
+          eslogan: "Sistema Inteligente de Ventas, Alquileres y Control de Caja",
+          logoUrl: "/iconos/aurora.png",
+          nit: "901.450.890-1",
+          telefono: "300 123 4567",
+          direccion: "Centro Empresarial Aurora - Local 101",
+          ciudad: "Bogotá D.C. - Colombia",
+          email: "contacto@aurorapos.com",
         },
       },
       { status: 200, headers: NO_CACHE_HEADERS }
