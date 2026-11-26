@@ -906,12 +906,12 @@ export default function PlantillaImpresion({
             </div>
 
             {/* OBSERVACIONES Y LEYENDA OFICIAL (DEBAJO DEL CUADRO) */}
-            <div className="my-1.5 p-2 border-2 border-black bg-slate-100 text-center w-full space-y-1">
-              <p className="font-black text-[10px] uppercase leading-tight text-black">
+            <div className="my-2 p-2.5 border-2 border-black bg-slate-100 text-center w-full space-y-1 rounded">
+              <p className="font-black text-[13px] sm:text-[14px] uppercase leading-tight text-black tracking-wide">
                 PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
               </p>
               {factura.observaciones && (
-                <p className="text-[9px] text-slate-700 italic border-t border-slate-300 pt-0.5">
+                <p className="text-[10px] text-slate-700 italic border-t border-slate-300 pt-0.5">
                   Nota: {factura.observaciones}
                 </p>
               )}
@@ -1126,13 +1126,13 @@ export default function PlantillaImpresion({
               </div>
 
               {/* BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO CONSOLIDADO) */}
-              <div className="my-1.5 p-2 bg-amber-50/90 rounded border border-amber-300 text-amber-950 text-center text-[10px] leading-snug w-full space-y-1">
-                <p className="font-black uppercase tracking-wider text-[9px] text-amber-900 border-b border-amber-200 pb-0.5">OBSERVACIONES</p>
-                <p className="font-semibold">
+              <div className="my-1.5 p-2 bg-rose-50 rounded-lg border-2 border-rose-500 text-rose-950 text-center text-[11px] sm:text-[12px] leading-snug w-full space-y-1">
+                <p className="font-black uppercase tracking-wider text-[11px] text-rose-900 border-b border-rose-200 pb-0.5">OBSERVACIÓN</p>
+                <p className="font-black text-rose-950">
                   A partir del día siguiente hábil a la fecha pactada de entrega (excluyendo domingos no laborales) se descontará {formatCOP(tarifaMoraDiariaOficial)} por día de mora del depósito en garantía.
                 </p>
                 {factura.observaciones && (
-                  <p className="italic text-[9.5px] text-slate-800 pt-0.5 border-t border-amber-200">
+                  <p className="italic text-[9.5px] text-slate-800 pt-0.5 border-t border-rose-200">
                     Nota: {factura.observaciones}
                   </p>
                 )}
@@ -1428,12 +1428,12 @@ export default function PlantillaImpresion({
             </div>
 
             {/* OBSERVACIONES Y LEYENDA OFICIAL (DEBAJO DEL CUADRO) */}
-            <div className="p-1.5 bg-slate-100 border border-slate-900 text-center my-1 w-full space-y-0.5">
-              <p className="text-[9.5px] font-black tracking-tight text-slate-900 uppercase leading-snug">
+            <div className="p-2 bg-slate-100 border-2 border-slate-900 text-center my-1.5 w-full space-y-0.5 rounded">
+              <p className="text-[12px] sm:text-[13px] font-black tracking-wide text-black uppercase leading-snug">
                 PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
               </p>
               {factura.observaciones && (
-                <p className="text-[8.5px] text-slate-700 italic border-t border-slate-200 pt-0.5">
+                <p className="text-[9px] text-slate-700 italic border-t border-slate-200 pt-0.5">
                   Nota: {factura.observaciones}
                 </p>
               )}
@@ -1692,12 +1692,12 @@ export default function PlantillaImpresion({
                 </div>
 
                 {/* BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO) */}
-                <div className="p-1.5 bg-amber-50/60 border border-amber-300 text-center text-[8.5px] sm:text-[9.5px] text-amber-950 my-1 w-full leading-snug space-y-0.5">
-                  <div className="font-bold">
+                <div className="p-2 bg-rose-50 border-2 border-rose-500 rounded text-center text-[10px] sm:text-[11px] text-rose-950 my-1 w-full leading-snug space-y-0.5">
+                  <div className="font-black text-rose-950">
                     OBSERVACIÓN: A partir del día siguiente hábil a la fecha pactada de entrega (excluyendo domingos no laborales) se descontará {formatCOP(tarifaMoraDiariaOficial)} por día de mora del depósito en garantía.
                   </div>
                   {factura.observaciones && (
-                    <div className="italic text-[8px] sm:text-[9px] text-slate-800 pt-0.5 border-t border-amber-200">
+                    <div className="italic text-[9px] text-slate-800 pt-0.5 border-t border-rose-200">
                       Nota: {factura.observaciones}
                     </div>
                   )}
@@ -2009,8 +2009,8 @@ export default function PlantillaImpresion({
             </div>
 
             {/* OBSERVACIONES Y LEYENDA OFICIAL (DEBAJO DEL CUADRO) */}
-            <div className="p-3 bg-slate-100 border-2 border-slate-900 text-center mb-3 w-full space-y-1">
-              <p className="text-sm font-black tracking-wide text-slate-900 uppercase leading-snug">
+            <div className="p-3 bg-slate-100 border-2 border-slate-900 text-center mb-3 w-full space-y-1 rounded-lg">
+              <p className="text-base sm:text-lg font-black tracking-wide text-black uppercase leading-snug">
                 PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
               </p>
               {factura.observaciones && (
@@ -2253,13 +2253,13 @@ export default function PlantillaImpresion({
                 </div>
 
                 {/* BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO) */}
-                <div className="p-3 bg-amber-50/90 rounded-xl border border-amber-300 text-center text-xs text-amber-950 my-1 w-full leading-relaxed space-y-1">
-                  <p className="font-black uppercase tracking-wider text-[11px] text-amber-900 border-b border-amber-200 pb-0.5">OBSERVACIONES</p>
-                  <p className="font-bold">
+                <div className="p-3 bg-rose-50 rounded-xl border-2 border-rose-500 text-center text-xs sm:text-sm text-rose-950 my-1 w-full leading-relaxed space-y-1">
+                  <p className="font-black uppercase tracking-wider text-[11px] text-rose-900 border-b border-rose-200 pb-0.5">OBSERVACIÓN</p>
+                  <p className="font-black text-rose-950">
                     A partir del día siguiente hábil a la fecha pactada de entrega (excluyendo domingos no laborales) se descontará {formatCOP(tarifaMoraDiariaOficial)} por día de mora del depósito en garantía.
                   </p>
                   {factura.observaciones && (
-                    <p className="italic text-slate-800 pt-1 border-t border-amber-200">
+                    <p className="italic text-slate-800 pt-1 border-t border-rose-200">
                       Nota: {factura.observaciones}
                     </p>
                   )}
