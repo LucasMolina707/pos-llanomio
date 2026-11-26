@@ -1683,9 +1683,10 @@ namespace AuroraHost.POS.ControlServidor
                 lblProgresoInstalacion.Text = "Registrando servicio...";
                 Application.DoEvents();
                 EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
-                Thread.Sleep(1000);
+                Thread.Sleep(1200);
                 EjecutarComandoOculto("sc.exe", "delete \"" + NOMBRE_SERVICIO + "\"");
                 Thread.Sleep(1000);
+                try { string oldSrv = Path.Combine(baseDir, "POS_Llanomio_Service.exe"); if (File.Exists(oldSrv)) File.Delete(oldSrv); } catch { }
 
                 string binCmd = "\\\"" + Application.ExecutablePath + "\\\" --service";
                 EjecutarComandoOculto("sc.exe", "create \"" + NOMBRE_SERVICIO + "\" binPath= \"" + binCmd + "\" start= auto DisplayName= \"POS Llanomio - Servidor Local\"");
