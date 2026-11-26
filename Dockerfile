@@ -56,7 +56,7 @@ COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/start-pos.js ./start-pos.js
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
-RUN mkdir -p /app/database /app/backups /app/.tmp /app/docs /app/prisma \
+RUN mkdir -p /app/database /app/backups /app/.tmp /app/prisma \
     && sed -i 's/\r$//' /app/scripts/docker-entrypoint.sh \
     && chmod +x /app/scripts/docker-entrypoint.sh
 

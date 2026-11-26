@@ -27,16 +27,20 @@ if not exist "%ROOT_DIR%\.next\BUILD_ID" (
 )
 echo   [OK] Compilacion de produccion Next.js verificada.
 
-:: 2. Purgar cache pesada de compilacion (.next\cache y tsbuildinfo)
-echo [2/6] Purgando caches de compilacion (.next\cache y tsbuildinfo)...
+:: 2. Purgar cache pesada de compilacion (.next\cache, node_modules\.cache y temporales Prisma)
+echo [2/6] Purgando caches de compilacion y motores temporales...
 if exist "%ROOT_DIR%\.next\cache" (
     rmdir /s /q "%ROOT_DIR%\.next\cache" >nul 2>&1
 )
+if exist "%ROOT_DIR%\node_modules\.cache" (
+    rmdir /s /q "%ROOT_DIR%\node_modules\.cache" >nul 2>&1
+)
+del /f /q "%ROOT_DIR%\node_modules\.prisma\client\*.tmp*" >nul 2>&1
 del /f /q "%ROOT_DIR%\*.tsbuildinfo" >nul 2>&1
-echo   [OK] Caches de compilacion eliminadas.
+echo   [OK] Caches de compilacion y motores temporales eliminados.
 
 :: 3. Limpiar carpeta temporal (.tmp) y archivos de notas o apuntes innecesarios
-echo [3/6] Limpiando archivos temporales (.tmp) y notas de desarrollo...
+echo [3/6] Limpiando archivos temporales (.tmp), carpetas vacias y notas de desarrollo...
 if exist "%ROOT_DIR%\.tmp" (
     powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -Path '%ROOT_DIR%\.tmp' -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"
 ) else (
@@ -45,8 +49,15 @@ if exist "%ROOT_DIR%\.tmp" (
 if exist "%ROOT_DIR%\docs" rmdir /s /q "%ROOT_DIR%\docs" >nul 2>&1
 del /f /q "%ROOT_DIR%\CONTEXTO_POS.md" >nul 2>&1
 del /f /q "%ROOT_DIR%\README.md" >nul 2>&1
+del /f /q "%ROOT_DIR%\.antigravityrules" >nul 2>&1
+del /f /q "%ROOT_DIR%\database\llanomio_limpio_fabrica.db" >nul 2>&1
 del /f /q "%ROOT_DIR%\portable-windows\README_PORTABLE.md" >nul 2>&1
-echo   [OK] Directorio temporal y archivos de notas depurados.
+if exist "%ROOT_DIR%\portable-windows" (
+    if not exist "%ROOT_DIR%\portable-windows\servicios-panel.cfg" (
+        rmdir /s /q "%ROOT_DIR%\portable-windows" >nul 2>&1
+    )
+)
+echo   [OK] Directorio temporal, carpetas residuales y notas depurados.
 
 :: 4. Limpiar respaldos historicos locales de desarrollo conservando estructura
 echo [4/6] Depurando copias historicas de prueba en database\backups_locales...
@@ -67,7 +78,7 @@ del /f /q "%ROOT_DIR%\*.bak" >nul 2>&1
 del /f /q "%ROOT_DIR%\*.log" >nul 2>&1
 del /f /q "%ROOT_DIR%\database\*.db-shm" >nul 2>&1
 del /f /q "%ROOT_DIR%\database\*.db-wal" >nul 2>&1
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -Path '%ROOT_DIR%' -Directory -Exclude 'node_modules','.git' | ForEach-Object { Get-ChildItem -Path $_.FullName -Include 'desktop.ini','Thumbs.db' -Recurse -Force -ErrorAction SilentlyContinue } | Remove-Item -Force -ErrorAction SilentlyContinue; Remove-Item -Path '%ROOT_DIR%\desktop.ini','%ROOT_DIR%\Thumbs.db' -Force -ErrorAction SilentlyContinue"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -Path '%ROOT_DIR%' -Directory -Exclude '.git' | ForEach-Object { Get-ChildItem -Path $_.FullName -Include 'desktop.ini','Thumbs.db' -Recurse -Force -ErrorAction SilentlyContinue } | Remove-Item -Force -ErrorAction SilentlyContinue; Remove-Item -Path '%ROOT_DIR%\desktop.ini','%ROOT_DIR%\Thumbs.db' -Force -ErrorAction SilentlyContinue"
 echo   [OK] Bloqueos WAL, logs y residuos depurados.
 
 :: 6. Reporte de peso final para empaquetado SFX
