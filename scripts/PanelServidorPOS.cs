@@ -869,6 +869,38 @@ namespace AuroraHost.POS.ControlServidor
             this.Resize += delegate { AjustarPosiciones(); };
         }
 
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (e.CloseReason == CloseReason.UserClosing)
+            {
+                bool srvActivo = VerificarServicioWindowsActivo(NOMBRE_SERVICIO) ||
+                                 ProbarHttpLocal("http://localhost:" + puertoConfigurado + "/api/caja/estado");
+                if (srvActivo)
+                {
+                    DialogResult dr = MessageBox.Show(
+                        this,
+                        "El servidor POS se encuentra activo.\n\n¿Desea apagar el servidor (guardando respaldo automatico) y cerrar el panel?",
+                        "Confirmar Cierre - POS Llanomio",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning,
+                        MessageBoxDefaultButton.Button2
+                    );
+                    if (dr != DialogResult.Yes)
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+
+                    if (!DetenerConBackupObligatorio())
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+                }
+            }
+            base.OnFormClosing(e);
+        }
+
         private bool DetectarSiEsEquipoNuevo()
         {
             try
@@ -2011,7 +2043,7 @@ namespace AuroraHost.POS.ControlServidor
             finally { this.Cursor = Cursors.Default; RefrescarEstadoEnVivo(); }
         }
 
-        private void DetenerConBackupObligatorio()
+        private bool DetenerConBackupObligatorio()
         {
             this.Cursor = Cursors.WaitCursor;
             try
@@ -2023,13 +2055,18 @@ namespace AuroraHost.POS.ControlServidor
                     if (code != 0)
                     {
                         MessageBox.Show("Respaldo previo fallo. Detencion cancelada.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return;
+                        return false;
                     }
                 }
                 EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
                 Thread.Sleep(1800);
+                return true;
             }
-            catch (Exception ex) { MessageBox.Show("Error al detener: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error al detener: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
             finally { this.Cursor = Cursors.Default; RefrescarEstadoEnVivo(); }
         }
 

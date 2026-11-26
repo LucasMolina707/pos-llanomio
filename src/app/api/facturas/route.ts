@@ -500,8 +500,10 @@ export async function POST(req: NextRequest) {
           vueltasEntregadas: ab.vueltasEntregadas ? Number(ab.vueltasEntregadas) || null : null,
           cajeroId,
           referenciaComprobante: ab.referenciaComprobante ? String(ab.referenciaComprobante).trim() : null,
-          notas: ab.notas ? String(ab.notas).trim() : (esSepare ? "Abono inicial apartado (Alquiler)" : "Abono en mostrador"),
-          tipoAbono: "ALQUILER",
+          notas: ab.notas ? String(ab.notas).trim() : (esSepare ? "Abono inicial reserva / apartado" : "Abono comercial en mostrador"),
+          tipoAbono: esSepare
+            ? "RESERVA"
+            : (tieneAlquiler || tipoOperacion === "ALQUILER" || body.tipoOperacion === "ALQUILER" ? "ALQUILER" : "VENTA"),
         });
       }
     }

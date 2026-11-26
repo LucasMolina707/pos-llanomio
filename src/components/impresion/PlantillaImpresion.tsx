@@ -517,8 +517,10 @@ export default function PlantillaImpresion({
     const totalAlquilerBase = totalOperacionPrincipal;
     const totalOperacionAlquiler = totalAlquilerBase;
 
-    // 1. Servicio de Alquiler: Exclusivamente abonos correspondientes al alquiler
-    const abonosAlquiler = abonos.filter((a: any) => a.tipoAbono !== "DEPOSITO_GARANTIA");
+    // 1. Servicio Principal: Exclusivamente abonos comerciales (excluye custodia y devoluciones de custodia)
+    const abonosAlquiler = abonos.filter(
+      (a: any) => a.tipoAbono !== "DEPOSITO_GARANTIA" && a.tipoAbono !== "DEPOSITO_DEVUELTO"
+    );
     const abonosDeposito = abonos.filter((a: any) => a.tipoAbono === "DEPOSITO_GARANTIA");
 
     const totalAbonadoAlquiler = abonosAlquiler.length > 0
@@ -577,9 +579,22 @@ export default function PlantillaImpresion({
       ? safeNumber((factura as any).saldoDeposito)
       : Math.max(0, montoDepositoTotal - depositoPagadoHoy);
 
-    const metodoDepositoNombre = factura.metodoPagoDeposito
-      ? (factura.metodoPagoDeposito === "EFECTIVO" ? "Efectivo" : factura.metodoPagoDeposito === "BANCOLOMBIA" ? "Bancolombia" : "Otro Banco")
-      : (abonosDeposito[0]?.metodoPago ? abonosDeposito[0].metodoPago : "Custodia");
+    const metodoDepositoRaw = factura.metodoPagoDeposito || abonosDeposito[0]?.metodoPago || "";
+    const metodoDepositoNombre = metodoDepositoRaw === "EFECTIVO"
+      ? "Efectivo"
+      : metodoDepositoRaw === "BANCOLOMBIA"
+      ? "Bancolombia"
+      : metodoDepositoRaw === "NEQUI"
+      ? "Nequi"
+      : metodoDepositoRaw === "DAVIPLATA"
+      ? "Daviplata"
+      : metodoDepositoRaw === "LLAVE"
+      ? "Bre-B / Llave"
+      : metodoDepositoRaw === "CONSIGNACION"
+      ? "Consignación"
+      : metodoDepositoRaw === "TRANSFERENCIA"
+      ? "Transferencia"
+      : (metodoDepositoRaw || "Custodia");
 
     // 3. Módulo 3: Consolidado Total de la Factura (Léxico Breve, Sin Redundancias)
     const totalOperacionGlobal = totalAlquilerBase + montoDepositoTotal;
@@ -594,14 +609,16 @@ export default function PlantillaImpresion({
         ? safeNumber(factura.tarifaMoraDiaria)
         : (detalles.reduce((acc, d) => acc + (safeNumber(d.producto?.tarifaMoraDiaria) || 0), 0) || 3000);
 
-    // Para ventas comerciales estándar
+    // Para ventas comerciales estándar y recibo unificado en mano
     const textoMedioPagoPrincipal = textoMedioPagoAlquiler;
-    const efectivoRecibidoCliente =
+    const efectivoTotalConsolidado =
       safeNumber(factura.efectivoRecibido) > 0
         ? safeNumber(factura.efectivoRecibido)
-        : (efectivoDesdeAbonos > 0
-            ? efectivoDesdeAbonos
-            : (esVenta ? totalAbonadoOperacion : totalPagadoFacturaHoy));
+        : efectivoDesdeAbonos;
+    const efectivoRecibidoCliente =
+      efectivoTotalConsolidado > 0
+        ? efectivoTotalConsolidado
+        : (esVenta ? totalAbonadoOperacion : totalPagadoFacturaHoy);
 
     const vueltasCambioFinal =
       factura.cambioEntregado !== null && factura.cambioEntregado !== undefined
@@ -630,12 +647,12 @@ export default function PlantillaImpresion({
       if (estaCerrada) {
         tituloComprobante = "COMPROBANTE DE PAZ Y SALVO FINAL DE ALQUILER";
       } else if (esPazYSalvo) {
-        tituloComprobante = "FACTURA / COMPROBANTE DE ALQUILER — PAGO COMPLETO";
+        tituloComprobante = "FACTURA / CONTRATO DE ALQUILER — PAGO COMPLETO";
       } else {
         tituloComprobante = "COMPROBANTE DE ALQUILER — PAGO PARCIAL Y SALDO PENDIENTE";
       }
     } else if (esApartado) {
-      tituloComprobante = "FORMATO DE APARTADO";
+      tituloComprobante = "COMPROBANTE DE RESERVA / APARTADO";
     }
 
     // 5. NORMAS Y POLÍTICAS SEGREGADAS (CERO CRUCE DE POLÍTICAS DE APARTADO EN VENTAS/ALQUILERES)
@@ -719,7 +736,7 @@ export default function PlantillaImpresion({
             {/* Título en Recuadro Central */}
             <div className="py-2 border-b-2 border-black text-center space-y-1">
               <div className="border-2 border-black py-1 px-2 font-black text-xs uppercase tracking-wider bg-slate-100">
-                FORMATO DE APARTADO
+                COMPROBANTE DE RESERVA / APARTADO
               </div>
               <div className="flex justify-between text-[10px] font-bold">
                 <span>N° APARTADO:</span>
@@ -868,6 +885,22 @@ export default function PlantillaImpresion({
                     {formatCOP(saldoPendienteTotalRetiro)}
                   </span>
                 </div>
+              </div>
+              <div className="pt-1 border-t border-dashed border-slate-400 text-[9px] space-y-0.5">
+                <div className="flex justify-between font-black text-slate-900">
+                  <span>TOTAL TASADO (ALQUILER + CUSTODIA):</span>
+                  <span>{formatCOP(totalAlquilerBase + montoDepositoTotal)}</span>
+                </div>
+                <div className="flex justify-between text-slate-700">
+                  <span>Hoy (Reserva {formatCOP(totalAbonadoAlquiler)} + Custodia {formatCOP(depositoPagadoHoy)}):</span>
+                  <span className="font-bold">{formatCOP(totalPagadoFacturaHoy)}</span>
+                </div>
+                {efectivoTotalConsolidado > 0 && (
+                  <div className="flex justify-between text-slate-700">
+                    <span>Efectivo: {formatCOP(efectivoTotalConsolidado)}</span>
+                    <span className="font-bold">Vueltas: {formatCOP(vueltasCambioFinal)}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1233,7 +1266,7 @@ export default function PlantillaImpresion({
                 <div className="text-right">
                   <div className="border-2 border-slate-900 px-2 py-0.5 bg-slate-50">
                     <span className="text-[9px] uppercase font-black tracking-wider block text-slate-900">
-                      FORMATO DE APARTADO
+                      COMPROBANTE DE RESERVA / APARTADO
                     </span>
                     <span className={`${esDoble ? "text-xs" : "text-sm"} font-black font-mono block text-slate-900`}>
                       N° {factura.numeroFactura}
@@ -1378,6 +1411,19 @@ export default function PlantillaImpresion({
                   {formatCOP(saldoPendienteTotalRetiro)}
                 </span>
               </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-300 text-[9.5px] my-1.5">
+              <span className="font-black text-slate-900">
+                TOTAL TASADO (ALQUILER + CUSTODIA): {formatCOP(totalAlquilerBase + montoDepositoTotal)}
+              </span>
+              <span className="font-semibold text-slate-700">
+                Hoy: Reserva {formatCOP(totalAbonadoAlquiler)} + Custodia {formatCOP(depositoPagadoHoy)}
+              </span>
+              {efectivoTotalConsolidado > 0 && (
+                <span className="font-bold text-slate-800">
+                  Efectivo: {formatCOP(efectivoTotalConsolidado)} | Vueltas: {formatCOP(vueltasCambioFinal)}
+                </span>
+              )}
             </div>
 
             {/* OBSERVACIONES Y LEYENDA OFICIAL (DEBAJO DEL CUADRO) */}
@@ -1800,7 +1846,7 @@ export default function PlantillaImpresion({
               <div className="text-right">
                 <div className="border-2 border-slate-900 px-4 py-2 bg-slate-50">
                   <span className="text-[11px] uppercase font-black tracking-wider block text-slate-900">
-                    FORMATO DE APARTADO
+                    COMPROBANTE DE RESERVA / APARTADO
                   </span>
                   <span className="text-lg font-black font-mono block text-slate-900">
                     N° {factura.numeroFactura}
@@ -1946,6 +1992,19 @@ export default function PlantillaImpresion({
                   {formatCOP(saldoPendienteTotalRetiro)}
                 </span>
               </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-xs mb-3">
+              <span className="font-black text-slate-900">
+                TOTAL TASADO (ALQUILER + CUSTODIA): {formatCOP(totalAlquilerBase + montoDepositoTotal)}
+              </span>
+              <span className="font-semibold text-slate-700">
+                Hoy: Reserva {formatCOP(totalAbonadoAlquiler)} + Custodia {formatCOP(depositoPagadoHoy)}
+              </span>
+              {efectivoTotalConsolidado > 0 && (
+                <span className="font-bold text-slate-800">
+                  Efectivo: {formatCOP(efectivoTotalConsolidado)} | Vueltas: {formatCOP(vueltasCambioFinal)}
+                </span>
+              )}
             </div>
 
             {/* OBSERVACIONES Y LEYENDA OFICIAL (DEBAJO DEL CUADRO) */}

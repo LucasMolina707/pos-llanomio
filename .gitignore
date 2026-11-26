@@ -83,4 +83,5 @@ manifest_actualizacion.json
 *.bak
 .pm2*
 InstaladorMaestroGUI.exe
+/POS_Llanomio_Service.exe
 /instalador_tienda/*.exe

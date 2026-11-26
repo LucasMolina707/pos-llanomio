@@ -5,6 +5,7 @@ import {
   verificarEstadoCajaParaFacturacion,
   parsearCajerosParticipantes,
   obtenerTurnoAbiertoActivo,
+  calcularArqueoExactoTurno,
 } from "@/lib/caja-control";
 import { EstadoFactura, MetodoPago, TipoProducto, EstadoPrenda, EstadoTurno, TipoOperacion, TipoMovimientoCartera } from "@prisma/client";
 
@@ -1186,7 +1187,31 @@ export async function PUT(req: NextRequest, { params }: Params) {
       cajeroId: string;
       referenciaComprobante?: string | null;
       notas?: string | null;
+      tipoAbono?: string;
     }[] = [];
+
+    let tipoOpFinal = facturaPrevia.tipoOperacion;
+    if (body.tipoOperacion === TipoOperacion.SEPARE || body.tipoOperacion === "SEPARE" || facturaPrevia.tipoOperacion === TipoOperacion.SEPARE) {
+      tipoOpFinal = TipoOperacion.SEPARE;
+    } else {
+      let categoriasCount = (tieneVenta ? 1 : 0) + (tieneAlquiler ? 1 : 0) + (tieneArreglo ? 1 : 0);
+      if (categoriasCount > 1) {
+        tipoOpFinal = TipoOperacion.MIXTO;
+      } else if (tieneAlquiler) {
+        tipoOpFinal = TipoOperacion.ALQUILER;
+      } else if (tieneArreglo) {
+        tipoOpFinal = TipoOperacion.ARREGLO;
+      } else if (tieneVenta) {
+        tipoOpFinal = TipoOperacion.VENTA;
+      }
+    }
+
+    const tipoAbonoComercial =
+      tipoOpFinal === TipoOperacion.SEPARE
+        ? "RESERVA"
+        : tieneAlquiler || tipoOpFinal === TipoOperacion.ALQUILER
+        ? "ALQUILER"
+        : "VENTA";
 
     let totalAbonado = 0;
     for (const ab of abonosInput) {
@@ -1206,28 +1231,50 @@ export async function PUT(req: NextRequest, { params }: Params) {
           cajeroId,
           referenciaComprobante: ab.referenciaComprobante ? String(ab.referenciaComprobante).trim() : null,
           notas: ab.notas ? String(ab.notas).trim() : "Abono corregido en mostrador",
+          tipoAbono: tipoAbonoComercial,
         });
       }
     }
 
+    // Resolver custodia de deposito de forma exacta (sin perder DEPOSITO_GARANTIA)
+    const depositoAbonadoResuelto =
+      body.depositoAbonado !== undefined
+        ? Math.max(0, Math.min(montoDeposito, Math.round((Number(body.depositoAbonado) || 0) * 100) / 100))
+        : tipoOpFinal === TipoOperacion.ALQUILER || tieneAlquiler
+        ? montoDeposito
+        : Math.min(montoDeposito, Math.max(0, Number(facturaPrevia.depositoAbonado) || 0));
+
+    const saldoDepositoResuelto = Math.max(0, Math.round((montoDeposito - depositoAbonadoResuelto) * 100) / 100);
+
+    let metodoPagoDepValido: MetodoPago = MetodoPago.EFECTIVO;
+    if (metodoPagoDeposito && Object.values(MetodoPago).includes(metodoPagoDeposito as MetodoPago)) {
+      metodoPagoDepValido = metodoPagoDeposito as MetodoPago;
+    }
+
+    if (depositoAbonadoResuelto > 0) {
+      abonosDataCreacion.push({
+        monto: depositoAbonadoResuelto,
+        metodoPago: metodoPagoDepValido,
+        montoRecibido: body.montoRecibidoDeposito ? Number(body.montoRecibidoDeposito) || null : null,
+        vueltasEntregadas: body.vueltasDeposito ? Number(body.vueltasDeposito) || null : null,
+        cajeroId,
+        referenciaComprobante: body.referenciaDeposito ? String(body.referenciaDeposito).trim() : null,
+        notas: "Depósito en custodia (Garantía reembolsable)",
+        tipoAbono: "DEPOSITO_GARANTIA",
+      });
+    }
+
+    const estadoDepositoResuelto =
+      montoDeposito <= 0
+        ? "SIN_DEPOSITO"
+        : depositoAbonadoResuelto <= 0
+        ? "ESTIPULADO_PARA_ENTREGA"
+        : depositoAbonadoResuelto < montoDeposito
+        ? "ABONADO_PARCIAL"
+        : "RECIBIDO_EN_GARANTIA";
+
     totalAbonado = Math.round(totalAbonado * 100) / 100;
     const saldoPendiente = Math.max(0, Math.round((totalFactura - totalAbonado) * 100) / 100);
-
-    let tipoOpFinal = facturaPrevia.tipoOperacion;
-    if (body.tipoOperacion === TipoOperacion.SEPARE || body.tipoOperacion === "SEPARE" || facturaPrevia.tipoOperacion === TipoOperacion.SEPARE) {
-      tipoOpFinal = TipoOperacion.SEPARE;
-    } else {
-      let categoriasCount = (tieneVenta ? 1 : 0) + (tieneAlquiler ? 1 : 0) + (tieneArreglo ? 1 : 0);
-      if (categoriasCount > 1) {
-        tipoOpFinal = TipoOperacion.MIXTO;
-      } else if (tieneAlquiler) {
-        tipoOpFinal = TipoOperacion.ALQUILER;
-      } else if (tieneArreglo) {
-        tipoOpFinal = TipoOperacion.ARREGLO;
-      } else if (tieneVenta) {
-        tipoOpFinal = TipoOperacion.VENTA;
-      }
-    }
 
     let estadoFinal: EstadoFactura = EstadoFactura.ACTIVA;
     if (tipoOpFinal === TipoOperacion.SEPARE) {
@@ -1305,8 +1352,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
           totalAbonado,
           saldoPendiente,
           montoDeposito,
-          estadoDeposito: montoDeposito > 0 ? "RECIBIDO_EN_GARANTIA" : "SIN_DEPOSITO",
-          metodoPagoDeposito: montoDeposito > 0 ? (tipoOpFinal === TipoOperacion.ALQUILER ? "EFECTIVO" : (metodoPagoDeposito || "EFECTIVO")) : null,
+          depositoAbonado: depositoAbonadoResuelto,
+          saldoDeposito: saldoDepositoResuelto,
+          estadoDeposito: estadoDepositoResuelto,
+          metodoPagoDeposito: montoDeposito > 0 ? metodoPagoDepValido : null,
           efectivoRecibido,
           cambioEntregado,
           tipoOperacion: tipoOpFinal,
@@ -1325,6 +1374,29 @@ export async function PUT(req: NextRequest, { params }: Params) {
           abonos: { include: { cajero: true }, orderBy: { fecha: "desc" } },
         },
       });
+
+      // Sincronizar totales de TurnoCaja tras reemplazar abonos en curso
+      const turnoSincId = turnoAbierto?.id || facturaPrevia.turnoCajaId;
+      if (turnoSincId) {
+        const turnoObj = await tx.turnoCaja.findUnique({ where: { id: turnoSincId } });
+        if (turnoObj) {
+          const arq = await calcularArqueoExactoTurno(tx as any, turnoObj);
+          await tx.turnoCaja.update({
+            where: { id: turnoSincId },
+            data: {
+              totalEfectivo: arq.totalEfectivo + arq.depositosEfectivoNetos,
+              totalNequi: arq.totalNequi,
+              totalBancolombia: arq.totalBancolombia,
+              totalLlave: arq.totalLlave,
+              totalDaviplata: arq.totalDaviplata,
+              totalTransferencia: arq.totalTransferencia,
+              totalConsignacion: arq.totalConsignacion,
+              totalRecaudado: arq.totalRecaudado,
+              efectivoEsperado: arq.efectivoEsperado,
+            },
+          });
+        }
+      }
 
       // 7. Marcar nuevas prendas alquiladas como ALQUILADO y descontar stock de venta
       for (const item of detallesProcesados) {

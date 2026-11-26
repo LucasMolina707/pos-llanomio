@@ -2763,8 +2763,63 @@ export default function PosPage() {
                             </div>
                           ) : (
                             <div className="space-y-3 pt-1">
+                              {modalidadPago === "ADELANTO" && (
+                                <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="font-bold text-amber-950 uppercase tracking-tight">
+                                      Abono inicial a cobrar hoy:
+                                    </span>
+                                    <span className="font-semibold text-amber-900">
+                                      Saldo a cartera:{" "}
+                                      <strong className="text-rose-700 font-mono">
+                                        ${Math.max(0, totalFactura - valorACobrarHoy).toLocaleString("es-CO")}
+                                      </strong>
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1">
+                                      <InputDinero
+                                        value={montoAbonoParcial}
+                                        onChange={(e) => {
+                                          setMontoAbonoParcial(e.target.value);
+                                          setPagosAplicados([]);
+                                        }}
+                                        mostrarPrefijo
+                                        placeholder="Valor del abono inicial hoy"
+                                        className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-white font-black text-base text-slate-900"
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {[20000, 50000].filter((c) => c < totalFactura).map((chip) => (
+                                        <button
+                                          key={chip}
+                                          type="button"
+                                          onClick={() => {
+                                            setMontoAbonoParcial(String(chip));
+                                            setPagosAplicados([]);
+                                          }}
+                                          className="px-2 py-2 rounded-lg border border-amber-300 bg-white hover:bg-amber-100 text-[11px] font-bold text-amber-950"
+                                        >
+                                          ${chip / 1000}k
+                                        </button>
+                                      ))}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setMontoAbonoParcial(String(Math.round(totalFactura / 2)));
+                                          setPagosAplicados([]);
+                                        }}
+                                        className="px-2 py-2 rounded-lg border border-amber-300 bg-white hover:bg-amber-100 text-[11px] font-bold text-amber-950"
+                                      >
+                                        50%
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
                               <PanelPagosSecuenciales
-                                totalExigible={totalFactura}
+                                totalExigible={valorACobrarHoy}
                                 pagos={pagosAplicados}
                                 onChangePagos={setPagosAplicados}
                                 metodoActivoAtajo={metodoPagoPrincipal}
@@ -2773,12 +2828,13 @@ export default function PosPage() {
                                 onEfectivoRecibidoAtajoChange={setEfectivoRecibido}
                                 accentColor="emerald"
                                 permitirSaldoPendiente={modalidadPago === "ADELANTO"}
-                                etiquetaTotal="Total Factura"
+                                etiquetaTotal={modalidadPago === "ADELANTO" ? "Abono a Cobrar Hoy" : "Total Factura"}
                                 onCompletarCobroAuto={(pagosFinales) => {
+                                  if (modalidadPago === "ADELANTO" && valorACobrarHoy <= 0) return;
                                   finalizarTransaccion(pagosFinales);
                                 }}
                                 onCancelarOVolver={() => setPasoActual(2)}
-                                autoFocus={pasoActual === 3}
+                                autoFocus={pasoActual === 3 && modalidadPago !== "ADELANTO"}
                               />
                             </div>
                           )}
