@@ -62,7 +62,6 @@ const CATEGORIAS_GASTO_BASE = [
   { nombre: "Insumos de Producción y Sastrería", requiereEmpleado: false, esPredeterminada: true },
   { nombre: "Arriendo", requiereEmpleado: false, esPredeterminada: true },
   { nombre: "Servicios Públicos", requiereEmpleado: false, esPredeterminada: true },
-  { nombre: "YOANA", requiereEmpleado: false, esPredeterminada: true },
 ];
 
 const PERMISOS_DEFAULT_ADMIN = {
@@ -139,8 +138,10 @@ async function ejecutarBarridoInicial(opciones = {}) {
     await prisma.factura.deleteMany({});
     console.log("  -> Facturas de venta, alquiler y apartados eliminadas.");
 
-    await prisma.movimientoCaja.deleteMany({});
-    console.log("  -> Movimientos de arqueos y cajón eliminados.");
+    if (prisma.movimientoCaja) {
+      await prisma.movimientoCaja.deleteMany({});
+      console.log("  -> Movimientos de arqueos y cajón eliminados.");
+    }
 
     await prisma.turnoCaja.deleteMany({});
     console.log("  -> Turnos de cajeros eliminados.");

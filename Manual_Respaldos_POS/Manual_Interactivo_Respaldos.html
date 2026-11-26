@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual Operativo de Respaldos — Aurora POS Servidor Windows</title>
+  <link rel="stylesheet" href="./estilos.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+            <path d="M3 5V19A9 3 0 0 0 21 19V5"></path>
+            <path d="M3 12A9 3 0 0 0 21 12"></path>
+          </svg>
+        </div>
+        <div>
+          <span class="badge-offline">DOCUMENTACIÓN LOCAL OFFLINE</span>
+          <h1>Arquitectura y Manual de Respaldos (Backups)</h1>
+          <p class="subtitle">Servidor Local Windows — Motor SQLite WAL en Caliente</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <a href="../public/manual/index.html" class="btn-system-manual" title="Abrir el Manual General Operativo del Sistema POS">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+          </svg>
+          <span>Ir al Manual General del Sistema</span>
+        </a>
+
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input
+            type="search"
+            id="searchInput"
+            placeholder="Buscar carpeta, archivo o proceso (ej. C:\POS_BACKUPS, cierre, restaurar)..."
+            aria-label="Buscar en el manual"
+          />
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-layout">
+    <nav class="tabs-nav" role="tablist" aria-label="Secciones del manual">
+      <button class="tab-btn active" data-tab="carpetas" role="tab" aria-selected="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span>Carpetas de Backups</span>
+      </button>
+      <button class="tab-btn" data-tab="funcionamiento" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        <span>Cómo Funcionan</span>
+      </button>
+      <button class="tab-btn" data-tab="retencion" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+        <span>Rotación y Seguridad</span>
+      </button>
+      <button class="tab-btn" data-tab="restauracion" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>Cómo Restaurar</span>
+      </button>
+    </nav>
+
+    <!-- SECCIÓN 1: CARPETAS -->
+    <section id="tab-carpetas" class="tab-panel active searchable-section">
+      <div class="summary-cards">
+        <article class="card highlight-card">
+          <div class="card-header">
+            <span class="tag tag-primary">Bóveda Principal Externa</span>
+            <button class="copy-btn" data-copy="C:\POS_BACKUPS" title="Copiar ruta al portapapeles">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Copiar ruta</span>
+            </button>
+          </div>
+          <code class="path-code">C:\POS_BACKUPS\</code>
+          <p>Ubicada fuera de la carpeta del programa para proteger la información incluso si alguien borra o mueve la carpeta del sistema. Puede personalizarse desde <strong>Configuración de Empresa</strong>.</p>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="tag tag-secondary">Bóveda Espejo Interna</span>
+            <button class="copy-btn" data-copy="database\backups_locales" title="Copiar ruta relativa">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Copiar ruta</span>
+            </button>
+          </div>
+          <code class="path-code">&lt;Carpeta_POS&gt;\database\backups_locales\</code>
+          <p>Resguardo inmediato dentro de la carpeta del servidor. Aquí nace cada copia atómica antes de replicarse hacia la bóveda externa.</p>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="tag tag-accent">Sincronización Nube (Opcional)</span>
+            <button class="copy-btn" data-copy="CLOUD_BACKUP_PATH=" title="Copiar variable de entorno">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Copiar clave</span>
+            </button>
+          </div>
+          <code class="path-code">CLOUD_BACKUP_PATH (en .env)</code>
+          <p>Si el PC tiene Google Drive, OneDrive o Dropbox instalado, replica automáticamente la copia maestra y el historial con protección contra bloqueos de sincronización.</p>
+        </article>
+      </div>
+
+      <div class="explorer-grid">
+        <div class="card tree-card">
+          <h2>Explorador Interactivo de <code>C:\POS_BACKUPS\</code></h2>
+          <p class="helper-text">Haz clic sobre cualquier carpeta o archivo para inspeccionar qué guarda y cuándo se actualiza:</p>
+          <ul class="folder-tree" id="folderTree"></ul>
+        </div>
+
+        <div class="card inspector-card" id="inspectorPanel">
+          <span class="tag tag-primary" id="inspType">Archivo Maestro SQLite</span>
+          <h3 id="inspTitle">llanomio_ULTIMO.db / pos_ULTIMO.db</h3>
+          <code class="path-code" id="inspPath">C:\POS_BACKUPS\llanomio_ULTIMO.db</code>
+          <p id="inspDesc"></p>
+          <div class="inspector-meta">
+            <div>
+              <span class="meta-label">Formato</span>
+              <strong id="inspFormat">Binario SQLite 3 íntegro</strong>
+            </div>
+            <div>
+              <span class="meta-label">Retención</span>
+              <strong id="inspRetention">Permanente (Nunca se purga)</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 2: FUNCIONAMIENTO -->
+    <section id="tab-funcionamiento" class="tab-panel searchable-section">
+      <div class="card">
+        <h2>Motor de Respaldo en Caliente (Sin Detener Ventas)</h2>
+        <p>El servidor nunca copia el archivo en crudo mientras se está escribiendo; ejecuta una secuencia transaccional de 4 etapas seguras:</p>
+        <div class="steps-flow">
+          <div class="step-item">
+            <span class="step-num">01</span>
+            <h3>Consolidación WAL</h3>
+            <p>Ejecuta <code>PRAGMA wal_checkpoint(TRUNCATE)</code> para volcar a disco todas las operaciones recientes en memoria.</p>
+          </div>
+          <div class="step-item">
+            <span class="step-num">02</span>
+            <h3>Empaquetado Atómico</h3>
+            <p>Ejecuta <code>VACUUM INTO</code> generando un archivo <code>.db</code> desfragmentado y consistente sin desconectar terminales LAN.</p>
+          </div>
+          <div class="step-item">
+            <span class="step-num">03</span>
+            <h3>Replicación Triple</h3>
+            <p>Actualiza <code>llanomio_ULTIMO.db</code>, guarda la copia fechada en <code>historial\</code> y replica en Nube si está activa.</p>
+          </div>
+          <div class="step-item">
+            <span class="step-num">04</span>
+            <h3>Auditoría JSON</h3>
+            <p>Exporta automáticamente inventario, clientes, facturas, caja y gastos en archivos <code>.json</code> legibles por humanos.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-lg">
+        <h2>Momentos Exactos en que se Dispara un Backup</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Evento Disparador</th>
+                <th>Nombre del Archivo Generado</th>
+                <th>Cuándo Ocurre</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Cierre de Turno / Arqueo</strong></td>
+                <td><code>pos_CIERRE_CAJA_YYYYMMDD_HHmmss_SSS.db</code></td>
+                <td>Automáticamente cada vez que un cajero o administrador cierra turno de caja.</td>
+              </tr>
+              <tr>
+                <td><strong>Cierre de Sesión (Logout)</strong></td>
+                <td><code>pos_LOGOUT_USUARIO_YYYYMMDD_HHmmss_SSS.db</code></td>
+                <td>Al salir de la sesión en el navegador o cerrar la pestaña activa.</td>
+              </tr>
+              <tr>
+                <td><strong>Apagado / Detención del Servidor</strong></td>
+                <td><code>pos_PRE_DETENCION_YYYYMMDD_HHmmss.db</code></td>
+                <td>Al presionar <em>Detener</em> en <code>Panel_Servidor_POS.exe</code> o apagar Windows.</td>
+              </tr>
+              <tr>
+                <td><strong>Respaldo Manual Gerencial</strong></td>
+                <td><code>pos_RESPALDO_GERENCIAL_YYYYMMDD_HHmmss_SSS.db</code></td>
+                <td>Al pulsar el botón <em>Crear Respaldo Ahora</em> en Configuración o ejecutar <code>npm run respaldo:crear</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Salvaguarda Pre-Restauración</strong></td>
+                <td><code>pos_EMERGENCIA_PRE_RESTAURACION_...db</code></td>
+                <td>Automáticamente un segundo antes de restaurar otra base de datos o actualizar el sistema.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 3: ROTACIÓN Y SEGURIDAD -->
+    <section id="tab-retencion" class="tab-panel searchable-section">
+      <div class="two-col">
+        <article class="card">
+          <h2>Regla de Retención de 15 Copias</h2>
+          <p>Para garantizar que el disco duro del equipo Windows nunca se sature aunque se realicen múltiples cierres y salidas diarias:</p>
+          <ul class="clean-list">
+            <li>En <code>C:\POS_BACKUPS\historial\</code> y en <code>database\backups_locales\</code> se conservan siempre las <strong>15 copias fechadas más recientes</strong>.</li>
+            <li>En cada una de las 5 subcarpetas de auditoría JSON se conservan también los <strong>15 volcados históricos más recientes</strong> además del archivo <code>*_ULTIMO.json</code>.</li>
+            <li>Cuando ingresa la copia número 16, el motor elimina únicamente la más antigua según su fecha de modificación.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h2>Archivos Blindados (Inmunes a Purga)</h2>
+          <p>El algoritmo de limpieza tiene prohibido tocar los siguientes archivos críticos:</p>
+          <ul class="clean-list">
+            <li><code>database\llanomio.db</code> — Base de datos activa de trabajo diario.</li>
+            <li><code>llanomio_ULTIMO.db</code> y <code>pos_ULTIMO.db</code> — Copias maestras instantáneas.</li>
+            <li><code>pos_EMERGENCIA_PRE_RESTAURACION*.db</code> — Copias de rescate previas a restauraciones o formateos.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 4: RESTAURACIÓN -->
+    <section id="tab-restauracion" class="tab-panel searchable-section">
+      <div class="two-col">
+        <article class="card">
+          <span class="tag tag-primary">Método 1 — Recomendado</span>
+          <h2>Restauración desde la Interfaz Web</h2>
+          <ol class="numbered-list">
+            <li>Inicie sesión con perfil <strong>Administrador</strong>.</li>
+            <li>Abra <strong>Configuración de Empresa</strong> y ubique la sección de <strong>Respaldos y Base de Datos</strong>.</li>
+            <li>Elija un punto de restauración de la lista o suba cualquier archivo <code>.db</code> desde <code>C:\POS_BACKUPS\historial\</code>.</li>
+            <li>El sistema verifica automáticamente la cabecera binaria SQLite, ejecuta <code>PRAGMA integrity_check</code>, comprueba las tablas del POS, guarda una copia <code>pos_EMERGENCIA</code> de la base actual y activa los datos restaurados sin reiniciar el PC.</li>
+          </ol>
+        </article>
+
+        <article class="card">
+          <span class="tag tag-secondary">Método 2 — Contingencia Física en Windows</span>
+          <h2>Restauración Manual desde Carpetas</h2>
+          <ol class="numbered-list">
+            <li>Abra <code>Panel_Servidor_POS.exe</code> en el computador servidor y haga clic en <strong>Detener</strong>.</li>
+            <li>Entre a <code>C:\POS_BACKUPS\</code> y copie <code>llanomio_ULTIMO.db</code> (o el archivo deseado de la subcarpeta <code>historial\</code>).</li>
+            <li>Abra la carpeta <code>database\</code> dentro del directorio del sistema POS.</li>
+            <li>Elimine si existen los archivos temporales <code>llanomio.db-wal</code> y <code>llanomio.db-shm</code>, pegue su copia y renómbrela exactamente como <strong><code>llanomio.db</code></strong>.</li>
+            <li>Vuelva a <code>Panel_Servidor_POS.exe</code> y presione <strong>Iniciar</strong>.</li>
+          </ol>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite">Ruta copiada al portapapeles</div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

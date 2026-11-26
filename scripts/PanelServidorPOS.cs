@@ -447,6 +447,13 @@ namespace AuroraHost.POS.ControlServidor
                     g.DrawArc(pen, x + 3, y + 4, w - 6, h - 6, 305, 290);
                     g.DrawLine(pen, x + w / 2, y + 2, x + w / 2, y + h / 2);
                 }
+                else if (tipo == "book")
+                {
+                    g.DrawRectangle(pen, x + 3, y + 2, w - 6, h - 4);
+                    g.DrawLine(pen, x + 7, y + 2, x + 7, y + h - 2);
+                    g.DrawLine(pen, x + 10, y + 7, x + w - 5, y + 7);
+                    g.DrawLine(pen, x + 10, y + 11, x + w - 5, y + 11);
+                }
             }
         }
     }
@@ -968,6 +975,7 @@ namespace AuroraHost.POS.ControlServidor
             navRespaldos = CrearItemSidebar("Respaldos", "backup", 180, delegate { AbrirSeccionProtegida("respaldos"); });
             navCuentas = CrearItemSidebar("Cuentas", "users", 228, delegate { AbrirSeccionProtegida("cuentas"); });
             navSistema = CrearItemSidebar("Sistema", "settings", 276, delegate { AbrirSeccionProtegida("sistema"); });
+            CrearItemSidebar("Manual HTML", "book", 324, delegate { AbrirManualHtmlLocal(); });
 
             // Contenedor derecho aireado
             panelDerecho = new Panel();
@@ -1225,6 +1233,16 @@ namespace AuroraHost.POS.ControlServidor
             btnInicioDetener.Click += delegate { DetenerConBackupObligatorio(); };
             cardControl.Controls.Add(btnInicioDetener);
 
+            BotonCurvo btnManualInicio = new BotonCurvo();
+            btnManualInicio.Text = "Abrir Manual Local (HTML)";
+            btnManualInicio.ColorNormal = TemaFinora.AzulPastel;
+            btnManualInicio.ColorHover = Color.FromArgb(212, 232, 255);
+            btnManualInicio.ColorTexto = TemaFinora.AzulPrimario;
+            btnManualInicio.Size = new Size(406, 40);
+            btnManualInicio.Location = new Point(28, 266);
+            btnManualInicio.Click += delegate { AbrirManualHtmlLocal(); };
+            cardControl.Controls.Add(btnManualInicio);
+
             // Fila 2 Derecha: Tarjeta QR Wi-Fi
             TarjetaFlotante cardQr = new TarjetaFlotante();
             cardQr.Size = new Size(284, 336);
@@ -1409,7 +1427,7 @@ namespace AuroraHost.POS.ControlServidor
 
             BotonCurvo btnRespaldar = new BotonCurvo();
             btnRespaldar.Text = "Respaldar";
-            btnRespaldar.Size = new Size(158, 40);
+            btnRespaldar.Size = new Size(131, 40);
             btnRespaldar.Location = new Point(26, 26);
             btnRespaldar.Click += delegate { GenerarBackupManualAccion(); };
             card.Controls.Add(btnRespaldar);
@@ -1418,8 +1436,9 @@ namespace AuroraHost.POS.ControlServidor
             btnRestaurar.Text = "Restaurar";
             btnRestaurar.ColorNormal = TemaFinora.RosaPrimario;
             btnRestaurar.ColorHover = TemaFinora.RosaHover;
-            btnRestaurar.Size = new Size(158, 40);
-            btnRestaurar.Location = new Point(198, 26);
+            btnRespaldar.Size = new Size(131, 40);
+            btnRestaurar.Size = new Size(131, 40);
+            btnRestaurar.Location = new Point(169, 26);
             btnRestaurar.Click += delegate { RestaurarSeleccionadoAccion(); };
             card.Controls.Add(btnRestaurar);
 
@@ -1428,8 +1447,8 @@ namespace AuroraHost.POS.ControlServidor
             btnExterno.ColorNormal = TemaFinora.GrisPill;
             btnExterno.ColorHover = TemaFinora.GrisPillHover;
             btnExterno.ColorTexto = TemaFinora.TextoOscuro;
-            btnExterno.Size = new Size(158, 40);
-            btnExterno.Location = new Point(370, 26);
+            btnExterno.Size = new Size(131, 40);
+            btnExterno.Location = new Point(312, 26);
             btnExterno.Click += delegate { RestaurarArchivoExternoAccion(); };
             card.Controls.Add(btnExterno);
 
@@ -1438,10 +1457,20 @@ namespace AuroraHost.POS.ControlServidor
             btnCarpeta.ColorNormal = TemaFinora.GrisPill;
             btnCarpeta.ColorHover = TemaFinora.GrisPillHover;
             btnCarpeta.ColorTexto = TemaFinora.TextoOscuro;
-            btnCarpeta.Size = new Size(158, 40);
-            btnCarpeta.Location = new Point(542, 26);
+            btnCarpeta.Size = new Size(131, 40);
+            btnCarpeta.Location = new Point(455, 26);
             btnCarpeta.Click += delegate { AbrirCarpetaBackupsAccion(); };
             card.Controls.Add(btnCarpeta);
+
+            BotonCurvo btnManualBak = new BotonCurvo();
+            btnManualBak.Text = "Manual HTML";
+            btnManualBak.ColorNormal = TemaFinora.AzulPastel;
+            btnManualBak.ColorHover = Color.FromArgb(212, 232, 255);
+            btnManualBak.ColorTexto = TemaFinora.AzulPrimario;
+            btnManualBak.Size = new Size(132, 40);
+            btnManualBak.Location = new Point(598, 26);
+            btnManualBak.Click += delegate { AbrirManualHtmlLocal(); };
+            card.Controls.Add(btnManualBak);
 
             lstBackups = new ListBox();
             lstBackups.Location = new Point(26, 84);
@@ -2270,6 +2299,31 @@ namespace AuroraHost.POS.ControlServidor
                 Process.Start("explorer.exe", dir);
             }
             catch { }
+        }
+
+        private void AbrirManualHtmlLocal()
+        {
+            try
+            {
+                string rutaRespaldosHtml = Path.Combine(baseDir, "Manual_Respaldos_POS", "Manual_Interactivo_Respaldos.html");
+                string rutaGeneralHtml = Path.Combine(baseDir, "public", "manual", "index.html");
+                string destino = File.Exists(rutaRespaldosHtml) ? rutaRespaldosHtml : rutaGeneralHtml;
+
+                if (!File.Exists(destino))
+                {
+                    MessageBox.Show("No se encontro el archivo del manual HTML local.", "Panel Servidor POS", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                ProcessStartInfo psi = new ProcessStartInfo();
+                psi.FileName = destino;
+                psi.UseShellExecute = true;
+                Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("No se pudo abrir el manual local: " + ex.Message, "Panel Servidor POS", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void RestaurarSeleccionadoAccion()
