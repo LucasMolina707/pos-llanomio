@@ -2,104 +2,156 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   abrirCarpetaEnExplorador,
   ejecutarRespaldoEnCaliente,
+  obtenerDirectorioRespaldosDefault,
+  obtenerRutaRespaldoActiva,
+  restaurarBaseDeDatosDesdeArchivo,
   restaurarBaseDeDatosDesdeBuffer,
+  validarYAsegurarDirectorio,
 } from "@/lib/backup";
 import * as fs from "fs";
 import * as path from "path";
 
 export const dynamic = "force-dynamic";
 
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 /**
  * GET /api/backup
- * - Sin parámetros (o ?descargar=1): Genera un respaldo fresco in situ y descarga el binario .db con cabeceras de adjunto.
  * - Con ?info=true o ?metadata=true: Retorna metadatos JSON del estado actual de respaldos para la interfaz administrativa.
+ * - Con ?archivo=nombre.db: Descarga un archivo específico del historial al computador cliente.
+ * - Con ?abrirCarpeta=true: Abre la carpeta de respaldos en el servidor (Windows Explorer o ruta Linux).
+ * - Sin parámetros (o ?descargar=1): Genera un respaldo fresco in situ y descarga el binario .db directamente al computador cliente.
  */
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
 
-    // Abrir carpeta en el Explorador de Windows bajo demanda
+    // 1. Abrir carpeta en el servidor bajo demanda
     if (searchParams.get("abrirCarpeta") === "true") {
-      const resultadoApertura = abrirCarpetaEnExplorador();
-      return NextResponse.json(resultadoApertura);
+      const rutaConfigurada = await obtenerRutaRespaldoActiva();
+      const resultadoApertura = abrirCarpetaEnExplorador(rutaConfigurada);
+      return NextResponse.json(resultadoApertura, { headers: NO_CACHE_HEADERS });
     }
 
     const soloInfo =
       searchParams.get("info") === "true" ||
       searchParams.get("metadata") === "true";
 
-    const drive = process.env.SystemDrive || "C:";
-    const carpetaPrincipal =
-      process.env.POS_BACKUP_DIR || path.join(drive + "\\", "POS_BACKUPS");
+    const archivoEspecifico = searchParams.get("archivo");
+
+    const carpetaPrincipal = await obtenerRutaRespaldoActiva();
     const carpetaHistorial = path.join(carpetaPrincipal, "historial");
     const carpetaLocal = path.join(process.cwd(), "database", "backups_locales");
+    const rutaPorDefecto = obtenerDirectorioRespaldosDefault();
+    const validacionAcceso = validarYAsegurarDirectorio(carpetaPrincipal);
 
-    // Si solo se solicita información/metadatos de diagnóstico para la UI
+    // 2. Si solo se solicita información/metadatos de diagnóstico para la UI
     if (soloInfo) {
       let ultimoRespaldo = null;
-      let archivosHistorial: {
-        nombre: string;
-        tamanioBytes: number;
-        fechaModificacion: Date;
-      }[] = [];
-
-      const rutaUltimo = path.join(carpetaPrincipal, "pos_ULTIMO.db");
-      if (fs.existsSync(rutaUltimo)) {
-        const stat = fs.statSync(rutaUltimo);
-        ultimoRespaldo = {
-          ruta: rutaUltimo,
-          tamanioBytes: stat.size,
-          fechaModificacion: stat.mtime,
-        };
-      } else if (fs.existsSync(carpetaLocal)) {
-        // Fallback a la carpeta local si C:\ no existe o no tiene el archivo
-        const archivosLocales = fs
-          .readdirSync(carpetaLocal)
-          .filter((f) => f.endsWith(".db"))
-          .map((f) => {
-            const p = path.join(carpetaLocal, f);
-            return { ruta: p, stat: fs.statSync(p) };
-          })
-          .sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
-
-        if (archivosLocales.length > 0) {
-          ultimoRespaldo = {
-            ruta: archivosLocales[0].ruta,
-            tamanioBytes: archivosLocales[0].stat.size,
-            fechaModificacion: archivosLocales[0].stat.mtime,
-          };
+      const mapaArchivos = new Map<
+        string,
+        {
+          nombre: string;
+          tamanioBytes: number;
+          fechaModificacion: Date;
+          origen: "EXTERNO" | "LOCAL";
+          rutaFisica: string;
         }
+      >();
+
+      // Explorar carpeta principal
+      if (fs.existsSync(carpetaPrincipal)) {
+        try {
+          const archivosPrincipal = fs.readdirSync(carpetaPrincipal);
+          for (const arch of archivosPrincipal) {
+            if (arch.endsWith(".db")) {
+              const p = path.join(carpetaPrincipal, arch);
+              const stat = fs.statSync(p);
+              mapaArchivos.set(arch, {
+                nombre: arch,
+                tamanioBytes: stat.size,
+                fechaModificacion: stat.mtime,
+                origen: "EXTERNO",
+                rutaFisica: p,
+              });
+            }
+          }
+        } catch {}
       }
 
-      const dirHistorial = fs.existsSync(carpetaHistorial)
-        ? carpetaHistorial
-        : carpetaLocal;
-
-      if (fs.existsSync(dirHistorial)) {
-        archivosHistorial = fs
-          .readdirSync(dirHistorial)
-          .filter((f) => f.endsWith(".db") && f !== "pos_ULTIMO.db")
-          .map((archivo) => {
-            const ruta = path.join(dirHistorial, archivo);
-            const stat = fs.statSync(ruta);
-            return {
-              nombre: archivo,
-              tamanioBytes: stat.size,
-              fechaModificacion: stat.mtime,
-            };
-          })
-          .sort(
-            (a, b) =>
-              b.fechaModificacion.getTime() - a.fechaModificacion.getTime()
-          )
-          .slice(0, 10);
+      // Explorar subcarpeta historial
+      if (fs.existsSync(carpetaHistorial)) {
+        try {
+          const archivosHist = fs.readdirSync(carpetaHistorial);
+          for (const arch of archivosHist) {
+            if (arch.endsWith(".db") && !mapaArchivos.has(arch)) {
+              const p = path.join(carpetaHistorial, arch);
+              const stat = fs.statSync(p);
+              mapaArchivos.set(arch, {
+                nombre: arch,
+                tamanioBytes: stat.size,
+                fechaModificacion: stat.mtime,
+                origen: "EXTERNO",
+                rutaFisica: p,
+              });
+            }
+          }
+        } catch {}
       }
+
+      // Explorar carpeta local
+      if (fs.existsSync(carpetaLocal)) {
+        try {
+          const archivosLoc = fs.readdirSync(carpetaLocal);
+          for (const arch of archivosLoc) {
+            if (arch.endsWith(".db") && !mapaArchivos.has(arch)) {
+              const p = path.join(carpetaLocal, arch);
+              const stat = fs.statSync(p);
+              mapaArchivos.set(arch, {
+                nombre: arch,
+                tamanioBytes: stat.size,
+                fechaModificacion: stat.mtime,
+                origen: "LOCAL",
+                rutaFisica: p,
+              });
+            }
+          }
+        } catch {}
+      }
+
+      const listaArchivos = Array.from(mapaArchivos.values()).sort(
+        (a, b) => b.fechaModificacion.getTime() - a.fechaModificacion.getTime()
+      );
+
+      // Determinar el último respaldo
+      const candidatoUltimo =
+        listaArchivos.find((f) => f.nombre === "pos_ULTIMO.db" || f.nombre === "llanomio_ULTIMO.db") ||
+        listaArchivos[0];
+
+      if (candidatoUltimo) {
+        ultimoRespaldo = {
+          nombre: candidatoUltimo.nombre,
+          ruta: candidatoUltimo.rutaFisica,
+          tamanioBytes: candidatoUltimo.tamanioBytes,
+          fechaModificacion: candidatoUltimo.fechaModificacion,
+        };
+      }
+
+      // Filtrar historial para mostrar respaldos fechados individuales
+      const historialReciente = listaArchivos
+        .filter((f) => f.nombre !== "pos_ULTIMO.db" && f.nombre !== "llanomio_ULTIMO.db")
+        .slice(0, 15);
 
       const subcarpetasEstructuradas = [
         "inventario",
         "clientes",
         "historial_facturas",
         "movimientos_caja",
+        "gastos_operativos",
       ];
       const subcarpetasDetectadas: { nombre: string; ruta: string; cantidadArchivos: number }[] = [];
       const dirBaseSubcarpetas = fs.existsSync(carpetaPrincipal) ? carpetaPrincipal : carpetaLocal;
@@ -117,20 +169,63 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      return NextResponse.json({
-        ok: true,
-        rutaCarpetaPrincipal: carpetaPrincipal,
-        rutaCarpetaLocal: carpetaLocal,
-        subcarpetas: subcarpetasDetectadas,
-        ultimoRespaldo,
-        historialReciente: archivosHistorial,
+      return NextResponse.json(
+        {
+          ok: true,
+          rutaCarpetaPrincipal: carpetaPrincipal,
+          rutaCarpetaLocal: carpetaLocal,
+          rutaPorDefecto,
+          esWindows: process.platform === "win32",
+          permisosEscritura: validacionAcceso.valido,
+          errorRuta: validacionAcceso.error || null,
+          subcarpetas: subcarpetasDetectadas,
+          ultimoRespaldo,
+          historialReciente,
+        },
+        { headers: NO_CACHE_HEADERS }
+      );
+    }
+
+    // 3. Descarga de archivo específico solicitado del historial
+    if (archivoEspecifico) {
+      const nombreLimpio = path.basename(archivoEspecifico);
+      const posiblesRutas = [
+        path.join(carpetaPrincipal, nombreLimpio),
+        path.join(carpetaHistorial, nombreLimpio),
+        path.join(carpetaLocal, nombreLimpio),
+      ];
+
+      let rutaArchivoFisico: string | null = null;
+      for (const r of posiblesRutas) {
+        if (fs.existsSync(r)) {
+          rutaArchivoFisico = r;
+          break;
+        }
+      }
+
+      if (!rutaArchivoFisico) {
+        return NextResponse.json(
+          { ok: false, error: `El archivo '${nombreLimpio}' no existe en el almacenamiento del servidor.` },
+          { status: 404, headers: NO_CACHE_HEADERS }
+        );
+      }
+
+      const stat = fs.statSync(rutaArchivoFisico);
+      const fileBuffer = fs.readFileSync(rutaArchivoFisico);
+
+      return new NextResponse(fileBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Disposition": `attachment; filename="${nombreLimpio}"`,
+          "Content-Length": String(stat.size),
+          ...NO_CACHE_HEADERS,
+        },
       });
     }
 
-    // =========================================================================
-    // EXPORTACIÓN GERENCIAL: Generar respaldo fresco in situ y devolver binario .db
-    // =========================================================================
-    const resultado = await ejecutarRespaldoEnCaliente("GERENCIAL");
+    // 4. EXPORTACIÓN GERENCIAL BAJO DEMANDA: Generar respaldo fresco in situ y devolver binario .db al cliente
+    const resultado = await ejecutarRespaldoEnCaliente("GERENCIAL_CLIENTE");
 
     if (!resultado.success) {
       return NextResponse.json(
@@ -138,7 +233,7 @@ export async function GET(req: NextRequest) {
           ok: false,
           error: resultado.error || "No se pudo generar la copia de seguridad para descarga.",
         },
-        { status: 500 }
+        { status: 500, headers: NO_CACHE_HEADERS }
       );
     }
 
@@ -151,14 +246,14 @@ export async function GET(req: NextRequest) {
     if (!fs.existsSync(rutaArchivoFisico)) {
       return NextResponse.json(
         { ok: false, error: "El archivo de respaldo generado no fue localizado en disco." },
-        { status: 500 }
+        { status: 500, headers: NO_CACHE_HEADERS }
       );
     }
 
     const stat = fs.statSync(rutaArchivoFisico);
     const fileBuffer = fs.readFileSync(rutaArchivoFisico);
 
-    // Formatear fecha para el archivo descargado: Respaldo_Sistema_YYYY-MM-DD_HH-mm-ss.db
+    // Formatear nombre claro para la descarga en el equipo cliente
     const ahora = new Date();
     const anio = ahora.getFullYear();
     const mes = String(ahora.getMonth() + 1).padStart(2, "0");
@@ -174,8 +269,7 @@ export async function GET(req: NextRequest) {
         "Content-Type": "application/octet-stream",
         "Content-Disposition": `attachment; filename="${nombreDescarga}"`,
         "Content-Length": String(stat.size),
-        "Cache-Control": "no-store, no-cache, must-revalidate",
-        Pragma: "no-cache",
+        ...NO_CACHE_HEADERS,
       },
     });
   } catch (error: unknown) {
@@ -186,7 +280,7 @@ export async function GET(req: NextRequest) {
         ok: false,
         error: errorMensaje,
       },
-      { status: 500 }
+      { status: 500, headers: NO_CACHE_HEADERS }
     );
   }
 }
@@ -194,13 +288,15 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/backup
  * - Si recibe FormData o stream binario: Restaura la base de datos previa verificación defensiva de integridad SQLite.
- * - Si recibe JSON con motivo: Genera un respaldo manual bajo demanda.
+ * - Si recibe JSON con motivo: Genera un respaldo manual bajo demanda en el servidor.
+ * - Si recibe JSON con accion === "RESTAURAR_EXISTENTE": Restaura desde un archivo ya ubicado en el servidor.
+ * - Si recibe JSON con accion === "VALIDAR_RUTA": Valida si una ruta es escribible.
  */
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") || "";
 
-    // CASO 1: Subida de archivo vía FormData (Restauración Web)
+    // CASO 1: Subida de archivo vía FormData desde el computador cliente (Restauración Web)
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
       const archivoEntry =
@@ -212,7 +308,7 @@ export async function POST(req: NextRequest) {
             ok: false,
             error: "No se proporcionó ningún archivo de base de datos válido (.db) en la solicitud.",
           },
-          { status: 400 }
+          { status: 400, headers: NO_CACHE_HEADERS }
         );
       }
 
@@ -223,7 +319,7 @@ export async function POST(req: NextRequest) {
             ok: false,
             error: "El archivo subido está completamente vacío (0 bytes).",
           },
-          { status: 400 }
+          { status: 400, headers: NO_CACHE_HEADERS }
         );
       }
 
@@ -237,24 +333,27 @@ export async function POST(req: NextRequest) {
             error: resultado.error,
             mensaje: resultado.mensaje,
           },
-          { status: 400 }
+          { status: 400, headers: NO_CACHE_HEADERS }
         );
       }
 
-      return NextResponse.json({
-        ok: true,
-        mensaje: resultado.mensaje,
-        rutaEmergencia: resultado.rutaEmergencia,
-      });
+      return NextResponse.json(
+        {
+          ok: true,
+          mensaje: resultado.mensaje,
+          rutaEmergencia: resultado.rutaEmergencia,
+        },
+        { headers: NO_CACHE_HEADERS }
+      );
     }
 
-    // CASO 2: Subida de archivo binario directo (Octet-Stream para scripts o herramientas)
+    // CASO 2: Subida de archivo binario directo (Octet-Stream)
     if (contentType.includes("application/octet-stream")) {
       const arrayBuffer = await req.arrayBuffer();
       if (arrayBuffer.byteLength === 0) {
         return NextResponse.json(
           { ok: false, error: "El cuerpo binario enviado está vacío." },
-          { status: 400 }
+          { status: 400, headers: NO_CACHE_HEADERS }
         );
       }
 
@@ -268,35 +367,81 @@ export async function POST(req: NextRequest) {
             error: resultado.error,
             mensaje: resultado.mensaje,
           },
-          { status: 400 }
+          { status: 400, headers: NO_CACHE_HEADERS }
         );
       }
 
-      return NextResponse.json({
-        ok: true,
-        mensaje: resultado.mensaje,
-        rutaEmergencia: resultado.rutaEmergencia,
-      });
+      return NextResponse.json(
+        {
+          ok: true,
+          mensaje: resultado.mensaje,
+          rutaEmergencia: resultado.rutaEmergencia,
+        },
+        { headers: NO_CACHE_HEADERS }
+      );
     }
 
-    // CASO 3: Petición JSON (respaldo manual o apertura de carpeta en Windows)
-    let motivo = "SOLICITUD_MANUAL";
-    let accion = "";
+    // CASO 3: Peticiones JSON (respaldo manual, restauración existente o validación de ruta)
+    let body: Record<string, unknown> = {};
     try {
-      const body = await req.json();
-      if (body?.accion) accion = String(body.accion).toUpperCase();
-      if (body?.abrirCarpeta) accion = "ABRIR_CARPETA";
-      if (body?.motivo) motivo = String(body.motivo);
+      body = await req.json();
     } catch {
       // Sin cuerpo JSON
     }
 
-    if (accion === "ABRIR_CARPETA") {
-      const resultadoApertura = abrirCarpetaEnExplorador();
-      return NextResponse.json(resultadoApertura);
+    const accion = String(body.accion || "").toUpperCase();
+
+    // Validar si una ruta de respaldo es válida y escribible
+    if (accion === "VALIDAR_RUTA") {
+      const ruta = String(body.ruta || "");
+      const resVal = validarYAsegurarDirectorio(ruta);
+      return NextResponse.json(
+        {
+          ok: resVal.valido,
+          rutaResuelta: resVal.rutaResuelta,
+          error: resVal.error || null,
+        },
+        { headers: NO_CACHE_HEADERS }
+      );
     }
 
-    const resultado = await ejecutarRespaldoEnCaliente(motivo);
+    // Restaurar desde un archivo existente en el servidor
+    if (accion === "RESTAURAR_EXISTENTE") {
+      const nombreArchivo = String(body.nombreArchivo || "");
+      if (!nombreArchivo) {
+        return NextResponse.json(
+          { ok: false, error: "Debe especificar el nombre del archivo a restaurar." },
+          { status: 400, headers: NO_CACHE_HEADERS }
+        );
+      }
+      const resultado = await restaurarBaseDeDatosDesdeArchivo(nombreArchivo);
+      if (!resultado.ok) {
+        return NextResponse.json(
+          { ok: false, error: resultado.error, mensaje: resultado.mensaje },
+          { status: 400, headers: NO_CACHE_HEADERS }
+        );
+      }
+      return NextResponse.json(
+        {
+          ok: true,
+          mensaje: resultado.mensaje,
+          rutaEmergencia: resultado.rutaEmergencia,
+        },
+        { headers: NO_CACHE_HEADERS }
+      );
+    }
+
+    // Abrir carpeta en servidor
+    if (accion === "ABRIR_CARPETA" || body.abrirCarpeta) {
+      const rutaConfigurada = await obtenerRutaRespaldoActiva();
+      const resultadoApertura = abrirCarpetaEnExplorador(rutaConfigurada);
+      return NextResponse.json(resultadoApertura, { headers: NO_CACHE_HEADERS });
+    }
+
+    // Generar respaldo manual bajo demanda en el servidor
+    const motivo = String(body.motivo || "SOLICITUD_MANUAL");
+    const rutaDestinoOpt = body.rutaDestino ? String(body.rutaDestino) : undefined;
+    const resultado = await ejecutarRespaldoEnCaliente(motivo, rutaDestinoOpt);
 
     if (!resultado.success) {
       return NextResponse.json(
@@ -305,14 +450,17 @@ export async function POST(req: NextRequest) {
           error: resultado.error,
           mensaje: resultado.mensaje,
         },
-        { status: 500 }
+        { status: 500, headers: NO_CACHE_HEADERS }
       );
     }
 
-    return NextResponse.json({
-      ok: true,
-      resultado,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        resultado,
+      },
+      { headers: NO_CACHE_HEADERS }
+    );
   } catch (error: unknown) {
     const errorMensaje =
       error instanceof Error ? error.message : "Error desconocido al procesar respaldo/restauración";
@@ -321,7 +469,7 @@ export async function POST(req: NextRequest) {
         ok: false,
         error: errorMensaje,
       },
-      { status: 500 }
+      { status: 500, headers: NO_CACHE_HEADERS }
     );
   }
 }

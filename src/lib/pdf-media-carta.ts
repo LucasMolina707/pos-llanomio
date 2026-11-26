@@ -1,6 +1,14 @@
 import { jsPDF } from "jspdf";
-import { DatosImpresionFactura, FormatoImpresionTipo } from "@/components/impresion/PlantillaImpresion";
+import {
+  DatosImpresionFactura,
+  FormatoImpresionTipo,
+  agruparDetallesFactura,
+} from "@/components/impresion/PlantillaImpresion";
 import { formatearFechaConDia } from "@/lib/fechas-alquiler";
+import {
+  obtenerPreferenciasImpresion,
+  esFormatoImpresionValido,
+} from "@/lib/preferencias-impresion";
 
 /**
  * Dimensiones exactas de Media Carta (Half Letter) Horizontal:
@@ -139,50 +147,93 @@ function dibujarPaginaMediaCarta(
   const mostrarSeccionDeposito = esAlquiler; // En alquiler se destaca depósito, entrega y cobros adicionales
 
   const totalOperacionPrincipal = safeNum(factura.totalFactura);
-  const totalAbonado = safeNum(factura.totalAbonado);
-  const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
-  const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
-  const saldoPendienteTotalApartado = Math.max(0, totalOperacionPrincipal - totalAbonado);
 
-  const desgloseMetodosPagados = (factura.abonos || []).reduce((acc: Record<string, number>, a) => {
+  // Desacoplamiento financiero estricto entre Alquiler y Custodia
+  const abonosAlquiler = (factura.abonos || []).filter((a: any) => a.tipoAbono !== "DEPOSITO_GARANTIA");
+  const abonosDeposito = (factura.abonos || []).filter((a: any) => a.tipoAbono === "DEPOSITO_GARANTIA");
+
+  const totalAbonado = safeNum(factura.totalAbonado);
+  const totalAbonadoAlquiler = abonosAlquiler.length > 0
+    ? abonosAlquiler.reduce((sum: number, a: any) => sum + (safeNum(a.monto) || 0), 0)
+    : totalAbonado;
+
+  const desgloseMetodosAlquiler = abonosAlquiler.reduce((acc: Record<string, number>, a: any) => {
     const met = (a.metodoPago || "EFECTIVO").toUpperCase();
     acc[met] = (acc[met] || 0) + (safeNum(a.monto) || 0);
     return acc;
   }, {});
-  const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
-  const metodosAbonos = Object.keys(desgloseMetodosPagados);
-  const textoMedioPagoPrincipal = tienePagoMixtoReal
-    ? Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
-    : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
+  const tienePagoMixtoAlquiler = Object.keys(desgloseMetodosAlquiler).length > 1;
+  const textoMedioPagoAlquiler = tienePagoMixtoAlquiler
+    ? Object.entries(desgloseMetodosAlquiler).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
+    : (Object.keys(desgloseMetodosAlquiler)[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
+  const textoMedioPagoPrincipal = textoMedioPagoAlquiler;
+  const metodoDepositoNombre = (abonosDeposito[0]?.metodoPago || (factura as any).metodoPagoDeposito || "EFECTIVO").toUpperCase();
+
+  const abonoPrevioApartado =
+    safeNum((factura as any).abonoPrevioApartado) > 0
+      ? safeNum((factura as any).abonoPrevioApartado)
+      : (Array.isArray(factura.abonos) && factura.abonos.length > 1 && esAlquiler
+        ? factura.abonos.slice(1).reduce((acc: number, a: { monto?: number | string | null }) => acc + (safeNum(a.monto) || 0), 0)
+        : 0);
+
+  const saldoPendienteAlquiler = esApartado && (factura as any).saldoPendiente !== undefined
+    ? Math.max(0, safeNum((factura as any).saldoPendiente))
+    : Math.max(
+        0,
+        totalOperacionPrincipal - abonoPrevioApartado - totalAbonadoAlquiler
+      );
+  const saldoPendienteTotalApartado = saldoPendienteAlquiler;
+
+  const vueltasDesdeAbonos = (factura.abonos || []).reduce((sum: number, a: any) => sum + (safeNum(a.vueltasEntregadas) || 0), 0);
+  const efectivoDesdeAbonos = (factura.abonos || []).reduce((sum: number, a: any) => sum + (safeNum(a.montoRecibido) || 0), 0);
+
+  let depositoPagadoHoy = 0;
+  if (abonosDeposito.length > 0) {
+    depositoPagadoHoy = abonosDeposito.reduce((sum: number, a: any) => sum + (safeNum(a.monto) || 0), 0);
+  } else if (esApartado) {
+    if ((factura as any).depositoAbonado !== undefined) {
+      depositoPagadoHoy = safeNum((factura as any).depositoAbonado);
+    } else if ((factura as any).depositoAbonadoHoy !== undefined) {
+      depositoPagadoHoy = safeNum((factura as any).depositoAbonadoHoy);
+    } else if (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA") {
+      depositoPagadoHoy = montoDepositoEfectivo;
+    } else {
+      depositoPagadoHoy = 0;
+    }
+  } else if (esAlquiler) {
+    depositoPagadoHoy = montoDepositoEfectivo > 0 && factura.estadoDeposito !== "DEVUELTO_COMPLETO" ? montoDepositoEfectivo : 0;
+  }
+  const saldoDepositoAlRetirar = (factura as any).saldoDeposito !== undefined
+    ? safeNum((factura as any).saldoDeposito)
+    : Math.max(0, montoDepositoEfectivo - depositoPagadoHoy);
+
+  const totalPagadoFacturaHoy = totalAbonadoAlquiler + depositoPagadoHoy;
+  const saldoPendienteTotalRetiro = esApartado
+    ? Math.max(0, (totalOperacionPrincipal + montoDepositoEfectivo) - totalPagadoFacturaHoy)
+    : saldoPendienteAlquiler + saldoDepositoAlRetirar;
 
   const tarifaMoraDiariaOficial =
     safeNum(factura.tarifaMoraDiaria) > 0
       ? safeNum(factura.tarifaMoraDiaria)
       : ((factura.detalles || []).reduce(
-          (acc, d) => acc + (safeNum(d.producto?.tarifaMoraDiaria) || 0),
-          0
-        ) || 3000);
+        (acc, d) => acc + (safeNum(d.producto?.tarifaMoraDiaria) || 0),
+        0
+      ) || 3000);
   const recargoMora = esAlquiler ? safeNum(factura.recargoMoraAcumulado) : 0;
-  const vueltasEntregadas = safeNum(factura.cambioEntregado);
-  const efectivoRecibidoCliente = safeNum(factura.efectivoRecibido);
+  const efectivoRecibidoCliente =
+    safeNum(factura.efectivoRecibido) > 0
+      ? safeNum(factura.efectivoRecibido)
+      : (efectivoDesdeAbonos > 0 ? efectivoDesdeAbonos : (esVenta ? totalAbonado : totalPagadoFacturaHoy));
 
-  const totalAlquilerConDeposito = totalOperacionPrincipal + montoDepositoEfectivo;
-  const totalPagadoOperacionAlquiler = totalAbonado + (montoDepositoEfectivo > 0 ? montoDepositoEfectivo : 0);
-
-  const abonoPrevioApartado =
-    safeNum((factura as any).abonoPrevioApartado) > 0
-      ? safeNum((factura as any).abonoPrevioApartado)
-      : (Array.isArray(factura.abonos) && factura.abonos.length > 1
-          ? factura.abonos.slice(1).reduce((acc: number, a: { monto?: number | string | null }) => acc + (safeNum(a.monto) || 0), 0)
-          : 0);
-
-  const efectivoRecibidoAlquiler =
-    efectivoRecibidoCliente > 0 ? efectivoRecibidoCliente : totalPagadoOperacionAlquiler;
-
-  const vueltasAlquiler =
-    vueltasEntregadas > 0
-      ? vueltasEntregadas
-      : Math.max(0, efectivoRecibidoAlquiler - Math.max(0, totalPagadoOperacionAlquiler - abonoPrevioApartado));
+  const vueltasEntregadas =
+    factura.cambioEntregado !== null && factura.cambioEntregado !== undefined
+      ? safeNum(factura.cambioEntregado)
+      : (vueltasDesdeAbonos > 0
+          ? vueltasDesdeAbonos
+          : (esVenta
+              ? Math.max(0, efectivoRecibidoCliente - totalAbonado)
+              : Math.max(0, efectivoRecibidoCliente - totalPagadoFacturaHoy)));
+  const vueltasAlquiler = vueltasEntregadas;
 
   // 1. ENCABEZADO: LOGO + DATOS DE EMPRESA + RECUADRO DE FACTURA
   const ladoLogo = offsetY > 0 ? 19 : 21;
@@ -261,8 +312,8 @@ function dibujarPaginaMediaCarta(
   const labelCliente = esAlquiler
     ? "CLIENTE / ARRENDATARIO:"
     : esApartado
-    ? "CLIENTE / APARTANTE:"
-    : "CLIENTE / ADQUIRIENTE:";
+      ? "CLIENTE / APARTANTE:"
+      : "CLIENTE / ADQUIRIENTE:";
   doc.text(labelCliente, margenIzquierdo + 3, cursorY + 4);
 
   doc.setFont("helvetica", "bold");
@@ -335,18 +386,40 @@ function dibujarPaginaMediaCarta(
   const labelColDescMC = esAlquiler
     ? "TIPO DE TRAJE / DETALLE"
     : esApartado
-    ? "TIPO DE TRAJE / PRENDA"
-    : "DESCRIPCIÓN DE LA PRENDA O SERVICIO";
+      ? "TIPO DE TRAJE / PRENDA"
+      : "DESCRIPCIÓN DE LA PRENDA O SERVICIO";
   doc.text(labelColDescMC, margenIzquierdo + 28, cursorY + 3.6);
   doc.text("PRECIO UNIT.", margenDerecho - 36, cursorY + 3.6, { align: "right" });
   doc.text("SUBTOTAL", margenDerecho - 3, cursorY + 3.6, { align: "right" });
 
   cursorY += altoCabecera;
 
-  const maxItemsMediaCarta = Math.min(factura.detalles.length, 5);
+  const detalles = agruparDetallesFactura(factura.detalles);
+  const totalDetallesCount = detalles.length;
+  const tieneMultiplesModificaciones = detalles.some((d) => Boolean(d.descripcionDetallada && d.descripcionDetallada.trim().length > 25));
+  const esContenidoDenso = totalDetallesCount >= 3 || tieneMultiplesModificaciones;
+
+  const maxItemsMediaCarta = esContenidoDenso ? Math.min(detalles.length, 3) : Math.min(detalles.length, 4);
   for (let i = 0; i < maxItemsMediaCarta; i++) {
-    const det = factura.detalles[i];
-    const altoFila = 4.8;
+    const det = detalles[i];
+    const tieneDetalle = Boolean(det.descripcionDetallada && det.descripcionDetallada.trim());
+    const xColDesc = margenIzquierdo + 28;
+    const anchoMaxDesc = (margenDerecho - 40) - xColDesc;
+
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(esContenidoDenso ? 5.2 : 5.8);
+    const lineasDetalleRaw: string[] = tieneDetalle
+      ? doc.splitTextToSize(`Detalle / Modificaciones: ${det.descripcionDetallada!.trim()}`, anchoMaxDesc)
+      : [];
+    // En contenido denso limitar a 2 líneas para preservar márgenes y firmas
+    const lineasDetalle = esContenidoDenso && lineasDetalleRaw.length > 2
+      ? [lineasDetalleRaw[0], lineasDetalleRaw[1] + "..."]
+      : lineasDetalleRaw;
+
+    const altoFilaBase = esContenidoDenso ? 4.0 : 4.8;
+    const stepLineas = esContenidoDenso ? 2.1 : 2.6;
+    const altoFila = lineasDetalle.length > 0 ? altoFilaBase + (lineasDetalle.length * stepLineas) : altoFilaBase;
+
     if (i % 2 === 0) {
       doc.setFillColor(255, 255, 255);
     } else {
@@ -355,167 +428,186 @@ function dibujarPaginaMediaCarta(
     doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, altoFila, "F");
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.8);
+    doc.setFontSize(esContenidoDenso ? 6.2 : 6.8);
     doc.setTextColor(15, 23, 42);
-    doc.text(String(det.cantidad), margenIzquierdo + 5, cursorY + 3.4, { align: "center" });
+    doc.text(String(det.cantidad), margenIzquierdo + 5, cursorY + (esContenidoDenso ? 2.9 : 3.4), { align: "center" });
 
     const tipoLabel = det.esServicioLibre
       ? "SERVICIO"
       : esAlquiler
-      ? "ALQUILER"
-      : esApartado
-      ? "APARTADO"
-      : "VENTA";
+        ? "ALQUILER"
+        : esApartado
+          ? "APARTADO"
+          : "VENTA";
     doc.setFont("helvetica", "bold");
-    doc.text(tipoLabel, margenIzquierdo + 13, cursorY + 3.4);
+    doc.text(tipoLabel, margenIzquierdo + 13, cursorY + (esContenidoDenso ? 2.9 : 3.4));
 
     doc.setFont("helvetica", "normal");
     let desc = det.esServicioLibre
       ? (det.descripcionLibre || "Arreglo de sastrería")
       : (det.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje"));
     if (det.producto?.codigo) desc = `[${det.producto.codigo}] ${desc}`;
-    if (det.descripcionDetallada && det.descripcionDetallada.trim()) {
-      desc = `${desc} [Det: ${det.descripcionDetallada.trim()}]`;
-    }
-    doc.text(desc.substring(0, 56), margenIzquierdo + 28, cursorY + 3.4);
+    doc.text(desc.substring(0, 56), xColDesc, cursorY + (esContenidoDenso ? 2.9 : 3.4));
 
-    doc.text(formatCOP(det.precioUnitario), margenDerecho - 36, cursorY + 3.4, { align: "right" });
+    doc.text(formatCOP(det.precioUnitario), margenDerecho - 36, cursorY + (esContenidoDenso ? 2.9 : 3.4), { align: "right" });
     doc.setFont("helvetica", "bold");
-    doc.text(formatCOP(det.subtotal), margenDerecho - 3, cursorY + 3.4, { align: "right" });
+    doc.text(formatCOP(det.subtotal), margenDerecho - 3, cursorY + (esContenidoDenso ? 2.9 : 3.4), { align: "right" });
+
+    if (lineasDetalle.length > 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(esContenidoDenso ? 5.2 : 5.8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(lineasDetalle, xColDesc, cursorY + (esContenidoDenso ? 2.9 : 3.4) + stepLineas);
+    }
 
     cursorY += altoFila;
   }
 
+  // Si quedaron ítems adicionales que no cupieron por compresión, mostrar aviso compacto
+  if (detalles.length > maxItemsMediaCarta) {
+    const restantes = detalles.length - maxItemsMediaCarta;
+    doc.setFillColor(241, 245, 249);
+    doc.rect(margenIzquierdo, cursorY, margenDerecho - margenIzquierdo, 3.2, "F");
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(5.2);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`+ ${restantes} prenda(s) o servicio(s) adicional(es) registrado(s) en orden.`, margenIzquierdo + 5, cursorY + 2.3);
+    cursorY += 3.4;
+  }
+
   // 4. RESUMEN CONTABLE, POLÍTICAS Y FIRMAS SEGÚN OPERACIÓN (ALQUILER / APARTADO / VENTA)
   if (esAlquiler) {
-    cursorY += 1.5;
+    cursorY += esContenidoDenso ? 1.0 : 1.5;
     const anchoCol = (margenDerecho - margenIzquierdo - 3) / 2;
-    const altoBloque = 28;
+    const altoBloque = esContenidoDenso
+      ? ((vueltasAlquiler > 0 && saldoPendienteAlquiler > 0) ? 26 : (vueltasAlquiler > 0 || saldoPendienteAlquiler > 0 ? 23 : 21))
+      : ((vueltasAlquiler > 0 && saldoPendienteAlquiler > 0) ? 31 : (vueltasAlquiler > 0 || saldoPendienteAlquiler > 0 ? 28 : 25));
     const xIzq = margenIzquierdo;
     const xDer = margenIzquierdo + anchoCol + 3;
     const yBloque = cursorY;
 
-    // COLUMNA 1: DEPÓSITO EN GARANTÍA (EN CUSTODIA)
+    // COLUMNA 1: CONDICIONES DE PRÉSTAMO Y FECHA LÍMITE
     doc.setFillColor(254, 252, 232); // Amber 50
     doc.setDrawColor(217, 119, 6);   // Amber 600
-    doc.setLineWidth(0.3);
     doc.rect(xIzq, yBloque, anchoCol, altoBloque, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
-    doc.setTextColor(146, 64, 14); // Amber 800
-    doc.text("DEPÓSITO EN GARANTÍA (EN CUSTODIA)", xIzq + 2.5, yBloque + 3.8);
+    doc.setFontSize(esContenidoDenso ? 6.5 : 7.2);
+    doc.setTextColor(146, 64, 14);
+    doc.text("DEPÓSITO EN GARANTÍA (EN CUSTODIA)", xIzq + 2.5, yBloque + (esContenidoDenso ? 3.3 : 3.8));
     doc.setDrawColor(217, 119, 6);
-    doc.line(xIzq, yBloque + 5.2, xIzq + anchoCol, yBloque + 5.2);
+    doc.line(xIzq, yBloque + (esContenidoDenso ? 4.5 : 5.2), xIzq + anchoCol, yBloque + (esContenidoDenso ? 4.5 : 5.2));
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
+    doc.setFontSize(esContenidoDenso ? 6.0 : 6.5);
     doc.setTextColor(146, 64, 14);
-    doc.text("Depósito en Garantía:", xIzq + 2.5, yBloque + 9.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(montoDepositoEfectivo), xIzq + anchoCol - 2.5, yBloque + 9.5, { align: "right" });
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.2);
-    doc.setTextColor(146, 64, 14);
-    doc.text("Custodia: Dinero en garantía a devolver al entregar las prendas completas.", xIzq + 2.5, yBloque + 14);
+    doc.text(`Depósito en Garantía (${metodoDepositoNombre}):`, xIzq + 2.5, yBloque + (esContenidoDenso ? 7.6 : 8.5));
+    doc.text(formatCOP(montoDepositoEfectivo), xIzq + anchoCol - 2.5, yBloque + (esContenidoDenso ? 7.6 : 8.5), { align: "right" });
 
     // Sub-recuadro Fecha Límite Entrega
-    const ySub = yBloque + 17;
+    const ySub = yBloque + (esContenidoDenso ? 9.2 : 10.5);
+    const altoSub = esContenidoDenso ? 6.5 : 7.8;
     doc.setFillColor(254, 243, 199);
     doc.setDrawColor(217, 119, 6);
-    doc.rect(xIzq + 2, ySub, anchoCol - 4, 8, "FD");
+    doc.rect(xIzq + 2, ySub, anchoCol - 4, altoSub, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
+    doc.setFontSize(esContenidoDenso ? 5.5 : 6.0);
     doc.setTextColor(146, 64, 14);
-    doc.text("FECHA LÍMITE ENTREGA:", xIzq + 3.5, ySub + 5);
+    doc.text("FECHA LÍMITE ENTREGA:", xIzq + 3.5, ySub + (esContenidoDenso ? 2.6 : 3.2));
     doc.setFont("helvetica", "bold");
     doc.setTextColor(185, 28, 28);
     const devTexto = factura.fechaDevolucionPactada
-      ? `${safeDate(factura.fechaDevolucionPactada)} hasta 8:00 p.m. (20:00)`
+      ? `${safeDate(factura.fechaDevolucionPactada)} hasta 8:00 p.m.`
       : "SEGÚN CONTRATO";
-    doc.text(devTexto, xIzq + anchoCol - 3.5, ySub + 5, { align: "right" });
+    doc.text(devTexto, xIzq + 3.5, ySub + (esContenidoDenso ? 5.5 : 6.6));
 
-    // COLUMNA 2: TOTALES DE PAGO DE ALQUILER
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(esContenidoDenso ? 5.0 : 5.5);
+    doc.setTextColor(146, 64, 14);
+    doc.text(`Custodia: Dinero a devolver al entregar prendas completas.`, xIzq + 2.5, yBloque + altoBloque - 2.0);
+
+    // COLUMNA 2: BLOQUE DERECHO DE COBRO ORGANIZADO
     doc.setFillColor(248, 250, 252); // Slate 50
-    doc.setDrawColor(148, 163, 184); // Slate 400
+    doc.setDrawColor(15, 23, 42);   // Slate 900
+    doc.setLineWidth(0.3);
     doc.rect(xDer, yBloque, anchoCol, altoBloque, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
+    doc.setFontSize(esContenidoDenso ? 6.5 : 7.2);
     doc.setTextColor(15, 23, 42);
-    doc.text("TOTALES DE PAGO DE ALQUILER", xDer + 2.5, yBloque + 3.8);
+    doc.text("COBRO POR SERVICIO DE ALQUILER", xDer + 2.5, yBloque + (esContenidoDenso ? 3.3 : 3.8));
     doc.setDrawColor(203, 213, 225);
-    doc.line(xDer, yBloque + 5.2, xDer + anchoCol, yBloque + 5.2);
+    doc.line(xDer, yBloque + (esContenidoDenso ? 4.5 : 5.2), xDer + anchoCol, yBloque + (esContenidoDenso ? 4.5 : 5.2));
 
-    let yTotAlq = yBloque + 8.8;
+    const stepCobro = esContenidoDenso ? 2.8 : 3.5;
+    let yCobroAlq = yBloque + (esContenidoDenso ? 7.6 : 8.5);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.8);
+    doc.setFontSize(esContenidoDenso ? 6.0 : 6.5);
     doc.setTextColor(71, 85, 105);
-    doc.text("Total Valor Alquiler:", xDer + 2.5, yTotAlq);
+    doc.text("Total Valor Alquiler:", xDer + 2.5, yCobroAlq);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(totalOperacionPrincipal), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
+    doc.text(formatCOP(totalOperacionPrincipal), xDer + anchoCol - 2.5, yCobroAlq, { align: "right" });
 
-    if (abonoPrevioApartado > 0) {
-      yTotAlq += 3.4;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.setTextColor(67, 56, 202);
-      doc.text("Abono Previo en Apartado:", xDer + 2.5, yTotAlq);
-      doc.text(`-${formatCOP(abonoPrevioApartado)}`, xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
-    }
-
-    // Franja resaltada Cobro Alquiler Pagado
-    yTotAlq += 3.4;
-    doc.setFillColor(226, 232, 240); // Slate 200
-    doc.rect(xDer + 1, yTotAlq - 2.5, anchoCol - 2, 4.2, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Cobro Alquiler Pagado:", xDer + 2.5, yTotAlq + 0.6);
-    doc.text(formatCOP(totalAbonado), xDer + anchoCol - 2.5, yTotAlq + 0.6, { align: "right" });
-
-    yTotAlq += 3.2;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
+    yCobroAlq += stepCobro;
     doc.setTextColor(71, 85, 105);
-    doc.text("Recibido:", xDer + 2.5, yTotAlq);
+    doc.text("Valor Total del Depósito:", xDer + 2.5, yCobroAlq);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(efectivoRecibidoAlquiler), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
+    doc.text(formatCOP(montoDepositoEfectivo), xDer + anchoCol - 2.5, yCobroAlq, { align: "right" });
 
-    yTotAlq += 3.1;
-    doc.setTextColor(5, 150, 105);
-    doc.text(`Valor Pagado (${textoMedioPagoPrincipal}):`, xDer + 2.5, yTotAlq);
-    doc.text(formatCOP(totalPagadoOperacionAlquiler), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
+    yCobroAlq += stepCobro + 0.3;
+    doc.setDrawColor(203, 213, 225);
+    doc.line(xDer + 2, yCobroAlq - (stepCobro * 0.6), xDer + anchoCol - 2, yCobroAlq - (stepCobro * 0.6));
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(esContenidoDenso ? 6.2 : 6.8);
+    doc.text("Total Alquiler más Depósito:", xDer + 2.5, yCobroAlq);
+    doc.text(formatCOP(totalOperacionPrincipal + montoDepositoEfectivo), xDer + anchoCol - 2.5, yCobroAlq, { align: "right" });
 
-    yTotAlq += 3.1;
-    doc.setTextColor(5, 150, 105);
-    doc.text("Vueltas:", xDer + 2.5, yTotAlq);
-    doc.text(formatCOP(vueltasAlquiler), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
-
-    if (saldoPendiente > 0) {
-      yTotAlq += 3.2;
+    if (saldoPendienteAlquiler > 0) {
+      yCobroAlq += stepCobro;
+      doc.setFontSize(esContenidoDenso ? 6.0 : 6.5);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(225, 29, 72);
-      doc.text("Falta por pagar:", xDer + 2.5, yTotAlq);
-      doc.text(formatCOP(saldoPendiente), xDer + anchoCol - 2.5, yTotAlq, { align: "right" });
+      doc.text("Saldo Pendiente Alquiler:", xDer + 2.5, yCobroAlq);
+      doc.text(formatCOP(saldoPendienteAlquiler), xDer + anchoCol - 2.5, yCobroAlq, { align: "right" });
     }
 
-    // BANNER OFICIAL DE OBSERVACIONES Y MORA (ANCHO COMPLETO)
-    const yStrip = yBloque + altoBloque + 1.2;
+    if (vueltasEntregadas > 0 && efectivoRecibidoCliente > totalPagadoFacturaHoy) {
+      yCobroAlq += stepCobro;
+      doc.setFontSize(esContenidoDenso ? 5.8 : 6.2);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(71, 85, 105);
+      doc.text("Efectivo Recibido Cliente:", xDer + 2.5, yCobroAlq);
+      doc.text(formatCOP(efectivoRecibidoCliente), xDer + anchoCol - 2.5, yCobroAlq, { align: "right" });
+      doc.setTextColor(15, 23, 42);
+    }
+
+    if (vueltasEntregadas > 0) {
+      yCobroAlq += stepCobro;
+      doc.setFontSize(esContenidoDenso ? 6.0 : 6.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(5, 150, 105);
+      doc.text("Vueltos / Cambio Entregado:", xDer + 2.5, yCobroAlq);
+      doc.text(formatCOP(vueltasEntregadas), xDer + anchoCol - 2.5, yCobroAlq, { align: "right" });
+      doc.setTextColor(15, 23, 42);
+    }
+
+    // BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO)
+    const yStrip = yBloque + altoBloque + (esContenidoDenso ? 0.8 : 1.2);
+    const altoStrip = esContenidoDenso ? 4.4 : 5.2;
     doc.setFillColor(254, 252, 232); // Amber 50
     doc.setDrawColor(217, 119, 6);   // Amber 600
-    doc.rect(margenIzquierdo, yStrip, margenDerecho - margenIzquierdo, 5.8, "FD");
+    doc.rect(margenIzquierdo, yStrip, margenDerecho - margenIzquierdo, altoStrip, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(5.8);
+    doc.setFontSize(esContenidoDenso ? 5.2 : 5.8);
     doc.setTextColor(146, 64, 14);
     const obsMora = `OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.`;
-    doc.text(obsMora, (margenIzquierdo + margenDerecho) / 2, yStrip + 3.8, { align: "center" });
+    doc.text(obsMora, (margenIzquierdo + margenDerecho) / 2, yStrip + (esContenidoDenso ? 2.9 : 3.5), { align: "center" });
 
     // FIRMAS PARALELAS AL PIE DE PÁGINA
-    const yFirmas = yStrip + 10.5;
+    const yFirmas = yStrip + (esContenidoDenso ? 6.5 : 8.5);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.2);
     doc.setTextColor(15, 23, 42);
@@ -541,110 +633,108 @@ function dibujarPaginaMediaCarta(
     doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 47.5, yFirmas + 5.8, { align: "center" });
 
   } else if (esApartado) {
-    cursorY += 1.5;
-    const numCols = saldoPendienteTotalApartado > 0 ? 4 : 3;
+    cursorY += esContenidoDenso ? 1.0 : 2.0;
     const gap = 2;
-    const anchoCaja = (margenDerecho - margenIzquierdo - (numCols - 1) * gap) / numCols;
-    const altoCaja = 13;
-    const yCajas = cursorY;
+    const anchoCol = (margenDerecho - margenIzquierdo - (3 * gap)) / 4;
+    const altoBloque = esContenidoDenso ? 12.5 : 15;
+    const yBloque = cursorY;
 
-    // Caja 1: Valor Alquiler
-    let curX = margenIzquierdo;
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(203, 213, 225);
-    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    // 1. VALOR ALQUILER = AZUL
+    const x1 = margenIzquierdo;
+    doc.setFillColor(239, 246, 255); // Blue 50
+    doc.setDrawColor(59, 130, 246);  // Blue 500
+    doc.setLineWidth(0.4);
+    doc.rect(x1, yBloque, anchoCol, altoBloque, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.2);
-    doc.setTextColor(71, 85, 105);
-    doc.text("1. VALOR ALQUILER", curX + anchoCaja / 2, yCajas + 3.5, { align: "center" });
-    doc.setFontSize(8.5);
+    doc.setFontSize(esContenidoDenso ? 5.8 : 6.2);
+    doc.setTextColor(30, 58, 138);   // Blue 900
+    doc.text("VALOR ALQUILER", x1 + anchoCol / 2, yBloque + (esContenidoDenso ? 4.2 : 5.2), { align: "center" });
+    doc.setFontSize(esContenidoDenso ? 7.5 : 8.2);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(totalOperacionPrincipal), curX + anchoCaja / 2, yCajas + 9, { align: "center" });
+    doc.text(formatCOP(totalOperacionPrincipal), x1 + anchoCol / 2, yBloque + (esContenidoDenso ? 9.5 : 11.2), { align: "center" });
 
-    // Caja 2: Saldo Depósito (Custodia)
-    curX += anchoCaja + gap;
-    doc.setFillColor(254, 252, 232);
-    doc.setDrawColor(217, 119, 6);
-    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    // 2. DEPOSITO = AMARILLO NARANJA
+    const x2 = x1 + anchoCol + gap;
+    doc.setFillColor(254, 252, 232); // Amber 50
+    doc.setDrawColor(245, 158, 11);  // Amber 500
+    doc.rect(x2, yBloque, anchoCol, altoBloque, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.2);
-    doc.setTextColor(146, 64, 14);
-    doc.text("2. SALDO DEPÓSITO", curX + anchoCaja / 2, yCajas + 3.5, { align: "center" });
-    doc.setFontSize(8.5);
-    doc.setTextColor(146, 64, 14);
-    doc.text(formatCOP(saldoDepositoAlRetirar), curX + anchoCaja / 2, yCajas + 8.5, { align: "center" });
-    doc.setFontSize(5);
-    doc.text(depositoPagadoHoyApartado ? "Abonado hoy" : "Pagar al retirar", curX + anchoCaja / 2, yCajas + 11.2, { align: "center" });
+    doc.setFontSize(esContenidoDenso ? 5.8 : 6.2);
+    doc.setTextColor(180, 83, 9);    // Amber 700
+    doc.text("DEPOSITO", x2 + anchoCol / 2, yBloque + (esContenidoDenso ? 4.2 : 5.2), { align: "center" });
+    doc.setFontSize(esContenidoDenso ? 7.5 : 8.2);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(montoDepositoEfectivo), x2 + anchoCol / 2, yBloque + (esContenidoDenso ? 9.5 : 11.2), { align: "center" });
 
-    // Caja 3: Abono hoy
-    curX += anchoCaja + gap;
-    doc.setFillColor(236, 253, 245);
-    doc.setDrawColor(5, 150, 105);
-    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    // 3. ABONO = VERDE
+    const x3 = x2 + anchoCol + gap;
+    doc.setFillColor(240, 253, 244); // Emerald 50
+    doc.setDrawColor(16, 185, 129);  // Emerald 500
+    doc.rect(x3, yBloque, anchoCol, altoBloque, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.2);
-    doc.setTextColor(5, 150, 105);
-    doc.text("3. ABONO (HOY)", curX + anchoCaja / 2, yCajas + 3.5, { align: "center" });
-    doc.setFontSize(8.5);
-    doc.text(`-${formatCOP(totalAbonado)}`, curX + anchoCaja / 2, yCajas + 9, { align: "center" });
+    doc.setFontSize(esContenidoDenso ? 5.8 : 6.2);
+    doc.setTextColor(6, 95, 70);     // Emerald 800
+    doc.text("ABONO", x3 + anchoCol / 2, yBloque + (esContenidoDenso ? 4.2 : 5.2), { align: "center" });
+    doc.setFontSize(esContenidoDenso ? 7.5 : 8.2);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalPagadoFacturaHoy), x3 + anchoCol / 2, yBloque + (esContenidoDenso ? 9.5 : 11.2), { align: "center" });
 
-    // Caja 4: Saldo Alquiler al retirar
-    if (saldoPendienteTotalApartado > 0) {
-      curX += anchoCaja + gap;
-      doc.setFillColor(255, 241, 242);
-      doc.setDrawColor(225, 29, 72);
-      doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(5.8);
-      doc.setTextColor(190, 18, 60);
-      doc.text("4. SALDO ALQUILER", curX + anchoCaja / 2, yCajas + 3.5, { align: "center" });
-      doc.setFontSize(8.5);
-      doc.text(formatCOP(saldoPendienteTotalApartado), curX + anchoCaja / 2, yCajas + 9, { align: "center" });
-    }
+    // 4. SALDO PENDIENTE AL RETIRAR = ROJO
+    const x4 = x3 + anchoCol + gap;
+    doc.setFillColor(255, 241, 242); // Rose 50
+    doc.setDrawColor(244, 63, 94);   // Rose 500
+    doc.rect(x4, yBloque, anchoCol, altoBloque, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(esContenidoDenso ? 4.8 : 5.2);
+    doc.setTextColor(159, 18, 57);   // Rose 900
+    doc.text("SALDO PENDIENTE AL RETIRAR", x4 + anchoCol / 2, yBloque + (esContenidoDenso ? 4.2 : 5.2), { align: "center" });
+    doc.setFontSize(esContenidoDenso ? 7.5 : 8.2);
+    doc.setTextColor(159, 18, 57);
+    doc.text(formatCOP(saldoPendienteTotalRetiro), x4 + anchoCol / 2, yBloque + (esContenidoDenso ? 9.5 : 11.2), { align: "center" });
 
-    // Franja Leyenda Oficial Apartados
-    const yStripAp = yCajas + altoCaja + 1.5;
+    // BANNER OFICIAL DE POLÍTICAS DE APARTADO (DEBAJO DEL CUADRO)
+    const yStripAp = yBloque + altoBloque + (esContenidoDenso ? 1.2 : 1.8);
+    const altoStripAp = esContenidoDenso ? 4.4 : 5.2;
     doc.setFillColor(241, 245, 249);
     doc.setDrawColor(15, 23, 42);
-    doc.rect(margenIzquierdo, yStripAp, margenDerecho - margenIzquierdo, 5.8, "FD");
-
+    doc.rect(margenIzquierdo, yStripAp, margenDerecho - margenIzquierdo, altoStripAp, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
+    doc.setFontSize(esContenidoDenso ? 5.5 : 6.2);
     doc.setTextColor(15, 23, 42);
-    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", (margenIzquierdo + margenDerecho) / 2, yStripAp + 3.8, { align: "center" });
+    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVE. Retiro según plazo pactado.", (margenIzquierdo + margenDerecho) / 2, yStripAp + (esContenidoDenso ? 2.9 : 3.5), { align: "center" });
 
     // FIRMAS PARALELAS AL PIE DE PÁGINA
-    const yFirmas = yStripAp + 10.5;
+    const yFirmasAp = yStripAp + (esContenidoDenso ? 6.5 : 8.5);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.2);
     doc.setTextColor(15, 23, 42);
     doc.setDrawColor(15, 23, 42);
 
     // Firma Cliente
-    doc.line(margenIzquierdo + 15, yFirmas, margenIzquierdo + 80, yFirmas);
-    doc.text("Firma del Cliente", margenIzquierdo + 47.5, yFirmas + 3.2, { align: "center" });
+    doc.line(margenIzquierdo + 15, yFirmasAp, margenIzquierdo + 80, yFirmasAp);
+    doc.text("Firma del Cliente", margenIzquierdo + 47.5, yFirmasAp + 3.2, { align: "center" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(5.2);
     doc.setTextColor(71, 85, 105);
-    doc.text(`C.C. ${factura.cliente.documento || "____________________"}`, margenIzquierdo + 47.5, yFirmas + 5.8, { align: "center" });
+    doc.text(`C.C. ${factura.cliente.documento || "____________________"}`, margenIzquierdo + 47.5, yFirmasAp + 5.8, { align: "center" });
 
     // Firma Cajero
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.2);
     doc.setTextColor(15, 23, 42);
-    doc.line(margenDerecho - 80, yFirmas, margenDerecho - 15, yFirmas);
-    doc.text("Cajero Responsable", margenDerecho - 47.5, yFirmas + 3.2, { align: "center" });
+    doc.line(margenDerecho - 80, yFirmasAp, margenDerecho - 15, yFirmasAp);
+    doc.text("Cajero Responsable", margenDerecho - 47.5, yFirmasAp + 3.2, { align: "center" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(5.2);
     doc.setTextColor(71, 85, 105);
-    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 47.5, yFirmas + 5.8, { align: "center" });
+    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 47.5, yFirmasAp + 5.8, { align: "center" });
 
   } else {
     // Venta Comercial: Totales a la derecha, Franja de Políticas, Firmas paralelas
-    cursorY += 1.5;
+    cursorY += esContenidoDenso ? 1.0 : 1.5;
     const anchoTotVenta = 76;
     const xTotVenta = margenDerecho - anchoTotVenta;
-    const altoTotVenta = 23;
+    const altoTotVenta = esContenidoDenso ? 19 : 23;
     const yTotVenta = cursorY;
 
     doc.setFillColor(248, 250, 252);
@@ -653,70 +743,72 @@ function dibujarPaginaMediaCarta(
     doc.rect(xTotVenta, yTotVenta, anchoTotVenta, altoTotVenta, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
+    doc.setFontSize(esContenidoDenso ? 6.5 : 7.2);
     doc.setTextColor(15, 23, 42);
-    doc.text("TOTALES DE VENTA", xTotVenta + 2.5, yTotVenta + 3.8);
+    doc.text("TOTALES DE VENTA", xTotVenta + 2.5, yTotVenta + (esContenidoDenso ? 3.2 : 3.8));
     doc.setDrawColor(203, 213, 225);
-    doc.line(xTotVenta, yTotVenta + 5.2, margenDerecho, yTotVenta + 5.2);
+    doc.line(xTotVenta, yTotVenta + (esContenidoDenso ? 4.5 : 5.2), margenDerecho, yTotVenta + (esContenidoDenso ? 4.5 : 5.2));
 
-    let yRowVenta = yTotVenta + 8.8;
+    const stepVenta = esContenidoDenso ? 2.8 : 3.4;
+    let yRowVenta = yTotVenta + (esContenidoDenso ? 7.4 : 8.8);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
+    doc.setFontSize(esContenidoDenso ? 6.8 : 7.5);
     doc.setTextColor(15, 23, 42);
     doc.text("Total Cobro de Venta:", xTotVenta + 2.5, yRowVenta);
     doc.text(formatCOP(totalOperacionPrincipal), margenDerecho - 2.5, yRowVenta, { align: "right" });
 
-    yRowVenta += 3.6;
-    doc.setFontSize(7);
+    yRowVenta += stepVenta;
+    doc.setFontSize(esContenidoDenso ? 6.5 : 7);
     doc.setTextColor(5, 150, 105);
     doc.text(`Cobro Recibido (${textoMedioPagoPrincipal}):`, xTotVenta + 2.5, yRowVenta);
     doc.text(formatCOP(totalAbonado), margenDerecho - 2.5, yRowVenta, { align: "right" });
 
     if (vueltasEntregadas > 0 || efectivoRecibidoCliente > 0) {
-      yRowVenta += 3.4;
+      yRowVenta += stepVenta;
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.5);
+      doc.setFontSize(esContenidoDenso ? 6.0 : 6.5);
       doc.setTextColor(71, 85, 105);
       doc.text("Efectivo Recibido Cliente:", xTotVenta + 2.5, yRowVenta);
       doc.text(formatCOP(efectivoRecibidoCliente > 0 ? efectivoRecibidoCliente : totalAbonado), margenDerecho - 2.5, yRowVenta, { align: "right" });
     }
 
     if (vueltasEntregadas > 0) {
-      yRowVenta += 3.4;
+      yRowVenta += stepVenta;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
+      doc.setFontSize(esContenidoDenso ? 6.5 : 7);
       doc.setTextColor(5, 150, 105);
       doc.text("Vueltos / Cambio Final Entregado:", xTotVenta + 2.5, yRowVenta);
       doc.text(formatCOP(vueltasEntregadas), margenDerecho - 2.5, yRowVenta, { align: "right" });
     }
 
     if (saldoPendiente > 0) {
-      yRowVenta += 3.4;
+      yRowVenta += stepVenta;
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
+      doc.setFontSize(esContenidoDenso ? 6.5 : 7);
       doc.setTextColor(225, 29, 72);
       doc.text("Falta por pagar:", xTotVenta + 2.5, yRowVenta);
       doc.text(formatCOP(saldoPendiente), margenDerecho - 2.5, yRowVenta, { align: "right" });
     }
 
     // Franja de Normas y Políticas ancho completo
-    const yPolVenta = yTotVenta + altoTotVenta + 1.5;
+    const yPolVenta = yTotVenta + altoTotVenta + (esContenidoDenso ? 1.0 : 1.5);
+    const altoPolVenta = esContenidoDenso ? 4.6 : 5.8;
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
-    doc.rect(margenIzquierdo, yPolVenta, margenDerecho - margenIzquierdo, 5.8, "FD");
+    doc.rect(margenIzquierdo, yPolVenta, margenDerecho - margenIzquierdo, altoPolVenta, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(5.8);
+    doc.setFontSize(esContenidoDenso ? 5.2 : 5.8);
     doc.setTextColor(15, 23, 42);
-    doc.text("NORMAS Y POLÍTICAS:", margenIzquierdo + 2, yPolVenta + 3.8);
+    doc.text("NORMAS Y POLÍTICAS:", margenIzquierdo + 2, yPolVenta + (esContenidoDenso ? 3.0 : 3.8));
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(5.5);
+    doc.setFontSize(esContenidoDenso ? 5.0 : 5.5);
     doc.setTextColor(71, 85, 105);
     const textoPolVenta = "Gracias por su compra. Conserve esta factura para cualquier reclamación o garantía según las políticas del establecimiento.";
-    doc.text(textoPolVenta, margenIzquierdo + 30, yPolVenta + 3.8);
+    doc.text(textoPolVenta, margenIzquierdo + 28, yPolVenta + (esContenidoDenso ? 3.0 : 3.8));
 
     // FIRMAS PARALELAS AL PIE DE PÁGINA
-    const yFirmas = yPolVenta + 10.5;
+    const yFirmas = yPolVenta + (esContenidoDenso ? 7.5 : 10.5);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.2);
     doc.setTextColor(15, 23, 42);
@@ -854,50 +946,93 @@ function dibujarPaginaCarta(
   const mostrarSeccionDeposito = esAlquiler; // En alquiler se destaca depósito, entrega y cobros adicionales
 
   const totalOperacionPrincipal = safeNum(factura.totalFactura);
-  const totalAbonado = safeNum(factura.totalAbonado);
-  const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
-  const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
-  const saldoPendienteTotalApartado = Math.max(0, totalOperacionPrincipal - totalAbonado);
 
-  const desgloseMetodosPagados = (factura.abonos || []).reduce((acc: Record<string, number>, a) => {
+  // Desacoplamiento financiero estricto entre Alquiler y Custodia
+  const abonosAlquiler = (factura.abonos || []).filter((a: any) => a.tipoAbono !== "DEPOSITO_GARANTIA");
+  const abonosDeposito = (factura.abonos || []).filter((a: any) => a.tipoAbono === "DEPOSITO_GARANTIA");
+
+  const totalAbonado = safeNum(factura.totalAbonado);
+  const totalAbonadoAlquiler = abonosAlquiler.length > 0
+    ? abonosAlquiler.reduce((sum: number, a: any) => sum + (safeNum(a.monto) || 0), 0)
+    : totalAbonado;
+
+  const desgloseMetodosAlquiler = abonosAlquiler.reduce((acc: Record<string, number>, a: any) => {
     const met = (a.metodoPago || "EFECTIVO").toUpperCase();
     acc[met] = (acc[met] || 0) + (safeNum(a.monto) || 0);
     return acc;
   }, {});
-  const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
-  const metodosAbonos = Object.keys(desgloseMetodosPagados);
-  const textoMedioPagoPrincipal = tienePagoMixtoReal
-    ? Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
-    : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
+  const tienePagoMixtoAlquiler = Object.keys(desgloseMetodosAlquiler).length > 1;
+  const textoMedioPagoAlquiler = tienePagoMixtoAlquiler
+    ? Object.entries(desgloseMetodosAlquiler).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
+    : (Object.keys(desgloseMetodosAlquiler)[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
+  const textoMedioPagoPrincipal = textoMedioPagoAlquiler;
+  const metodoDepositoNombre = (abonosDeposito[0]?.metodoPago || (factura as any).metodoPagoDeposito || "EFECTIVO").toUpperCase();
+
+  const abonoPrevioApartado =
+    safeNum((factura as any).abonoPrevioApartado) > 0
+      ? safeNum((factura as any).abonoPrevioApartado)
+      : (Array.isArray(factura.abonos) && factura.abonos.length > 1 && esAlquiler
+        ? factura.abonos.slice(1).reduce((acc: number, a: { monto?: number | string | null }) => acc + (safeNum(a.monto) || 0), 0)
+        : 0);
+
+  const saldoPendienteAlquiler = esApartado && (factura as any).saldoPendiente !== undefined
+    ? Math.max(0, safeNum((factura as any).saldoPendiente))
+    : Math.max(
+        0,
+        totalOperacionPrincipal - abonoPrevioApartado - totalAbonadoAlquiler
+      );
+  const saldoPendienteTotalApartado = saldoPendienteAlquiler;
+
+  const vueltasDesdeAbonos = (factura.abonos || []).reduce((sum: number, a: any) => sum + (safeNum(a.vueltasEntregadas) || 0), 0);
+  const efectivoDesdeAbonos = (factura.abonos || []).reduce((sum: number, a: any) => sum + (safeNum(a.montoRecibido) || 0), 0);
+
+  let depositoPagadoHoy = 0;
+  if (abonosDeposito.length > 0) {
+    depositoPagadoHoy = abonosDeposito.reduce((sum: number, a: any) => sum + (safeNum(a.monto) || 0), 0);
+  } else if (esApartado) {
+    if ((factura as any).depositoAbonado !== undefined) {
+      depositoPagadoHoy = safeNum((factura as any).depositoAbonado);
+    } else if ((factura as any).depositoAbonadoHoy !== undefined) {
+      depositoPagadoHoy = safeNum((factura as any).depositoAbonadoHoy);
+    } else if (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA") {
+      depositoPagadoHoy = montoDepositoEfectivo;
+    } else {
+      depositoPagadoHoy = 0;
+    }
+  } else if (esAlquiler) {
+    depositoPagadoHoy = montoDepositoEfectivo > 0 && factura.estadoDeposito !== "DEVUELTO_COMPLETO" ? montoDepositoEfectivo : 0;
+  }
+  const saldoDepositoAlRetirar = (factura as any).saldoDeposito !== undefined
+    ? safeNum((factura as any).saldoDeposito)
+    : Math.max(0, montoDepositoEfectivo - depositoPagadoHoy);
+
+  const totalPagadoFacturaHoy = totalAbonadoAlquiler + depositoPagadoHoy;
+  const saldoPendienteTotalRetiro = esApartado
+    ? Math.max(0, (totalOperacionPrincipal + montoDepositoEfectivo) - totalPagadoFacturaHoy)
+    : saldoPendienteAlquiler + saldoDepositoAlRetirar;
 
   const tarifaMoraDiariaOficial =
     safeNum(factura.tarifaMoraDiaria) > 0
       ? safeNum(factura.tarifaMoraDiaria)
       : ((factura.detalles || []).reduce(
-          (acc, d) => acc + (safeNum(d.producto?.tarifaMoraDiaria) || 0),
-          0
-        ) || 3000);
+        (acc, d) => acc + (safeNum(d.producto?.tarifaMoraDiaria) || 0),
+        0
+      ) || 3000);
   const recargoMora = esAlquiler ? safeNum(factura.recargoMoraAcumulado) : 0;
-  const vueltasEntregadas = safeNum(factura.cambioEntregado);
-  const efectivoRecibidoCliente = safeNum(factura.efectivoRecibido);
+  const efectivoRecibidoCliente =
+    safeNum(factura.efectivoRecibido) > 0
+      ? safeNum(factura.efectivoRecibido)
+      : (efectivoDesdeAbonos > 0 ? efectivoDesdeAbonos : (esVenta ? totalAbonado : totalPagadoFacturaHoy));
 
-  const totalAlquilerConDeposito = totalOperacionPrincipal + montoDepositoEfectivo;
-  const totalPagadoOperacionAlquiler = totalAbonado + (montoDepositoEfectivo > 0 ? montoDepositoEfectivo : 0);
-
-  const abonoPrevioApartado =
-    safeNum((factura as any).abonoPrevioApartado) > 0
-      ? safeNum((factura as any).abonoPrevioApartado)
-      : (Array.isArray(factura.abonos) && factura.abonos.length > 1
-          ? factura.abonos.slice(1).reduce((acc: number, a: { monto?: number | string | null }) => acc + (safeNum(a.monto) || 0), 0)
-          : 0);
-
-  const efectivoRecibidoAlquiler =
-    efectivoRecibidoCliente > 0 ? efectivoRecibidoCliente : totalPagadoOperacionAlquiler;
-
-  const vueltasAlquiler =
-    vueltasEntregadas > 0
-      ? vueltasEntregadas
-      : Math.max(0, efectivoRecibidoAlquiler - Math.max(0, totalPagadoOperacionAlquiler - abonoPrevioApartado));
+  const vueltasEntregadas =
+    factura.cambioEntregado !== null && factura.cambioEntregado !== undefined
+      ? safeNum(factura.cambioEntregado)
+      : (vueltasDesdeAbonos > 0
+          ? vueltasDesdeAbonos
+          : (esVenta
+              ? Math.max(0, efectivoRecibidoCliente - totalAbonado)
+              : Math.max(0, efectivoRecibidoCliente - totalPagadoFacturaHoy)));
+  const vueltasAlquiler = vueltasEntregadas;
 
   // 1. ENCABEZADO: LOGO + DATOS FISCALES + RECUADRO DE FACTURA
   const tieneLogo = insertarLogoSeguro(doc, empresa.logoUrl, margenIzquierdo, cursorY, 26);
@@ -963,7 +1098,9 @@ function dibujarPaginaCarta(
   cursorY = Math.max(yDet + 3, yCajaFactura + altoCajaFactura + 3);
 
   // 2. BANNER DE ESTADO GENERAL DE LA OPERACIÓN (CARTA)
-  if (esAlquiler) {
+  if (esApartado) {
+    // Para apartado no se imprime el banner de venta ni de alquiler
+  } else if (esAlquiler) {
     const infoCarta = obtenerInfoEstadosAlquiler(factura);
     if (infoCarta.estaCerrada) {
       doc.setFillColor(5, 150, 105);
@@ -1008,8 +1145,8 @@ function dibujarPaginaCarta(
   const labelClienteCarta = esAlquiler
     ? "CLIENTE / ARRENDATARIO:"
     : esApartado
-    ? "CLIENTE / APARTANTE:"
-    : "CLIENTE / ADQUIRIENTE:";
+      ? "CLIENTE / APARTANTE:"
+      : "CLIENTE / ADQUIRIENTE:";
   doc.text(labelClienteCarta, margenIzquierdo + 4, cursorY + 5);
 
   doc.setFont("helvetica", "bold");
@@ -1075,18 +1212,29 @@ function dibujarPaginaCarta(
   const labelColCarta = esAlquiler
     ? "TIPO DE TRAJE / DETALLE"
     : esApartado
-    ? "TIPO DE TRAJE / PRENDA"
-    : "DESCRIPCIÓN DE LA PRENDA O SERVICIO";
+      ? "TIPO DE TRAJE / PRENDA"
+      : "DESCRIPCIÓN DE LA PRENDA O SERVICIO";
   doc.text(labelColCarta, margenIzquierdo + 38, cursorY + 4.8);
   doc.text("VALOR UNIT.", margenDerecho - 46, cursorY + 4.8, { align: "right" });
   doc.text("SUBTOTAL", margenDerecho - 4, cursorY + 4.8, { align: "right" });
 
   cursorY += altoCabecera;
 
-  const maxItemsCarta = Math.min(factura.detalles.length, 10);
+  const detalles = agruparDetallesFactura(factura.detalles);
+  const maxItemsCarta = Math.min(detalles.length, 10);
   for (let i = 0; i < maxItemsCarta; i++) {
-    const det = factura.detalles[i];
-    const altoFila = 6.2;
+    const det = detalles[i];
+    const tieneDetalle = Boolean(det.descripcionDetallada && det.descripcionDetallada.trim());
+    const xColDesc = margenIzquierdo + 38;
+    const anchoMaxDesc = (margenDerecho - 52) - xColDesc;
+
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(7.0);
+    const lineasDetalle: string[] = tieneDetalle
+      ? doc.splitTextToSize(`Detalle / Modificaciones: ${det.descripcionDetallada!.trim()}`, anchoMaxDesc)
+      : [];
+    const altoFila = lineasDetalle.length > 0 ? 6.2 + (lineasDetalle.length * 3.4) : 6.2;
+
     if (i % 2 === 0) {
       doc.setFillColor(255, 255, 255);
     } else {
@@ -1102,26 +1250,31 @@ function dibujarPaginaCarta(
     const tipoDet = det.esServicioLibre
       ? "SERVICIO"
       : esAlquiler
-      ? "ALQUILER"
-      : esApartado
-      ? "APARTADO"
-      : "VENTA";
+        ? "ALQUILER"
+        : esApartado
+          ? "APARTADO"
+          : "VENTA";
     doc.setFont("helvetica", "bold");
     doc.text(tipoDet, margenIzquierdo + 18, cursorY + 4.3);
 
-    doc.setFont("helvetica", "normal");
+    doc.setFont("helvetica", "bold");
     let desc = det.esServicioLibre
       ? (det.descripcionLibre || "Servicio de Sastrería")
       : (det.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje"));
     if (det.producto?.codigo) desc = `[${det.producto.codigo}] ${desc}`;
-    if (det.descripcionDetallada && det.descripcionDetallada.trim()) {
-      desc = `${desc} [Detalle: ${det.descripcionDetallada.trim()}]`;
-    }
-    doc.text(desc.substring(0, 68), margenIzquierdo + 38, cursorY + 4.3);
+    doc.text(desc.substring(0, 68), xColDesc, cursorY + 4.3);
 
+    doc.setFont("helvetica", "normal");
     doc.text(formatCOP(det.precioUnitario), margenDerecho - 46, cursorY + 4.3, { align: "right" });
     doc.setFont("helvetica", "bold");
     doc.text(formatCOP(det.subtotal), margenDerecho - 4, cursorY + 4.5, { align: "right" });
+
+    if (lineasDetalle.length > 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7.0);
+      doc.setTextColor(71, 85, 105);
+      doc.text(lineasDetalle, xColDesc, cursorY + 4.3 + 3.4);
+    }
 
     cursorY += altoFila;
   }
@@ -1130,132 +1283,130 @@ function dibujarPaginaCarta(
   if (esAlquiler) {
     cursorY += 3;
     const anchoCol = (margenDerecho - margenIzquierdo - 5) / 2;
-    const altoBloque = 36;
+    const altoBloque = (vueltasAlquiler > 0 && saldoPendienteAlquiler > 0) ? 38 : 34;
     const xIzq = margenIzquierdo;
     const xDer = margenIzquierdo + anchoCol + 5;
     const yBloque = cursorY;
 
-    // COLUMNA 1: DEPÓSITO EN GARANTÍA (EN CUSTODIA)
+    // COLUMNA 1: CONDICIONES DE PRÉSTAMO Y FECHA LÍMITE
     doc.setFillColor(254, 252, 232); // Amber 50
     doc.setDrawColor(217, 119, 6);   // Amber 600
-    doc.setLineWidth(0.3);
     doc.rect(xIzq, yBloque, anchoCol, altoBloque, "FD");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.setTextColor(146, 64, 14); // Amber 800
+    doc.setTextColor(146, 64, 14);
     doc.text("DEPÓSITO EN GARANTÍA (EN CUSTODIA)", xIzq + 3.5, yBloque + 4.8);
     doc.setDrawColor(217, 119, 6);
     doc.line(xIzq, yBloque + 6.5, xIzq + anchoCol, yBloque + 6.5);
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
+    doc.setFontSize(7.5);
     doc.setTextColor(146, 64, 14);
-    doc.text("Depósito en Garantía:", xIzq + 3.5, yBloque + 12);
-    doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(montoDepositoEfectivo), xIzq + anchoCol - 3.5, yBloque + 12, { align: "right" });
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.2);
-    doc.setTextColor(146, 64, 14);
-    doc.text("Custodia: Dinero en garantía a devolver al entregar las prendas completas.", xIzq + 3.5, yBloque + 18);
+    doc.text(`Depósito en Garantía (${metodoDepositoNombre}):`, xIzq + 3.5, yBloque + 10.5);
+    doc.text(formatCOP(montoDepositoEfectivo), xIzq + anchoCol - 3.5, yBloque + 10.5, { align: "right" });
 
     // Sub-recuadro Fecha Límite Entrega
-    const ySub = yBloque + 22;
+    const ySub = yBloque + 12.5;
     doc.setFillColor(254, 243, 199);
     doc.setDrawColor(217, 119, 6);
     doc.rect(xIzq + 2.5, ySub, anchoCol - 5, 10, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(146, 64, 14);
-    doc.text("FECHA LÍMITE ENTREGA:", xIzq + 4.5, ySub + 6.2);
+    doc.text("FECHA LÍMITE ENTREGA OBLIGATORIA:", xIzq + 4, ySub + 4.0);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(185, 28, 28);
     const devTexto = factura.fechaDevolucionPactada
       ? `${safeDate(factura.fechaDevolucionPactada)} hasta 8:00 p.m. (20:00)`
       : "SEGÚN CONTRATO";
-    doc.text(devTexto, xIzq + anchoCol - 4.5, ySub + 6.2, { align: "right" });
+    doc.text(devTexto, xIzq + 4, ySub + 8.0);
 
-    // COLUMNA 2: TOTALES DE PAGO DE ALQUILER
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.0);
+    doc.setTextColor(146, 64, 14);
+    doc.text(`Custodia: Reembolsable al entregar prendas completas y sin daños.`, xIzq + 3.5, yBloque + 26);
+
+    // COLUMNA 2: BLOQUE DERECHO DE COBRO ORGANIZADO
     doc.setFillColor(248, 250, 252); // Slate 50
-    doc.setDrawColor(148, 163, 184); // Slate 400
+    doc.setDrawColor(15, 23, 42);   // Slate 900
+    doc.setLineWidth(0.3);
     doc.rect(xDer, yBloque, anchoCol, altoBloque, "FD");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(15, 23, 42);
-    doc.text("TOTALES DE PAGO DE ALQUILER", xDer + 3.5, yBloque + 4.8);
+    doc.text("COBRO POR SERVICIO DE ALQUILER", xDer + 3.5, yBloque + 4.8);
     doc.setDrawColor(203, 213, 225);
     doc.line(xDer, yBloque + 6.5, xDer + anchoCol, yBloque + 6.5);
 
-    let yTotAlq = yBloque + 11.2;
+    let yCobroAlq = yBloque + 10.5;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(71, 85, 105);
-    doc.text("Total Valor Alquiler:", xDer + 3.5, yTotAlq);
+    doc.text("Total Valor Alquiler:", xDer + 3.5, yCobroAlq);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(totalOperacionPrincipal), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
+    doc.text(formatCOP(totalOperacionPrincipal), xDer + anchoCol - 3.5, yCobroAlq, { align: "right" });
 
-    if (abonoPrevioApartado > 0) {
-      yTotAlq += 4;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.2);
-      doc.setTextColor(67, 56, 202);
-      doc.text("Abono Previo en Apartado:", xDer + 3.5, yTotAlq);
-      doc.text(`-${formatCOP(abonoPrevioApartado)}`, xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
-    }
-
-    // Franja resaltada Cobro Alquiler Pagado (Independiente del fondo en custodia)
-    yTotAlq += 4.2;
-    doc.setFillColor(226, 232, 240); // Slate 200
-    doc.rect(xDer + 1.5, yTotAlq - 3.2, anchoCol - 3, 5.2, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Cobro Alquiler Pagado:", xDer + 3.5, yTotAlq + 0.6);
-    doc.text(formatCOP(totalAbonado), xDer + anchoCol - 3.5, yTotAlq + 0.6, { align: "right" });
-
-    yTotAlq += 4;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
+    yCobroAlq += 4.5;
     doc.setTextColor(71, 85, 105);
-    doc.text("Recibido:", xDer + 3.5, yTotAlq);
+    doc.text("Valor Total del Depósito:", xDer + 3.5, yCobroAlq);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(efectivoRecibidoAlquiler), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
+    doc.text(formatCOP(montoDepositoEfectivo), xDer + anchoCol - 3.5, yCobroAlq, { align: "right" });
 
-    yTotAlq += 3.8;
-    doc.setTextColor(5, 150, 105);
-    doc.text(`Valor Pagado (${textoMedioPagoPrincipal}):`, xDer + 3.5, yTotAlq);
-    doc.text(formatCOP(totalPagadoOperacionAlquiler), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
+    yCobroAlq += 4.8;
+    doc.setDrawColor(203, 213, 225);
+    doc.line(xDer + 3, yCobroAlq - 2.8, xDer + anchoCol - 3, yCobroAlq - 2.8);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.0);
+    doc.text("Total Alquiler más Depósito:", xDer + 3.5, yCobroAlq);
+    doc.text(formatCOP(totalOperacionPrincipal + montoDepositoEfectivo), xDer + anchoCol - 3.5, yCobroAlq, { align: "right" });
 
-    yTotAlq += 3.8;
-    doc.setTextColor(5, 150, 105);
-    doc.text("Vueltas:", xDer + 3.5, yTotAlq);
-    doc.text(formatCOP(vueltasAlquiler), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
-
-    if (saldoPendiente > 0) {
-      yTotAlq += 4;
+    if (saldoPendienteAlquiler > 0) {
+      yCobroAlq += 4.0;
+      doc.setFontSize(7.5);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(225, 29, 72);
-      doc.text("Falta por pagar:", xDer + 3.5, yTotAlq);
-      doc.text(formatCOP(saldoPendiente), xDer + anchoCol - 3.5, yTotAlq, { align: "right" });
+      doc.text("Saldo Pendiente Alquiler:", xDer + 3.5, yCobroAlq);
+      doc.text(formatCOP(saldoPendienteAlquiler), xDer + anchoCol - 3.5, yCobroAlq, { align: "right" });
     }
 
-    // BANNER OBSERVACIONES Y MORA
+    if (vueltasEntregadas > 0 && efectivoRecibidoCliente > totalPagadoFacturaHoy) {
+      yCobroAlq += 4.0;
+      doc.setFontSize(7.0);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(71, 85, 105);
+      doc.text("Efectivo Recibido Cliente:", xDer + 3.5, yCobroAlq);
+      doc.text(formatCOP(efectivoRecibidoCliente), xDer + anchoCol - 3.5, yCobroAlq, { align: "right" });
+      doc.setTextColor(15, 23, 42);
+    }
+
+    if (vueltasEntregadas > 0) {
+      yCobroAlq += 4.0;
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(5, 150, 105);
+      doc.text("Vueltos / Cambio Entregado:", xDer + 3.5, yCobroAlq);
+      doc.text(formatCOP(vueltasEntregadas), xDer + anchoCol - 3.5, yCobroAlq, { align: "right" });
+      doc.setTextColor(15, 23, 42);
+    }
+
+    // BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO)
     const yStrip = yBloque + altoBloque + 2;
     doc.setFillColor(254, 252, 232);
     doc.setDrawColor(217, 119, 6);
-    doc.rect(margenIzquierdo, yStrip, margenDerecho - margenIzquierdo, 7.5, "FD");
+    doc.rect(margenIzquierdo, yStrip, margenDerecho - margenIzquierdo, 6.8, "FD");
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
+    doc.setFontSize(7);
     doc.setTextColor(146, 64, 14);
     const obsMora = `OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará ${formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.`;
-    doc.text(obsMora, (margenIzquierdo + margenDerecho) / 2, yStrip + 4.8, { align: "center" });
+    doc.text(obsMora, (margenIzquierdo + margenDerecho) / 2, yStrip + 4.5, { align: "center" });
 
     // FIRMAS PARALELAS
-    const yFirmas = yStrip + 16;
+    const yFirmas = yStrip + 15;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(15, 23, 42);
@@ -1280,100 +1431,97 @@ function dibujarPaginaCarta(
 
   } else if (esApartado) {
     cursorY += 3;
-    const numCols = saldoPendienteTotalApartado > 0 ? 4 : 3;
     const gap = 3;
-    const anchoCaja = (margenDerecho - margenIzquierdo - (numCols - 1) * gap) / numCols;
-    const altoCaja = 16;
-    const yCajas = cursorY;
+    const anchoCol = (margenDerecho - margenIzquierdo - (3 * gap)) / 4;
+    const altoBloque = 18;
+    const yBloque = cursorY;
 
-    // Caja 1: Valor Alquiler
-    let curX = margenIzquierdo;
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(203, 213, 225);
-    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    // 1. VALOR ALQUILER = AZUL
+    const x1 = margenIzquierdo;
+    doc.setFillColor(239, 246, 255); // Blue 50
+    doc.setDrawColor(59, 130, 246);  // Blue 500
+    doc.setLineWidth(0.4);
+    doc.rect(x1, yBloque, anchoCol, altoBloque, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
-    doc.setTextColor(71, 85, 105);
-    doc.text("1. VALOR ALQUILER", curX + anchoCaja / 2, yCajas + 4.5, { align: "center" });
-    doc.setFontSize(10);
+    doc.setFontSize(7.5);
+    doc.setTextColor(30, 58, 138);   // Blue 900
+    doc.text("VALOR ALQUILER", x1 + anchoCol / 2, yBloque + 6.5, { align: "center" });
+    doc.setFontSize(10.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(formatCOP(totalOperacionPrincipal), curX + anchoCaja / 2, yCajas + 11.5, { align: "center" });
+    doc.text(formatCOP(totalOperacionPrincipal), x1 + anchoCol / 2, yBloque + 14, { align: "center" });
 
-    // Caja 2: Saldo Depósito (Custodia)
-    curX += anchoCaja + gap;
-    doc.setFillColor(254, 252, 232);
-    doc.setDrawColor(217, 119, 6);
-    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    // 2. DEPOSITO = AMARILLO NARANJA
+    const x2 = x1 + anchoCol + gap;
+    doc.setFillColor(254, 252, 232); // Amber 50
+    doc.setDrawColor(245, 158, 11);  // Amber 500
+    doc.rect(x2, yBloque, anchoCol, altoBloque, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
-    doc.setTextColor(146, 64, 14);
-    doc.text("2. SALDO DEPÓSITO", curX + anchoCaja / 2, yCajas + 4.5, { align: "center" });
-    doc.setFontSize(10);
-    doc.setTextColor(146, 64, 14);
-    doc.text(formatCOP(saldoDepositoAlRetirar), curX + anchoCaja / 2, yCajas + 10.5, { align: "center" });
-    doc.setFontSize(6);
-    doc.text(depositoPagadoHoyApartado ? "Abonado hoy" : "Pagar al retirar", curX + anchoCaja / 2, yCajas + 14, { align: "center" });
+    doc.setFontSize(7.5);
+    doc.setTextColor(180, 83, 9);    // Amber 700
+    doc.text("DEPOSITO", x2 + anchoCol / 2, yBloque + 6.5, { align: "center" });
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(montoDepositoEfectivo), x2 + anchoCol / 2, yBloque + 14, { align: "center" });
 
-    // Caja 3: Abono hoy
-    curX += anchoCaja + gap;
-    doc.setFillColor(236, 253, 245);
-    doc.setDrawColor(5, 150, 105);
-    doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
+    // 3. ABONO = VERDE
+    const x3 = x2 + anchoCol + gap;
+    doc.setFillColor(240, 253, 244); // Emerald 50
+    doc.setDrawColor(16, 185, 129);  // Emerald 500
+    doc.rect(x3, yBloque, anchoCol, altoBloque, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
-    doc.setTextColor(5, 150, 105);
-    doc.text("3. ABONO (HOY)", curX + anchoCaja / 2, yCajas + 4.5, { align: "center" });
-    doc.setFontSize(10);
-    doc.text(`-${formatCOP(totalAbonado)}`, curX + anchoCaja / 2, yCajas + 11.5, { align: "center" });
+    doc.setFontSize(7.5);
+    doc.setTextColor(6, 95, 70);     // Emerald 800
+    doc.text("ABONO", x3 + anchoCol / 2, yBloque + 6.5, { align: "center" });
+    doc.setFontSize(10.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalPagadoFacturaHoy), x3 + anchoCol / 2, yBloque + 14, { align: "center" });
 
-    // Caja 4: Saldo Alquiler al retirar
-    if (saldoPendienteTotalApartado > 0) {
-      curX += anchoCaja + gap;
-      doc.setFillColor(255, 241, 242);
-      doc.setDrawColor(225, 29, 72);
-      doc.rect(curX, yCajas, anchoCaja, altoCaja, "FD");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.8);
-      doc.setTextColor(190, 18, 60);
-      doc.text("4. SALDO ALQUILER", curX + anchoCaja / 2, yCajas + 4.5, { align: "center" });
-      doc.setFontSize(10);
-      doc.text(formatCOP(saldoPendienteTotalApartado), curX + anchoCaja / 2, yCajas + 11.5, { align: "center" });
-    }
+    // 4. SALDO PENDIENTE AL RETIRAR = ROJO
+    const x4 = x3 + anchoCol + gap;
+    doc.setFillColor(255, 241, 242); // Rose 50
+    doc.setDrawColor(244, 63, 94);   // Rose 500
+    doc.rect(x4, yBloque, anchoCol, altoBloque, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(159, 18, 57);   // Rose 900
+    doc.text("SALDO PENDIENTE AL RETIRAR", x4 + anchoCol / 2, yBloque + 6.5, { align: "center" });
+    doc.setFontSize(10.5);
+    doc.setTextColor(159, 18, 57);
+    doc.text(formatCOP(saldoPendienteTotalRetiro), x4 + anchoCol / 2, yBloque + 14, { align: "center" });
 
-    // Franja Leyenda Oficial Apartados
-    const yStripAp = yCajas + altoCaja + 2;
+    // BANNER OFICIAL DE POLÍTICAS DE APARTADO (DEBAJO DEL CUADRO)
+    const yStripAp = yBloque + altoBloque + 2;
     doc.setFillColor(241, 245, 249);
     doc.setDrawColor(15, 23, 42);
-    doc.rect(margenIzquierdo, yStripAp, margenDerecho - margenIzquierdo, 7.5, "FD");
-
+    doc.rect(margenIzquierdo, yStripAp, margenDerecho - margenIzquierdo, 6.8, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(15, 23, 42);
-    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", (margenIzquierdo + margenDerecho) / 2, yStripAp + 4.8, { align: "center" });
+    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVE. Retiro según plazo pactado.", (margenIzquierdo + margenDerecho) / 2, yStripAp + 4.5, { align: "center" });
 
     // FIRMAS PARALELAS
-    const yFirmas = yStripAp + 16;
+    const yFirmasAp = yStripAp + 15;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(15, 23, 42);
     doc.setDrawColor(15, 23, 42);
 
-    doc.line(margenIzquierdo + 20, yFirmas, margenIzquierdo + 95, yFirmas);
-    doc.text("Firma del Cliente", margenIzquierdo + 57.5, yFirmas + 4, { align: "center" });
+    doc.line(margenIzquierdo + 20, yFirmasAp, margenIzquierdo + 95, yFirmasAp);
+    doc.text("Firma del Cliente", margenIzquierdo + 57.5, yFirmasAp + 4, { align: "center" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.5);
     doc.setTextColor(71, 85, 105);
-    doc.text(`C.C. ${factura.cliente.documento || "____________________"}`, margenIzquierdo + 57.5, yFirmas + 7.5, { align: "center" });
+    doc.text(`C.C. ${factura.cliente.documento || "____________________"}`, margenIzquierdo + 57.5, yFirmasAp + 7.5, { align: "center" });
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     doc.setTextColor(15, 23, 42);
-    doc.line(margenDerecho - 95, yFirmas, margenDerecho - 20, yFirmas);
-    doc.text("Cajero Responsable", margenDerecho - 57.5, yFirmas + 4, { align: "center" });
+    doc.line(margenDerecho - 95, yFirmasAp, margenDerecho - 20, yFirmasAp);
+    doc.text("Cajero Responsable", margenDerecho - 57.5, yFirmasAp + 4, { align: "center" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.5);
     doc.setTextColor(71, 85, 105);
-    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 57.5, yFirmas + 7.5, { align: "center" });
+    doc.text(factura.usuarioCajero?.nombre || "Atención en Mostrador", margenDerecho - 57.5, yFirmasAp + 7.5, { align: "center" });
 
   } else {
     // Venta Comercial Carta
@@ -1557,50 +1705,93 @@ function dibujarContenidoTirilla(
   const mostrarSeccionDeposito = esAlquiler; // En alquiler se destaca depósito, entrega y cobros adicionales
 
   const totalOperacionPrincipal = safeNum(factura.totalFactura);
-  const totalAbonado = safeNum(factura.totalAbonado);
-  const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
-  const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
-  const saldoPendienteTotalApartado = Math.max(0, totalOperacionPrincipal - totalAbonado);
 
-  const desgloseMetodosPagados = (factura.abonos || []).reduce((acc: Record<string, number>, a) => {
+  // Desacoplamiento financiero estricto entre Alquiler y Custodia
+  const abonosAlquiler = (factura.abonos || []).filter((a: any) => a.tipoAbono !== "DEPOSITO_GARANTIA");
+  const abonosDeposito = (factura.abonos || []).filter((a: any) => a.tipoAbono === "DEPOSITO_GARANTIA");
+
+  const totalAbonado = safeNum(factura.totalAbonado);
+  const totalAbonadoAlquiler = abonosAlquiler.length > 0
+    ? abonosAlquiler.reduce((sum: number, a: any) => sum + (safeNum(a.monto) || 0), 0)
+    : totalAbonado;
+
+  const desgloseMetodosAlquiler = abonosAlquiler.reduce((acc: Record<string, number>, a: any) => {
     const met = (a.metodoPago || "EFECTIVO").toUpperCase();
     acc[met] = (acc[met] || 0) + (safeNum(a.monto) || 0);
     return acc;
   }, {});
-  const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
-  const metodosAbonos = Object.keys(desgloseMetodosPagados);
-  const textoMedioPagoPrincipal = tienePagoMixtoReal
-    ? Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
-    : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
+  const tienePagoMixtoAlquiler = Object.keys(desgloseMetodosAlquiler).length > 1;
+  const textoMedioPagoAlquiler = tienePagoMixtoAlquiler
+    ? Object.entries(desgloseMetodosAlquiler).map(([m, v]) => `${m} $${v.toLocaleString("es-CO")}`).join(" + ")
+    : (Object.keys(desgloseMetodosAlquiler)[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
+  const textoMedioPagoPrincipal = textoMedioPagoAlquiler;
+  const metodoDepositoNombre = (abonosDeposito[0]?.metodoPago || (factura as any).metodoPagoDeposito || "EFECTIVO").toUpperCase();
+
+  const abonoPrevioApartado =
+    safeNum((factura as any).abonoPrevioApartado) > 0
+      ? safeNum((factura as any).abonoPrevioApartado)
+      : (Array.isArray(factura.abonos) && factura.abonos.length > 1 && esAlquiler
+        ? factura.abonos.slice(1).reduce((acc: number, a: { monto?: number | string | null }) => acc + (safeNum(a.monto) || 0), 0)
+        : 0);
+
+  const saldoPendienteAlquiler = esApartado && (factura as any).saldoPendiente !== undefined
+    ? Math.max(0, safeNum((factura as any).saldoPendiente))
+    : Math.max(
+        0,
+        totalOperacionPrincipal - abonoPrevioApartado - totalAbonadoAlquiler
+      );
+  const saldoPendienteTotalApartado = saldoPendienteAlquiler;
+
+  const vueltasDesdeAbonos = (factura.abonos || []).reduce((sum: number, a: any) => sum + (safeNum(a.vueltasEntregadas) || 0), 0);
+  const efectivoDesdeAbonos = (factura.abonos || []).reduce((sum: number, a: any) => sum + (safeNum(a.montoRecibido) || 0), 0);
+
+  let depositoPagadoHoy = 0;
+  if (abonosDeposito.length > 0) {
+    depositoPagadoHoy = abonosDeposito.reduce((sum: number, a: any) => sum + (safeNum(a.monto) || 0), 0);
+  } else if (esApartado) {
+    if ((factura as any).depositoAbonado !== undefined) {
+      depositoPagadoHoy = safeNum((factura as any).depositoAbonado);
+    } else if ((factura as any).depositoAbonadoHoy !== undefined) {
+      depositoPagadoHoy = safeNum((factura as any).depositoAbonadoHoy);
+    } else if (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA") {
+      depositoPagadoHoy = montoDepositoEfectivo;
+    } else {
+      depositoPagadoHoy = 0;
+    }
+  } else if (esAlquiler) {
+    depositoPagadoHoy = montoDepositoEfectivo > 0 && factura.estadoDeposito !== "DEVUELTO_COMPLETO" ? montoDepositoEfectivo : 0;
+  }
+  const saldoDepositoAlRetirar = (factura as any).saldoDeposito !== undefined
+    ? safeNum((factura as any).saldoDeposito)
+    : Math.max(0, montoDepositoEfectivo - depositoPagadoHoy);
+
+  const totalPagadoFacturaHoy = totalAbonadoAlquiler + depositoPagadoHoy;
+  const saldoPendienteTotalRetiro = esApartado
+    ? Math.max(0, (totalOperacionPrincipal + montoDepositoEfectivo) - totalPagadoFacturaHoy)
+    : saldoPendienteAlquiler + saldoDepositoAlRetirar;
 
   const tarifaMoraDiariaOficial =
     safeNum(factura.tarifaMoraDiaria) > 0
       ? safeNum(factura.tarifaMoraDiaria)
       : ((factura.detalles || []).reduce(
-          (acc, d) => acc + (safeNum(d.producto?.tarifaMoraDiaria) || 0),
-          0
-        ) || 3000);
+        (acc, d) => acc + (safeNum(d.producto?.tarifaMoraDiaria) || 0),
+        0
+      ) || 3000);
   const recargoMora = esAlquiler ? safeNum(factura.recargoMoraAcumulado) : 0;
-  const vueltasEntregadas = safeNum(factura.cambioEntregado);
-  const efectivoRecibidoCliente = safeNum(factura.efectivoRecibido);
+  const efectivoRecibidoCliente =
+    safeNum(factura.efectivoRecibido) > 0
+      ? safeNum(factura.efectivoRecibido)
+      : (efectivoDesdeAbonos > 0 ? efectivoDesdeAbonos : (esVenta ? totalAbonado : totalPagadoFacturaHoy));
 
-  const totalAlquilerConDeposito = totalOperacionPrincipal + montoDepositoEfectivo;
-  const totalPagadoOperacionAlquiler = totalAbonado + (montoDepositoEfectivo > 0 ? montoDepositoEfectivo : 0);
-
-  const abonoPrevioApartado =
-    safeNum((factura as any).abonoPrevioApartado) > 0
-      ? safeNum((factura as any).abonoPrevioApartado)
-      : (Array.isArray(factura.abonos) && factura.abonos.length > 1
-          ? factura.abonos.slice(1).reduce((acc: number, a: { monto?: number | string | null }) => acc + (safeNum(a.monto) || 0), 0)
-          : 0);
-
-  const efectivoRecibidoAlquiler =
-    efectivoRecibidoCliente > 0 ? efectivoRecibidoCliente : totalPagadoOperacionAlquiler;
-
-  const vueltasAlquiler =
-    vueltasEntregadas > 0
-      ? vueltasEntregadas
-      : Math.max(0, efectivoRecibidoAlquiler - Math.max(0, totalPagadoOperacionAlquiler - abonoPrevioApartado));
+  const vueltasEntregadas =
+    factura.cambioEntregado !== null && factura.cambioEntregado !== undefined
+      ? safeNum(factura.cambioEntregado)
+      : (vueltasDesdeAbonos > 0
+          ? vueltasDesdeAbonos
+          : (esVenta
+              ? Math.max(0, efectivoRecibidoCliente - totalAbonado)
+              : Math.max(0, efectivoRecibidoCliente - totalPagadoFacturaHoy)));
+  const vueltasAlquiler = vueltasEntregadas;
   let cursorY = startY;
 
   // Logo centrado si existe (recuadro cuadrado sin estirar)
@@ -1723,132 +1914,186 @@ function dibujarContenidoTirilla(
   doc.text("TOTAL", margenDer, cursorY, { align: "right" });
 
   cursorY += 3;
-  factura.detalles.forEach((det) => {
+  const detallesTirilla = agruparDetallesFactura(factura.detalles);
+  detallesTirilla.forEach((det) => {
     doc.setFont("helvetica", "normal");
     let desc = det.esServicioLibre
       ? (det.descripcionLibre || "Servicio")
       : (det.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje"));
-    doc.text(`${det.cantidad}x ${desc.substring(0, 26)}`, margen, cursorY);
+    const cantTxt = det.cantidad > 1 ? `${det.cantidad}x (${formatCOP(det.precioUnitario)} c/u) ` : `${det.cantidad}x `;
+    doc.text(`${cantTxt}${desc.substring(0, 24)}`, margen, cursorY);
     doc.setFont("helvetica", "bold");
     doc.text(formatCOP(det.subtotal), margenDer, cursorY, { align: "right" });
     cursorY += 3.2;
 
     if (det.descripcionDetallada && det.descripcionDetallada.trim()) {
       doc.setFont("helvetica", "italic");
-      doc.setFontSize(6.5);
+      doc.setFontSize(6.2);
       doc.setTextColor(71, 85, 105);
-      doc.text(`[Det: ${det.descripcionDetallada.trim().substring(0, 32)}]`, margen + 4, cursorY);
+      const lineasDet = doc.splitTextToSize(`* Detalle: ${det.descripcionDetallada.trim()}`, margenDer - margen - 4);
+      doc.text(lineasDet, margen + 3, cursorY);
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(7.2);
-      cursorY += 2.8;
+      cursorY += (lineasDet.length * 2.8);
     }
   });
 
   cursorY += 1.8;
   doc.line(margen, cursorY, margenDer, cursorY);
 
-  // Bloques Contables Segregados: Alquiler (Garantía + Totales) vs Apartado (4 conceptos) vs Venta
+  // Bloques Contables Segregados: Alquiler (Garantía + Totales) vs Apartado vs Venta
   if (esApartado) {
-    // 4 Conceptos de Apartados en orden estricto
-    cursorY += 3.5;
+    cursorY += 2.5;
+    const gap = 1.5;
+    const anchoCol = (margenDer - margen - gap) / 2;
+    const altoBloque = es58 ? 8.5 : 9.5;
+    const yBloque = cursorY;
+
+    // 1. VALOR ALQUILER = AZUL
+    const x1 = margen;
+    doc.setFillColor(239, 246, 255); // Blue 50
+    doc.setDrawColor(59, 130, 246);  // Blue 500
+    doc.setLineWidth(0.3);
+    doc.rect(x1, yBloque, anchoCol, altoBloque, "FD");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    doc.text("1. Valor Alquiler:", margen, cursorY);
-    doc.text(formatCOP(totalOperacionPrincipal), margenDer, cursorY, { align: "right" });
+    doc.setFontSize(es58 ? 5.0 : 5.8);
+    doc.setTextColor(30, 58, 138);   // Blue 900
+    doc.text("VALOR ALQUILER", x1 + anchoCol / 2, yBloque + (es58 ? 3.0 : 3.4), { align: "center" });
+    doc.setFontSize(es58 ? 6.8 : 7.6);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalOperacionPrincipal), x1 + anchoCol / 2, yBloque + (es58 ? 6.8 : 7.8), { align: "center" });
 
-    cursorY += 3.2;
-    doc.text("2. Saldo Depósito (Custodia):", margen, cursorY);
-    doc.text(formatCOP(saldoDepositoAlRetirar), margenDer, cursorY, { align: "right" });
+    // 2. DEPOSITO = AMARILLO NARANJA
+    const x2 = x1 + anchoCol + gap;
+    doc.setFillColor(254, 252, 232); // Amber 50
+    doc.setDrawColor(245, 158, 11);  // Amber 500
+    doc.rect(x2, yBloque, anchoCol, altoBloque, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(es58 ? 5.0 : 5.8);
+    doc.setTextColor(180, 83, 9);    // Amber 700
+    doc.text("DEPOSITO", x2 + anchoCol / 2, yBloque + (es58 ? 3.0 : 3.4), { align: "center" });
+    doc.setFontSize(es58 ? 6.8 : 7.6);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(montoDepositoEfectivo), x2 + anchoCol / 2, yBloque + (es58 ? 6.8 : 7.8), { align: "center" });
 
-    cursorY += 3.2;
-    doc.text("3. Abono (Consigna hoy):", margen, cursorY);
-    doc.text(`-${formatCOP(totalAbonado)}`, margenDer, cursorY, { align: "right" });
+    // Fila 2
+    const yFila2 = yBloque + altoBloque + gap;
 
-    if (saldoPendienteTotalApartado > 0) {
-      cursorY += 3.6;
-      doc.setFontSize(8);
-      doc.text("SALDO ALQUILER AL RETIRAR:", margen, cursorY);
-      doc.text(formatCOP(saldoPendienteTotalApartado), margenDer, cursorY, { align: "right" });
+    // 3. ABONO = VERDE
+    const x3 = margen;
+    doc.setFillColor(240, 253, 244); // Emerald 50
+    doc.setDrawColor(16, 185, 129);  // Emerald 500
+    doc.rect(x3, yFila2, anchoCol, altoBloque, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(es58 ? 5.0 : 5.8);
+    doc.setTextColor(6, 95, 70);     // Emerald 800
+    doc.text("ABONO", x3 + anchoCol / 2, yFila2 + (es58 ? 3.0 : 3.4), { align: "center" });
+    doc.setFontSize(es58 ? 6.8 : 7.6);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatCOP(totalPagadoFacturaHoy), x3 + anchoCol / 2, yFila2 + (es58 ? 6.8 : 7.8), { align: "center" });
+
+    // 4. SALDO PENDIENTE AL RETIRAR = ROJO
+    const x4 = x3 + anchoCol + gap;
+    doc.setFillColor(255, 241, 242); // Rose 50
+    doc.setDrawColor(244, 63, 94);   // Rose 500
+    doc.rect(x4, yFila2, anchoCol, altoBloque, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(es58 ? 4.2 : 4.8);
+    doc.setTextColor(159, 18, 57);   // Rose 900
+    doc.text("SALDO PENDIENTE AL RETIRAR", x4 + anchoCol / 2, yFila2 + (es58 ? 3.0 : 3.4), { align: "center" });
+    doc.setFontSize(es58 ? 6.8 : 7.6);
+    doc.setTextColor(159, 18, 57);
+    doc.text(formatCOP(saldoPendienteTotalRetiro), x4 + anchoCol / 2, yFila2 + (es58 ? 6.8 : 7.8), { align: "center" });
+
+    cursorY = yFila2 + altoBloque + 2;
+
+    // OBSERVACIONES Y LEYENDA OFICIAL (DEBAJO DEL CUADRO)
+    cursorY += 1.0;
+    doc.setFillColor(241, 245, 249);
+    doc.setDrawColor(15, 23, 42);
+    doc.rect(margen, cursorY, margenDer - margen, 6.0, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(es58 ? 5.2 : 6.0);
+    doc.setTextColor(15, 23, 42);
+    doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", anchoMm / 2, cursorY + 3.8, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+
+    cursorY += 7.0;
+
+    if (factura.observaciones) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(6.2);
+      doc.text(`Nota: ${factura.observaciones}`, margen, cursorY);
+      cursorY += 4.0;
     }
+
   } else if (esAlquiler) {
-    // RECUADRO LIMPIO DE DEPÓSITO EN GARANTÍA (CUSTODIA) Y ENTREGA
-    cursorY += 3;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.2);
-    doc.text("DEPÓSITO EN GARANTÍA (EN CUSTODIA):", margen, cursorY);
-
-    cursorY += 3;
-    doc.text(`• Depósito en Garantía: ${formatCOP(montoDepositoEfectivo)}`, margen, cursorY);
-
-    cursorY += 3;
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(185, 28, 28);
-    const devTextoTir = factura.fechaDevolucionPactada
-      ? `• FECHA LÍMITE DE ENTREGA: ${safeDate(factura.fechaDevolucionPactada)} hasta 8:00 p.m. (20:00)`
-      : "• FECHA LÍMITE DE ENTREGA: SEGÚN CONTRATO";
-    doc.text(devTextoTir, margen, cursorY);
-    doc.setTextColor(0, 0, 0);
-
-    cursorY += 2.8;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(6.2);
-    doc.text("• Custodia reembolsable al entregar prendas completas y sin daños", margen, cursorY);
-
-    cursorY += 3;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.2);
-    doc.setTextColor(146, 64, 14);
-    doc.text(`OBSERVACIÓN: Se descontará ${formatCOP(tarifaMoraDiariaOficial)}/día de mora del depósito.`, margen, cursorY);
-    doc.setTextColor(0, 0, 0);
-
-    cursorY += 2;
-    doc.line(margen, cursorY, margenDer, cursorY);
-
-    // TOTALES DE PAGO DE ALQUILER
+    // BLOQUE DE COBRO ORGANIZADO DE ALQUILER
     cursorY += 3.5;
+    doc.line(margen, cursorY, margenDer, cursorY);
+    cursorY += 3.2;
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
-    doc.text("TOTAL VALOR ALQUILER:", margen, cursorY);
+    doc.text("Total Valor Alquiler:", margen, cursorY);
     doc.text(formatCOP(totalOperacionPrincipal), margenDer, cursorY, { align: "right" });
 
-    if (abonoPrevioApartado > 0) {
+    cursorY += 3.0;
+    doc.text("Valor Total del Depósito:", margen, cursorY);
+    doc.text(formatCOP(montoDepositoEfectivo), margenDer, cursorY, { align: "right" });
+
+    cursorY += 3.4;
+    doc.line(margen, cursorY, margenDer, cursorY);
+    cursorY += 3.2;
+    doc.setFontSize(7.8);
+    doc.text("Total Alquiler más Depósito:", margen, cursorY);
+    doc.text(formatCOP(totalOperacionPrincipal + montoDepositoEfectivo), margenDer, cursorY, { align: "right" });
+
+    if (saldoPendienteAlquiler > 0) {
       cursorY += 3.2;
-      doc.setFontSize(7.2);
-      doc.text("ABONO PREVIO APARTADO:", margen, cursorY);
-      doc.text(`-${formatCOP(abonoPrevioApartado)}`, margenDer, cursorY, { align: "right" });
+      doc.setFontSize(7.8);
+      doc.setTextColor(185, 28, 28);
+      doc.text("Saldo Pendiente Alquiler:", margen, cursorY);
+      doc.text(formatCOP(saldoPendienteAlquiler), margenDer, cursorY, { align: "right" });
+      doc.setTextColor(0, 0, 0);
     }
 
-    cursorY += 3.6;
-    doc.setFontSize(8);
-    doc.text("COBRO ALQUILER PAGADO:", margen, cursorY);
-    doc.text(formatCOP(totalAbonado), margenDer, cursorY, { align: "right" });
+    if (vueltasEntregadas > 0 && efectivoRecibidoCliente > totalPagadoFacturaHoy) {
+      cursorY += 3.2;
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(71, 85, 105);
+      doc.text("Efectivo Recibido:", margen, cursorY);
+      doc.text(formatCOP(efectivoRecibidoCliente), margenDer, cursorY, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+    }
 
-    // 5. RECIBIDO (Anterior a Valor Pagado)
-    cursorY += 3.5;
+    if (vueltasEntregadas > 0) {
+      cursorY += 3.2;
+      doc.setFontSize(7.8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(5, 150, 105);
+      doc.text("Vueltos / Cambio Entregado:", margen, cursorY);
+      doc.text(formatCOP(vueltasEntregadas), margenDer, cursorY, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+    }
+
+    // BANNER OBSERVACIONES Y MORA (DEBAJO DEL CUADRO)
+    cursorY += 4.0;
+    doc.setFillColor(254, 243, 199);
+    doc.rect(margen, cursorY - 2.5, margenDer - margen, 7.5, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    doc.text("RECIBIDO:", margen, cursorY);
-    doc.text(formatCOP(efectivoRecibidoAlquiler), margenDer, cursorY, { align: "right" });
+    doc.setFontSize(6);
+    doc.setTextColor(146, 64, 14);
+    doc.text(`OBSERVACIONES: A partir del día siguiente se descontará`, margen + 1, cursorY + 0.5);
+    doc.text(`${formatCOP(tarifaMoraDiariaOficial)}/día de mora del depósito en garantía.`, margen + 1, cursorY + 3.2);
+    doc.setTextColor(0, 0, 0);
 
-    // 6. VALOR PAGADO (Suma alquiler + depósito)
-    cursorY += 3.4;
-    doc.setFontSize(7.5);
-    const labelPagTir = `VALOR PAGADO (${textoMedioPagoPrincipal}):`;
-    doc.text(labelPagTir.substring(0, 26), margen, cursorY);
-    doc.text(formatCOP(totalPagadoOperacionAlquiler), margenDer, cursorY, { align: "right" });
-
-    // 7. VUELTAS
-    cursorY += 3.2;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    doc.text("VUELTAS:", margen, cursorY);
-    doc.text(formatCOP(vueltasAlquiler), margenDer, cursorY, { align: "right" });
-
-    if (saldoPendiente > 0) {
-      cursorY += 3.5;
-      doc.setFontSize(8.2);
-      doc.text("FALTA POR PAGAR:", margen, cursorY);
-      doc.text(formatCOP(saldoPendiente), margenDer, cursorY, { align: "right" });
+    if (factura.observaciones) {
+      cursorY += 6.5;
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(6.2);
+      doc.text(`Nota: ${factura.observaciones}`, margen, cursorY);
     }
   } else {
     // Venta Comercial: Cero Sección A y B, Totales directos
@@ -1881,36 +2126,28 @@ function dibujarContenidoTirilla(
     }
   }
 
-  // Políticas segregadas en Tirilla (Omitidas estrictamente en Alquiler por regla de negocio)
-  if (!esAlquiler) {
+  // Políticas segregadas en Tirilla (Omitidas en Alquiler y Apartados, pues ya tienen sus leyendas)
+  if (!esAlquiler && !esApartado) {
     cursorY += 3.5;
-    if (esApartado) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.8);
-      doc.setTextColor(185, 28, 28);
-      doc.text("PLATA DE TRAJES APARTADOS NO SE DEVUELVEN", anchoMm / 2, cursorY, { align: "center" });
-      doc.setTextColor(0, 0, 0);
-    } else {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6);
-      doc.setTextColor(71, 85, 105);
-      const textoPolTir = "Gracias por su compra. Conserve esta factura para reclamos según políticas de garantía.";
-      const lineasPolTir = doc.splitTextToSize(textoPolTir, anchoMm - 8);
-      doc.text(lineasPolTir.slice(0, 2), anchoMm / 2, cursorY, { align: "center" });
-      doc.setTextColor(0, 0, 0);
-    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6);
+    doc.setTextColor(71, 85, 105);
+    const textoPolTir = "Gracias por su compra. Conserve esta factura para reclamos según políticas de garantía.";
+    const lineasPolTir = doc.splitTextToSize(textoPolTir, anchoMm - 8);
+    doc.text(lineasPolTir.slice(0, 2), anchoMm / 2, cursorY, { align: "center" });
+    doc.setTextColor(0, 0, 0);
   }
 
-  // Firmas en Tirilla
-  cursorY += 5;
+  // Firmas en Tirilla Holgadas y Espaciadas
+  cursorY += 12;
   doc.setLineWidth(0.2);
   doc.line(margen + 2, cursorY, margen + 34, cursorY);
   doc.line(margenDer - 34, cursorY, margenDer - 2, cursorY);
   cursorY += 2.8;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(6);
-  doc.text("Firma Cajero", margen + 8, cursorY);
-  doc.text("Firma Cliente", margenDer - 26, cursorY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.2);
+  doc.text("Firma Cliente", margen + 6, cursorY);
+  doc.text("Firma Cajero", margenDer - 26, cursorY);
 
   // Pie
   cursorY += 4.5;
@@ -1932,7 +2169,8 @@ export function crearDocumentoPdfTirilla(
   anchoMm: number = 80
 ): jsPDF {
   const es58 = anchoMm <= 60;
-  const altoBaseMm = Math.max(160, (es58 ? 120 : 110) + datos.factura.detalles.length * 8 + (datos.factura.abonos?.length || 0) * 7);
+  const detallesAgrupados = agruparDetallesFactura(datos.factura.detalles);
+  const altoBaseMm = Math.max(160, (es58 ? 120 : 110) + detallesAgrupados.length * 8 + (datos.factura.abonos?.length || 0) * 7);
   const numCopias = opciones.numCopias || 1;
   const altoTotalMm = numCopias === 2 ? altoBaseMm * 2 + 15 : altoBaseMm;
 
@@ -1964,11 +2202,18 @@ export function crearDocumentoPdfTirilla(
 
 /**
  * Determina el formato documental predeterminado según el tipo de operación:
- * - Ventas (VENTA, ARREGLO): 1 sola impresión en Media Carta ("MEDIA_CARTA").
- * - Alquileres (ALQUILER): 2 impresiones Media Carta en una sola hoja ("MEDIA_CARTA_DOBLE").
- * - Apartados (SEPARE, APARTADO): 1 sola impresión en Media Carta ("MEDIA_CARTA").
+ * Prioridad 1: Último formato elegido y guardado por el usuario en localStorage.
+ * Prioridad 2: Regla contextual por tipo de operación (Alquiler -> MEDIA_CARTA_DOBLE, Apartados/Ventas -> MEDIA_CARTA).
  */
 export function resolverFormatoPdfPredeterminado(tipoOperacion?: string): FormatoImpresionTipo {
+  if (typeof window !== "undefined") {
+    try {
+      const prefs = obtenerPreferenciasImpresion({ tipoOperacion });
+      if (prefs?.formato && esFormatoImpresionValido(prefs.formato)) {
+        return prefs.formato;
+      }
+    } catch { }
+  }
   const tipo = (tipoOperacion || "").toUpperCase();
   if (tipo === "ALQUILER") return "MEDIA_CARTA_DOBLE";
   if (tipo === "SEPARE" || tipo === "APARTADO") return "MEDIA_CARTA";
@@ -1984,18 +2229,24 @@ export function descargarPdfSegunFormato(
   nombreArchivo?: string,
   opciones: OpcionesPdfMediaCarta = {}
 ): void {
-  const formatoEfectivo = formato || resolverFormatoPdfPredeterminado(datos.factura.tipoOperacion);
+  const prefs = typeof window !== "undefined" ? obtenerPreferenciasImpresion({ tipoOperacion: datos.factura.tipoOperacion }) : null;
+  const formatoEfectivo = formato || prefs?.formato || resolverFormatoPdfPredeterminado(datos.factura.tipoOperacion);
+  const opcionesEfectivas: OpcionesPdfMediaCarta = {
+    ...opciones,
+    numCopias: opciones.numCopias || prefs?.numCopias || 1,
+  };
+
   let doc: jsPDF;
   if (formatoEfectivo === "TIRILLA_58") {
-    doc = crearDocumentoPdfTirilla(datos, opciones, 58);
+    doc = crearDocumentoPdfTirilla(datos, opcionesEfectivas, 58);
   } else if (formatoEfectivo === "TIRILLA") {
-    doc = crearDocumentoPdfTirilla(datos, opciones, 80);
+    doc = crearDocumentoPdfTirilla(datos, opcionesEfectivas, 80);
   } else if (formatoEfectivo === "CARTA") {
-    doc = crearDocumentoPdfCarta(datos, opciones);
+    doc = crearDocumentoPdfCarta(datos, opcionesEfectivas);
   } else if (formatoEfectivo === "MEDIA_CARTA_DOBLE") {
-    doc = crearDocumentoPdfMediaCartaDoble(datos, opciones);
+    doc = crearDocumentoPdfMediaCartaDoble(datos, opcionesEfectivas);
   } else {
-    doc = crearDocumentoPdfMediaCarta(datos, opciones);
+    doc = crearDocumentoPdfMediaCarta(datos, opcionesEfectivas);
   }
 
   const esSepare = datos.factura.tipoOperacion === "SEPARE" || datos.factura.tipoOperacion === "APARTADO";
@@ -2029,18 +2280,24 @@ export function abrirPdfMediaCarta(
   formato?: FormatoImpresionTipo,
   opciones: OpcionesPdfMediaCarta = {}
 ): void {
-  const formatoEfectivo = formato || resolverFormatoPdfPredeterminado(datos.factura.tipoOperacion);
+  const prefs = typeof window !== "undefined" ? obtenerPreferenciasImpresion({ tipoOperacion: datos.factura.tipoOperacion }) : null;
+  const formatoEfectivo = formato || prefs?.formato || resolverFormatoPdfPredeterminado(datos.factura.tipoOperacion);
+  const opcionesEfectivas: OpcionesPdfMediaCarta = {
+    ...opciones,
+    numCopias: opciones.numCopias || prefs?.numCopias || 1,
+  };
+
   let doc: jsPDF;
   if (formatoEfectivo === "TIRILLA_58") {
-    doc = crearDocumentoPdfTirilla(datos, opciones, 58);
+    doc = crearDocumentoPdfTirilla(datos, opcionesEfectivas, 58);
   } else if (formatoEfectivo === "TIRILLA") {
-    doc = crearDocumentoPdfTirilla(datos, opciones, 80);
+    doc = crearDocumentoPdfTirilla(datos, opcionesEfectivas, 80);
   } else if (formatoEfectivo === "CARTA") {
-    doc = crearDocumentoPdfCarta(datos, opciones);
+    doc = crearDocumentoPdfCarta(datos, opcionesEfectivas);
   } else if (formatoEfectivo === "MEDIA_CARTA_DOBLE") {
-    doc = crearDocumentoPdfMediaCartaDoble(datos, opciones);
+    doc = crearDocumentoPdfMediaCartaDoble(datos, opcionesEfectivas);
   } else {
-    doc = crearDocumentoPdfMediaCarta(datos, opciones);
+    doc = crearDocumentoPdfMediaCarta(datos, opcionesEfectivas);
   }
 
   const blob = doc.output("blob");

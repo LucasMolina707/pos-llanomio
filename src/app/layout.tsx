@@ -3,8 +3,18 @@ import type { Metadata } from "next";
 import AppLayout from "@/components/layout/AppLayout";
 
 export const metadata: Metadata = {
-  title: "Mi Empresa POS - Sistema de Facturación e Inventario Local",
+  title: "POS Llanomio - Sistema de Facturación e Inventario Local",
   description: "Sistema POS local para gestión de ventas, alquiler de prendas y control de caja",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/iconos/aurora.ico" },
+      { url: "/iconos/aurora-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/iconos/aurora-512.png",
+  },
 };
 
 export default function RootLayout({

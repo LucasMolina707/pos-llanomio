@@ -108,15 +108,15 @@ export default function Sidebar({
   // 11 MÓDULOS OFICIALES OPTIMIZADOS PARA ANCHO COMPLETO SIN RECORTES NI PUNTOS SUSPENSIVOS
   const todasLasSecciones: { title: string; items: MenuItem[] }[] = [
     {
-      title: "PANEL DE CONTROL",
+      title: "CONTROL",
       items: [
         {
-          name: "Panel Principal",
+          name: "Inicio",
           href: "/",
           icon: LayoutDashboard,
         },
         {
-          name: "Métricas y Rendimiento",
+          name: "Métricas",
           href: "/admin/dashboard",
           icon: BarChart3,
         },
@@ -128,10 +128,10 @@ export default function Sidebar({
       ],
     },
     {
-      title: "OPERACIÓN Y CAJA",
+      title: "OPERACIÓN",
       items: [
         {
-          name: "Terminal POS (Ventas)",
+          name: "Ventas POS",
           href: "/caja/pos",
           icon: ShoppingBag,
           accentColor: {
@@ -144,7 +144,7 @@ export default function Sidebar({
           },
         },
         {
-          name: "Sistema de Alquileres",
+          name: "Alquileres",
           href: "/caja/alquileres",
           icon: Shirt,
           accentColor: {
@@ -157,7 +157,7 @@ export default function Sidebar({
           },
         },
         {
-          name: "Apartados y Reservas",
+          name: "Apartados",
           href: "/caja/apartados",
           icon: CalendarClock,
           accentColor: {
@@ -170,42 +170,42 @@ export default function Sidebar({
           },
         },
         {
-          name: "Control y Arqueo de Caja",
+          name: "Arqueo de Caja",
           href: "/admin/caja",
           icon: Vault,
         },
         {
-          name: "Historial y Monitoreo",
+          name: "Monitoreo",
           href: "/admin/monitoreo",
           icon: CalendarClock,
         },
         {
-          name: "Directorio de Clientes",
+          name: "Clientes",
           href: "/admin/clientes",
           icon: UserCheck,
         },
       ],
     },
     {
-      title: "CATÁLOGO Y STOCK",
+      title: "CATÁLOGO",
       items: [
         {
-          name: "Inventario de Prendas",
+          name: "Inventario",
           href: "/admin/inventario",
           icon: Package,
         },
       ],
     },
     {
-      title: "CONFIGURACIÓN Y SISTEMA",
+      title: "SISTEMA",
       items: [
         {
-          name: "Usuarios y Permisos",
+          name: "Usuarios",
           href: "/admin/usuarios",
           icon: Shield,
         },
         {
-          name: "Configuración y Factura",
+          name: "Configuración",
           href: "/admin/configuracion",
           icon: Settings,
         },
@@ -300,8 +300,8 @@ export default function Sidebar({
               <Tooltip
                 content={
                   isPinned
-                    ? "Desfijar barra lateral (volver a auto-desplegable)"
-                    : "Fijar barra lateral siempre abierta"
+                    ? "Contraer Menú"
+                    : "Fijar Menú"
                 }
                 position="bottom"
               >
@@ -364,7 +364,7 @@ export default function Sidebar({
                   <Tooltip key={item.href} content={item.name} position="right" disabled={isExpanded}>
                     <Link
                       href={item.href}
-                      prefetch={true}
+                      prefetch={false}
                       onClick={() => isMobile && onCloseMobile && onCloseMobile()}
                       className={`h-10 px-2.5 rounded-xl flex items-center transition-colors duration-150 ${linkClasses} ${
                         !isExpanded ? "justify-center" : "gap-3 justify-start"
@@ -396,7 +396,7 @@ export default function Sidebar({
         {!isExpanded ? (
           <div
             className="w-10 h-10 mx-auto flex items-center justify-center rounded-xl bg-slate-100/90 border border-slate-200/80 text-slate-700 cursor-default"
-            title="Red Local LAN Activa (Servicio mDNS y sincronización activa)"
+            title="Red Local (LAN) Activa"
           >
             <div className="relative flex h-2.5 w-2.5 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -412,7 +412,7 @@ export default function Sidebar({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </div>
-            <span className="truncate">Red Local LAN Activa</span>
+            <span className="truncate">Red Local (LAN)</span>
           </div>
         )}
 
@@ -457,7 +457,7 @@ export default function Sidebar({
                   type="button"
                   onClick={handleLogout}
                   disabled={cerrandoSesion}
-                  title="Cerrar Sesión"
+                  title="Salir"
                   className="w-8 h-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition shrink-0 cursor-pointer"
                 >
                   <LogOut className="h-4 w-4" />

@@ -12,10 +12,18 @@ export const revalidate = 0;
  */
 export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const soloDisponibles = searchParams.get("disponibles") === "true";
+
+    const whereClause: Record<string, unknown> = {
+      tipoOperacion: "SEPARE",
+      estado: soloDisponibles
+        ? { notIn: ["ANULADA", "CERRADA"] }
+        : { not: "ANULADA" },
+    };
+
     const apartados = await prisma.factura.findMany({
-      where: {
-        tipoOperacion: "SEPARE",
-      },
+      where: whereClause,
       include: {
         cliente: true,
         detalles: {

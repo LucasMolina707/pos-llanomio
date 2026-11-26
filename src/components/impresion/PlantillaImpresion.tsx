@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Printer,
   FileText,
@@ -26,13 +26,15 @@ import {
 } from "@/lib/pdf-media-carta";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import { formatearFechaConDia } from "@/lib/fechas-alquiler";
+import {
+  FormatoImpresionTipo,
+  esFormatoImpresionValido,
+  obtenerPreferenciasImpresion,
+  guardarPreferenciasImpresion,
+  usePreferenciasImpresion,
+} from "@/lib/preferencias-impresion";
 
-export type FormatoImpresionTipo =
-  | "TIRILLA"
-  | "TIRILLA_58"
-  | "MEDIA_CARTA"
-  | "MEDIA_CARTA_DOBLE"
-  | "CARTA";
+export type { FormatoImpresionTipo };
 
 export interface DatosImpresionFactura {
   factura: {
@@ -52,6 +54,8 @@ export interface DatosImpresionFactura {
     saldoPendiente: number;
     tarifaMoraDiaria?: number | null;
     montoDeposito?: number;
+    depositoAbonado?: number;
+    saldoDeposito?: number;
     estadoDeposito?: string;
     montoRetenidoDeposito?: number;
     montoDevueltoDeposito?: number;
@@ -135,6 +139,79 @@ export interface DatosImpresionFactura {
   };
 }
 
+export interface ItemDetalleAgrupado {
+  id: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+  esServicioLibre: boolean;
+  descripcionLibre?: string | null;
+  descripcionDetallada?: string | null;
+  producto?: {
+    codigo: string;
+    nombre: string;
+    tipo?: string | null;
+    talla?: string | null;
+    color?: string | null;
+    tarifaMoraDiaria?: number | null;
+  } | null;
+}
+
+/**
+ * Agrupa de forma inteligente ítems repetidos que compartan la misma referencia/producto,
+ * nombre, talla, color, precio unitario y notas específicas.
+ * Suma las cantidades y subtotales en una sola línea clara y estandarizada.
+ */
+export function agruparDetallesFactura(
+  detalles: DatosImpresionFactura["factura"]["detalles"] | any[]
+): ItemDetalleAgrupado[] {
+  if (!Array.isArray(detalles) || detalles.length === 0) return [];
+  const mapa = new Map<string, ItemDetalleAgrupado>();
+
+  for (const d of detalles) {
+    const cantidad = Number(d?.cantidad) || 1;
+    const precioUnitario = Number(d?.precioUnitario) || 0;
+    const subtotal = Number(d?.subtotal) || cantidad * precioUnitario;
+    const esServicio = Boolean(d?.esServicioLibre);
+
+    const prodId = (d?.productoId || d?.producto?.codigo || d?.producto?.id || (esServicio ? "servicio_libre" : "articulo")).trim();
+    const nombre = (d?.producto?.nombre || d?.descripcionLibre || "").trim().toLowerCase();
+    const talla = (d?.producto?.talla || "").trim().toLowerCase();
+    const color = (d?.producto?.color || "").trim().toLowerCase();
+    const detalleNota = (d?.descripcionDetallada || "").trim().toLowerCase();
+
+    const clave = `${prodId}__${nombre}__${talla}__${color}__${precioUnitario}__${detalleNota}`;
+
+    if (mapa.has(clave)) {
+      const existente = mapa.get(clave)!;
+      existente.cantidad += cantidad;
+      existente.subtotal += subtotal;
+    } else {
+      mapa.set(clave, {
+        id: String(d?.id || clave),
+        cantidad,
+        precioUnitario,
+        subtotal,
+        esServicioLibre: esServicio,
+        descripcionLibre: d?.descripcionLibre || null,
+        descripcionDetallada: d?.descripcionDetallada || null,
+        producto: d?.producto
+          ? {
+            codigo: d.producto.codigo || "",
+            nombre: d.producto.nombre || "",
+            tipo: d.producto.tipo || null,
+            talla: d.producto.talla || null,
+            color: d.producto.color || null,
+            tarifaMoraDiaria: d.producto.tarifaMoraDiaria || null,
+          }
+          : null,
+      });
+    }
+  }
+
+  return Array.from(mapa.values());
+}
+
 interface PlantillaImpresionProps {
   datos?: DatosImpresionFactura | null;
   facturaId?: string;
@@ -143,16 +220,27 @@ interface PlantillaImpresionProps {
 }
 
 /**
- * Resuelve el formato de impresión predeterminado según el tipo de operación:
- * - Ventas (VENTA, ARREGLO): 1 sola impresión en Media Carta ("MEDIA_CARTA").
- * - Alquileres (ALQUILER): 2 impresiones Media Carta en una sola hoja ("MEDIA_CARTA_DOBLE").
- * - Apartados (SEPARE, APARTADO): 1 sola impresión en Media Carta ("MEDIA_CARTA").
+ * Resuelve el formato de impresión predeterminado.
+ * Prioridad 1: Último formato elegido y guardado por el usuario en el navegador (persistencia automática).
+ * Prioridad 2: Formato inicial pasado explícitamente por prop.
+ * Prioridad 3: Regla contextual por tipo de operación (Alquiler -> MEDIA_CARTA_DOBLE, Apartados/Ventas -> MEDIA_CARTA).
  */
 export function resolverFormatoPredeterminado(
   tipoOperacion?: string,
   formatoInicial?: FormatoImpresionTipo
 ): FormatoImpresionTipo {
-  if (formatoInicial) return formatoInicial;
+  if (formatoInicial && esFormatoImpresionValido(formatoInicial)) {
+    return formatoInicial;
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const prefs = obtenerPreferenciasImpresion({ tipoOperacion });
+      if (prefs?.formato && esFormatoImpresionValido(prefs.formato)) {
+        return prefs.formato;
+      }
+    } catch { }
+  }
 
   const tipo = (tipoOperacion || "").toUpperCase();
   if (tipo === "ALQUILER") {
@@ -161,7 +249,6 @@ export function resolverFormatoPredeterminado(
   if (tipo === "SEPARE" || tipo === "APARTADO") {
     return "MEDIA_CARTA";
   }
-  // Ventas u otros tipos de operación
   return "MEDIA_CARTA";
 }
 
@@ -234,19 +321,146 @@ export default function PlantillaImpresion({
 
   const datos = datosProp || datosCargados;
 
-  const [formato, setFormato] = useState<FormatoImpresionTipo>(() => {
-    return resolverFormatoPredeterminado(datos?.factura?.tipoOperacion, formatoInicial);
+  // Persistencia automática reactiva del formato y número de copias
+  const {
+    formato,
+    numCopias,
+    cambiarFormato,
+    cambiarNumCopias,
+  } = usePreferenciasImpresion({
+    formatoPredeterminado: formatoInicial,
+    tipoOperacion: datos?.factura?.tipoOperacion,
   });
 
-  useEffect(() => {
-    if (datos?.factura?.tipoOperacion) {
-      setFormato(resolverFormatoPredeterminado(datos.factura.tipoOperacion, formatoInicial));
-    }
-  }, [datos?.factura?.id, datos?.factura?.tipoOperacion, formatoInicial]);
-
-  const [numCopias, setNumCopias] = useState<1 | 2>(1);
   const areaImprimibleRef = useRef<HTMLDivElement>(null);
 
+  // Normalización defensiva absoluta de datos (incluso si datos es null/undefined)
+  const factura: any = datos?.factura || datos || {};
+  const empresa: any = datos?.empresa || {};
+  const detallesOriginales: any[] = Array.isArray(factura?.detalles) ? factura.detalles : [];
+  const detalles: ItemDetalleAgrupado[] = agruparDetallesFactura(detallesOriginales);
+  const abonos: any[] = Array.isArray(factura?.abonos) ? factura.abonos : [];
+  const cliente: any = factura?.cliente || {};
+  const usuarioCajero: any = factura?.usuarioCajero || null;
+
+  const sincronizarIframeImpresion = useCallback(
+    (forzarImprimir = false) => {
+      if (typeof window === "undefined") return;
+      const contenedor = areaImprimibleRef.current;
+      if (!contenedor) {
+        if (forzarImprimir) window.print();
+        return;
+      }
+
+      let iframe = document.getElementById("iframe-impresion-documento-pos") as HTMLIFrameElement;
+      if (!iframe) {
+        iframe = document.createElement("iframe");
+        iframe.id = "iframe-impresion-documento-pos";
+        iframe.style.position = "fixed";
+        iframe.style.top = "-9999px";
+        iframe.style.left = "-9999px";
+        iframe.style.width = "0px";
+        iframe.style.height = "0px";
+        iframe.style.border = "none";
+        document.body.appendChild(iframe);
+      }
+
+      const doc = iframe.contentWindow?.document || iframe.contentDocument;
+      if (!doc) {
+        if (forzarImprimir) window.print();
+        return;
+      }
+
+      let pageCss = "";
+      if (formato === "TIRILLA_58") {
+        pageCss = `
+          @page { size: 58mm auto; margin: 0mm; }
+          html, body { width: 58mm !important; margin: 0 auto !important; padding: 0 !important; background: white !important; color: black !important; }
+          body { width: 54mm !important; }
+        `;
+      } else if (formato === "TIRILLA") {
+        pageCss = `
+          @page { size: 80mm auto; margin: 0mm; }
+          html, body { width: 80mm !important; margin: 0 auto !important; padding: 0 !important; background: white !important; color: black !important; }
+          body { width: 76mm !important; }
+        `;
+      } else if (formato === "MEDIA_CARTA") {
+        pageCss = `
+          @page { size: 215.9mm 139.7mm landscape; margin: 4mm; }
+          html, body { width: 215.9mm !important; height: 139.7mm !important; margin: 0 !important; padding: 0 !important; background: white !important; color: black !important; }
+          .hoja-media-carta-impresion { width: 207mm !important; height: 131mm !important; max-height: 131mm !important; box-sizing: border-box; page-break-after: avoid !important; break-after: avoid !important; }
+        `;
+      } else if (formato === "MEDIA_CARTA_DOBLE") {
+        pageCss = `
+          @page { size: letter portrait; margin: 4mm; }
+          html, body { width: 207.9mm !important; height: 271mm !important; max-height: 271mm !important; margin: 0 auto !important; padding: 0 !important; background: white !important; color: black !important; overflow: hidden !important; }
+          .hoja-media-carta-doble-impresion { width: 100% !important; height: 270mm !important; max-height: 270mm !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; box-sizing: border-box !important; page-break-after: avoid !important; page-break-inside: avoid !important; break-after: avoid !important; break-inside: avoid !important; }
+          .mitad-media-carta { height: 130mm !important; max-height: 130mm !important; overflow: hidden !important; box-sizing: border-box !important; }
+        `;
+      } else {
+        pageCss = `
+          @page { size: letter portrait; margin: 6mm; }
+          html, body { width: 215.9mm !important; margin: 0 !important; padding: 0 !important; background: white !important; color: black !important; }
+          .hoja-carta-impresion { width: 100%; max-height: 258mm !important; box-sizing: border-box; page-break-after: avoid !important; break-after: avoid !important; }
+        `;
+      }
+
+      const styleTags = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
+        .map((el) => el.outerHTML)
+        .join("\n");
+
+      const htmlDocumento = `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+          <meta charset="utf-8">
+          <title>Factura ${factura?.numeroFactura || ""} - ${empresa?.nombreComercial || "Mi Empresa"}</title>
+          ${styleTags}
+          <style>
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
+            ${pageCss}
+            .no-print { display: none !important; }
+          </style>
+        </head>
+        <body>
+          ${contenedor.innerHTML}
+        </body>
+        </html>
+      `;
+
+      doc.open();
+      doc.write(htmlDocumento);
+      doc.close();
+
+      if (forzarImprimir) {
+        setTimeout(() => {
+          try {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+          } catch (err) {
+            console.error("Error al disparar impresión en iframe:", err);
+            window.print();
+          }
+        }, 350);
+      }
+    },
+    [formato, factura?.numeroFactura, empresa?.nombreComercial]
+  );
+
+  const imprimirDocumentoAislado = () => {
+    sincronizarIframeImpresion(true);
+  };
+
+  useEffect(() => {
+    if (!datos) return;
+    // Sincronizar el contenido del iframe en segundo plano para que cualquier botón exterior tenga el HTML listo
+    const timer = setTimeout(() => {
+      sincronizarIframeImpresion(false);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [datos, formato, numCopias, sincronizarIframeImpresion]);
+
+  // Retornos condicionales ubicados estrictamente DESPUÉS de todos los hooks
   if (cargandoRemoto) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl shadow-sm border border-slate-200">
@@ -277,112 +491,6 @@ export default function PlantillaImpresion({
     );
   }
 
-  // Normalización defensiva absoluta de datos
-  const factura: any = datos.factura || datos;
-  const empresa: any = datos.empresa || {};
-  const detalles: any[] = Array.isArray(factura?.detalles) ? factura.detalles : [];
-  const abonos: any[] = Array.isArray(factura?.abonos) ? factura.abonos : [];
-  const cliente: any = factura?.cliente || {};
-  const usuarioCajero: any = factura?.usuarioCajero || null;
-
-  const imprimirDocumentoAislado = () => {
-    const contenedor = areaImprimibleRef.current;
-    if (!contenedor) {
-      window.print();
-      return;
-    }
-
-    let iframe = document.getElementById("iframe-impresion-documento-pos") as HTMLIFrameElement;
-    if (!iframe) {
-      iframe = document.createElement("iframe");
-      iframe.id = "iframe-impresion-documento-pos";
-      iframe.style.position = "fixed";
-      iframe.style.top = "-9999px";
-      iframe.style.left = "-9999px";
-      iframe.style.width = "0px";
-      iframe.style.height = "0px";
-      iframe.style.border = "none";
-      document.body.appendChild(iframe);
-    }
-
-    const doc = iframe.contentWindow?.document || iframe.contentDocument;
-    if (!doc) {
-      window.print();
-      return;
-    }
-
-    let pageCss = "";
-    if (formato === "TIRILLA_58") {
-      pageCss = `
-        @page { size: 58mm auto; margin: 0mm; }
-        html, body { width: 58mm !important; margin: 0 auto !important; padding: 0 !important; background: white !important; color: black !important; }
-        body { width: 54mm !important; }
-      `;
-    } else if (formato === "TIRILLA") {
-      pageCss = `
-        @page { size: 80mm auto; margin: 0mm; }
-        html, body { width: 80mm !important; margin: 0 auto !important; padding: 0 !important; background: white !important; color: black !important; }
-        body { width: 76mm !important; }
-      `;
-    } else if (formato === "MEDIA_CARTA") {
-      pageCss = `
-        @page { size: 215.9mm 139.7mm landscape; margin: 4mm; }
-        html, body { width: 215.9mm !important; height: 139.7mm !important; margin: 0 !important; padding: 0 !important; background: white !important; color: black !important; }
-        .hoja-media-carta-impresion { width: 207mm !important; height: 131mm !important; max-height: 131mm !important; box-sizing: border-box; page-break-after: avoid !important; break-after: avoid !important; }
-      `;
-    } else if (formato === "MEDIA_CARTA_DOBLE") {
-      pageCss = `
-        @page { size: letter portrait; margin: 4mm; }
-        html, body { width: 207.9mm !important; height: 271mm !important; max-height: 271mm !important; margin: 0 auto !important; padding: 0 !important; background: white !important; color: black !important; overflow: hidden !important; }
-        .hoja-media-carta-doble-impresion { width: 100% !important; height: 270mm !important; max-height: 270mm !important; display: flex !important; flex-direction: column !important; justify-content: space-between !important; box-sizing: border-box !important; page-break-after: avoid !important; page-break-inside: avoid !important; break-after: avoid !important; break-inside: avoid !important; }
-        .mitad-media-carta { height: 130mm !important; max-height: 130mm !important; overflow: hidden !important; box-sizing: border-box !important; }
-      `;
-    } else {
-      pageCss = `
-        @page { size: letter portrait; margin: 6mm; }
-        html, body { width: 215.9mm !important; margin: 0 !important; padding: 0 !important; background: white !important; color: black !important; }
-        .hoja-carta-impresion { width: 100%; max-height: 258mm !important; box-sizing: border-box; page-break-after: avoid !important; break-after: avoid !important; }
-      `;
-    }
-
-    const styleTags = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
-      .map((el) => el.outerHTML)
-      .join("\n");
-
-    const htmlDocumento = `
-      <!DOCTYPE html>
-      <html lang="es">
-      <head>
-        <meta charset="utf-8">
-        <title>Factura ${factura.numeroFactura || ""} - ${empresa.nombreComercial || "Mi Empresa"}</title>
-        ${styleTags}
-        <style>
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
-          ${pageCss}
-          .no-print { display: none !important; }
-        </style>
-      </head>
-      <body>
-        ${contenedor.innerHTML}
-      </body>
-      </html>
-    `;
-
-    doc.open();
-    doc.write(htmlDocumento);
-    doc.close();
-
-    setTimeout(() => {
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch (err) {
-        console.error("Error al disparar impresión en iframe:", err);
-        window.print();
-      }
-    }, 350);
-  };
-
   const renderDocumento = (tipoCopiaTexto: string) => {
     // -------------------------------------------------------------------------
     // DETERMINACIÓN INEQUÍVOCA DEL TIPO DE OPERACIÓN (VENTA vs ALQUILER vs APARTADO)
@@ -402,42 +510,83 @@ export default function PlantillaImpresion({
     const saldoPendienteOperacion = Math.max(0, safeNumber(factura.saldoPendiente));
     const esPazYSalvo = saldoPendienteOperacion <= 0;
 
-    // Compatibilidad y alias unificados para submódulos de impresión
+    // -------------------------------------------------------------------------
+    // DESACOPLAMIENTO FINANCIERO OFICIAL (ALQUILER VS CUSTODIA VS CONSOLIDADO)
+    // -------------------------------------------------------------------------
     const esSepare = esApartado;
-    const totalOperacionAlquiler = totalOperacionPrincipal;
-    const totalAbonadoAlquiler = totalAbonadoOperacion;
-    const saldoPendienteAlquiler = saldoPendienteOperacion;
+    const totalAlquilerBase = totalOperacionPrincipal;
+    const totalOperacionAlquiler = totalAlquilerBase;
 
-    // 2. REGLA CONTABLE PARA APARTADOS (SEPARACIÓN ESTRICTA ALQUILER VS CUSTODIA):
-    // Saldo Pendiente de Alquiler al Retirar = Valor Alquiler - Abono consignado
+    // 1. Servicio de Alquiler: Exclusivamente abonos correspondientes al alquiler
+    const abonosAlquiler = abonos.filter((a: any) => a.tipoAbono !== "DEPOSITO_GARANTIA");
+    const abonosDeposito = abonos.filter((a: any) => a.tipoAbono === "DEPOSITO_GARANTIA");
+
+    const totalAbonadoAlquiler = abonosAlquiler.length > 0
+      ? abonosAlquiler.reduce((sum: number, a: any) => sum + (safeNumber(a.monto) || 0), 0)
+      : safeNumber(factura.totalAbonado);
+
+    const desgloseMetodosAlquiler = abonosAlquiler.reduce((acc: Record<string, number>, a: any) => {
+      const met = (a.metodoPago || "EFECTIVO").toUpperCase();
+      acc[met] = (acc[met] || 0) + (safeNumber(a.monto) || 0);
+      return acc;
+    }, {});
+    const tienePagoMixtoAlquiler = Object.keys(desgloseMetodosAlquiler).length > 1;
+    const textoMedioPagoAlquiler = tienePagoMixtoAlquiler
+      ? Object.entries(desgloseMetodosAlquiler).map(([m, v]) => `${m} ${formatCOP(v)}`).join(" + ")
+      : (Object.keys(desgloseMetodosAlquiler)[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
+
+    const abonoPrevioApartado =
+      safeNumber((factura as any).abonoPrevioApartado) > 0
+        ? safeNumber((factura as any).abonoPrevioApartado)
+        : (Array.isArray(factura.abonos) && factura.abonos.length > 1 && esAlquiler
+          ? factura.abonos.slice(1).reduce((acc: number, a: { monto?: number | string | null }) => acc + (safeNumber(a.monto) || 0), 0)
+          : 0);
+
+    const saldoPendienteAlquiler = esApartado && (factura as any).saldoPendiente !== undefined
+      ? Math.max(0, safeNumber((factura as any).saldoPendiente))
+      : Math.max(
+          0,
+          totalAlquilerBase - (abonoPrevioApartado > 0 ? abonoPrevioApartado : 0) - totalAbonadoAlquiler
+        );
+    const saldoPendienteTotalApartado = saldoPendienteAlquiler;
+
+    // Extracción inteligente de vueltas y efectivo desde los abonos registrados
+    const vueltasDesdeAbonos = abonos.reduce((sum: number, a: any) => sum + (safeNumber(a.vueltasEntregadas) || 0), 0);
+    const efectivoDesdeAbonos = abonos.reduce((sum: number, a: any) => sum + (safeNumber(a.montoRecibido) || 0), 0);
+
+    // 2. Depósito en Garantía (Custodia Reembolsable)
     const montoDepositoEfectivo = safeNumber(factura.montoDeposito);
-    const depositoPagadoHoyApartado = factura.estadoDeposito === "RECIBIDO_EN_GARANTIA";
-    const saldoDepositoAlRetirar = depositoPagadoHoyApartado ? 0 : montoDepositoEfectivo;
-    const saldoPendienteTotalApartado = Math.max(
-      0,
-      totalOperacionAlquiler - totalAbonadoAlquiler
-    );
-
-    // 3. REGLA CONTABLE PARA ALQUILER — ETIQUETA AMARILLA Y COBROS ADICIONALES
-    // En alquiler se visualiza la garantía, entrega pactada y cobros adicionales estipulados
-    const mostrarSeccionDeposito = esAlquiler;
-
-    let textoEstadoDeposito =
-      "RECIBIDO EN CUSTODIA (Se devuelve el 100% al entregar las prendas completas y sin daños)";
-    if (montoDepositoEfectivo <= 0) {
-      textoEstadoDeposito = "SIN DEPÓSITO MONETARIO EXIGIDO (Responsabilidad plena por prendas)";
-    } else if (factura.estadoDeposito === "DEVUELTO_COMPLETO") {
-      const devuelto = safeNumber(factura.montoDevueltoDeposito) || montoDepositoEfectivo;
-      textoEstadoDeposito = `DEPÓSITO DEVUELTO 100% AL CLIENTE (${formatCOP(devuelto)}) — Prendas recibidas a conformidad`;
-    } else if (
-      factura.estadoDeposito === "RETENIDO_PARCIAL" ||
-      factura.estadoDeposito === "RETENIDO_TOTAL"
-    ) {
-      const ret = safeNumber(factura.montoRetenidoDeposito);
-      const dev = safeNumber(factura.montoDevueltoDeposito);
-      const motivo = factura.motivoRetencionDeposito || "Daño o deterioro en prendas";
-      textoEstadoDeposito = `DEPÓSITO RETENIDO (${formatCOP(ret)} Retenido / ${formatCOP(dev)} Devuelto al cliente) — Motivo: ${motivo}`;
+    const montoDepositoTotal = montoDepositoEfectivo;
+    let depositoPagadoHoy = 0;
+    if (abonosDeposito.length > 0) {
+      depositoPagadoHoy = abonosDeposito.reduce((sum: number, a: any) => sum + (safeNumber(a.monto) || 0), 0);
+    } else if (esApartado) {
+      if ((factura as any).depositoAbonado !== undefined) {
+        depositoPagadoHoy = safeNumber((factura as any).depositoAbonado);
+      } else if ((factura as any).depositoAbonadoHoy !== undefined) {
+        depositoPagadoHoy = safeNumber((factura as any).depositoAbonadoHoy);
+      } else if (factura.estadoDeposito === "RECIBIDO_EN_GARANTIA") {
+        depositoPagadoHoy = montoDepositoTotal;
+      } else {
+        depositoPagadoHoy = 0;
+      }
+    } else if (esAlquiler) {
+      depositoPagadoHoy = montoDepositoTotal > 0 && factura.estadoDeposito !== "DEVUELTO_COMPLETO" ? montoDepositoTotal : 0;
     }
+    const saldoDepositoAlRetirar = (factura as any).saldoDeposito !== undefined
+      ? safeNumber((factura as any).saldoDeposito)
+      : Math.max(0, montoDepositoTotal - depositoPagadoHoy);
+
+    const metodoDepositoNombre = factura.metodoPagoDeposito
+      ? (factura.metodoPagoDeposito === "EFECTIVO" ? "Efectivo" : factura.metodoPagoDeposito === "BANCOLOMBIA" ? "Bancolombia" : "Otro Banco")
+      : (abonosDeposito[0]?.metodoPago ? abonosDeposito[0].metodoPago : "Custodia");
+
+    // 3. Módulo 3: Consolidado Total de la Factura (Léxico Breve, Sin Redundancias)
+    const totalOperacionGlobal = totalAlquilerBase + montoDepositoTotal;
+    const totalPagadoFacturaHoy = totalAbonadoAlquiler + depositoPagadoHoy;
+    const saldoPendienteTotalRetiro = esApartado
+      ? Math.max(0, (totalAlquilerBase + montoDepositoTotal) - totalPagadoFacturaHoy)
+      : saldoPendienteAlquiler + saldoDepositoAlRetirar;
 
     // Tarifa diaria de mora estipulada oficial (predeterminada $3.000)
     const tarifaMoraDiariaOficial =
@@ -445,51 +594,25 @@ export default function PlantillaImpresion({
         ? safeNumber(factura.tarifaMoraDiaria)
         : (detalles.reduce((acc, d) => acc + (safeNumber(d.producto?.tarifaMoraDiaria) || 0), 0) || 3000);
 
-    // Desglose de medios de pago para venta y alquiler (Soporte Oficial Pagos Mixtos)
-    const desgloseMetodosPagados = abonos.reduce((acc: Record<string, number>, a) => {
-      const met = (a.metodoPago || "EFECTIVO").toUpperCase();
-      acc[met] = (acc[met] || 0) + (safeNumber(a.monto) || 0);
-      return acc;
-    }, {});
-    const tienePagoMixtoReal = Object.keys(desgloseMetodosPagados).length > 1;
-    const metodosAbonos = Object.keys(desgloseMetodosPagados);
-    const textoMedioPagoPrincipal = tienePagoMixtoReal
-      ? Object.entries(desgloseMetodosPagados).map(([m, v]) => `${m} ${formatCOP(v)}`).join(" + ")
-      : (metodosAbonos[0] || (factura.metodoPagoPrincipal || factura.formaPago || "EFECTIVO").toUpperCase());
-
-    // 4. REGLA CONTABLE — CUADRE DE CAJA, EFECTIVO RECIBIDO Y VUELTAS
-    const totalAlquilerConDeposito = totalOperacionPrincipal + montoDepositoEfectivo;
-    const totalPagadoOperacionAlquiler = totalAbonadoOperacion + (montoDepositoEfectivo > 0 ? montoDepositoEfectivo : 0);
-
-    const abonoPrevioApartado =
-      safeNumber((factura as any).abonoPrevioApartado) > 0
-        ? safeNumber((factura as any).abonoPrevioApartado)
-        : (Array.isArray(factura.abonos) && factura.abonos.length > 1
-          ? factura.abonos.slice(1).reduce((acc: number, a: { monto?: number | string | null }) => acc + (safeNumber(a.monto) || 0), 0)
-          : 0);
-
-    const efectivoRecibidoAlquiler =
-      safeNumber(factura.efectivoRecibido) > 0
-        ? safeNumber(factura.efectivoRecibido)
-        : totalPagadoOperacionAlquiler;
-
-    const vueltasAlquiler =
-      safeNumber(factura.cambioEntregado) > 0
-        ? safeNumber(factura.cambioEntregado)
-        : Math.max(0, efectivoRecibidoAlquiler - Math.max(0, totalPagadoOperacionAlquiler - abonoPrevioApartado));
-
-    const cobroOperacionHoy = totalAbonadoOperacion;
-    const depositoParaCobroHoy =
-      mostrarSeccionDeposito && montoDepositoEfectivo > 0 ? montoDepositoEfectivo : 0;
-    const totalCobradoEnCajaHoy = cobroOperacionHoy + depositoParaCobroHoy;
+    // Para ventas comerciales estándar
+    const textoMedioPagoPrincipal = textoMedioPagoAlquiler;
     const efectivoRecibidoCliente =
       safeNumber(factura.efectivoRecibido) > 0
         ? safeNumber(factura.efectivoRecibido)
-        : totalCobradoEnCajaHoy;
+        : (efectivoDesdeAbonos > 0
+            ? efectivoDesdeAbonos
+            : (esVenta ? totalAbonadoOperacion : totalPagadoFacturaHoy));
+
     const vueltasCambioFinal =
-      safeNumber(factura.cambioEntregado) > 0
+      factura.cambioEntregado !== null && factura.cambioEntregado !== undefined
         ? safeNumber(factura.cambioEntregado)
-        : Math.max(0, efectivoRecibidoCliente - totalCobradoEnCajaHoy);
+        : (vueltasDesdeAbonos > 0
+            ? vueltasDesdeAbonos
+            : (esVenta
+                ? Math.max(0, efectivoRecibidoCliente - totalAbonadoOperacion)
+                : Math.max(0, efectivoRecibidoCliente - totalPagadoFacturaHoy)));
+
+    const vueltasAlquiler = vueltasCambioFinal;
 
     // 5. ESTADOS Y TÍTULOS SEGREGADOS POR OPERACIÓN (PROHIBIDO "ALQUILER" EN VENTAS)
     const estaCerrada =
@@ -643,9 +766,14 @@ export default function PlantillaImpresion({
                     <span className="font-semibold max-w-[52mm] break-words">
                       {safeNumber(d.cantidad)}x {d.esServicioLibre ? (d.descripcionLibre || "Traje libre") : (d.producto?.nombre || d.descripcionLibre || "Prenda")}
                       {d.producto?.codigo ? ` [${d.producto.codigo}]` : ""}
+                      {safeNumber(d.cantidad) > 1 && (
+                        <span className="text-[8.5px] text-slate-600 font-normal ml-1">
+                          ({formatCOP(d.precioUnitario)} c/u)
+                        </span>
+                      )}
                       {d.descripcionDetallada?.trim() && (
-                        <span className="block text-[9px] text-slate-700 italic font-normal">
-                          Detalle: {d.descripcionDetallada.trim()}
+                        <span className="block text-[9px] text-slate-700 italic font-medium break-words whitespace-pre-wrap mt-0.5">
+                          * Detalle: {d.descripcionDetallada.trim()}
                         </span>
                       )}
                     </span>
@@ -666,46 +794,112 @@ export default function PlantillaImpresion({
               </div>
             </div>
 
-            {/* Bloque Financiero Estructurado: Alquiler, Depósito Custodia, Abono, Saldo Pendiente */}
-            <div className="py-2 border-b-2 border-black space-y-1.5 text-[10.5px]">
-              <div className="flex justify-between font-bold text-xs">
-                <span>1. Saldo / Valor de Alquiler:</span>
-                <span className="font-mono">{formatCOP(totalOperacionAlquiler)}</span>
-              </div>
-              <div className="flex justify-between text-slate-900 font-semibold">
-                <span>2. Depósito en Garantía (Custodia):</span>
-                <span className="font-mono">{formatCOP(montoDepositoEfectivo)}</span>
-              </div>
-              <div className="flex justify-between text-emerald-800 font-bold">
-                <span>3. Abono (Pagado hoy en consigna):</span>
-                <span className="font-mono">-{formatCOP(totalAbonadoAlquiler)}</span>
-              </div>
-              {saldoPendienteTotalApartado > 0 && (
-                <div className="flex justify-between font-black text-sm pt-1 border-t-2 border-black">
-                  <span className="text-[11px] leading-tight max-w-[48mm]">Saldo Alquiler al Retirar:</span>
-                  <span className="font-mono text-rose-700 font-black">
-                    {formatCOP(saldoPendienteTotalApartado)}
+            {/* 4 ETIQUETAS DE APARTADOS (VALOR ALQUILER, DEPOSITO, ABONO, SALDO PENDIENTE AL RETIRAR) */}
+            <div className="py-2 border-t-2 border-black space-y-1.5 text-xs">
+              <div className="grid grid-cols-2 gap-1.5 text-center">
+                {/* VALOR ALQUILER = AZUL */}
+                <div
+                  className="p-1.5 rounded-lg border-2 flex flex-col justify-center items-center"
+                  style={{
+                    backgroundColor: "#eff6ff",
+                    borderColor: "#3b82f6",
+                    WebkitPrintColorAdjust: "exact",
+                    printColorAdjust: "exact",
+                  }}
+                >
+                  <span className="text-[8px] font-black uppercase tracking-wider text-blue-900 block leading-tight">
+                    VALOR ALQUILER
+                  </span>
+                  <span className="text-xs font-black font-mono text-blue-950 mt-0.5 block">
+                    {formatCOP(totalAlquilerBase)}
                   </span>
                 </div>
-              )}
+
+                {/* DEPOSITO = AMARILLO NARANJA */}
+                <div
+                  className="p-1.5 rounded-lg border-2 flex flex-col justify-center items-center"
+                  style={{
+                    backgroundColor: "#fefce8",
+                    borderColor: "#f59e0b",
+                    WebkitPrintColorAdjust: "exact",
+                    printColorAdjust: "exact",
+                  }}
+                >
+                  <span className="text-[8px] font-black uppercase tracking-wider text-amber-900 block leading-tight">
+                    DEPOSITO
+                  </span>
+                  <span className="text-xs font-black font-mono text-amber-950 mt-0.5 block">
+                    {formatCOP(montoDepositoTotal)}
+                  </span>
+                </div>
+
+                {/* ABONO = VERDE */}
+                <div
+                  className="p-1.5 rounded-lg border-2 flex flex-col justify-center items-center"
+                  style={{
+                    backgroundColor: "#f0fdf4",
+                    borderColor: "#10b981",
+                    WebkitPrintColorAdjust: "exact",
+                    printColorAdjust: "exact",
+                  }}
+                >
+                  <span className="text-[8px] font-black uppercase tracking-wider text-emerald-900 block leading-tight">
+                    ABONO
+                  </span>
+                  <span className="text-xs font-black font-mono text-emerald-950 mt-0.5 block">
+                    {formatCOP(totalPagadoFacturaHoy)}
+                  </span>
+                </div>
+
+                {/* SALDO PENDIENTE AL RETIRAR = ROJO */}
+                <div
+                  className="p-1.5 rounded-lg border-2 flex flex-col justify-center items-center"
+                  style={{
+                    backgroundColor: "#fff1f2",
+                    borderColor: "#f43f5e",
+                    WebkitPrintColorAdjust: "exact",
+                    printColorAdjust: "exact",
+                  }}
+                >
+                  <span className="text-[7.5px] font-black uppercase tracking-tight text-rose-900 block leading-tight">
+                    SALDO PENDIENTE AL RETIRAR
+                  </span>
+                  <span className="text-xs font-black font-mono text-rose-950 mt-0.5 block">
+                    {formatCOP(saldoPendienteTotalRetiro)}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            {/* LEYENDA OFICIAL DE APARTADOS */}
-            <div className="my-2 p-2 border-2 border-black bg-slate-100 text-center w-full">
+            {/* OBSERVACIONES Y LEYENDA OFICIAL (DEBAJO DEL CUADRO) */}
+            <div className="my-1.5 p-2 border-2 border-black bg-slate-100 text-center w-full space-y-1">
               <p className="font-black text-[10px] uppercase leading-tight text-black">
                 PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
               </p>
+              {factura.observaciones && (
+                <p className="text-[9px] text-slate-700 italic border-t border-slate-300 pt-0.5">
+                  Nota: {factura.observaciones}
+                </p>
+              )}
             </div>
 
-            {/* Pie y Firma del Cliente */}
-            <div className="py-3 text-center space-y-4 text-[9px]">
-              <div className="pt-4 border-t border-black w-4/5 mx-auto">
-                <p className="font-bold">Firma del Cliente: ___________________________</p>
-                <p className="text-[7.5px] text-slate-600 mt-0.5">C.C. {cliente.documento || "___________________"}</p>
+            {/* Pie y Firmas de Respaldo Holgadas */}
+            <div
+              className="text-center text-[9px] select-none"
+              style={{ marginTop: "40px", breakInside: "avoid", pageBreakInside: "avoid" }}
+            >
+              <div className="space-y-6">
+                <div>
+                  <div className="border-t border-black w-4/5 mx-auto mb-1"></div>
+                  <p className="font-bold uppercase tracking-tight">Firma del Cliente</p>
+                  <p className="text-[8px] text-slate-700">C.C. / NIT: {cliente.documento || "____________________"}</p>
+                </div>
+                <div>
+                  <div className="border-t border-black w-4/5 mx-auto mb-1"></div>
+                  <p className="font-bold uppercase tracking-tight">Firma Vendedor / Cajero</p>
+                  <p className="text-[8px] text-slate-700">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+                </div>
               </div>
-              {mostrarCajero && (
-                <p className="text-[8px] text-slate-500">Cajero: {usuarioCajero?.nombre}</p>
-              )}
             </div>
 
             <div className="text-center text-[8.5px] pt-1 text-slate-500">
@@ -835,6 +1029,11 @@ export default function PlantillaImpresion({
                       {d.esServicioLibre
                         ? `[Arreglo] ${d.descripcionLibre || "Servicio"}`
                         : d.producto?.nombre || (esVenta ? "Artículo de Venta" : "Traje")}
+                      {safeNumber(d.cantidad) > 1 && (
+                        <span className="text-[9px] font-normal text-slate-600 ml-1">
+                          ({formatCOP(d.precioUnitario)} c/u)
+                        </span>
+                      )}
                     </span>
                     <span className="font-mono font-bold">{formatCOP(d.subtotal)}</span>
                   </div>
@@ -844,8 +1043,8 @@ export default function PlantillaImpresion({
                     </p>
                   )}
                   {d.descripcionDetallada?.trim() && (
-                    <p className="text-[9.5px] text-slate-800 italic font-medium leading-tight">
-                      Detalle: {d.descripcionDetallada.trim()}
+                    <p className="text-[9.5px] text-slate-800 italic font-medium leading-tight break-words whitespace-pre-wrap mt-0.5">
+                      * Detalle: {d.descripcionDetallada.trim()}
                     </p>
                   )}
                 </div>
@@ -854,37 +1053,45 @@ export default function PlantillaImpresion({
           </div>
 
           {/* ========================================================================= */}
-          {/* LIQUIDACIÓN SEGREGADA: ALQUILER (CON GARANTÍA Y COBROS) vs VENTA (DIRECTA) */}
+          {/* LIQUIDACIÓN SEGREGADA: ALQUILER vs APARTADO vs VENTA                      */}
           {/* ========================================================================= */}
           {esAlquiler ? (
             <>
-              {/* ETIQUETA AMARILLA LIMPIA: ÚNICAMENTE DEPÓSITO EN GARANTÍA (CUSTODIA) Y FECHA LÍMITE */}
-              <div className="py-2 border-y-2 border-black space-y-1.5 text-[11px] bg-amber-50 p-2 rounded my-1.5 border border-amber-300 text-amber-950">
-                <div className="font-black text-[10.5px] border-b border-amber-300 pb-0.5 uppercase tracking-tight text-amber-950">
-                  DEPÓSITO EN GARANTÍA (EN CUSTODIA)
+              {/* BLOQUE DE COBRO ORGANIZADO DE ALQUILER */}
+              <div className="py-2 border-2 border-black bg-slate-50 p-2.5 rounded my-1.5 text-xs space-y-1.5">
+                <div className="flex justify-between font-bold text-slate-800">
+                  <span>Total Valor Alquiler:</span>
+                  <span className="font-mono font-black text-slate-950">{formatCOP(totalAlquilerBase)}</span>
                 </div>
-                <div className="flex justify-between font-black text-xs pt-0.5">
-                  <span>DEPÓSITO EN GARANTÍA:</span>
-                  <span className="font-mono text-emerald-950 font-bold">{formatCOP(montoDepositoEfectivo)}</span>
+                <div className="flex justify-between font-bold text-slate-800">
+                  <span>Valor Total del Depósito:</span>
+                  <span className="font-mono font-black text-slate-950">{formatCOP(montoDepositoTotal)}</span>
                 </div>
-                <p className="text-[9px] text-amber-900 leading-tight">
-                  Dinero en custodia a devolver al entregar las prendas completas y sin daños.
-                </p>
-
-                {/* Fecha y Hora Límite de Devolución Oficial */}
-                <div className="p-1.5 bg-amber-100/90 rounded border border-amber-300 text-slate-950 space-y-0.5">
-                  <div className="flex justify-between font-black text-[10px]">
-                    <span className="text-amber-950 uppercase">FECHA LÍMITE DE ENTREGA:</span>
-                    <span className="font-mono text-rose-900 font-bold">
-                      {factura.fechaDevolucionPactada
-                        ? `${safeDate(factura.fechaDevolucionPactada)} hasta las 8:00 p.m. (20:00)`
-                        : "—"}
-                    </span>
+                <div className="flex justify-between font-black text-slate-900 pt-1 border-t border-slate-300">
+                  <span>Total Alquiler más Depósito:</span>
+                  <span className="font-mono font-black text-sm">{formatCOP(totalAlquilerBase + montoDepositoTotal)}</span>
+                </div>
+                {saldoPendienteAlquiler > 0 && (
+                  <div className="flex justify-between font-black text-rose-700 pt-1 border-t border-slate-300">
+                    <span>Saldo Pendiente Alquiler:</span>
+                    <span className="font-mono">{formatCOP(saldoPendienteAlquiler)}</span>
                   </div>
-                </div>
+                )}
+                {efectivoRecibidoCliente > totalPagadoFacturaHoy && (
+                  <div className="flex justify-between text-slate-700 pt-1 border-t border-dashed border-slate-300 text-[11px]">
+                    <span>Efectivo Recibido Cliente:</span>
+                    <span className="font-mono font-bold">{formatCOP(efectivoRecibidoCliente)}</span>
+                  </div>
+                )}
+                {vueltasCambioFinal > 0 && (
+                  <div className="flex justify-between font-black text-emerald-800 text-[12px] pt-1 border-t border-slate-300">
+                    <span>Vueltos / Cambio Entregado:</span>
+                    <span className="font-mono">{formatCOP(vueltasCambioFinal)}</span>
+                  </div>
+                )}
               </div>
 
-              {/* BANNER OFICIAL DE OBSERVACIONES Y MORA */}
+              {/* BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO CONSOLIDADO) */}
               <div className="my-1.5 p-2 bg-amber-50/90 rounded border border-amber-300 text-amber-950 text-center text-[10px] leading-snug w-full space-y-1">
                 <p className="font-black uppercase tracking-wider text-[9px] text-amber-900 border-b border-amber-200 pb-0.5">OBSERVACIONES</p>
                 <p className="font-semibold">
@@ -894,45 +1101,6 @@ export default function PlantillaImpresion({
                   <p className="italic text-[9.5px] text-slate-800 pt-0.5 border-t border-amber-200">
                     Nota: {factura.observaciones}
                   </p>
-                )}
-              </div>
-
-              {/* CELDA DE TOTALES DE COBRO DE ALQUILER */}
-              <div className="py-2 border-2 border-black bg-slate-100 p-2 rounded my-1.5 text-xs space-y-1">
-                <p className="text-[10.5px] font-black uppercase text-slate-900 border-b border-black pb-0.5">
-                  COBRO POR SERVICIO DE ALQUILER
-                </p>
-                <div className="flex justify-between">
-                  <span>Total Valor Alquiler:</span>
-                  <span className="font-bold font-mono">{formatCOP(totalOperacionPrincipal)}</span>
-                </div>
-                {abonoPrevioApartado > 0 && (
-                  <div className="flex justify-between text-indigo-700 font-bold pt-0.5">
-                    <span>(-) Abono Previo en Apartado:</span>
-                    <span className="font-mono">-{formatCOP(abonoPrevioApartado)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-emerald-900 font-black pt-0.5 border-t border-black">
-                  <span>Valor Pagado Alquiler ({textoMedioPagoPrincipal}):</span>
-                  <span className="font-mono">{formatCOP(totalAbonadoOperacion)}</span>
-                </div>
-                {saldoPendienteOperacion > 0 && (
-                  <div className="flex justify-between text-xs font-black pt-1 border-t border-black">
-                    <span>Saldo Pendiente Alquiler:</span>
-                    <span className="text-rose-700 font-black">
-                      {formatCOP(saldoPendienteOperacion)}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-slate-900 pt-0.5 border-t border-dashed border-black">
-                  <span>Recibido Alquiler:</span>
-                  <span className="font-mono">{formatCOP(efectivoRecibidoAlquiler)}</span>
-                </div>
-                {vueltasAlquiler > 0 && (
-                  <div className="flex justify-between font-black text-emerald-800 text-[13px] pt-0.5 border-t border-black">
-                    <span>Vueltas Alquiler:</span>
-                    <span className="font-mono">{formatCOP(vueltasAlquiler)}</span>
-                  </div>
                 )}
               </div>
             </>
@@ -996,17 +1164,25 @@ export default function PlantillaImpresion({
             </div>
           )}
 
-          {/* Firmas de Respaldo */}
-          <div className="py-3 space-y-4 text-center text-[10px]">
-            <div className="border-t border-black pt-1 w-4/5 mx-auto">
-              <p className="font-bold">Firma y C.C. del Cliente</p>
-              <p className="text-[9px] text-slate-700">
-                {esAlquiler ? "(Acepto estado de prendas y condiciones)" : "(Aceptación y recibido a conformidad)"}
-              </p>
-            </div>
-            <div className="border-t border-black pt-1 w-4/5 mx-auto">
-              <p className="font-bold">Firma Cajero Responsable</p>
-              <p className="text-[9px] text-slate-700">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+          {/* Firmas de Respaldo Holgadas */}
+          <div
+            className="text-center text-[10px] select-none"
+            style={{ marginTop: "40px", breakInside: "avoid", pageBreakInside: "avoid" }}
+          >
+            <div className="space-y-6">
+              <div>
+                <div className="border-t border-black w-4/5 mx-auto mb-1"></div>
+                <p className="font-bold uppercase tracking-tight">Firma del Cliente</p>
+                <p className="text-[8.5px] text-slate-700">C.C. / NIT: {cliente.documento || "____________________"}</p>
+                <p className="text-[8px] text-slate-600 mt-0.5">
+                  {esAlquiler ? "(Acepto estado de prendas y condiciones)" : "(Aceptación y recibido a conformidad)"}
+                </p>
+              </div>
+              <div>
+                <div className="border-t border-black w-4/5 mx-auto mb-1"></div>
+                <p className="font-bold uppercase tracking-tight">Firma Vendedor / Cajero</p>
+                <p className="text-[8.5px] text-slate-700">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+              </div>
             </div>
           </div>
 
@@ -1114,8 +1290,9 @@ export default function PlantillaImpresion({
                             <span className="text-[8.5px] font-mono text-slate-500 ml-1">[{d.producto.codigo}]</span>
                           )}
                           {d.descripcionDetallada?.trim() && (
-                            <div className="text-[8.5px] text-slate-700 italic font-medium leading-tight">
-                              Detalle: {d.descripcionDetallada.trim()}
+                            <div className="text-[8.5px] text-slate-700 italic font-medium leading-normal mt-0.5 break-words whitespace-pre-wrap bg-slate-50/80 px-1.5 py-0.5 rounded border border-slate-200">
+                              <span className="font-bold text-slate-800 not-italic">Detalle / Modificaciones: </span>
+                              {d.descripcionDetallada.trim()}
                             </div>
                           )}
                         </td>
@@ -1128,47 +1305,107 @@ export default function PlantillaImpresion({
               </div>
             </div>
 
-            {/* Bloque Financiero en Columnas: Alquiler, Depósito Custodia, Abono hoy y Falta por pagar */}
-            <div className="space-y-1 my-0.5">
-              <div className={`grid ${saldoPendienteTotalApartado > 0 ? "grid-cols-4" : "grid-cols-3"} gap-1.5 border-y-2 border-slate-900 py-1 text-center`}>
-                <div className="p-0.5 bg-slate-50 border border-slate-300">
-                  <p className="text-[7.5px] uppercase font-bold text-slate-600">1. Valor Alquiler</p>
-                  <p className="text-[11px] font-black font-mono">{formatCOP(totalOperacionAlquiler)}</p>
-                </div>
-                <div className="p-0.5 bg-amber-50 border border-amber-400">
-                  <p className="text-[7.5px] uppercase font-bold text-amber-900">2. Saldo Depósito (Custodia)</p>
-                  <p className="text-[11px] font-black font-mono text-amber-950">{formatCOP(saldoDepositoAlRetirar)}</p>
-                  <span className="text-[7px] text-amber-800 block">{depositoPagadoHoyApartado ? "Abonado hoy" : "Pagar al retirar"}</span>
-                </div>
-                <div className="p-0.5 bg-emerald-50 border border-emerald-400">
-                  <p className="text-[7.5px] uppercase font-bold text-emerald-800">3. Abono (Consigna hoy)</p>
-                  <p className="text-[11px] font-black font-mono text-emerald-900">-{formatCOP(totalAbonadoAlquiler)}</p>
-                </div>
-                {saldoPendienteTotalApartado > 0 && (
-                  <div className="p-0.5 bg-rose-50 border border-rose-400">
-                    <p className="text-[7.5px] uppercase font-bold text-rose-800">4. SALDO ALQUILER AL RETIRAR</p>
-                    <p className="text-[11px] font-black font-mono text-rose-900">{formatCOP(saldoPendienteTotalApartado)}</p>
-                  </div>
-                )}
+            {/* 4 ETIQUETAS HORIZONTALES DE APARTADOS (VALOR ALQUILER, DEPOSITO, ABONO, SALDO PENDIENTE AL RETIRAR) */}
+            <div className="grid grid-cols-4 gap-2 text-center my-2">
+              {/* VALOR ALQUILER = AZUL */}
+              <div
+                className="p-2 rounded-xl border-2 flex flex-col justify-center items-center"
+                style={{
+                  backgroundColor: "#eff6ff",
+                  borderColor: "#3b82f6",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
+                }}
+              >
+                <span className="text-[8.5px] font-black uppercase tracking-wider text-blue-900 block leading-tight">
+                  VALOR ALQUILER
+                </span>
+                <span className="text-xs sm:text-sm font-black font-mono text-blue-950 mt-1 block">
+                  {formatCOP(totalAlquilerBase)}
+                </span>
+              </div>
+
+              {/* DEPOSITO = AMARILLO NARANJA */}
+              <div
+                className="p-2 rounded-xl border-2 flex flex-col justify-center items-center"
+                style={{
+                  backgroundColor: "#fefce8",
+                  borderColor: "#f59e0b",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
+                }}
+              >
+                <span className="text-[8.5px] font-black uppercase tracking-wider text-amber-900 block leading-tight">
+                  DEPOSITO
+                </span>
+                <span className="text-xs sm:text-sm font-black font-mono text-amber-950 mt-1 block">
+                  {formatCOP(montoDepositoTotal)}
+                </span>
+              </div>
+
+              {/* ABONO = VERDE */}
+              <div
+                className="p-2 rounded-xl border-2 flex flex-col justify-center items-center"
+                style={{
+                  backgroundColor: "#f0fdf4",
+                  borderColor: "#10b981",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
+                }}
+              >
+                <span className="text-[8.5px] font-black uppercase tracking-wider text-emerald-900 block leading-tight">
+                  ABONO
+                </span>
+                <span className="text-xs sm:text-sm font-black font-mono text-emerald-950 mt-1 block">
+                  {formatCOP(totalPagadoFacturaHoy)}
+                </span>
+              </div>
+
+              {/* SALDO PENDIENTE AL RETIRAR = ROJO */}
+              <div
+                className="p-2 rounded-xl border-2 flex flex-col justify-center items-center"
+                style={{
+                  backgroundColor: "#fff1f2",
+                  borderColor: "#f43f5e",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
+                }}
+              >
+                <span className="text-[8px] font-black uppercase tracking-tight text-rose-900 block leading-tight">
+                  SALDO PENDIENTE AL RETIRAR
+                </span>
+                <span className="text-xs sm:text-sm font-black font-mono text-rose-950 mt-1 block">
+                  {formatCOP(saldoPendienteTotalRetiro)}
+                </span>
               </div>
             </div>
 
-            {/* LEYENDA OFICIAL DE APARTADOS */}
-            <div className="p-1.5 bg-slate-100 border border-slate-900 text-center my-1 w-full">
-              <p className="text-[10px] font-black tracking-tight text-slate-900 uppercase leading-snug">
+            {/* OBSERVACIONES Y LEYENDA OFICIAL (DEBAJO DEL CUADRO) */}
+            <div className="p-1.5 bg-slate-100 border border-slate-900 text-center my-1 w-full space-y-0.5">
+              <p className="text-[9.5px] font-black tracking-tight text-slate-900 uppercase leading-snug">
                 PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
               </p>
+              {factura.observaciones && (
+                <p className="text-[8.5px] text-slate-700 italic border-t border-slate-200 pt-0.5">
+                  Nota: {factura.observaciones}
+                </p>
+              )}
             </div>
 
-            {/* Pie de Firma */}
-            <div className="grid grid-cols-2 gap-4 text-center pt-1 border-t border-slate-800">
+            {/* Pie de Firmas Holgado */}
+            <div
+              className="grid grid-cols-2 gap-6 text-center text-[9px]"
+              style={{ marginTop: "36px", breakInside: "avoid", pageBreakInside: "avoid" }}
+            >
               <div>
-                <p className="font-bold text-[9px]">Firma del Cliente: ________________________________</p>
-                <p className="text-[7.5px] text-slate-500">C.C. {cliente.documento || "________________________"}</p>
+                <div className="border-t border-slate-800 w-full mb-1"></div>
+                <p className="font-bold text-[9.5px]">Firma del Cliente</p>
+                <p className="text-[8px] text-slate-600">C.C. / NIT: {cliente.documento || "____________________"}</p>
               </div>
               <div>
-                <p className="font-bold text-[9px]">Cajero Responsable: ________________________________</p>
-                <p className="text-[7.5px] text-slate-500">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+                <div className="border-t border-slate-800 w-full mb-1"></div>
+                <p className="font-bold text-[9.5px]">Firma Vendedor / Cajero</p>
+                <p className="text-[8px] text-slate-600">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
               </div>
             </div>
           </div>
@@ -1179,8 +1416,8 @@ export default function PlantillaImpresion({
       return (
         <div
           className={`w-full bg-white text-slate-950 font-sans flex flex-col justify-between box-border h-full ${esDoble
-              ? "p-2 sm:p-2.5 text-[11px] sm:text-[11.5px] font-semibold leading-tight"
-              : "p-3 sm:p-4 text-xs sm:text-[12.5px] font-medium leading-tight"
+            ? "p-2 sm:p-2.5 text-[11px] sm:text-[11.5px] font-semibold leading-tight"
+            : "p-3 sm:p-4 text-xs sm:text-[12.5px] font-medium leading-tight"
             }`}
         >
           <div>
@@ -1326,8 +1563,9 @@ export default function PlantillaImpresion({
                         </span>
                       )}
                       {d.descripcionDetallada?.trim() && (
-                        <div className="text-[8.5px] text-slate-700 italic font-medium leading-tight">
-                          Detalle: {d.descripcionDetallada.trim()}
+                        <div className="text-[8.5px] text-slate-700 italic font-medium leading-normal mt-0.5 break-words whitespace-pre-wrap bg-slate-50/80 px-1.5 py-0.5 rounded border border-slate-200">
+                          <span className="font-bold text-slate-800 not-italic">Detalle / Modificaciones: </span>
+                          {d.descripcionDetallada.trim()}
                         </div>
                       )}
                     </td>
@@ -1339,77 +1577,74 @@ export default function PlantillaImpresion({
             </table>
           </div>
 
-          {/* Bloques Contables Segregados: Alquiler (Garantía + Totales) vs Venta (Totales Directos) */}
+          {/* Bloques Contables Segregados: Alquiler vs Apartado vs Venta */}
           <div className="border-t-2 border-slate-900 pt-1">
             {esAlquiler ? (
               <>
                 <div className={`grid grid-cols-2 gap-2 ${esDoble ? "text-[10px]" : "text-xs"}`}>
-                  {/* COLUMNA 1: ETIQUETA AMARILLA LIMPIA (ÚNICAMENTE DEPÓSITO CUSTODIA Y FECHA LÍMITE) */}
-                  <div className="p-1.5 bg-amber-50/60 border border-amber-300 text-amber-950 space-y-1">
+                  {/* COLUMNA 1: DEPÓSITO EN GARANTÍA (EN CUSTODIA) */}
+                  <div className="p-2 bg-amber-50/70 border border-amber-300 rounded space-y-1 text-amber-950">
                     <p className="font-black text-[9px] uppercase border-b border-amber-300 pb-0.5 text-amber-950">
                       DEPÓSITO EN GARANTÍA (EN CUSTODIA)
                     </p>
-                    <div className="flex justify-between font-black text-[11px]">
-                      <span>Depósito en Garantía:</span>
-                      <span className="font-mono text-emerald-950">{formatCOP(montoDepositoEfectivo)}</span>
+                    <div className="flex justify-between font-bold text-[9.5px]">
+                      <span>Depósito en Garantía ({metodoDepositoNombre}):</span>
+                      <span className="font-mono font-black">{formatCOP(montoDepositoTotal)}</span>
                     </div>
-                    <p className="text-[8.5px] text-amber-900 leading-tight">
+                    <p className="text-[8px] text-amber-900 leading-tight">
                       Custodia: Dinero en garantía a devolver al entregar las prendas completas.
                     </p>
-
-                    <div className="p-1 bg-amber-100/70 border border-amber-300 text-[9.5px]">
-                      <div className="flex justify-between font-black">
-                        <span className="uppercase text-amber-950">Fecha Límite Entrega:</span>
-                        <span className="font-mono text-rose-900 font-bold">
-                          {factura.fechaDevolucionPactada
-                            ? `${safeDate(factura.fechaDevolucionPactada)} hasta 8:00 p.m. (20:00)`
-                            : "—"}
-                        </span>
-                      </div>
+                    <div className="p-1 bg-amber-100/90 rounded border border-amber-300 mt-0.5">
+                      <span className="font-black text-[8.5px] uppercase block text-amber-950">
+                        FECHA LÍMITE ENTREGA:
+                      </span>
+                      <span className="font-mono text-rose-900 font-black text-[10px] block mt-0.5">
+                        {factura.fechaDevolucionPactada
+                          ? `${safeDate(factura.fechaDevolucionPactada)} hasta 8:00 p.m. (20:00)`
+                          : "SEGÚN CONTRATO"}
+                      </span>
                     </div>
                   </div>
 
-                  {/* COLUMNA 2: CELDA DE TOTALES DE COBRO DE ALQUILER */}
-                  <div className="p-1.5 bg-slate-50 border border-slate-400 space-y-1">
-                    <p className="font-black text-[9px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+                  {/* COLUMNA 2: COBRO POR SERVICIO DE ALQUILER */}
+                  <div className="p-2 bg-slate-50 border border-slate-400 rounded space-y-1 text-slate-900">
+                    <p className="font-black text-[9px] uppercase border-b border-slate-300 pb-0.5 text-slate-900">
                       COBRO POR SERVICIO DE ALQUILER
                     </p>
                     <div className="flex justify-between font-bold text-[9.5px]">
                       <span>Total Valor Alquiler:</span>
-                      <span className="font-mono">{formatCOP(totalOperacionPrincipal)}</span>
+                      <span className="font-mono font-black">{formatCOP(totalAlquilerBase)}</span>
                     </div>
-                    {abonoPrevioApartado > 0 && (
-                      <div className="flex justify-between text-indigo-700 font-bold text-[9.5px] pt-0.5">
-                        <span>(-) Abono Previo en Apartado:</span>
-                        <span className="font-mono">-{formatCOP(abonoPrevioApartado)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-emerald-800 font-black text-[9.5px] pt-0.5 border-t border-slate-200">
-                      <span>Valor Pagado Alquiler ({textoMedioPagoPrincipal}):</span>
-                      <span className="font-mono">{formatCOP(totalAbonadoOperacion)}</span>
+                    <div className="flex justify-between font-bold text-[9.5px] text-slate-800">
+                      <span>Valor Total del Depósito:</span>
+                      <span className="font-mono font-black">{formatCOP(montoDepositoTotal)}</span>
                     </div>
-                    {saldoPendienteOperacion > 0 && (
-                      <div className="flex justify-between font-black border-t border-slate-300 pt-0.5 text-[9.5px]">
+                    <div className="flex justify-between font-black text-[10px] text-slate-950 pt-1 border-t border-slate-300">
+                      <span>Total Alquiler más Depósito:</span>
+                      <span className="font-mono font-black">{formatCOP(totalAlquilerBase + montoDepositoTotal)}</span>
+                    </div>
+                    {saldoPendienteAlquiler > 0 && (
+                      <div className="flex justify-between font-black text-rose-700 pt-0.5 border-t border-slate-300 text-[9.5px]">
                         <span>Saldo Pendiente Alquiler:</span>
-                        <span className="text-rose-700 font-black">
-                          {formatCOP(saldoPendienteOperacion)}
-                        </span>
+                        <span className="font-mono font-black">{formatCOP(saldoPendienteAlquiler)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-slate-800 font-bold text-[9.5px] pt-0.5 border-t border-dashed border-slate-300">
-                      <span>Recibido Alquiler:</span>
-                      <span className="font-mono">{formatCOP(efectivoRecibidoAlquiler)}</span>
-                    </div>
-                    {vueltasAlquiler > 0 && (
-                      <div className="flex justify-between font-black text-emerald-800 text-[10px] pt-0.5 border-t border-slate-300">
-                        <span>Vueltas Alquiler:</span>
-                        <span className="font-mono">{formatCOP(vueltasAlquiler)}</span>
+                    {vueltasCambioFinal > 0 && efectivoRecibidoCliente > totalPagadoFacturaHoy && (
+                      <div className="flex justify-between text-slate-700 pt-0.5 border-t border-dashed border-slate-300 text-[9px]">
+                        <span>Efectivo Recibido Cliente:</span>
+                        <span className="font-mono font-black">{formatCOP(efectivoRecibidoCliente)}</span>
+                      </div>
+                    )}
+                    {vueltasCambioFinal > 0 && (
+                      <div className="flex justify-between font-black text-emerald-800 pt-0.5 border-t border-slate-300 text-[9.5px]">
+                        <span>Vueltos / Cambio Entregado:</span>
+                        <span className="font-mono font-black">{formatCOP(vueltasCambioFinal)}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* BANNER OFICIAL DE OBSERVACIONES Y MORA */}
+                {/* BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO) */}
                 <div className="p-1.5 bg-amber-50/60 border border-amber-300 text-center text-[8.5px] sm:text-[9.5px] text-amber-950 my-1 w-full leading-snug space-y-0.5">
                   <div className="font-bold">
                     OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.
@@ -1465,17 +1700,26 @@ export default function PlantillaImpresion({
             </div>
           )}
 
-          {/* Firmas de Respaldo */}
-          <div className="grid grid-cols-2 gap-4 text-center pt-1 border-t border-slate-200 text-[9px]">
-            <div className="border-t border-slate-700 pt-0.5">
-              <p className="font-bold">Firma y C.C. del Cliente</p>
-              <p className="text-[8px] text-slate-600">
+          {/* Firmas de Respaldo Holgadas */}
+          <div
+            className="grid grid-cols-2 gap-6 text-center text-[9px]"
+            style={{ marginTop: "36px", breakInside: "avoid", pageBreakInside: "avoid" }}
+          >
+            <div>
+              <div className="border-t border-slate-700 w-full mb-1"></div>
+              <p className="font-bold text-[9.5px]">Firma del Cliente</p>
+              <p className="text-[8px] text-slate-600">C.C. / NIT: {cliente.documento || "____________________"}</p>
+              <p className="text-[7.5px] text-slate-500 italic mt-0.5">
                 {esAlquiler ? "(Acepto estado de prendas y condiciones)" : "(Aceptación y recibido a conformidad)"}
               </p>
             </div>
-            <div className="border-t border-slate-700 pt-0.5">
-              <p className="font-bold">Firma Vendedor / Cajero Responsable</p>
+            <div>
+              <div className="border-t border-slate-700 w-full mb-1"></div>
+              <p className="font-bold text-[9.5px]">Firma Vendedor / Cajero</p>
               <p className="text-[8px] text-slate-600">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+              <p className="text-[7.5px] text-slate-500 italic mt-0.5">
+                Responsable de Entrega
+              </p>
             </div>
           </div>
         </div>
@@ -1615,6 +1859,12 @@ export default function PlantillaImpresion({
                           [{d.producto.codigo}] {d.producto.talla ? `| Talla: ${d.producto.talla}` : ""}
                         </span>
                       )}
+                      {d.descripcionDetallada?.trim() && (
+                        <div className="text-[9.5px] text-slate-700 italic font-medium leading-normal mt-0.5 break-words whitespace-pre-wrap bg-slate-50/80 px-2 py-0.5 rounded border border-slate-200">
+                          <span className="font-bold text-slate-800 not-italic">Detalle / Modificaciones: </span>
+                          {d.descripcionDetallada.trim()}
+                        </div>
+                      )}
                     </td>
                     <td className="py-1 px-3 text-right font-mono">{formatCOP(d.precioUnitario)}</td>
                     <td className="py-1 px-3 text-right font-mono font-bold">{formatCOP(d.subtotal)}</td>
@@ -1623,49 +1873,109 @@ export default function PlantillaImpresion({
               </tbody>
             </table>
 
-            {/* Cuadrícula Financiera en Bloques: Alquiler, Depósito Custodia, Abono hoy y Falta por Pagar */}
-            <div className="space-y-1.5 mb-4">
-              <div className={`grid ${saldoPendienteTotalApartado > 0 ? "grid-cols-4" : "grid-cols-3"} gap-3 text-center`}>
-                <div className="p-3 bg-slate-50 border border-slate-300">
-                  <p className="text-[9px] font-bold uppercase text-slate-600">1. Valor Alquiler</p>
-                  <p className="text-sm font-black font-mono text-slate-900 mt-1">{formatCOP(totalOperacionAlquiler)}</p>
-                </div>
-                <div className="p-3 bg-amber-50 border border-amber-400">
-                  <p className="text-[9px] font-bold uppercase text-amber-900">2. Saldo Depósito (Custodia)</p>
-                  <p className="text-sm font-black font-mono text-amber-950 mt-1">{formatCOP(saldoDepositoAlRetirar)}</p>
-                  <span className="text-[8.5px] text-amber-800 block mt-0.5">{depositoPagadoHoyApartado ? "Abonado hoy en custodia" : "A pagar al retirar"}</span>
-                </div>
-                <div className="p-3 bg-emerald-50 border border-emerald-400">
-                  <p className="text-[9px] font-bold uppercase text-emerald-800">3. Abono (Consigna hoy)</p>
-                  <p className="text-sm font-black font-mono text-emerald-900 mt-1">-{formatCOP(totalAbonadoAlquiler)}</p>
-                </div>
-                {saldoPendienteTotalApartado > 0 && (
-                  <div className="p-3 bg-rose-50 border border-rose-400">
-                    <p className="text-[9px] font-bold uppercase text-rose-800">4. SALDO ALQUILER AL RETIRAR</p>
-                    <p className="text-sm font-black font-mono text-rose-900 mt-1">{formatCOP(saldoPendienteTotalApartado)}</p>
-                  </div>
-                )}
+            {/* 4 ETIQUETAS HORIZONTALES DE APARTADOS (VALOR ALQUILER, DEPOSITO, ABONO, SALDO PENDIENTE AL RETIRAR) */}
+            <div className="grid grid-cols-4 gap-3 text-center my-3">
+              {/* VALOR ALQUILER = AZUL */}
+              <div
+                className="p-3 rounded-xl border-2 flex flex-col justify-center items-center"
+                style={{
+                  backgroundColor: "#eff6ff",
+                  borderColor: "#3b82f6",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
+                }}
+              >
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-900 block leading-tight">
+                  VALOR ALQUILER
+                </span>
+                <span className="text-base font-black font-mono text-blue-950 mt-1 block">
+                  {formatCOP(totalAlquilerBase)}
+                </span>
+              </div>
+
+              {/* DEPOSITO = AMARILLO NARANJA */}
+              <div
+                className="p-3 rounded-xl border-2 flex flex-col justify-center items-center"
+                style={{
+                  backgroundColor: "#fefce8",
+                  borderColor: "#f59e0b",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
+                }}
+              >
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 block leading-tight">
+                  DEPOSITO
+                </span>
+                <span className="text-base font-black font-mono text-amber-950 mt-1 block">
+                  {formatCOP(montoDepositoTotal)}
+                </span>
+              </div>
+
+              {/* ABONO = VERDE */}
+              <div
+                className="p-3 rounded-xl border-2 flex flex-col justify-center items-center"
+                style={{
+                  backgroundColor: "#f0fdf4",
+                  borderColor: "#10b981",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
+                }}
+              >
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900 block leading-tight">
+                  ABONO
+                </span>
+                <span className="text-base font-black font-mono text-emerald-950 mt-1 block">
+                  {formatCOP(totalPagadoFacturaHoy)}
+                </span>
+              </div>
+
+              {/* SALDO PENDIENTE AL RETIRAR = ROJO */}
+              <div
+                className="p-3 rounded-xl border-2 flex flex-col justify-center items-center"
+                style={{
+                  backgroundColor: "#fff1f2",
+                  borderColor: "#f43f5e",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
+                }}
+              >
+                <span className="text-[9px] font-black uppercase tracking-tight text-rose-900 block leading-tight">
+                  SALDO PENDIENTE AL RETIRAR
+                </span>
+                <span className="text-base font-black font-mono text-rose-950 mt-1 block">
+                  {formatCOP(saldoPendienteTotalRetiro)}
+                </span>
               </div>
             </div>
 
-            {/* LEYENDA OFICIAL DE APARTADOS */}
-            <div className="p-3 bg-slate-100 border-2 border-slate-900 text-center mb-3 w-full">
+            {/* OBSERVACIONES Y LEYENDA OFICIAL (DEBAJO DEL CUADRO) */}
+            <div className="p-3 bg-slate-100 border-2 border-slate-900 text-center mb-3 w-full space-y-1">
               <p className="text-sm font-black tracking-wide text-slate-900 uppercase leading-snug">
                 PLATA DE TRAJES APARTADOS NO SE DEVUELVEN
               </p>
+              {factura.observaciones && (
+                <p className="text-xs text-slate-700 italic border-t border-slate-300 pt-1">
+                  Nota: {factura.observaciones}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Firmas */}
+          {/* Firmas Carta Holgadas y Espaciadas */}
           <div>
-            <div className="grid grid-cols-2 gap-8 text-center pt-6 border-t-2 border-slate-800">
+            <div
+              className="grid grid-cols-2 gap-10 text-center text-xs"
+              style={{ marginTop: "44px", breakInside: "avoid", pageBreakInside: "avoid" }}
+            >
               <div>
-                <p className="font-bold text-xs">Firma del Cliente: ________________________________________</p>
-                <p className="text-[9.5px] text-slate-500 mt-1">C.C. {cliente.documento || "________________________"}</p>
+                <div className="w-64 border-t-2 border-slate-800 mx-auto mb-1.5"></div>
+                <p className="font-bold text-slate-900">Firma del Cliente</p>
+                <p className="text-[11px] text-slate-700 mt-0.5">C.C. / NIT: {cliente.documento || "____________________"}</p>
               </div>
               <div>
-                <p className="font-bold text-xs">Firma Vendedor / Cajero Responsable: ________________________________________</p>
-                <p className="text-[9.5px] text-slate-500 mt-1">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
+                <div className="w-64 border-t-2 border-slate-800 mx-auto mb-1.5"></div>
+                <p className="font-bold text-slate-900">Firma Vendedor / Cajero</p>
+                <p className="text-[11px] text-slate-700 mt-0.5">{usuarioCajero?.nombre || "Atención en Mostrador"}</p>
               </div>
             </div>
 
@@ -1800,8 +2110,9 @@ export default function PlantillaImpresion({
                       </span>
                     )}
                     {d.descripcionDetallada?.trim() && (
-                      <div className="text-[9.5px] text-slate-700 italic font-medium leading-tight mt-0.5">
-                        Detalle: {d.descripcionDetallada.trim()}
+                      <div className="text-[9.5px] text-slate-700 italic font-medium leading-normal mt-0.5 break-words whitespace-pre-wrap bg-slate-50/80 px-2 py-0.5 rounded border border-slate-200">
+                        <span className="font-bold text-slate-800 not-italic">Detalle / Modificaciones: </span>
+                        {d.descripcionDetallada.trim()}
                       </div>
                     )}
                   </td>
@@ -1813,79 +2124,76 @@ export default function PlantillaImpresion({
           </table>
 
           {/* ========================================================================= */}
-          {/* LIQUIDACIÓN SEGREGADA: ALQUILER (CON GARANTÍA Y COBROS) vs VENTA (DIRECTA) */}
+          {/* LIQUIDACIÓN SEGREGADA: ALQUILER vs APARTADO vs VENTA                      */}
           {/* ========================================================================= */}
           <div className="mb-3">
             {esAlquiler ? (
               <>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* COLUMNA 1: ETIQUETA AMARILLA LIMPIA (CUSTODIA Y FECHA LÍMITE) */}
-                  <div className="p-3 bg-amber-50 border border-amber-300 text-amber-950 space-y-1.5">
-                    <p className="font-black text-[10px] uppercase text-amber-950 border-b border-amber-300 pb-0.5">
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  {/* COLUMNA 1: DEPÓSITO EN GARANTÍA (EN CUSTODIA) */}
+                  <div className="p-3 bg-amber-50/70 border-2 border-amber-300 rounded-xl space-y-2 text-amber-950">
+                    <p className="font-black text-xs uppercase border-b border-amber-300 pb-1 text-amber-950">
                       DEPÓSITO EN GARANTÍA (EN CUSTODIA)
                     </p>
-                    <div className="flex justify-between font-black text-sm text-amber-950">
-                      <span>Depósito en Garantía:</span>
-                      <span className="font-mono text-emerald-950">{formatCOP(montoDepositoEfectivo)}</span>
+                    <div className="flex justify-between font-bold text-xs">
+                      <span>Depósito en Garantía ({metodoDepositoNombre}):</span>
+                      <span className="font-mono font-black text-sm text-amber-900">{formatCOP(montoDepositoTotal)}</span>
                     </div>
-                    <p className="text-[9.5px] text-amber-950 leading-snug">
-                      Custodia: Dinero en garantía a devolver al retornar las prendas completas y sin daños.
+                    <p className="text-[11px] text-amber-900 leading-tight">
+                      Custodia: Dinero en garantía a devolver al entregar las prendas completas.
                     </p>
-
-                    <div className="p-2 bg-amber-100 border border-amber-300 text-xs">
-                      <div className="flex justify-between font-black">
-                        <span className="uppercase text-amber-950">Fecha Límite Entrega Obligatoria:</span>
-                        <span className="font-mono text-rose-900 font-bold">
-                          {factura.fechaDevolucionPactada
-                            ? `${safeDate(factura.fechaDevolucionPactada)} hasta las 8:00 p.m. (20:00)`
-                            : "—"}
-                        </span>
-                      </div>
+                    <div className="p-2.5 bg-amber-100 rounded-lg border border-amber-300 mt-1">
+                      <span className="font-black text-[11px] uppercase block text-amber-950">
+                        Fecha Límite de Entrega Obligatoria:
+                      </span>
+                      <span className="font-mono text-rose-900 font-black text-sm block mt-0.5">
+                        {factura.fechaDevolucionPactada
+                          ? `${safeDate(factura.fechaDevolucionPactada)} hasta las 8:00 p.m. (20:00)`
+                          : "SEGÚN CONTRATO"}
+                      </span>
                     </div>
                   </div>
 
-                  {/* COLUMNA 2: CELDA DE TOTALES DE COBRO DE ALQUILER */}
-                  <div className="p-3 bg-slate-50 border-2 border-slate-400 space-y-1.5">
-                    <p className="font-black text-[10px] uppercase text-slate-900 border-b border-slate-300 pb-0.5">
+                  {/* COLUMNA 2: BLOQUE DERECHO DE COBRO ORGANIZADO */}
+                  <div className="p-3 bg-slate-50 border-2 border-slate-900 rounded-xl space-y-1.5 text-slate-900">
+                    <p className="font-black text-xs uppercase border-b border-slate-300 pb-1 text-slate-900">
                       COBRO POR SERVICIO DE ALQUILER
                     </p>
-                    <div className="flex justify-between text-xs font-bold">
+                    <div className="flex justify-between font-bold text-xs">
                       <span>Total Valor Alquiler:</span>
-                      <span className="font-mono text-sm">{formatCOP(totalOperacionPrincipal)}</span>
+                      <span className="font-mono font-black text-sm">{formatCOP(totalAlquilerBase)}</span>
                     </div>
-                    {abonoPrevioApartado > 0 && (
-                      <div className="flex justify-between text-xs text-indigo-700 font-bold pt-1">
-                        <span>(-) Abono Previo en Apartado:</span>
-                        <span className="font-mono text-sm">-{formatCOP(abonoPrevioApartado)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-xs text-emerald-800 font-black pt-1 border-t border-slate-200">
-                      <span>Valor Pagado Alquiler ({textoMedioPagoPrincipal}):</span>
-                      <span className="font-mono text-sm">{formatCOP(totalAbonadoOperacion)}</span>
+                    <div className="flex justify-between font-bold text-xs text-slate-800">
+                      <span>Valor Total del Depósito:</span>
+                      <span className="font-mono font-black text-sm">{formatCOP(montoDepositoTotal)}</span>
                     </div>
-                    {saldoPendienteOperacion > 0 && (
-                      <div className="flex justify-between text-sm font-black border-t border-slate-300 pt-1">
+                    <div className="flex justify-between font-black text-sm text-slate-950 pt-1.5 border-t border-slate-300">
+                      <span>Total Alquiler más Depósito:</span>
+                      <span className="font-mono font-black text-base">{formatCOP(totalAlquilerBase + montoDepositoTotal)}</span>
+                    </div>
+                    {saldoPendienteAlquiler > 0 && (
+                      <div className="flex justify-between font-black text-rose-700 pt-1 border-t border-slate-300 text-xs">
                         <span>Saldo Pendiente Alquiler:</span>
-                        <span className="text-rose-700 font-black">
-                          {formatCOP(saldoPendienteOperacion)}
-                        </span>
+                        <span className="font-mono font-black">{formatCOP(saldoPendienteAlquiler)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-xs text-slate-800 font-bold pt-1 border-t border-dashed border-slate-300">
-                      <span>Recibido Alquiler:</span>
-                      <span className="font-mono text-sm">{formatCOP(efectivoRecibidoAlquiler)}</span>
-                    </div>
-                    {vueltasAlquiler > 0 && (
-                      <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-300 pt-1">
-                        <span>Vueltas Alquiler:</span>
-                        <span className="font-mono">{formatCOP(vueltasAlquiler)}</span>
+                    {vueltasCambioFinal > 0 && efectivoRecibidoCliente > totalPagadoFacturaHoy && (
+                      <div className="flex justify-between text-slate-700 pt-1 border-t border-dashed border-slate-300 text-xs">
+                        <span>Efectivo Recibido Cliente:</span>
+                        <span className="font-mono font-bold">{formatCOP(efectivoRecibidoCliente)}</span>
+                      </div>
+                    )}
+                    {vueltasCambioFinal > 0 && (
+                      <div className="flex justify-between font-black text-emerald-800 pt-1 border-t border-slate-300 text-xs">
+                        <span>Vueltos / Cambio Entregado:</span>
+                        <span className="font-mono font-black">{formatCOP(vueltasCambioFinal)}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* BANNER OFICIAL DE OBSERVACIONES Y MORA */}
-                <div className="p-3 bg-amber-50/90 rounded-xl border border-amber-300 text-center text-xs text-amber-950 mt-2.5 w-full leading-relaxed space-y-1">
+                {/* BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO) */}
+                <div className="p-3 bg-amber-50/90 rounded-xl border border-amber-300 text-center text-xs text-amber-950 my-1 w-full leading-relaxed space-y-1">
                   <p className="font-black uppercase tracking-wider text-[11px] text-amber-900 border-b border-amber-200 pb-0.5">OBSERVACIONES</p>
                   <p className="font-bold">
                     A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.
@@ -1941,21 +2249,26 @@ export default function PlantillaImpresion({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-8 text-center pt-4 border-t-2 border-slate-800">
+          <div
+            className="grid grid-cols-2 gap-10 text-center text-xs"
+            style={{ marginTop: "44px", breakInside: "avoid", pageBreakInside: "avoid" }}
+          >
             <div>
-              <div className="w-64 border-t border-slate-700 mx-auto pt-1 font-bold text-xs">
-                Firma y C.C. del Cliente
-              </div>
+              <div className="w-64 border-t-2 border-slate-800 mx-auto mb-1.5"></div>
+              <p className="font-bold text-slate-900">Firma del Cliente</p>
+              <p className="text-[11px] text-slate-700 mt-0.5">C.C. / NIT: {cliente.documento || "____________________"}</p>
               <p className="text-[10px] text-slate-600 mt-0.5">
                 {esAlquiler ? "(Acepto estado de prendas y condiciones)" : "(Recibido a conformidad y aceptación de factura)"}
               </p>
             </div>
             <div>
-              <div className="w-64 border-t border-slate-700 mx-auto pt-1 font-bold text-xs">
-                Firma Vendedor / Cajero Responsable
-              </div>
-              <p className="text-[10px] text-slate-600 mt-0.5">
+              <div className="w-64 border-t-2 border-slate-800 mx-auto mb-1.5"></div>
+              <p className="font-bold text-slate-900">Firma Vendedor / Cajero</p>
+              <p className="text-[11px] text-slate-700 mt-0.5">
                 {usuarioCajero?.nombre || "Atención en Mostrador"}
+              </p>
+              <p className="text-[10px] text-slate-500 italic mt-0.5">
+                Responsable de Emisión
               </p>
             </div>
           </div>
@@ -1995,7 +2308,7 @@ export default function PlantillaImpresion({
               active={formato === "TIRILLA"}
               variant={formato === "TIRILLA" ? "primary" : "neutral"}
               size="sm"
-              onClick={() => setFormato("TIRILLA")}
+              onClick={() => cambiarFormato("TIRILLA")}
             />
             <IconButtonTooltip
               icon={Receipt}
@@ -2003,7 +2316,7 @@ export default function PlantillaImpresion({
               active={formato === "TIRILLA_58"}
               variant={formato === "TIRILLA_58" ? "primary" : "neutral"}
               size="sm"
-              onClick={() => setFormato("TIRILLA_58")}
+              onClick={() => cambiarFormato("TIRILLA_58")}
             />
             <IconButtonTooltip
               icon={FileText}
@@ -2011,7 +2324,7 @@ export default function PlantillaImpresion({
               active={formato === "MEDIA_CARTA"}
               variant={formato === "MEDIA_CARTA" ? "primary" : "neutral"}
               size="sm"
-              onClick={() => setFormato("MEDIA_CARTA")}
+              onClick={() => cambiarFormato("MEDIA_CARTA")}
             />
             <IconButtonTooltip
               icon={Scissors}
@@ -2019,7 +2332,7 @@ export default function PlantillaImpresion({
               active={formato === "MEDIA_CARTA_DOBLE"}
               variant={formato === "MEDIA_CARTA_DOBLE" ? "primary" : "neutral"}
               size="sm"
-              onClick={() => setFormato("MEDIA_CARTA_DOBLE")}
+              onClick={() => cambiarFormato("MEDIA_CARTA_DOBLE")}
             />
             <IconButtonTooltip
               icon={BookOpen}
@@ -2027,7 +2340,7 @@ export default function PlantillaImpresion({
               active={formato === "CARTA"}
               variant={formato === "CARTA" ? "primary" : "neutral"}
               size="sm"
-              onClick={() => setFormato("CARTA")}
+              onClick={() => cambiarFormato("CARTA")}
             />
           </div>
 
@@ -2040,7 +2353,7 @@ export default function PlantillaImpresion({
                 active={numCopias === 1}
                 variant={numCopias === 1 ? "indigo" : "neutral"}
                 size="sm"
-                onClick={() => setNumCopias(1)}
+                onClick={() => cambiarNumCopias(1)}
               />
               <IconButtonTooltip
                 icon={Copy}
@@ -2050,7 +2363,7 @@ export default function PlantillaImpresion({
                 badgeCount={2}
                 badgeVariant="blue"
                 size="sm"
-                onClick={() => setNumCopias(2)}
+                onClick={() => cambiarNumCopias(2)}
               />
             </div>
           )}

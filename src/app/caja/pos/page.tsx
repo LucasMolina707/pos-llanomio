@@ -57,23 +57,31 @@ import {
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import Tooltip from "@/components/ui/Tooltip";
 import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
+import InputDinero from "@/components/ui/InputDinero";
+import ModalAnularFactura, { FacturaParaAnular } from "@/components/facturas/ModalAnularFactura";
 import { HeaderMostradorUnificado, StepperMostradorUnificado } from "@/components/caja/HeaderMostradorUnificado";
-import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
-import ModalProducto, { ProductoData } from "@/components/inventario/ModalProducto";
-import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
-import ModalLiquidarFactura from "@/components/facturas/ModalLiquidarFactura";
+import dynamic from "next/dynamic";
+import type { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
+import type { ProductoData } from "@/components/inventario/ModalProducto";
+import type { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
+import type { TicketEnEspera } from "@/components/caja/ModalTicketsEnEspera";
+
+const ModalCrearClienteRapido = dynamic(() => import("@/components/pos/ModalCrearClienteRapido"), { ssr: false });
+const ModalProducto = dynamic(() => import("@/components/inventario/ModalProducto"), { ssr: false });
+const PlantillaImpresion = dynamic(() => import("@/components/impresion/PlantillaImpresion"), { ssr: false });
+const ModalLiquidarFactura = dynamic(() => import("@/components/facturas/ModalLiquidarFactura"), { ssr: false });
+const ModalConexionCajon = dynamic(() => import("@/components/caja/ModalConexionCajon"), { ssr: false });
+const ModalPinSupervisor = dynamic(() => import("@/components/seguridad/ModalPinSupervisor").then((m) => m.ModalPinSupervisor), { ssr: false });
+const ModalTicketsEnEspera = dynamic(() => import("@/components/caja/ModalTicketsEnEspera"), { ssr: false });
 import BotonWhatsApp from "@/components/crm/BotonWhatsApp";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import { useCajonSincronizado, EstadoSeguridadCajaInfo } from "@/hooks/useCajonSincronizado";
 import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
-import ModalConexionCajon from "@/components/caja/ModalConexionCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useMapaAtajosTeclado } from "@/hooks/useAtajoTeclado";
-import { ModalPinSupervisor } from "@/components/seguridad/ModalPinSupervisor";
-import ModalTicketsEnEspera, { TicketEnEspera } from "@/components/caja/ModalTicketsEnEspera";
 import PanelPagosSecuenciales, { PagoAplicado } from "@/components/caja/PanelPagosSecuenciales";
 import { formatearFechaConDia } from "@/lib/fechas-alquiler";
 
@@ -133,6 +141,13 @@ export interface FacturaMonitoreo {
   esMoraYSaldo: boolean;
   esSoloMora: boolean;
   esPazYSalvo: boolean;
+  esCajaAlquiler?: boolean;
+  esApartado?: boolean;
+  esApartadoVencido?: boolean;
+  esAlquilerFinalizado?: boolean;
+  esPazYSalvoVenta?: boolean;
+  fechaRetiroApartado?: string | null;
+  fechaDevolucionEstimada?: string | null;
   cliente: {
     id: string;
     nombre: string;
@@ -186,9 +201,8 @@ export type ModalidadPago = "COMPLETO" | "ADELANTO" | "PENDIENTE";
 export type ModuloCarga = "VENTA" | "ALQUILER" | "ARREGLO";
 export type VistaPrincipalPos = "NUEVA_FACTURA" | "HISTORIAL";
 export type PestanaHistorial =
-  | "PENDIENTES_AL_DIA"
-  | "MORA_Y_SALDO"
-  | "SOLO_MORA"
+  | "EN_ALQUILER"
+  | "APARTADOS"
   | "PAZ_Y_SALVOS";
 
 export type EstadoSeguridadPos = EstadoSeguridadCajaInfo;
@@ -235,8 +249,9 @@ export default function PosPage() {
   // Control de sesión de factura en curso (evita duplicar registros al retroceder entre pasos)
   const [facturaEnCursoId, setFacturaEnCursoId] = useState<string | null>(null);
 
-  // Pestaña activa del Historial (4 Pestañas)
-  const [pestanaHistorial, setPestanaHistorial] = useState<PestanaHistorial>("PENDIENTES_AL_DIA");
+  // Pestaña activa del Historial (3 Categorías Unificadas)
+  const [pestanaHistorial, setPestanaHistorial] = useState<PestanaHistorial>("EN_ALQUILER");
+  const [subfiltroHistorial, setSubfiltroHistorial] = useState<string>("TODOS");
   const [busquedaHistorial, setBusquedaHistorial] = useState("");
 
   // Gestión Inteligente de Cajón y Sincronización en Tiempo Real por Dispositivo
@@ -284,12 +299,38 @@ export default function PosPage() {
 
   // Datos del Monitoreo de Facturas / Cartera / Moras
   const [facturasMonitoreo, setFacturasMonitoreo] = useState<FacturaMonitoreo[]>([]);
-  const [estadisticasMonitoreo, setEstadisticasMonitoreo] = useState({
+  const [estadisticasMonitoreo, setEstadisticasMonitoreo] = useState<{
+    totalFacturas: number;
+    conteoCajaAlquiler: number;
+    conteoCajaAlquilerAlDia: number;
+    conteoCajaAlquilerMora: number;
+    conteoApartados: number;
+    conteoApartadosVigentes: number;
+    conteoApartadosMora: number;
+    conteoPazYSalvos: number;
+    conteoAlquileresFinalizados: number;
+    conteoPazYSalvoVentas: number;
+    conteoPendientesAlDia: number;
+    conteoMoraYSaldo: number;
+    conteoSoloMora: number;
+    totalAlertas: number;
+    totalEnMora: number;
+    totalCarteraMora: number;
+    totalSaldoPendiente: number;
+  }>({
     totalFacturas: 0,
+    conteoCajaAlquiler: 0,
+    conteoCajaAlquilerAlDia: 0,
+    conteoCajaAlquilerMora: 0,
+    conteoApartados: 0,
+    conteoApartadosVigentes: 0,
+    conteoApartadosMora: 0,
+    conteoPazYSalvos: 0,
+    conteoAlquileresFinalizados: 0,
+    conteoPazYSalvoVentas: 0,
     conteoPendientesAlDia: 0,
     conteoMoraYSaldo: 0,
     conteoSoloMora: 0,
-    conteoPazYSalvos: 0,
     totalAlertas: 0,
     totalEnMora: 0,
     totalCarteraMora: 0,
@@ -309,6 +350,9 @@ export default function PosPage() {
   // Estados de Tickets en Espera (Pausar y Reanudar Ventas / POS)
   const [modalTicketsEsperaAbierto, setModalTicketsEsperaAbierto] = useState(false);
   const [conteoTicketsEspera, setConteoTicketsEspera] = useState(0);
+
+  // Casilla de control de impresión para el Paso 4
+  const [finalizarSinImprimir, setFinalizarSinImprimir] = useState<boolean>(false);
 
   const actualizarConteoTicketsEspera = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -415,43 +459,8 @@ export default function PosPage() {
   const [mensajeError, setMensajeError] = useState<string | null>(null);
   const [datosImpresion, setDatosImpresion] = useState<DatosImpresionFactura | null>(null);
 
-  // Modal de Anulación / Eliminación de Factura con Doble Verificación
-  const [facturaParaEliminar, setFacturaParaEliminar] = useState<FacturaMonitoreo | null>(null);
-  const [pinSupervisorEliminar, setPinSupervisorEliminar] = useState("");
-  const [motivoEliminar, setMotivoEliminar] = useState("Cancelación por cliente");
-  const [eliminandoFactura, setEliminandoFactura] = useState(false);
-  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
-
-  const ejecutarEliminacionFactura = async () => {
-    if (!facturaParaEliminar) return;
-    try {
-      setEliminandoFactura(true);
-      setErrorEliminar(null);
-
-      const res = await fetch(`/api/facturas/${facturaParaEliminar.id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pinSeguridad: pinSupervisorEliminar.trim(),
-          motivo: motivoEliminar.trim(),
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "No se pudo anular la factura.");
-      }
-
-      setFacturaParaEliminar(null);
-      setPinSupervisorEliminar("");
-      cargarMonitoreo(true);
-      cajon.actualizarCajon(true);
-    } catch (err: unknown) {
-      setErrorEliminar(err instanceof Error ? err.message : "Error al anular factura");
-    } finally {
-      setEliminandoFactura(false);
-    }
-  };
+  // Modal Oficial de Anulación de Factura con Doble Verificación (2 Pasos)
+  const [facturaParaAnular, setFacturaParaAnular] = useState<FacturaParaAnular | null>(null);
 
   // =========================================================
   // CARGAS INICIALES DE DATOS (0 ms de latencia local)
@@ -521,14 +530,12 @@ export default function PosPage() {
       }
 
       const url = forzarSincronizacion
-        ? "/api/facturas/monitoreo?modulo=POS&sync=true&tipo=VENTA_ARREGLO"
-        : "/api/facturas/monitoreo?modulo=POS&tipo=VENTA_ARREGLO";
+        ? "/api/facturas/monitoreo?sync=true&pestana=TODOS"
+        : "/api/facturas/monitoreo?pestana=TODOS";
 
       const { ok, data } = await safeFetchJson<{ success?: boolean; facturas?: FacturaMonitoreo[]; estadisticas?: any }>(url);
       if (ok && data?.success) {
-        // En la terminal POS solo mostramos Ventas y Arreglos
-        const soloPos = (data.facturas || []).filter((f: FacturaMonitoreo) => f.tipoOperacion !== "ALQUILER");
-        setFacturasMonitoreo(soloPos);
+        setFacturasMonitoreo(data.facturas || []);
         if (data.estadisticas) {
           setEstadisticasMonitoreo(data.estadisticas);
         }
@@ -541,40 +548,45 @@ export default function PosPage() {
     }
   }, []);
 
-  // Carga inicial única y estable al montar el componente (Evita bucle infinito y parpadeos)
+  // Carga inicial única y paralelizada al montar el componente (Máxima velocidad de inicio)
   useEffect(() => {
     let montado = true;
 
-    const iniciarApp = async () => {
+    // Hidratación síncrona inmediata desde sesión local para evitar parpadeos
+    if (typeof window !== "undefined") {
       try {
-        const [resAuth, resEmp] = await Promise.all([
-          safeFetchJson<{ ok?: boolean; user?: any }>("/api/auth/me"),
-          safeFetchJson<{ configuracion?: any; empresa?: any }>("/api/empresa"),
-        ]);
+        const cachedUser = sessionStorage.getItem("pos_user");
+        if (cachedUser) setUsuarioSesion(JSON.parse(cachedUser));
+        const cachedEmp = sessionStorage.getItem("pos_empresa_config");
+        if (cachedEmp) setEmpresaConfig((prev: any) => ({ ...prev, ...JSON.parse(cachedEmp) }));
+      } catch {}
+    }
 
-        if (!montado) return;
-
-        if (resAuth.ok && resAuth.data?.ok && resAuth.data.user) {
-          setUsuarioSesion(resAuth.data.user);
-        }
-
-        if (resEmp.ok && resEmp.data) {
-          const conf = resEmp.data.configuracion || resEmp.data.empresa;
-          if (conf) {
-            setEmpresaConfig((prev: any) => ({ ...prev, ...conf }));
+    const iniciarApp = async () => {
+      // Disparar todas las consultas de inicio en paralelo absoluto
+      Promise.allSettled([
+        safeFetchJson<{ ok?: boolean; user?: any }>("/api/auth/me").then(({ ok, data }) => {
+          if (montado && ok && data?.ok && data.user) {
+            setUsuarioSesion(data.user);
+            try { sessionStorage.setItem("pos_user", JSON.stringify(data.user)); } catch {}
           }
-        }
-
-        await cajon.actualizarCajon(true);
-      } catch (err) {
-        console.warn("Error cargando sesión inicial:", err);
-      }
-
-      if (montado) {
-        cargarClientes();
-        cargarInventario();
-        cargarMonitoreo(false);
-      }
+        }),
+        safeFetchJson<{ configuracion?: any; empresa?: any }>("/api/empresa").then(({ ok, data }) => {
+          if (montado && ok && data) {
+            const conf = data.configuracion || data.empresa;
+            if (conf) {
+              setEmpresaConfig((prev: any) => ({ ...prev, ...conf }));
+              try { sessionStorage.setItem("pos_empresa_config", JSON.stringify(conf)); } catch {}
+            }
+          }
+        }),
+        cajon.actualizarCajon(true),
+        cargarClientes(),
+        cargarInventario(),
+        cargarMonitoreo(false),
+      ]).catch((err) => {
+        console.warn("Aviso en carga concurrente de inicio POS:", err);
+      });
     };
 
     iniciarApp();
@@ -622,24 +634,33 @@ export default function PosPage() {
     }));
   }, [catalogoInventario, busquedaAlquiler]);
 
-  // Filtrado de las 4 pestañas de Historial (Solo Ventas y Arreglos en Terminal POS)
+  // Filtrado de las 3 categorías unificadas de Historial
   const facturasHistorialFiltradas = useMemo(() => {
-    // 1. Filtrar ESTRICTAMENTE para excluir alquileres
-    const soloPos = facturasMonitoreo.filter((f) => f.tipoOperacion !== "ALQUILER");
+    let porPestana: FacturaMonitoreo[] = [];
 
-    // 2. Filtrar por pestaña
-    let porPestana = soloPos;
-    if (pestanaHistorial === "PENDIENTES_AL_DIA") {
-      porPestana = soloPos.filter((f) => f.esPendienteAlDia);
-    } else if (pestanaHistorial === "MORA_Y_SALDO") {
-      porPestana = soloPos.filter((f) => f.esMoraYSaldo);
-    } else if (pestanaHistorial === "SOLO_MORA") {
-      porPestana = soloPos.filter((f) => f.esSoloMora);
+    if (pestanaHistorial === "EN_ALQUILER") {
+      porPestana = facturasMonitoreo.filter((f) => {
+        if (!f.esCajaAlquiler) return false;
+        if (subfiltroHistorial === "MORA") return f.enMora || f.diasRetraso > 0;
+        if (subfiltroHistorial === "AL_DIA") return !f.enMora && f.diasRetraso <= 0;
+        return true;
+      });
+    } else if (pestanaHistorial === "APARTADOS") {
+      porPestana = facturasMonitoreo.filter((f) => {
+        if (!f.esApartado) return false;
+        if (subfiltroHistorial === "MORA") return Boolean(f.esApartadoVencido);
+        if (subfiltroHistorial === "AL_DIA") return !f.esApartadoVencido;
+        return true;
+      });
     } else if (pestanaHistorial === "PAZ_Y_SALVOS") {
-      porPestana = soloPos.filter((f) => f.esPazYSalvo);
+      porPestana = facturasMonitoreo.filter((f) => {
+        if (subfiltroHistorial === "DEVUELTOS") return Boolean(f.esAlquilerFinalizado);
+        if (subfiltroHistorial === "VENTAS") return Boolean(f.esPazYSalvoVenta);
+        return f.esPazYSalvo || f.esAlquilerFinalizado || f.esPazYSalvoVenta;
+      });
     }
 
-    // 3. Filtrado difuso fuzzy multi-campo
+    // Filtrado difuso fuzzy multi-campo
     if (!busquedaHistorial.trim()) return porPestana;
 
     return filtrarPorRelevancia(porPestana, busquedaHistorial, (item) => ({
@@ -655,7 +676,7 @@ export default function PosPage() {
         item.usuarioCajero?.nombre,
       ],
     }));
-  }, [facturasMonitoreo, pestanaHistorial, busquedaHistorial]);
+  }, [facturasMonitoreo, pestanaHistorial, subfiltroHistorial, busquedaHistorial]);
 
   // Optimización de rendimiento DOM (límite visual de 48 tarjetas/filas para fluidez instantánea en mostrador)
   const clientesPaginados = useMemo(() => clientesFiltrados.slice(0, 48), [clientesFiltrados]);
@@ -690,24 +711,47 @@ export default function PosPage() {
     return pagosAplicados.reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
   }, [pagosAplicados]);
 
-  const valorACobrarHoy = useMemo(() => {
-    if (pagosAplicados.length > 0) {
-      return totalPagadoEnCascada;
-    }
-    if (modalidadPago === "COMPLETO") return totalFactura;
+  // 1. Total exigible u objetivo de cobro de la venta hoy
+  const totalExigibleHoy = useMemo(() => {
     if (modalidadPago === "PENDIENTE") return 0;
-    const adelanto = Number(montoAbonoParcial) || 0;
-    return Math.min(Math.max(0, adelanto), totalFactura);
-  }, [modalidadPago, totalFactura, montoAbonoParcial, pagosAplicados.length, totalPagadoEnCascada]);
+    if (modalidadPago === "ADELANTO") {
+      const adelanto = Number(montoAbonoParcial) || 0;
+      return Math.min(Math.max(0, adelanto), totalFactura);
+    }
+    return totalFactura;
+  }, [modalidadPago, montoAbonoParcial, totalFactura]);
 
-  const saldoPendienteProyectado = Math.max(0, totalFactura - (pagosAplicados.length > 0 ? totalPagadoEnCascada : valorACobrarHoy));
+  const valorACobrarHoy = totalExigibleHoy;
 
-  // Cálculo de vueltas en efectivo para atajo
+  // 2. Dinero efectivamente recibido hoy del cliente (confirmado en lista + anotado en vivo en panel izquierdo)
   const efectivoRecibidoNum = Number(efectivoRecibido) || 0;
-  const vueltasCalculadas =
-    metodoPagoPrincipal === "EFECTIVO" && efectivoRecibidoNum > valorACobrarHoy
-      ? Math.max(0, efectivoRecibidoNum - valorACobrarHoy)
-      : 0;
+  const totalRecibidoConfirmado = useMemo(() => {
+    return pagosAplicados.reduce((sum, p) => sum + (Number(p.montoRecibido ?? p.monto) || 0), 0);
+  }, [pagosAplicados]);
+
+  const dineroRecibidoHoy = useMemo(() => {
+    if (modalidadPago === "PENDIENTE") return 0;
+    if (pasoActual < 3) return 0;
+
+    // Suma de los pagos aplicados ya confirmados
+    const confirmados = totalRecibidoConfirmado;
+
+    // Monto actualmente digitado/anotado en el panel izquierdo
+    const enInput = efectivoRecibido.trim() !== "" ? Math.max(0, efectivoRecibidoNum) : 0;
+
+    return confirmados + enInput;
+  }, [modalidadPago, pasoActual, totalRecibidoConfirmado, efectivoRecibido, efectivoRecibidoNum]);
+
+  // 3. Fórmula matemática de Vueltas vs Saldo Pendiente por Cobrar
+  // - Escenario 1: Recibido === Total -> Saldo restante = $0, Vueltas = $0
+  // - Escenario 2: Recibido > Total -> Vueltas = Recibido - Total, Saldo = $0
+  // - Escenario 3: Recibido < Total -> Saldo restante = Total - Recibido, Vueltas = $0
+  const esVueltas = totalExigibleHoy > 0 && dineroRecibidoHoy > totalExigibleHoy;
+  const montoVueltas = esVueltas ? Math.max(0, dineroRecibidoHoy - totalExigibleHoy) : 0;
+  const saldoPorCobrarHoy = !esVueltas ? Math.max(0, totalExigibleHoy - dineroRecibidoHoy) : 0;
+  const vueltasCalculadas = montoVueltas;
+
+  const saldoPendienteProyectado = Math.max(0, totalFactura - (pagosAplicados.length > 0 ? totalPagadoEnCascada : dineroRecibidoHoy));
 
   // =========================================================
   // HANDLERS DE CLIENTES (VISTA 1)
@@ -765,19 +809,33 @@ export default function PosPage() {
       productoVentaSeleccionado?.id === prod.id ? Math.max(1, cantidadVenta) : 1;
 
     const ejecutar = () => {
-      const nuevoItem: ItemCarrito = {
-        idTemporal: `venta-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        productoId: prod.id,
-        codigo: prod.codigo,
-        nombre: prod.nombre,
-        tipo: "VENTA",
-        esServicioLibre: false,
-        cantidad: cant,
-        precioUnitario: pUnit,
-        subtotal: cant * pUnit,
-      };
-
-      setItemsCarrito((prev) => [nuevoItem, ...prev]);
+      setItemsCarrito((prev) => {
+        const index = prev.findIndex(
+          (it) => it.productoId === prod.id && it.tipo === "VENTA" && it.precioUnitario === pUnit && !it.esServicioLibre
+        );
+        if (index >= 0) {
+          const copia = [...prev];
+          const nuevaCant = copia[index].cantidad + cant;
+          copia[index] = {
+            ...copia[index],
+            cantidad: nuevaCant,
+            subtotal: nuevaCant * copia[index].precioUnitario,
+          };
+          return copia;
+        }
+        const nuevoItem: ItemCarrito = {
+          idTemporal: `venta-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          productoId: prod.id,
+          codigo: prod.codigo,
+          nombre: prod.nombre,
+          tipo: "VENTA",
+          esServicioLibre: false,
+          cantidad: cant,
+          precioUnitario: pUnit,
+          subtotal: cant * pUnit,
+        };
+        return [nuevoItem, ...prev];
+      });
       setProductoVentaSeleccionado(null);
       setCantidadVenta(1);
       setPrecioVentaCustom("");
@@ -805,21 +863,35 @@ export default function PosPage() {
       productoAlquilerSeleccionado?.id === prod.id ? Math.max(1, cantidadAlquiler) : 1;
 
     const ejecutar = () => {
-      const nuevoItem: ItemCarrito = {
-        idTemporal: `alquiler-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        productoId: prod.id,
-        codigo: prod.codigo,
-        nombre: prod.nombre,
-        tipo: "ALQUILER",
-        esServicioLibre: false,
-        cantidad: cant,
-        precioUnitario: pUnit,
-        subtotal: cant * pUnit,
-        fechaEntrega: fechaSalidaAlquiler,
-        fechaDevolucion: fechaDevolucionAlquiler,
-      };
-
-      setItemsCarrito((prev) => [nuevoItem, ...prev]);
+      setItemsCarrito((prev) => {
+        const index = prev.findIndex(
+          (it) => it.productoId === prod.id && it.tipo === "ALQUILER" && it.precioUnitario === pUnit && !it.esServicioLibre
+        );
+        if (index >= 0) {
+          const copia = [...prev];
+          const nuevaCant = copia[index].cantidad + cant;
+          copia[index] = {
+            ...copia[index],
+            cantidad: nuevaCant,
+            subtotal: nuevaCant * copia[index].precioUnitario,
+          };
+          return copia;
+        }
+        const nuevoItem: ItemCarrito = {
+          idTemporal: `alquiler-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          productoId: prod.id,
+          codigo: prod.codigo,
+          nombre: prod.nombre,
+          tipo: "ALQUILER",
+          esServicioLibre: false,
+          cantidad: cant,
+          precioUnitario: pUnit,
+          subtotal: cant * pUnit,
+          fechaEntrega: fechaSalidaAlquiler,
+          fechaDevolucion: fechaDevolucionAlquiler,
+        };
+        return [nuevoItem, ...prev];
+      });
       setProductoAlquilerSeleccionado(null);
       setCantidadAlquiler(1);
       setPrecioAlquilerCustom("");
@@ -961,6 +1033,13 @@ export default function PosPage() {
       ];
     }
 
+    const efRecibidoInput = Number(efectivoRecibido) || valorACobrarHoy;
+    const vueltasAtajo = metodoPagoPrincipal === "EFECTIVO" ? Math.max(0, efRecibidoInput - valorACobrarHoy) : 0;
+    const efRecibidoCascada = fuentePagos.reduce((sum, p) => sum + (Number(p.montoRecibido ?? p.monto) || 0), 0);
+    const vueltasCascada = fuentePagos.reduce((sum, p) => sum + (Number(p.vueltasEntregadas) || 0), 0);
+    const efectivoFinalVenta = fuentePagos.length > 0 ? efRecibidoCascada : (metodoPagoPrincipal === "EFECTIVO" ? efRecibidoInput : valorACobrarHoy);
+    const vueltasFinalVenta = fuentePagos.length > 0 ? vueltasCascada : vueltasAtajo;
+
     try {
       setProcesandoFactura(true);
       setMensajeError(null);
@@ -974,6 +1053,10 @@ export default function PosPage() {
         fechaEntregaAlquiler: fEntregaGlobal,
         fechaDevolucionPactada: fDevolucionGlobal,
         notas: notasFactura.trim() || undefined,
+        efectivoRecibido: efectivoFinalVenta,
+        cambioEntregado: vueltasFinalVenta,
+        montoRecibido: efectivoFinalVenta,
+        vueltasEntregadas: vueltasFinalVenta,
         detalles: itemsCarrito.map((item) => ({
           productoId: item.productoId,
           esServicioLibre: item.esServicioLibre,
@@ -990,6 +1073,8 @@ export default function PosPage() {
             : listaPagosFinal.length > 1
               ? "MIXTO"
               : metodoPagoPrincipal,
+        esCredito: modalidadPago === "PENDIENTE" || modalidadPago === "ADELANTO",
+        modalidadPago,
         pagos: listaPagosFinal,
         abonos: listaPagosFinal,
         abonoInicial: listaPagosFinal.length === 1 ? listaPagosFinal[0] : undefined,
@@ -1023,17 +1108,14 @@ export default function PosPage() {
 
       const facturaFinal = data.factura;
 
-      // Disparar apertura automática del cajón si hubo cobro en EFECTIVO
-      const huboEfectivo = listaPagosFinal.some((p) => p.metodoPago === "EFECTIVO" && p.monto > 0);
-      if (huboEfectivo) {
-        safeFetchJson("/api/caja/abrir-cajon", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            motivo: `COBRO_AUTOMATICO_EFECTIVO · Factura ${facturaFinal?.numeroFactura || ""}`,
-          }),
-        }).catch(() => { });
-      }
+      // Disparar siempre la apertura física del cajón monedero al pasar del Paso 3 al Paso 4
+      safeFetchJson("/api/caja/abrir-cajon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          motivo: `APERTURA_COBRO_PASO_4 · Factura ${facturaFinal?.numeroFactura || ""}`,
+        }),
+      }).catch(() => { });
 
       // Guardar el ID de la factura para evitar duplicados si el usuario retrocede entre pasos
       if (facturaFinal?.id) {
@@ -1056,6 +1138,8 @@ export default function PosPage() {
           totalFactura: facturaFinal.totalFactura,
           totalAbonado: facturaFinal.totalAbonado,
           saldoPendiente: facturaFinal.saldoPendiente,
+          efectivoRecibido: facturaFinal.efectivoRecibido ?? efectivoFinalVenta,
+          cambioEntregado: facturaFinal.cambioEntregado ?? vueltasFinalVenta,
           notas: facturaFinal.notas,
           cliente: {
             nombre: facturaFinal.cliente?.nombre || "",
@@ -1120,12 +1204,30 @@ export default function PosPage() {
     setNotasFactura("");
     setMensajeError(null);
     setDatosImpresion(null);
+    setFinalizarSinImprimir(false);
     setPasoActual(1);
     setVistaPrincipal("NUEVA_FACTURA");
   };
 
+  // Disparo manual o al finalizar de la impresión del documento
+  const dispararImpresionComprobante = () => {
+    if (typeof window === "undefined") return;
+    const iframe = document.getElementById("iframe-impresion-documento-pos") as HTMLIFrameElement;
+    if (iframe && iframe.contentWindow) {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        return;
+      } catch {}
+    }
+    window.print();
+  };
+
   // Cierre definitivo de la operación desde el Paso 4
   const finalizarYCerrarOperacion = () => {
+    if (!finalizarSinImprimir) {
+      dispararImpresionComprobante();
+    }
     reiniciarMostrador();
   };
 
@@ -1372,8 +1474,12 @@ export default function PosPage() {
           }
         }}
         historialActivo={vistaPrincipal === "HISTORIAL"}
-        historialBadgeCount={estadisticasMonitoreo.totalEnMora + estadisticasMonitoreo.conteoPendientesAlDia}
-        historialBadgeVariant={estadisticasMonitoreo.totalEnMora > 0 ? "danger" : "amber"}
+        historialBadgeCount={
+          (estadisticasMonitoreo.conteoCajaAlquilerMora ?? 0) > 0
+            ? estadisticasMonitoreo.conteoCajaAlquilerMora
+            : (estadisticasMonitoreo.conteoCajaAlquiler || undefined)
+        }
+        historialBadgeVariant={(estadisticasMonitoreo.conteoCajaAlquilerMora ?? 0) > 0 ? "danger" : "amber"}
         onTicketsEnEspera={() => setModalTicketsEsperaAbierto(true)}
         ticketsEnEsperaCount={conteoTicketsEspera}
         onSincronizar={() => {
@@ -1480,100 +1586,212 @@ export default function PosPage() {
                 </div>
               </div>
 
-              {/* Barra de 4 Pestañas Claras y No Saturadas */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-1">
-                {/* Pestaña A: Pendientes por Pagar (Al Día) */}
+              {/* Barra de 3 Pestañas Oficiales */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                {/* Pestaña 1: En Alquiler */}
                 <button
                   type="button"
-                  onClick={() => setPestanaHistorial("PENDIENTES_AL_DIA")}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${pestanaHistorial === "PENDIENTES_AL_DIA"
-                    ? "bg-blue-50 border-blue-600 text-blue-900 ring-2 ring-blue-600/20"
-                    : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
-                    }`}
+                  onClick={() => {
+                    setPestanaHistorial("EN_ALQUILER");
+                    setSubfiltroHistorial("TODOS");
+                  }}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] cursor-pointer ${
+                    pestanaHistorial === "EN_ALQUILER"
+                      ? "bg-amber-50 border-amber-600 text-amber-950 ring-2 ring-amber-600/20"
+                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
                 >
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span>A. Pendientes al Día</span>
+                    <ShoppingBag className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>1. En Alquiler</span>
                   </div>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${pestanaHistorial === "PENDIENTES_AL_DIA"
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-200 text-slate-700"
-                      }`}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
+                      pestanaHistorial === "EN_ALQUILER"
+                        ? "bg-amber-600 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
                   >
-                    {estadisticasMonitoreo.conteoPendientesAlDia}
+                    {estadisticasMonitoreo.conteoCajaAlquiler ?? 0}
                   </span>
                 </button>
 
-                {/* Pestaña B: En Mora + Saldo Pendiente */}
+                {/* Pestaña 2: Apartados */}
                 <button
                   type="button"
-                  onClick={() => setPestanaHistorial("MORA_Y_SALDO")}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${pestanaHistorial === "MORA_Y_SALDO"
-                    ? "bg-rose-50 border-rose-600 text-rose-900 ring-2 ring-rose-600/20"
-                    : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
-                    }`}
+                  onClick={() => {
+                    setPestanaHistorial("APARTADOS");
+                    setSubfiltroHistorial("TODOS");
+                  }}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] cursor-pointer ${
+                    pestanaHistorial === "APARTADOS"
+                      ? "bg-blue-50 border-blue-600 text-blue-900 ring-2 ring-blue-600/20"
+                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
                 >
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>B. En Mora + Saldo</span>
+                    <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>2. Apartados</span>
                   </div>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${estadisticasMonitoreo.conteoMoraYSaldo > 0
-                      ? "bg-rose-600 text-white"
-                      : "bg-slate-200 text-slate-700"
-                      }`}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
+                      pestanaHistorial === "APARTADOS"
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
                   >
-                    {estadisticasMonitoreo.conteoMoraYSaldo}
+                    {estadisticasMonitoreo.conteoApartados ?? 0}
                   </span>
                 </button>
 
-                {/* Pestaña C: Solo en Mora (Factura Pagada, Prenda NO Devuelta) */}
+                {/* Pestaña 3: Paz y Salvos */}
                 <button
                   type="button"
-                  onClick={() => setPestanaHistorial("SOLO_MORA")}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${pestanaHistorial === "SOLO_MORA"
-                    ? "bg-amber-50 border-amber-600 text-amber-900 ring-2 ring-amber-600/20"
-                    : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
-                    }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Coins className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>C. Solo Mora (Prenda Pendiente)</span>
-                  </div>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${estadisticasMonitoreo.conteoSoloMora > 0
-                      ? "bg-amber-600 text-white"
-                      : "bg-slate-200 text-slate-700"
-                      }`}
-                  >
-                    {estadisticasMonitoreo.conteoSoloMora}
-                  </span>
-                </button>
-
-                {/* Pestaña D: Historial de Paz y Salvos */}
-                <button
-                  type="button"
-                  onClick={() => setPestanaHistorial("PAZ_Y_SALVOS")}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] ${pestanaHistorial === "PAZ_Y_SALVOS"
-                    ? "bg-emerald-50 border-emerald-600 text-emerald-900 ring-2 ring-emerald-600/20"
-                    : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
-                    }`}
+                  onClick={() => {
+                    setPestanaHistorial("PAZ_Y_SALVOS");
+                    setSubfiltroHistorial("TODOS");
+                  }}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] cursor-pointer ${
+                    pestanaHistorial === "PAZ_Y_SALVOS"
+                      ? "bg-emerald-50 border-emerald-600 text-emerald-900 ring-2 ring-emerald-600/20"
+                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>D. Paz y Salvos (Cerradas)</span>
+                    <span>3. Paz y Salvo</span>
                   </div>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${pestanaHistorial === "PAZ_Y_SALVOS"
-                      ? "bg-emerald-600 text-white"
-                      : "bg-slate-200 text-slate-700"
-                      }`}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
+                      pestanaHistorial === "PAZ_Y_SALVOS"
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
                   >
-                    {estadisticasMonitoreo.conteoPazYSalvos}
+                    {estadisticasMonitoreo.conteoPazYSalvos ?? 0}
                   </span>
                 </button>
               </div>
+
+              {/* Subfiltros interactivos según pestaña */}
+              {pestanaHistorial === "EN_ALQUILER" && (
+                <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-amber-50/70 border border-amber-200">
+                  <span className="text-xs font-bold text-amber-950 px-1">Filtro Alquiler:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSubfiltroHistorial("TODOS")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      subfiltroHistorial === "TODOS"
+                        ? "bg-amber-600 text-white shadow-xs"
+                        : "bg-white text-slate-700 hover:bg-amber-100/50 border border-amber-200"
+                    }`}
+                  >
+                    Todos ({estadisticasMonitoreo.conteoCajaAlquiler ?? 0})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSubfiltroHistorial("AL_DIA")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      subfiltroHistorial === "AL_DIA"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-200"
+                    }`}
+                  >
+                    Al Día ({estadisticasMonitoreo.conteoCajaAlquilerAlDia ?? 0})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSubfiltroHistorial("MORA")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      subfiltroHistorial === "MORA"
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "bg-white text-rose-700 hover:bg-rose-50 border border-rose-200"
+                    }`}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>En Mora con Días Corriendo ({estadisticasMonitoreo.conteoCajaAlquilerMora ?? 0})</span>
+                  </button>
+                </div>
+              )}
+
+              {pestanaHistorial === "APARTADOS" && (
+                <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-blue-50/70 border border-blue-200">
+                  <span className="text-xs font-bold text-blue-950 px-1">Filtro Apartados:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSubfiltroHistorial("TODOS")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      subfiltroHistorial === "TODOS"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-white text-slate-700 hover:bg-blue-100/50 border border-blue-200"
+                    }`}
+                  >
+                    Todos ({estadisticasMonitoreo.conteoApartados ?? 0})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSubfiltroHistorial("AL_DIA")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      subfiltroHistorial === "AL_DIA"
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-white text-indigo-700 hover:bg-indigo-50 border border-indigo-200"
+                    }`}
+                  >
+                    Vigentes para Retiro ({estadisticasMonitoreo.conteoApartadosVigentes ?? 0})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSubfiltroHistorial("MORA")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      subfiltroHistorial === "MORA"
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "bg-white text-rose-700 hover:bg-rose-50 border border-rose-200"
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Vencidos por Retirar ({estadisticasMonitoreo.conteoApartadosMora ?? 0})</span>
+                  </button>
+                </div>
+              )}
+
+              {pestanaHistorial === "PAZ_Y_SALVOS" && (
+                <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                  <span className="text-xs font-bold text-emerald-950 px-1">Filtro Paz y Salvo:</span>
+                  <button
+                    type="button"
+                    onClick={() => setSubfiltroHistorial("TODOS")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      subfiltroHistorial === "TODOS"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-white text-slate-700 hover:bg-emerald-100/50 border border-emerald-200"
+                    }`}
+                  >
+                    Todos ({estadisticasMonitoreo.conteoPazYSalvos ?? 0})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSubfiltroHistorial("DEVUELTOS")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      subfiltroHistorial === "DEVUELTOS"
+                        ? "bg-purple-600 text-white shadow-xs"
+                        : "bg-white text-purple-700 hover:bg-purple-50 border border-purple-200"
+                    }`}
+                  >
+                    Trajes Devueltos ({estadisticasMonitoreo.conteoAlquileresFinalizados ?? 0})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSubfiltroHistorial("VENTAS")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      subfiltroHistorial === "VENTAS"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-white text-emerald-700 hover:bg-emerald-50 border border-emerald-200"
+                    }`}
+                  >
+                    Ventas Saldadas ({estadisticasMonitoreo.conteoPazYSalvoVentas ?? 0})
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Cuerpo de la Tabla del Historial con Scroll Interno Propio (flex-1 min-h-0 overflow-y-auto) */}
@@ -1586,10 +1804,10 @@ export default function PosPage() {
               ) : facturasHistorialFiltradas.length === 0 ? (
                 <div className="p-12 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200 my-4">
                   <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                  <p className="text-base font-bold text-slate-700">No hay facturas en esta vista</p>
+                  <p className="text-base font-bold text-slate-700">No hay registros en esta vista</p>
                   <p className="text-sm text-slate-500">
                     {busquedaHistorial
-                      ? `No hay coincidencias con "${busquedaHistorial}" en esta pestaña.`
+                      ? `No hay coincidencias con "${busquedaHistorial}" en esta selección.`
                       : "No se registran registros bajo el criterio seleccionado."}
                   </p>
                 </div>
@@ -1598,47 +1816,35 @@ export default function PosPage() {
                   <table className="w-full text-left text-sm">
                     <thead className="bg-slate-50 text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 sticky top-0 z-10">
                       <tr>
-                        <th className="px-3.5 py-3">Factura / Fecha</th>
+                        <th className="px-3.5 py-3">Operación / Fecha</th>
                         <th className="px-3.5 py-3">Cliente</th>
-                        {pestanaHistorial === "PENDIENTES_AL_DIA" && (
+                        {pestanaHistorial === "EN_ALQUILER" && (
                           <>
-                            <th className="px-3.5 py-3">Concepto</th>
-                            <th className="px-3.5 py-3 text-right">Total Factura</th>
-                            <th className="px-3.5 py-3 text-right">Abonado</th>
-                            <th className="px-3.5 py-3 text-right text-rose-600 font-black">
-                              Saldo Pendiente
-                            </th>
-                          </>
-                        )}
-
-                        {pestanaHistorial === "MORA_Y_SALDO" && (
-                          <>
-                            <th className="px-3.5 py-3 text-center text-rose-700">Retraso en Devolución</th>
+                            <th className="px-3.5 py-3">Prenda Alquilada</th>
+                            <th className="px-3.5 py-3 text-center">Fecha Llegada / Estado</th>
                             <th className="px-3.5 py-3 text-right">Saldo Base</th>
-                            <th className="px-3.5 py-3 text-right text-rose-600 font-bold">Recargo Mora</th>
-                            <th className="px-3.5 py-3 text-right text-rose-700 font-black">
-                              Total Exigible Hoy
-                            </th>
+                            <th className="px-3.5 py-3 text-right text-rose-600 font-bold">Mora / Recargo</th>
+                            <th className="px-3.5 py-3 text-right font-black">Total Exigible</th>
                           </>
                         )}
 
-                        {pestanaHistorial === "SOLO_MORA" && (
+                        {pestanaHistorial === "APARTADOS" && (
                           <>
-                            <th className="px-3.5 py-3">Prenda Retenida</th>
-                            <th className="px-3.5 py-3 text-center">Entrega Pactada</th>
-                            <th className="px-3.5 py-3 text-center text-amber-700">Retraso</th>
-                            <th className="px-3.5 py-3 text-right text-amber-700 font-black">
-                              Mora a Cobrar
-                            </th>
+                            <th className="px-3.5 py-3">Prenda(s) Reservadas</th>
+                            <th className="px-3.5 py-3 text-center">Fecha Retiro / Estado</th>
+                            <th className="px-3.5 py-3 text-right font-bold text-slate-900">Total</th>
+                            <th className="px-3.5 py-3 text-right font-bold text-emerald-600">Abonado</th>
+                            <th className="px-3.5 py-3 text-right font-black text-rose-600">Saldo</th>
                           </>
                         )}
 
                         {pestanaHistorial === "PAZ_Y_SALVOS" && (
                           <>
+                            <th className="px-3.5 py-3">Concepto / Tipo</th>
                             <th className="px-3.5 py-3 text-center">Fecha Cierre</th>
                             <th className="px-3.5 py-3 text-right font-bold text-slate-800">Total Pagado</th>
-                            <th className="px-3.5 py-3 text-center">Cajero Cierre</th>
-                            <th className="px-3.5 py-3 text-center">Certificación</th>
+                            <th className="px-3.5 py-3 text-center">Cajero</th>
+                            <th className="px-3.5 py-3 text-center">Estado Oficial</th>
                           </>
                         )}
 
@@ -1654,7 +1860,7 @@ export default function PosPage() {
 
                         return (
                           <tr key={f.id} className="hover:bg-slate-50/80 transition">
-                            {/* Factura / Fecha */}
+                            {/* Operación / Fecha */}
                             <td className="px-3.5 py-3">
                               <strong className="font-mono text-slate-900 block font-black text-sm md:text-base">
                                 #{f.numeroFactura}
@@ -1675,13 +1881,80 @@ export default function PosPage() {
                               </div>
                             </td>
 
-                            {/* COLUMNAS SEGÚN PESTAÑA A: PENDIENTES AL DÍA */}
-                            {pestanaHistorial === "PENDIENTES_AL_DIA" && (
+                            {/* COLUMNAS EN ALQUILER */}
+                            {pestanaHistorial === "EN_ALQUILER" && (
                               <>
                                 <td className="px-3.5 py-3">
-                                  <span className="px-2.5 py-1 rounded-md text-xs font-bold uppercase bg-slate-100 text-slate-700">
-                                    {f.tipoOperacion}
+                                  <strong className="text-slate-800 text-sm font-bold block truncate max-w-[220px]">
+                                    {f.prendaPrincipal}
+                                  </strong>
+                                  <span className="text-[11px] text-slate-400">
+                                    {f.detalles?.length || 1} prenda(s)
                                   </span>
+                                </td>
+                                <td className="px-3.5 py-3 text-center">
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-mono font-semibold text-slate-700 block capitalize">
+                                      {f.fechaDevolucionPactada
+                                        ? formatearFechaConDia(f.fechaDevolucionPactada, true, "corto")
+                                        : "Sin fecha"}
+                                    </span>
+                                    {f.enMora ? (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                        <Clock className="w-3.5 h-3.5" />
+                                        <span>{tiempoRetrasoTexto} de mora</span>
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                        <span>Al Día</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3.5 py-3 text-right font-mono font-bold text-slate-700 text-sm md:text-base">
+                                  ${f.saldoBase.toLocaleString("es-CO")}
+                                </td>
+                                <td className="px-3.5 py-3 text-right font-mono font-bold text-rose-600 text-sm md:text-base">
+                                  {f.recargoMora > 0 ? `+$${f.recargoMora.toLocaleString("es-CO")}` : "$0"}
+                                </td>
+                                <td className="px-3.5 py-3 text-right font-mono font-black text-rose-700 text-base md:text-lg">
+                                  ${f.totalExigible.toLocaleString("es-CO")}
+                                </td>
+                              </>
+                            )}
+
+                            {/* COLUMNAS APARTADOS */}
+                            {pestanaHistorial === "APARTADOS" && (
+                              <>
+                                <td className="px-3.5 py-3">
+                                  <strong className="text-slate-800 text-sm font-bold block truncate max-w-[220px]">
+                                    {f.prendaPrincipal}
+                                  </strong>
+                                  <span className="text-[11px] text-slate-400">
+                                    {f.detalles?.length || 1} prenda(s) reservada(s)
+                                  </span>
+                                </td>
+                                <td className="px-3.5 py-3 text-center">
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-mono font-semibold text-slate-700 block capitalize">
+                                      {f.fechaRetiroApartado
+                                        ? formatearFechaConDia(f.fechaRetiroApartado, false, "corto")
+                                        : f.fechaDevolucionEstimada
+                                        ? formatearFechaConDia(f.fechaDevolucionEstimada, false, "corto")
+                                        : "Sin fecha pactada"}
+                                    </span>
+                                    {f.esApartadoVencido ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                        <Clock className="w-3 h-3" />
+                                        <span>Retiro Vencido</span>
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                        <span>Vigente</span>
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-3.5 py-3 text-right font-mono font-bold text-slate-900 text-sm md:text-base">
                                   ${f.totalFactura.toLocaleString("es-CO")}
@@ -1695,59 +1968,17 @@ export default function PosPage() {
                               </>
                             )}
 
-                            {/* COLUMNAS SEGÚN PESTAÑA B: EN MORA + SALDO */}
-                            {pestanaHistorial === "MORA_Y_SALDO" && (
-                              <>
-                                <td className="px-3.5 py-3 text-center">
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    <span>{tiempoRetrasoTexto} de mora</span>
-                                  </span>
-                                </td>
-                                <td className="px-3.5 py-3 text-right font-mono font-bold text-slate-700 text-sm md:text-base">
-                                  ${f.saldoBase.toLocaleString("es-CO")}
-                                </td>
-                                <td className="px-3.5 py-3 text-right font-mono font-bold text-rose-600 text-sm md:text-base">
-                                  +${f.recargoMora.toLocaleString("es-CO")}
-                                </td>
-                                <td className="px-3.5 py-3 text-right font-mono font-black text-rose-700 text-base md:text-lg">
-                                  ${f.totalExigible.toLocaleString("es-CO")}
-                                </td>
-                              </>
-                            )}
-
-                            {/* COLUMNAS SEGÚN PESTAÑA C: SOLO EN MORA */}
-                            {pestanaHistorial === "SOLO_MORA" && (
-                              <>
-                                <td className="px-3.5 py-3">
-                                  <div className="space-y-1">
-                                    <span className="px-2 py-0.5 rounded text-xs font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 block w-fit">
-                                      FACTURA PAGADA - FALTA ENTREGAR PRENDA (EN MORA)
-                                    </span>
-                                    <strong className="text-slate-800 text-sm font-bold block truncate max-w-[220px]">
-                                      {f.prendaPrincipal}
-                                    </strong>
-                                  </div>
-                                </td>
-                                <td className="px-3.5 py-3 text-center text-xs font-mono text-slate-600 capitalize">
-                                  {f.fechaDevolucionPactada
-                                    ? formatearFechaConDia(f.fechaDevolucionPactada, true, "corto")
-                                    : "N/A"}
-                                </td>
-                                <td className="px-3.5 py-3 text-center">
-                                  <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                    {tiempoRetrasoTexto}
-                                  </span>
-                                </td>
-                                <td className="px-3.5 py-3 text-right font-mono font-black text-amber-700 text-base md:text-lg">
-                                  ${f.recargoMora.toLocaleString("es-CO")}
-                                </td>
-                              </>
-                            )}
-
-                            {/* COLUMNAS SEGÚN PESTAÑA D: PAZ Y SALVOS */}
+                            {/* COLUMNAS PAZ Y SALVO */}
                             {pestanaHistorial === "PAZ_Y_SALVOS" && (
                               <>
+                                <td className="px-3.5 py-3">
+                                  <span className="px-2 py-0.5 rounded text-xs font-bold uppercase bg-slate-100 text-slate-700 block w-fit mb-1">
+                                    {f.esAlquilerFinalizado ? "Alquiler Devuelto" : f.tipoOperacion}
+                                  </span>
+                                  <strong className="text-slate-800 text-xs font-bold block truncate max-w-[200px]">
+                                    {f.prendaPrincipal}
+                                  </strong>
+                                </td>
                                 <td className="px-3.5 py-3 text-center text-xs font-mono text-slate-600 capitalize">
                                   {f.fechaDevolucionReal
                                     ? formatearFechaConDia(f.fechaDevolucionReal, false, "corto")
@@ -1765,10 +1996,17 @@ export default function PosPage() {
                                   {f.usuarioCajero?.nombre || "Cajero"}
                                 </td>
                                 <td className="px-3.5 py-3 text-center">
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span>Paz y Salvo ($0)</span>
-                                  </span>
+                                  {f.esAlquilerFinalizado ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" />
+                                      <span>Traje Regresado</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>Paz y Salvo ($0)</span>
+                                    </span>
+                                  )}
                                 </td>
                               </>
                             )}
@@ -1776,24 +2014,36 @@ export default function PosPage() {
                             {/* Acciones */}
                             <td className="px-3.5 py-3 text-center">
                               <div className="flex items-center justify-center gap-1.5">
-                                {/* Botón Cobrar Saldo / Mora (Pestañas A, B y C) */}
-                                {pestanaHistorial !== "PAZ_Y_SALVOS" && (
+                                {/* Botón especial para Apartados: PASAR A ALQUILER */}
+                                {pestanaHistorial === "APARTADOS" && (
+                                  <IconButtonTooltip
+                                    icon={ShoppingBag}
+                                    label="Pasar este Apartado a Alquiler Activo"
+                                    variant="indigo"
+                                    size="md"
+                                    href={`/caja/alquileres?apartadoId=${f.id}`}
+                                  />
+                                )}
+
+                                {/* Botón Cobrar Saldo / Liquidar Alquiler */}
+                                {pestanaHistorial === "EN_ALQUILER" && (
                                   <IconButtonTooltip
                                     icon={DollarSign}
-                                    label={
-                                      pestanaHistorial === "SOLO_MORA"
-                                        ? "Cobrar Mora & Prenda"
-                                        : pestanaHistorial === "MORA_Y_SALDO"
-                                          ? "Cobrar Saldo & Mora"
-                                          : "Cobrar Saldo Pendiente"
-                                    }
-                                    variant={
-                                      pestanaHistorial === "MORA_Y_SALDO"
-                                        ? "danger"
-                                        : pestanaHistorial === "SOLO_MORA"
-                                          ? "amber"
-                                          : "emerald"
-                                    }
+                                    label="Liquidar Alquiler / Devolver Traje"
+                                    variant={f.enMora ? "danger" : "amber"}
+                                    size="md"
+                                    onClick={() => {
+                                      setFacturaALiquidarId(f.id);
+                                      setModalLiquidarAbierto(true);
+                                    }}
+                                  />
+                                )}
+
+                                {pestanaHistorial === "APARTADOS" && f.saldoPendiente > 0 && (
+                                  <IconButtonTooltip
+                                    icon={DollarSign}
+                                    label="Registrar Abono a Apartado"
+                                    variant="emerald"
                                     size="md"
                                     onClick={() => {
                                       setFacturaALiquidarId(f.id);
@@ -1815,11 +2065,11 @@ export default function PosPage() {
                                     fechaEntregaPactada={f.fechaDevolucionPactada || undefined}
                                     valorMora={f.recargoMora}
                                     tipoMensaje={
-                                      pestanaHistorial === "SOLO_MORA"
-                                        ? "SOLO_MORA_ENTREGA"
-                                        : pestanaHistorial === "MORA_Y_SALDO"
-                                          ? "MORA"
-                                          : "SALDO_PENDIENTE"
+                                      f.enMora
+                                        ? "MORA"
+                                        : pestanaHistorial === "APARTADOS"
+                                        ? "SALDO_PENDIENTE"
+                                        : "SALDO_PENDIENTE"
                                     }
                                     mostrarTexto={false}
                                     className="w-9 h-9 min-w-[36px] min-h-[36px] p-2 flex items-center justify-center rounded-xl"
@@ -1835,16 +2085,25 @@ export default function PosPage() {
                                   onClick={() => abrirReimpresionUniversal(f)}
                                 />
 
-                                {/* Botón Anular / Eliminar Factura */}
+                                {/* Botón Anular Factura (Doble Verificación) */}
                                 <IconButtonTooltip
                                   icon={Trash2}
-                                  label="Anular factura y devolver dinero a caja e inventario a bodega"
+                                  label="Anular factura (doble verificación de 2 pasos con clave supervisor)"
                                   variant="danger"
                                   size="md"
                                   onClick={() => {
-                                    setFacturaParaEliminar(f);
-                                    setPinSupervisorEliminar("");
-                                    setErrorEliminar(null);
+                                    setFacturaParaAnular({
+                                      id: f.id,
+                                      numeroFactura: f.numeroFactura,
+                                      clienteNombre: f.cliente?.nombre,
+                                      clienteDocumento: f.cliente?.documento,
+                                      tipoOperacion: f.tipoOperacion,
+                                      totalFactura: f.totalFactura,
+                                      totalAbonado: f.totalAbonado,
+                                      saldoPendiente: f.saldoPendiente,
+                                      cantidadPrendas: f.detalles?.length,
+                                      prendaPrincipal: f.detalles?.[0]?.producto?.nombre || f.detalles?.[0]?.descripcionLibre || undefined,
+                                    });
                                   }}
                                 />
                               </div>
@@ -1930,8 +2189,30 @@ export default function PosPage() {
                       title="Volver al Paso 3 para modificar valores o método de pago (se sobrescribirá la misma factura)"
                     >
                       <ArrowLeft className="w-3.5 h-3.5 text-slate-600" />
-                      <span>← Retroceder al Paso 3 (Corregir Pago)</span>
+                      <span>← Retroceder al Paso 3</span>
                     </button>
+
+                    {/* Botón Imprimir Comprobante */}
+                    <button
+                      type="button"
+                      onClick={dispararImpresionComprobante}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-bold text-xs transition shadow-2xs cursor-pointer"
+                      title="Imprimir comprobante en la impresora seleccionada antes de finalizar"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Imprimir Comprobante</span>
+                    </button>
+
+                    {/* Casilla Finalizar sin imprimir */}
+                    <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-800 text-xs font-bold cursor-pointer hover:bg-slate-50 transition shadow-2xs select-none">
+                      <input
+                        type="checkbox"
+                        checked={finalizarSinImprimir}
+                        onChange={(e) => setFinalizarSinImprimir(e.target.checked)}
+                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                      />
+                      <span>Finalizar sin imprimir</span>
+                    </label>
 
                     {/* Botón Definitivo Destacado: Finalizar y Cerrar Operación */}
                     <button
@@ -1961,6 +2242,58 @@ export default function PosPage() {
                 {/* PANEL IZQUIERDO DE TRABAJO (col-span-12 lg:col-span-8)                  */}
                 {/* ======================================================================= */}
                 <div className="col-span-12 lg:col-span-8 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
+                  {/* Barra Horizontal Compacta de Cliente */}
+                  <div className="shrink-0 px-3.5 py-2 border-b border-slate-200 bg-slate-50/90 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="p-1 rounded-lg bg-white border border-slate-200 text-slate-700 shrink-0">
+                        <User className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <div className="flex items-baseline gap-2 min-w-0 truncate">
+                        <span className="font-bold text-slate-500 uppercase text-[10px] tracking-wider shrink-0">
+                          Cliente:
+                        </span>
+                        <strong className="text-slate-900 font-black text-xs sm:text-sm truncate">
+                          {clienteSeleccionado ? (clienteSeleccionado.razonSocial || clienteSeleccionado.nombre) : "Consumidor Final / Sin cliente"}
+                        </strong>
+                        {clienteSeleccionado && (
+                          <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-slate-500 font-mono shrink-0">
+                            {clienteSeleccionado.documento && <span>Doc: {clienteSeleccionado.documento}</span>}
+                            {clienteSeleccionado.telefono && <span>• Tel: {clienteSeleccionado.telefono}</span>}
+                            {clienteSeleccionado.esResponsableIVA && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-blue-100 text-blue-900 border border-blue-200">
+                                IVA
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {clienteSeleccionado ? (
+                        <button
+                          type="button"
+                          onClick={() => setPasoActual(1)}
+                          className="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 font-bold text-[11px] text-slate-700 flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                          title="Cambiar cliente"
+                        >
+                          <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Cambiar</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setPasoActual(1)}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                          title="Seleccionar cliente"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span>Seleccionar</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   {/* --- SUB-VISTA PASO 1: DIRECTORIO DE CLIENTES --- */}
                   {pasoActual === 1 && (
                     <>
@@ -2114,32 +2447,32 @@ export default function PosPage() {
                             <button
                               type="button"
                               onClick={() => setModuloActivo("VENTA")}
-                              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${moduloActivo === "VENTA"
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${moduloActivo === "VENTA"
                                 ? "bg-emerald-600 text-white shadow-xs"
                                 : "text-slate-600 hover:text-slate-900"
                                 }`}
                             >
                               <Tag className="w-3.5 h-3.5" />
-                              <span>1. Productos (Venta)</span>
+                              <span>Productos</span>
                             </button>
 
                             <button
                               type="button"
                               onClick={() => setModuloActivo("ARREGLO")}
-                              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${moduloActivo === "ARREGLO"
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${moduloActivo === "ARREGLO"
                                 ? "bg-purple-600 text-white shadow-xs"
                                 : "text-slate-600 hover:text-slate-900"
                                 }`}
                             >
                               <Scissors className="w-3.5 h-3.5" />
-                              <span>2. Arreglos / Sastrería</span>
+                              <span>Arreglos</span>
                             </button>
                           </div>
 
                           {moduloActivo !== "ARREGLO" && (
                             <IconButtonTooltip
                               icon={PackagePlus}
-                              label="Crear Nuevo Producto en Inventario"
+                              label="+ Nuevo Producto"
                               variant="emerald"
                               size="md"
                               onClick={() => {
@@ -2218,8 +2551,7 @@ export default function PosPage() {
                                 onChange={(e) => setDescArreglo(e.target.value)}
                                 className="col-span-7 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-600"
                               />
-                              <input
-                                type="number"
+                              <InputDinero
                                 placeholder="Precio $"
                                 value={precioArreglo}
                                 onChange={(e) => setPrecioArreglo(e.target.value)}
@@ -2242,27 +2574,27 @@ export default function PosPage() {
                       <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3">
                         {moduloActivo === "VENTA" && (
                           <div className="space-y-2">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 auto-rows-max content-start">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 auto-rows-max content-start">
                               {productosVentaPaginados.map((p) => (
                                 <button
                                   key={p.id}
                                   type="button"
                                   onClick={() => agregarItemVenta(p)}
-                                  className="relative flex flex-col justify-between p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 transition-colors text-left group shadow-2xs min-w-0 overflow-hidden cursor-pointer"
+                                  className="relative flex flex-col justify-between p-2.5 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 transition-colors text-left group shadow-2xs min-w-0 overflow-hidden cursor-pointer"
                                 >
                                   <div className="flex items-center justify-between gap-1 w-full min-w-0">
-                                    <span className="font-mono text-xs font-bold text-slate-500 truncate">
+                                    <span className="font-mono text-[10.5px] font-bold text-slate-500 truncate">
                                       {p.codigo}
                                     </span>
-                                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono font-bold shrink-0">
+                                    <span className="text-[10px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-mono font-bold shrink-0">
                                       Stock: {p.stockActual}
                                     </span>
                                   </div>
-                                  <strong className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-emerald-600 truncate block my-1">
+                                  <strong className="text-xs font-bold text-slate-900 group-hover:text-emerald-600 truncate block my-0.5">
                                     {p.nombre}
                                   </strong>
                                   <div className="flex items-center justify-between gap-1 w-full pt-1 border-t border-slate-100">
-                                    <span className="text-[11px] text-slate-500 font-medium">
+                                    <span className="text-[10px] text-slate-500 font-medium">
                                       Talla {p.talla || "U"}
                                     </span>
                                     <strong className="text-xs sm:text-sm font-mono font-black text-emerald-600 shrink-0">
@@ -2306,7 +2638,7 @@ export default function PosPage() {
                           </div>
                           <div>
                             <h2 className="text-sm font-black text-slate-900">
-                              Paso 3: Cobro y Liquidación
+                              Cobro
                             </h2>
                             <p className="text-xs text-slate-500">
                               Total: <strong className="text-emerald-600 font-mono">${totalFactura.toLocaleString("es-CO")}</strong>
@@ -2321,7 +2653,7 @@ export default function PosPage() {
                             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shrink-0 cursor-pointer"
                           >
                             <ArrowLeft className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Modificar Ítems</span>
+                            <span className="hidden sm:inline">Editar Items</span>
                           </button>
                         </Tooltip>
                       </div>
@@ -2330,66 +2662,104 @@ export default function PosPage() {
                       <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4">
                         <div className="space-y-4 max-w-4xl mx-auto">
                           {/* Condición de Pago */}
-                          <div className="space-y-2">
-                            <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wider">
-                              Condición de Pago
-                            </h3>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">
+                                Modalidad:
+                              </span>
+                              {clienteSeleccionado?.creditoHabilitado && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                                  <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+                                  <span>Cupo: ${(clienteSeleccionado.cupoDisponible !== undefined ? clienteSeleccionado.cupoDisponible : (clienteSeleccionado.cupoCredito || 0)).toLocaleString("es-CO")}</span>
+                                </span>
+                              )}
+                            </div>
 
                             <div className="grid grid-cols-3 gap-2">
-                              <Tooltip content="Pago de Contado" subtext="Cancela el total de la factura hoy" position="top">
-                                <button
-                                  type="button"
-                                  onClick={() => setModalidadPago("COMPLETO")}
-                                  className={`w-full p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer ${modalidadPago === "COMPLETO"
-                                    ? "bg-emerald-50 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20"
-                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                    }`}
-                                >
-                                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                  <span className="text-xs font-bold">Contado</span>
-                                </button>
-                              </Tooltip>
+                              <button
+                                type="button"
+                                onClick={() => setModalidadPago("COMPLETO")}
+                                className={`w-full py-2.5 px-3 rounded-xl border text-center transition flex items-center justify-center gap-2 cursor-pointer ${
+                                  modalidadPago === "COMPLETO"
+                                    ? "bg-emerald-50 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20 font-bold"
+                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
+                                }`}
+                              >
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span className="text-xs">Contado</span>
+                              </button>
 
-                              <Tooltip content="Pago Parcial" subtext="Registra un abono inicial y saldo a crédito" position="top">
-                                <button
-                                  type="button"
-                                  onClick={() => setModalidadPago("ADELANTO")}
-                                  className={`w-full p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer ${modalidadPago === "ADELANTO"
-                                    ? "bg-amber-50 border-amber-600 text-amber-800 ring-2 ring-amber-600/20"
-                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                    }`}
-                                >
-                                  <Coins className="w-4 h-4 text-amber-600" />
-                                  <span className="text-xs font-bold">Pago Parcial</span>
-                                </button>
-                              </Tooltip>
+                              <button
+                                type="button"
+                                onClick={() => setModalidadPago("ADELANTO")}
+                                className={`w-full py-2.5 px-3 rounded-xl border text-center transition flex items-center justify-center gap-2 cursor-pointer ${
+                                  modalidadPago === "ADELANTO"
+                                    ? "bg-amber-50 border-amber-600 text-amber-800 ring-2 ring-amber-600/20 font-bold"
+                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
+                                }`}
+                              >
+                                <Coins className="w-4 h-4 text-amber-600 shrink-0" />
+                                <span className="text-xs">Abono</span>
+                              </button>
 
-                              <Tooltip content="Venta a Crédito" subtext="Genera la factura sin cobro inicial" position="top">
-                                <button
-                                  type="button"
-                                  onClick={() => setModalidadPago("PENDIENTE")}
-                                  className={`w-full p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer ${modalidadPago === "PENDIENTE"
-                                    ? "bg-rose-50 border-rose-600 text-rose-800 ring-2 ring-rose-600/20"
-                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
-                                    }`}
-                                >
-                                  <Clock className="w-4 h-4 text-rose-600" />
-                                  <span className="text-xs font-bold">Crédito</span>
-                                </button>
-                              </Tooltip>
+                              <button
+                                type="button"
+                                onClick={() => setModalidadPago("PENDIENTE")}
+                                className={`w-full py-2.5 px-3 rounded-xl border text-center transition flex items-center justify-center gap-2 cursor-pointer ${
+                                  modalidadPago === "PENDIENTE"
+                                    ? "bg-rose-50 border-rose-600 text-rose-800 ring-2 ring-rose-600/20 font-bold"
+                                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
+                                }`}
+                              >
+                                <Clock className="w-4 h-4 text-rose-600 shrink-0" />
+                                <span className="text-xs">Crédito</span>
+                              </button>
                             </div>
                           </div>
 
                           {/* Registro de Pago */}
                           {modalidadPago === "PENDIENTE" ? (
-                            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1">
-                              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
-                                <Clock className="w-4 h-4 text-amber-600" />
-                                Venta a Crédito
-                              </h4>
-                              <p className="text-xs text-amber-700">
-                                Sin cobro inicial en caja. Saldo a cobrar: ${totalFactura.toLocaleString("es-CO")}.
-                              </p>
+                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 space-y-3 shadow-2xs">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="p-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 shrink-0">
+                                    <Clock className="w-5 h-5 text-rose-600" />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                                      Cargo a Cartera
+                                    </h4>
+                                    <p className="text-xs text-slate-500">
+                                      Deudor: {clienteSeleccionado?.nombre}.
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[10px] font-bold uppercase text-slate-400 block">A Credito:</span>
+                                  <span className="font-mono text-xl font-black text-rose-700 tabular-nums">
+                                    ${totalFactura.toLocaleString("es-CO")}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                disabled={procesandoFactura}
+                                onClick={() => finalizarTransaccion([])}
+                                className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-black text-white text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
+                              >
+                                {procesandoFactura ? (
+                                  <>
+                                    <RefreshCw className="w-4 h-4 animate-spin" />
+                                    <span>Emitiendo Factura...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                    <span>Cargar a Cartera</span>
+                                  </>
+                                )}
+                              </button>
                             </div>
                           ) : (
                             <div className="space-y-3 pt-1">
@@ -2436,53 +2806,12 @@ export default function PosPage() {
                 {/* PANEL DERECHO DE RESUMEN Y CARRITO (col-span-12 lg:col-span-4)         */}
                 {/* ======================================================================= */}
                 <div className="col-span-12 lg:col-span-4 h-full min-h-0 min-w-0 bg-white rounded-2xl border border-slate-200 shadow-2xs flex flex-col overflow-hidden">
-                  {/* Encabezado Cliente Asignado (shrink-0) */}
-                  <div className="shrink-0 p-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block">
-                          Cliente Asignado:
-                        </span>
-                        {clienteSeleccionado?.esResponsableIVA ? (
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-blue-100 text-blue-900 border border-blue-200">
-                            IVA • {clienteSeleccionado.responsabilidadFiscal || "O-48"}
-                          </span>
-                        ) : (
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
-                            Consumidor Final
-                          </span>
-                        )}
-                      </div>
-                      <strong className="text-xs sm:text-sm font-black text-slate-900 truncate block max-w-[200px]">
-                        {clienteSeleccionado?.razonSocial || clienteSeleccionado?.nombre || "Sin cliente seleccionado"}
-                      </strong>
-                    </div>
-
-                    {clienteSeleccionado ? (
-                      <IconButtonTooltip
-                        icon={UserCheck}
-                        label="Cambiar cliente seleccionado"
-                        variant="primary"
-                        size="sm"
-                        onClick={() => setPasoActual(1)}
-                      />
-                    ) : (
-                      <IconButtonTooltip
-                        icon={UserPlus}
-                        label="Seleccionar o crear cliente"
-                        variant="neutral"
-                        size="sm"
-                        onClick={() => setPasoActual(1)}
-                      />
-                    )}
-                  </div>
-
                   {/* Título Carrito (shrink-0) */}
                   <div className="shrink-0 px-3 py-2 border-b border-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <ShoppingBag className="w-4 h-4 text-slate-700" />
                       <h3 className="text-xs sm:text-sm font-black text-slate-900">
-                        Carrito ({itemsCarrito.length})
+                        Orden de Venta ({itemsCarrito.length})
                       </h3>
                     </div>
                     {itemsCarrito.length > 0 && (
@@ -2519,10 +2848,9 @@ export default function PosPage() {
                                 {item.tipo}
                               </span>
                               <span className="text-slate-300">•</span>
-                              <input
-                                type="number"
+                              <InputDinero
                                 value={item.precioUnitario}
-                                onChange={(e) => actualizarPrecioItem(item.idTemporal, parseFloat(e.target.value) || 0)}
+                                onValueChange={(val) => actualizarPrecioItem(item.idTemporal, val)}
                                 className="w-20 px-1.5 py-0.5 text-xs font-mono font-bold text-right bg-white border border-slate-200 rounded focus:ring-1 focus:ring-emerald-500 outline-none"
                                 title="Modificar precio unitario de este ítem"
                               />
@@ -2565,90 +2893,117 @@ export default function PosPage() {
 
                   {/* Pie Fijo de Totales y Botones de Avance (shrink-0) */}
                   <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
-                    <div className="p-2.5 rounded-xl border border-slate-200 bg-white space-y-1 text-xs">
-                      {subtotalVenta > 0 && (
-                        <div className="flex justify-between text-slate-600">
-                          <span>Venta:</span>
-                          <span className="font-mono font-medium">${subtotalVenta.toLocaleString("es-CO")}</span>
+                    <div className="space-y-2 text-xs">
+                      {/* Tarjeta con Módulo 1 (Total) y Módulo 2 (Recibido) */}
+                      <div className="p-2.5 rounded-xl border border-slate-200 bg-white space-y-1.5">
+                        {/* Módulo 1: Total */}
+                        <div className="flex justify-between text-slate-700">
+                          <span className="font-bold">Total:</span>
+                          <span className="font-mono font-bold text-slate-900">${totalFactura.toLocaleString("es-CO")}</span>
                         </div>
-                      )}
-                      {subtotalArreglos > 0 && (
-                        <div className="flex justify-between text-slate-600">
-                          <span>Sastrería:</span>
-                          <span className="font-mono font-medium">${subtotalArreglos.toLocaleString("es-CO")}</span>
+
+                        {/* Módulo 2: Recibido */}
+                        <div className="flex justify-between text-emerald-700 font-bold">
+                          <span>Recibido:</span>
+                          <span className="font-mono font-bold">${dineroRecibidoHoy.toLocaleString("es-CO")}</span>
                         </div>
-                      )}
-                      <div className="flex justify-between text-slate-950 font-black p-1 rounded bg-slate-100 border border-slate-200 items-center">
-                        <span>TOTAL:</span>
-                        <span className="font-mono text-emerald-700 text-sm font-black">
-                          ${totalFactura.toLocaleString("es-CO")}
+                      </div>
+
+                      {/* Módulo 3: Dinámico en el mismo espacio (Total a cobrar o Vueltas) */}
+                      <div className={`flex justify-between items-center font-black text-sm p-2 rounded-xl border-2 transition-all ${
+                        esVueltas
+                          ? "border-emerald-400 bg-emerald-100 text-emerald-950 shadow-xs"
+                          : "border-emerald-200 bg-emerald-50/70 text-slate-900"
+                      }`}>
+                        <span>{esVueltas ? "Vueltas:" : "Total a cobrar:"}</span>
+                        <span className={`font-mono text-base font-black ${
+                          esVueltas ? "text-emerald-800" : "text-emerald-700"
+                        }`}>
+                          ${(esVueltas ? montoVueltas : saldoPorCobrarHoy).toLocaleString("es-CO")}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-1">
-                      {pasoActual > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => setPasoActual((pasoActual - 1) as 1 | 2 | 3)}
-                          className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1 shadow-2xs transition shrink-0 cursor-pointer"
-                        >
-                          <ArrowLeft className="w-3.5 h-3.5" />
-                          <span>Anterior</span>
-                        </button>
-                      )}
-
+                    <div className="pt-1">
                       {pasoActual === 1 && (
                         <button
                           type="button"
                           disabled={!clienteSeleccionado}
                           onClick={() => setPasoActual(2)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          className={`w-full py-2.5 rounded-xl text-xs font-black text-white flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer ${clienteSeleccionado
+                            ? "bg-emerald-600 hover:bg-emerald-700"
+                            : "bg-slate-300 cursor-not-allowed"
+                            }`}
                         >
-                          <span>Continuar a Productos</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
+                          <span>Continuar a Prendas</span>
+                          <ArrowRight className="w-4 h-4" />
                         </button>
                       )}
 
                       {pasoActual === 2 && (
-                        <button
-                          type="button"
-                          disabled={itemsCarrito.length === 0}
-                          onClick={() => setPasoActual(3)}
-                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          <span>Continuar a Cobro</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPasoActual(1)}
+                            className="px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Cliente</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={itemsCarrito.length === 0}
+                            onClick={() => setPasoActual(3)}
+                            className={`px-3 py-2 rounded-xl text-xs font-black text-white flex items-center justify-center gap-1 shadow-sm transition-all cursor-pointer ${itemsCarrito.length > 0
+                              ? "bg-emerald-600 hover:bg-emerald-700"
+                              : "bg-slate-300 cursor-not-allowed"
+                              }`}
+                          >
+                            <span>Ir al Cobro</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+                        </div>
                       )}
 
                       {pasoActual === 3 && (
-                        <button
-                          type="button"
-                          disabled={
-                            procesandoFactura ||
-                            (modalidadPago === "COMPLETO" && pagosAplicados.length > 0 && totalPagadoEnCascada < totalFactura) ||
-                            (modalidadPago !== "PENDIENTE" &&
-                              pagosAplicados.length === 0 &&
-                              metodoPagoPrincipal === "EFECTIVO" &&
-                              valorACobrarHoy > 0 &&
-                              efectivoRecibidoNum < valorACobrarHoy)
-                          }
-                          onClick={() => finalizarTransaccion()}
-                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition shadow-md flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          {procesandoFactura ? (
-                            <>
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              <span>Guardando...</span>
-                            </>
-                          ) : (
-                            <>
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>Finalizar y Cobrar →</span>
-                            </>
-                          )}
-                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPasoActual(2)}
+                            className="px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Prendas</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={
+                              procesandoFactura ||
+                              (modalidadPago === "COMPLETO" && pagosAplicados.length > 0 && totalPagadoEnCascada < totalFactura) ||
+                              (modalidadPago !== "PENDIENTE" &&
+                                pagosAplicados.length === 0 &&
+                                metodoPagoPrincipal === "EFECTIVO" &&
+                                valorACobrarHoy > 0 &&
+                                efectivoRecibidoNum < valorACobrarHoy)
+                            }
+                            onClick={() => finalizarTransaccion()}
+                            className="px-3 py-2 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            {procesandoFactura ? (
+                              <>
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                <span>Guardando...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Receipt className="w-4 h-4" />
+                                <span>Facturar</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -2778,99 +3133,18 @@ export default function PosPage() {
         onRestaurarTicket={restaurarTicketEnEspera}
       />
 
-      {/* Modal de Anulación / Eliminación de Factura con Doble Verificación */}
-      {facturaParaEliminar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-rose-200 w-full max-w-md p-5 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-rose-600" />
-                <h3 className="text-sm font-black text-slate-900">
-                  Anular Factura N° {facturaParaEliminar.numeroFactura}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFacturaParaEliminar(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-rose-950 text-xs space-y-1">
-              <p className="font-bold">Acción de Alta Seguridad:</p>
-              <p>• Los artículos vendidos o apartados regresarán al inventario activo.</p>
-              <p>• El dinero cobrado (${facturaParaEliminar.totalAbonado.toLocaleString("es-CO")}) se descontará del arqueo de caja.</p>
-              <p>• Esta transacción no se sumará a los reportes de ventas netas.</p>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Motivo de la Anulación:
-                </label>
-                <input
-                  type="text"
-                  value={motivoEliminar}
-                  onChange={(e) => setMotivoEliminar(e.target.value)}
-                  placeholder="Ej. Devolución de compra, error de digitación..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:border-rose-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  PIN de Confirmación del Supervisor:
-                </label>
-                <input
-                  type="password"
-                  maxLength={6}
-                  value={pinSupervisorEliminar}
-                  onChange={(e) => setPinSupervisorEliminar(e.target.value)}
-                  placeholder="Ingresa PIN numérico de 6 dígitos"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-center tracking-widest text-slate-900 outline-none focus:border-rose-500"
-                />
-              </div>
-
-              {errorEliminar && (
-                <div className="p-2.5 bg-rose-100 text-rose-800 text-xs font-bold rounded-xl border border-rose-200 flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                  <span>{errorEliminar}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setFacturaParaEliminar(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={eliminandoFactura || !pinSupervisorEliminar.trim()}
-                onClick={ejecutarEliminacionFactura}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-black text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                {eliminandoFactura ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Anulando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-4 h-4" />
-                    <span>Confirmar Anulación</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal Oficial de Anulación de Factura con Doble Verificación Estricta (2 Pasos) */}
+      <ModalAnularFactura
+        abierto={!!facturaParaAnular}
+        factura={facturaParaAnular}
+        onCerrar={() => setFacturaParaAnular(null)}
+        onAnulacionExitosa={(mensaje) => {
+          setFacturaParaAnular(null);
+          setMensajeError(null);
+          cargarMonitoreo(true);
+          cajon.actualizarCajon(true);
+        }}
+      />
     </div>
   );
 }

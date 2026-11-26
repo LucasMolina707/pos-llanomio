@@ -1,4 +1,4 @@
-import { PrismaClient, EstadoTurno, MetodoPago } from "@prisma/client";
+import { PrismaClient, EstadoTurno, MetodoPago, EstadoFactura } from "@prisma/client";
 
 /**
  * Obtiene la fecha local en formato YYYY-MM-DD bajo la zona horaria de Colombia (America/Bogota, UTC-5).
@@ -284,13 +284,16 @@ export async function calcularArqueoExactoTurno(
     typeof turno.fechaApertura === "string" ? new Date(turno.fechaApertura) : turno.fechaApertura;
   const baseInicial = Math.round(Number(turno.baseInicialEfectivo || 0) * 100) / 100;
 
-  // 1. Abonos asociados a este turno
+  // 1. Abonos asociados a este turno (excluyendo facturas anuladas para cero ingresos fantasma)
   const abonos = await prismaClient.abono.findMany({
     where: {
       OR: [
         { turnoCajaId: turno.id },
         { turnoCajaId: null, fecha: { gte: fechaApertura } },
       ],
+      factura: {
+        estado: { not: EstadoFactura.ANULADA },
+      },
     },
     select: {
       id: true,
@@ -299,6 +302,7 @@ export async function calcularArqueoExactoTurno(
       fecha: true,
       facturaId: true,
       cajeroId: true,
+      tipoAbono: true,
       cajero: {
         select: { id: true, nombre: true, username: true },
       },
@@ -313,6 +317,12 @@ export async function calcularArqueoExactoTurno(
   let totalTransferencia = 0;
   let totalConsignacion = 0;
   let totalDigitalAbonos = 0;
+
+  let depositosEfectivoRecibidos = 0;
+  let depositosDigitalesRecibidos = 0;
+  let depositosEfectivoDevueltos = 0;
+  const facturasConAbonoDeposito = new Set<string>();
+  const facturasConAbonoDevuelto = new Set<string>();
 
   const desgloseMap = new Map<string, DesgloseCajeroArqueo>();
 
@@ -336,24 +346,49 @@ export async function calcularArqueoExactoTurno(
 
     const stat = desgloseMap.get(cId)!;
     stat.cantidadAbonos += 1;
-    stat.total += monto;
 
-    if (a.metodoPago === MetodoPago.EFECTIVO) {
-      efectivoAbonos += monto;
-      stat.efectivo += monto;
+    const esDepositoGarantia = a.tipoAbono === "DEPOSITO_GARANTIA";
+    const esDepositoDevuelto = a.tipoAbono === "DEPOSITO_DEVUELTO";
+
+    if (esDepositoDevuelto) {
+      if (a.facturaId) facturasConAbonoDevuelto.add(a.facturaId);
+      if (a.metodoPago === MetodoPago.EFECTIVO) {
+        depositosEfectivoDevueltos += monto;
+        stat.efectivo -= monto;
+      } else {
+        stat.digital -= monto;
+      }
+      stat.total -= monto;
+    } else if (esDepositoGarantia) {
+      stat.total += monto;
+      if (a.facturaId) facturasConAbonoDeposito.add(a.facturaId);
+      if (a.metodoPago === MetodoPago.EFECTIVO) {
+        depositosEfectivoRecibidos += monto;
+        stat.efectivo += monto;
+      } else {
+        depositosDigitalesRecibidos += monto;
+        stat.digital += monto;
+      }
     } else {
-      totalDigitalAbonos += monto;
-      stat.digital += monto;
-      if (a.metodoPago === MetodoPago.NEQUI) totalNequi += monto;
-      else if (a.metodoPago === MetodoPago.DAVIPLATA) totalDaviplata += monto;
-      else if (a.metodoPago === MetodoPago.BANCOLOMBIA) totalBancolombia += monto;
-      else if (a.metodoPago === MetodoPago.LLAVE) totalLlave += monto;
-      else if (a.metodoPago === MetodoPago.TRANSFERENCIA) totalTransferencia += monto;
-      else if (a.metodoPago === MetodoPago.CONSIGNACION) totalConsignacion += monto;
+      stat.total += monto;
+      // Dinero de la tienda (Alquiler o Venta)
+      if (a.metodoPago === MetodoPago.EFECTIVO) {
+        efectivoAbonos += monto;
+        stat.efectivo += monto;
+      } else {
+        totalDigitalAbonos += monto;
+        stat.digital += monto;
+        if (a.metodoPago === MetodoPago.NEQUI) totalNequi += monto;
+        else if (a.metodoPago === MetodoPago.DAVIPLATA) totalDaviplata += monto;
+        else if (a.metodoPago === MetodoPago.BANCOLOMBIA) totalBancolombia += monto;
+        else if (a.metodoPago === MetodoPago.LLAVE) totalLlave += monto;
+        else if (a.metodoPago === MetodoPago.TRANSFERENCIA) totalTransferencia += monto;
+        else if (a.metodoPago === MetodoPago.CONSIGNACION) totalConsignacion += monto;
+      }
     }
   }
 
-  // 2. Facturas con depósitos en garantía vinculadas a este turno
+  // 2. Facturas vinculadas a este turno (para depósitos devueltos y depósitos legacy)
   const facturasAlquiler = await prismaClient.factura.findMany({
     where: {
       OR: [
@@ -361,10 +396,13 @@ export async function calcularArqueoExactoTurno(
         { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
       ],
       montoDeposito: { gt: 0 },
+      estado: { not: EstadoFactura.ANULADA },
     },
     select: {
       id: true,
+      tipoOperacion: true,
       montoDeposito: true,
+      depositoAbonado: true,
       metodoPagoDeposito: true,
       montoDevueltoDeposito: true,
       montoRetenidoDeposito: true,
@@ -372,24 +410,29 @@ export async function calcularArqueoExactoTurno(
     },
   });
 
-  let depositosEfectivoRecibidos = 0;
-  let depositosEfectivoDevueltos = 0;
-  let depositosDigitalesRecibidos = 0;
-
   for (const f of facturasAlquiler) {
-    const dep = Number(f.montoDeposito) || 0;
-    const dev = Number(f.montoDevueltoDeposito) || 0;
+    // Si la factura NO tuvo registros de Abono tipo DEPOSITO_GARANTIA en este turno (legacy),
+    // tomamos el depósito que haya sido recaudado en garantía
+    if (!facturasConAbonoDeposito.has(f.id)) {
+      const depRecaudado = f.depositoAbonado > 0
+        ? Number(f.depositoAbonado) || 0
+        : (f.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? Number(f.montoDeposito) || 0 : 0);
 
-    if (dep > 0) {
-      if (f.metodoPagoDeposito === "EFECTIVO" || !f.metodoPagoDeposito) {
-        depositosEfectivoRecibidos += dep;
-      } else {
-        depositosDigitalesRecibidos += dep;
+      if (depRecaudado > 0) {
+        if (f.metodoPagoDeposito === "EFECTIVO" || !f.metodoPagoDeposito) {
+          depositosEfectivoRecibidos += depRecaudado;
+        } else {
+          depositosDigitalesRecibidos += depRecaudado;
+        }
       }
     }
 
-    if (dev > 0) {
-      depositosEfectivoDevueltos += dev;
+    // Si la factura NO tuvo abonos específicos DEPOSITO_DEVUELTO registrados en este turno (legacy)
+    if (!facturasConAbonoDevuelto.has(f.id)) {
+      const dev = Number(f.montoDevueltoDeposito) || 0;
+      if (dev > 0) {
+        depositosEfectivoDevueltos += dev;
+      }
     }
   }
 
@@ -416,6 +459,7 @@ export async function calcularArqueoExactoTurno(
         { turnoCajaId: turno.id },
         { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
       ],
+      estado: { not: EstadoFactura.ANULADA },
     },
   });
 

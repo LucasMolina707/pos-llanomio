@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, ejecutarTransaccionConReintentos } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
 import {
   verificarEstadoCajaParaFacturacion,
   parsearCajerosParticipantes,
   obtenerTurnoAbiertoActivo,
 } from "@/lib/caja-control";
-import { EstadoFactura, MetodoPago, TipoProducto, EstadoPrenda, EstadoTurno, TipoOperacion } from "@prisma/client";
+import { EstadoFactura, MetodoPago, TipoProducto, EstadoPrenda, EstadoTurno, TipoOperacion, TipoMovimientoCartera } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -179,10 +179,11 @@ export async function POST(req: NextRequest, { params }: Params) {
         );
       }
 
-      // Preparar lista de abonos a crear (soporta pago único o mixto)
+      // Preparar lista de abonos a crear (soporta pago único o mixto, con clasificación de rubro)
       const abonosConversion: Array<{
         monto: number;
         metodoPago: MetodoPago;
+        tipoAbono: "ALQUILER" | "DEPOSITO_GARANTIA";
         montoRecibido?: number | null;
         vueltasEntregadas?: number | null;
         referenciaComprobante?: string | null;
@@ -201,30 +202,54 @@ export async function POST(req: NextRequest, { params }: Params) {
             if (ab.metodoPago && Object.values(MetodoPago).includes(ab.metodoPago as MetodoPago)) {
               met = ab.metodoPago as MetodoPago;
             }
+            const tipoAb = ab.tipoAbono === "DEPOSITO_GARANTIA" ? "DEPOSITO_GARANTIA" : "ALQUILER";
             abonosConversion.push({
               monto: m,
               metodoPago: met,
+              tipoAbono: tipoAb,
               montoRecibido: ab.montoRecibido ? Number(ab.montoRecibido) : null,
               vueltasEntregadas: ab.vueltasEntregadas ? Number(ab.vueltasEntregadas) : null,
               referenciaComprobante: ab.referenciaComprobante?.trim() || null,
-              notas: ab.notas?.trim() || "Pago de saldo al retirar prendas del apartado",
+              notas: ab.notas?.trim() || (tipoAb === "DEPOSITO_GARANTIA" ? "Depósito en custodia al retirar prendas" : "Pago de saldo al retirar prendas del apartado"),
             });
           }
         }
       } else {
-        const montoNuevo = Math.max(0, Math.round(Number(body.monto !== undefined ? body.monto : (body.nuevoAbono !== undefined ? body.nuevoAbono : 0)) * 100) / 100);
-        if (montoNuevo > 0) {
-          let metodoNuevo: MetodoPago = MetodoPago.EFECTIVO;
-          if (body.metodoPago && Object.values(MetodoPago).includes(body.metodoPago as MetodoPago)) {
-            metodoNuevo = body.metodoPago as MetodoPago;
+        // Soporte para pagos separados por concepto
+        const abonoAlq = Math.max(0, Math.round(Number(body.abonoAlquiler !== undefined ? body.abonoAlquiler : (body.monto !== undefined ? body.monto : (body.nuevoAbono !== undefined ? body.nuevoAbono : 0))) * 100) / 100);
+        const abonoDep = Math.max(0, Math.round(Number(body.abonoDeposito !== undefined ? body.abonoDeposito : (body.depositoAbonadoHoy !== undefined ? body.depositoAbonadoHoy : 0)) * 100) / 100);
+
+        if (abonoAlq > 0) {
+          let metAlq: MetodoPago = MetodoPago.EFECTIVO;
+          if (body.metodoPagoAlquiler && Object.values(MetodoPago).includes(body.metodoPagoAlquiler as MetodoPago)) {
+            metAlq = body.metodoPagoAlquiler as MetodoPago;
+          } else if (body.metodoPago && Object.values(MetodoPago).includes(body.metodoPago as MetodoPago)) {
+            metAlq = body.metodoPago as MetodoPago;
           }
           abonosConversion.push({
-            monto: montoNuevo,
-            metodoPago: metodoNuevo,
+            monto: abonoAlq,
+            metodoPago: metAlq,
+            tipoAbono: "ALQUILER",
             montoRecibido: body.montoRecibido ? Number(body.montoRecibido) : null,
             vueltasEntregadas: body.vueltasEntregadas ? Number(body.vueltasEntregadas) : null,
             referenciaComprobante: body.referenciaComprobante?.trim() || null,
             notas: body.notas?.trim() || "Pago de saldo al retirar prendas del apartado",
+          });
+        }
+
+        if (abonoDep > 0) {
+          let metDep: MetodoPago = MetodoPago.EFECTIVO;
+          if (body.metodoPagoDeposito && Object.values(MetodoPago).includes(body.metodoPagoDeposito as MetodoPago)) {
+            metDep = body.metodoPagoDeposito as MetodoPago;
+          }
+          abonosConversion.push({
+            monto: abonoDep,
+            metodoPago: metDep,
+            tipoAbono: "DEPOSITO_GARANTIA",
+            montoRecibido: body.montoRecibidoDeposito ? Number(body.montoRecibidoDeposito) : null,
+            vueltasEntregadas: body.vueltasDeposito ? Number(body.vueltasDeposito) : null,
+            referenciaComprobante: body.referenciaDeposito?.trim() || null,
+            notas: "Depósito en custodia al retirar prendas del apartado",
           });
         }
       }
@@ -246,7 +271,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         }
       }
 
-      const resultadoConversion = await prisma.$transaction(async (tx) => {
+      const resultadoConversion = await ejecutarTransaccionConReintentos(prisma, async (tx) => {
         // 1. Obtener turno abierto para el nuevo abono
         const turnosAbiertos = await tx.turnoCaja.findMany({
           where: { estado: "ABIERTO" },
@@ -289,6 +314,7 @@ export async function POST(req: NextRequest, { params }: Params) {
               vueltasEntregadas: ab.vueltasEntregadas,
               referenciaComprobante: ab.referenciaComprobante,
               notas: ab.notas,
+              tipoAbono: ab.tipoAbono,
             },
           });
           if (!primerAbono) primerAbono = abCreado;
@@ -309,6 +335,18 @@ export async function POST(req: NextRequest, { params }: Params) {
 
         // 3. Si se enviaron detalles re-vinculados (por ejemplo asignando prendas físicas del inventario)
         if (Array.isArray(body.detalles) && body.detalles.length > 0) {
+          // Liberar previamente a DISPONIBLE las prendas asignadas al apartado original para evitar prendas huérfanas
+          for (const detViejo of facturaPrevia.detalles) {
+            if (detViejo.productoId) {
+              try {
+                await tx.producto.update({
+                  where: { id: detViejo.productoId },
+                  data: { estado: EstadoPrenda.DISPONIBLE, estadoPrenda: EstadoPrenda.DISPONIBLE },
+                });
+              } catch { }
+            }
+          }
+
           await tx.detalleFactura.deleteMany({ where: { facturaId: facturaPrevia.id } });
           for (const item of body.detalles) {
             const cant = Math.max(1, Math.round(Number(item.cantidad) || 1));
@@ -328,13 +366,31 @@ export async function POST(req: NextRequest, { params }: Params) {
           }
         }
 
-        // 4. Calcular nuevos totales y saldo
-        const totalAbonosActuales = await tx.abono.aggregate({
-          where: { facturaId: facturaPrevia.id },
-          _sum: { monto: true },
+        // 4. Calcular nuevos totales y saldos desacoplados (Alquiler vs Depósito en Custodia)
+        const abonosAlquilerPrevios = await tx.abono.findMany({
+          where: {
+            facturaId: facturaPrevia.id,
+            tipoAbono: { not: "DEPOSITO_GARANTIA" },
+          },
+          select: { monto: true },
         });
-        const nuevoTotalAbonado = Math.round((totalAbonosActuales._sum.monto || 0) * 100) / 100;
-        const nuevoSaldo = Math.max(0, Math.round((facturaPrevia.totalFactura - nuevoTotalAbonado) * 100) / 100);
+        const nuevoTotalAbonadoAlquiler = Math.round(
+          abonosAlquilerPrevios.reduce((acc, curr) => acc + curr.monto, 0) * 100
+        ) / 100;
+        const nuevoSaldoAlquiler = Math.max(0, Math.round((facturaPrevia.totalFactura - nuevoTotalAbonadoAlquiler) * 100) / 100);
+
+        const abonosDepositoPrevios = await tx.abono.findMany({
+          where: {
+            facturaId: facturaPrevia.id,
+            tipoAbono: "DEPOSITO_GARANTIA",
+          },
+          select: { monto: true },
+        });
+        const montoDep = body.montoDeposito !== undefined ? Math.max(0, Number(body.montoDeposito) || 0) : facturaPrevia.montoDeposito;
+        const nuevoDepositoAbonado = Math.round(
+          abonosDepositoPrevios.reduce((acc, curr) => acc + curr.monto, 0) * 100
+        ) / 100;
+        const nuevoSaldoDeposito = Math.max(0, Math.round((montoDep - nuevoDepositoAbonado) * 100) / 100);
 
         // 5. Marcar en inventario como ALQUILADO las prendas asignadas
         const detallesFinales = await tx.detalleFactura.findMany({
@@ -359,15 +415,16 @@ export async function POST(req: NextRequest, { params }: Params) {
           ? new Date(body.fechaDevolucionPactada)
           : (facturaPrevia.fechaDevolucionEstimada || new Date(Date.now() + 3 * 86400000));
 
-        const montoDep = body.montoDeposito !== undefined ? Math.max(0, Number(body.montoDeposito) || 0) : facturaPrevia.montoDeposito;
-        const estadoDep = montoDep > 0 ? "RECIBIDO_EN_GARANTIA" : "SIN_DEPOSITO";
+        const estadoDep = montoDep > 0 ? (nuevoSaldoDeposito === 0 ? "RECIBIDO_EN_GARANTIA" : "ABONADO_PARCIAL") : "SIN_DEPOSITO";
 
         const efRec = body.efectivoRecibido !== undefined
           ? Math.max(0, Number(body.efectivoRecibido) || 0)
           : (body.montoRecibido !== undefined ? Math.max(0, Number(body.montoRecibido) || 0) : undefined);
         const camEnt = body.cambioEntregado !== undefined
           ? Math.max(0, Number(body.cambioEntregado) || 0)
-          : (body.vueltasEntregadas !== undefined ? Math.max(0, Number(body.vueltasEntregadas) || 0) : undefined);
+          : (body.vueltasEntregadas !== undefined
+              ? Math.max(0, Number(body.vueltasEntregadas) || 0)
+              : (body.vueltasCambioFinal !== undefined ? Math.max(0, Number(body.vueltasCambioFinal) || 0) : undefined));
 
         // 7. Actualizar factura a ALQUILER y ACTIVA_ALQUILADA
         const facturaConvertida = await tx.factura.update({
@@ -376,14 +433,17 @@ export async function POST(req: NextRequest, { params }: Params) {
             tipoOperacion: TipoOperacion.ALQUILER,
             estado: EstadoFactura.ACTIVA_ALQUILADA,
             turnoCajaId: turnoAbierto?.id || facturaPrevia.turnoCajaId || null,
-            totalAbonado: nuevoTotalAbonado,
-            saldoPendiente: nuevoSaldo,
+            totalAbonado: nuevoTotalAbonadoAlquiler,
+            saldoPendiente: nuevoSaldoAlquiler,
+            esCredito: nuevoSaldoAlquiler > 0,
+            montoDeposito: montoDep,
+            depositoAbonado: nuevoDepositoAbonado,
+            saldoDeposito: nuevoSaldoDeposito,
             tarifaMoraDiaria: body.tarifaMoraDiaria !== undefined ? Number(body.tarifaMoraDiaria) : (facturaPrevia.tarifaMoraDiaria || 3000),
             fechaEntregaAlquiler: fechaEntrega,
             fechaDevolucionPactada: fechaDevolucion,
-            montoDeposito: montoDep,
             estadoDeposito: estadoDep,
-            metodoPagoDeposito: montoDep > 0 ? "EFECTIVO" : null,
+            metodoPagoDeposito: montoDep > 0 ? (facturaPrevia.metodoPagoDeposito || "EFECTIVO") : null,
             efectivoRecibido: efRec !== undefined ? efRec : facturaPrevia.efectivoRecibido,
             cambioEntregado: camEnt !== undefined ? camEnt : facturaPrevia.cambioEntregado,
             observaciones: body.observaciones !== undefined ? body.observaciones : facturaPrevia.observaciones,
@@ -447,6 +507,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const abonosCobro: Array<{
       monto: number;
       metodoPago: MetodoPago;
+      tipoAbono: string;
       montoRecibido?: number | null;
       vueltasEntregadas?: number | null;
       referenciaComprobante?: string | null;
@@ -465,28 +526,38 @@ export async function POST(req: NextRequest, { params }: Params) {
           if (ab.metodoPago && Object.values(MetodoPago).includes(ab.metodoPago as MetodoPago)) {
             met = ab.metodoPago as MetodoPago;
           }
+          const tipoAb = ab.tipoAbono === "DEPOSITO_GARANTIA" || body.tipoAbono === "DEPOSITO_GARANTIA"
+            ? "DEPOSITO_GARANTIA"
+            : "ALQUILER";
           abonosCobro.push({
             monto: m,
             metodoPago: met,
+            tipoAbono: tipoAb,
             montoRecibido: ab.montoRecibido ? Number(ab.montoRecibido) : null,
             vueltasEntregadas: ab.vueltasEntregadas ? Number(ab.vueltasEntregadas) : null,
             referenciaComprobante: ab.referenciaComprobante?.trim() || null,
-            notas: ab.notas?.trim() || "Abono / Pago de factura",
+            notas: ab.notas?.trim() || (tipoAb === "DEPOSITO_GARANTIA" ? "Recaudo de Depósito en Custodia" : "Abono / Pago de factura"),
           });
         }
       }
     } else if (montoNumerico > 0) {
+      const tipoAb = body.tipoAbono === "DEPOSITO_GARANTIA" || body.esAbonoDeposito
+        ? "DEPOSITO_GARANTIA"
+        : "ALQUILER";
       abonosCobro.push({
         monto: montoNumerico,
         metodoPago: metodo,
+        tipoAbono: tipoAb,
         montoRecibido: montoRecibido ? Number(montoRecibido) : null,
         vueltasEntregadas: vueltasEntregadas ? Number(vueltasEntregadas) : null,
         referenciaComprobante: referenciaComprobante?.trim() || null,
         notas:
           notas?.trim() ||
-          (recargoMoraNumerico > 0
-            ? "Cobro de mora y liquidación de factura"
-            : "Abono / Pago de factura"),
+          (tipoAb === "DEPOSITO_GARANTIA"
+            ? "Recaudo de Depósito en Custodia"
+            : recargoMoraNumerico > 0
+              ? "Cobro de mora y liquidación de factura"
+              : "Abono / Pago de factura"),
       });
     }
 
@@ -508,8 +579,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       }
     }
 
-    // 5. Transacción atómica en base de datos SQLite
-    const resultado = await prisma.$transaction(async (tx) => {
+    // 5. Transacción atómica en base de datos SQLite con reintentos
+    const resultado = await ejecutarTransaccionConReintentos(prisma, async (tx) => {
       // Buscar el turno de caja abierto asignado a este cajero de forma infalible
       const turnoAbierto = await obtenerTurnoAbiertoActivo(tx, cajeroId, body.turnoCajaId || turnoCajaId);
 
@@ -558,6 +629,7 @@ export async function POST(req: NextRequest, { params }: Params) {
               vueltasEntregadas: ab.vueltasEntregadas,
               referenciaComprobante: ab.referenciaComprobante,
               notas: ab.notas,
+              tipoAbono: ab.tipoAbono,
             },
           });
           if (!nuevoAbono) nuevoAbono = abCreado;
@@ -575,6 +647,39 @@ export async function POST(req: NextRequest, { params }: Params) {
               });
             }
           }
+        }
+
+        // Registrar movimiento contable en cartera de cliente
+        try {
+          const facturasCliente = await tx.factura.findMany({
+            where: {
+              clienteId: facturaExistente.clienteId,
+              saldoPendiente: { gt: 0 },
+            },
+            select: { saldoPendiente: true },
+          });
+          const saldoCarteraAntes = Math.round(
+            facturasCliente.reduce((acc, f) => acc + (f.saldoPendiente || 0), 0) * 100
+          ) / 100;
+          const totalAbonadoAqui = abonosCobro.reduce((acc, a) => acc + a.monto, 0);
+          const saldoCarteraDespues = Math.max(0, Math.round((saldoCarteraAntes - totalAbonadoAqui) * 100) / 100);
+
+          await tx.movimientoCartera.create({
+            data: {
+              clienteId: facturaExistente.clienteId,
+              facturaId: facturaExistente.id,
+              tipoMovimiento: TipoMovimientoCartera.ABONO_CUENTA,
+              monto: totalAbonadoAqui,
+              saldoAnterior: saldoCarteraAntes,
+              saldoNuevo: saldoCarteraDespues,
+              metodoPago: abonosCobro[0]?.metodoPago || MetodoPago.EFECTIVO,
+              referencia: abonosCobro[0]?.referenciaComprobante || null,
+              descripcion: `Abono registrado a factura N° ${facturaExistente.numeroFactura}`,
+              usuarioCajeroId: cajeroId,
+            },
+          });
+        } catch (errMov) {
+          console.warn("[CARTERA] Error al registrar abono en movimientoCartera:", errMov);
         }
       }
 
@@ -711,21 +816,73 @@ export async function POST(req: NextRequest, { params }: Params) {
         if (todosItemsDevueltos) {
           fechaDevReal = new Date();
         }
+
+        // Trazabilidad de Devolución de Depósito en Custodia en el Turno Activo
+        const porcionDevueltaAhora = Math.round((nuevoMontoDevuelto - (facturaExistente.montoDevueltoDeposito || 0)) * 100) / 100;
+        if (porcionDevueltaAhora > 0) {
+          await tx.abono.create({
+            data: {
+              facturaId: facturaExistente.id,
+              cajeroId,
+              turnoCajaId: turnoAbierto?.id || null,
+              monto: porcionDevueltaAhora,
+              metodoPago: MetodoPago.EFECTIVO,
+              notas: "Devolución de depósito en garantía al entregar prendas",
+              tipoAbono: "DEPOSITO_DEVUELTO",
+            },
+          });
+
+          if (turnoAbierto) {
+            await tx.turnoCaja.update({
+              where: { id: turnoAbierto.id },
+              data: {
+                totalEfectivo: { decrement: porcionDevueltaAhora },
+              },
+            });
+          }
+        }
       }
 
-      // D. Calcular acumulado total de abonos
-      const abonosActualizados = await tx.abono.findMany({
-        where: { facturaId: facturaExistente.id },
+      // D. Calcular acumulado total de abonos desacoplados (Alquiler vs Depósito en Custodia)
+      const abonosAlquiler = await tx.abono.findMany({
+        where: {
+          facturaId: facturaExistente.id,
+          tipoAbono: { not: "DEPOSITO_GARANTIA" },
+        },
       });
 
       const nuevoTotalAbonado = Math.round(
-        abonosActualizados.reduce((acc, curr) => acc + curr.monto, 0) * 100
+        abonosAlquiler.reduce((acc, curr) => acc + curr.monto, 0) * 100
       ) / 100;
 
       const nuevoSaldoPendiente = Math.max(
         0,
         Math.round((nuevoTotalFactura - nuevoTotalAbonado) * 100) / 100
       );
+
+      const abonosDeposito = await tx.abono.findMany({
+        where: {
+          facturaId: facturaExistente.id,
+          tipoAbono: "DEPOSITO_GARANTIA",
+        },
+      });
+
+      const nuevoDepositoAbonado = Math.round(
+        abonosDeposito.reduce((acc, curr) => acc + curr.monto, 0) * 100
+      ) / 100;
+
+      const nuevoSaldoDeposito = Math.max(
+        0,
+        Math.round((facturaExistente.montoDeposito - nuevoDepositoAbonado) * 100) / 100
+      );
+
+      if (facturaExistente.montoDeposito > 0 && !procesarDevolucion) {
+        if (nuevoDepositoAbonado >= facturaExistente.montoDeposito) {
+          nuevoEstadoDeposito = "RECIBIDO_EN_GARANTIA";
+        } else if (nuevoDepositoAbonado > 0) {
+          nuevoEstadoDeposito = "ABONADO_PARCIAL";
+        }
+      }
 
       // E. Evaluar nuevo estado de la factura
       const tienePrendasAlquiler = facturaExistente.detalles.some(
@@ -751,6 +908,13 @@ export async function POST(req: NextRequest, { params }: Params) {
           recargoMoraAcumulado: nuevoRecargoMora,
           totalAbonado: nuevoTotalAbonado,
           saldoPendiente: nuevoSaldoPendiente,
+          depositoAbonado: nuevoDepositoAbonado,
+          saldoDeposito: nuevoSaldoDeposito,
+          estadoDeposito: nuevoEstadoDeposito,
+          montoRetenidoDeposito: nuevoMontoRetenido,
+          montoDevueltoDeposito: nuevoMontoDevuelto,
+          motivoRetencionDeposito: nuevoMotivoRetencion,
+          fechaDevolucionReal: fechaDevReal,
           metodoPagoPrincipal:
             body.metodoPagoPrincipal ||
             (body.esPagoMixto || abonosCobro.length > 1
@@ -767,13 +931,10 @@ export async function POST(req: NextRequest, { params }: Params) {
               ? Math.max(0, Number(body.cambioEntregado) || 0)
               : (body.vueltasEntregadas !== undefined
                   ? Math.max(0, Number(body.vueltasEntregadas) || 0)
-                  : facturaExistente.cambioEntregado),
+                  : (body.vueltasCambioFinal !== undefined
+                      ? Math.max(0, Number(body.vueltasCambioFinal) || 0)
+                      : facturaExistente.cambioEntregado)),
           estado: nuevoEstado,
-          fechaDevolucionReal: fechaDevReal,
-          estadoDeposito: nuevoEstadoDeposito,
-          montoRetenidoDeposito: nuevoMontoRetenido,
-          montoDevueltoDeposito: nuevoMontoDevuelto,
-          motivoRetencionDeposito: nuevoMotivoRetencion,
         },
         include: {
           cliente: true,
@@ -830,9 +991,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   } catch (error: unknown) {
     console.error("Error al registrar cobro/abono:", error);
     const mensajeError = error instanceof Error ? error.message : "Error interno al procesar el cobro a la factura";
+    const statusCode = (error as any)?.statusCode || ((error as any)?.codigoError === "STOCK_INSUFICIENTE" ? 400 : 500);
     return NextResponse.json(
       { success: false, error: mensajeError },
-      { status: 500 }
+      { status: statusCode }
     );
   }
 }
@@ -929,8 +1091,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
     let cajeroId = sesion?.userId || facturaPrevia.usuarioCajeroId;
 
     const montoDeposito = montoDepositoInput !== undefined ? Math.max(0, Number(montoDepositoInput) || 0) : facturaPrevia.montoDeposito;
-    const efectivoRecibido = efectivoRecibidoInput !== undefined ? Math.max(0, Number(efectivoRecibidoInput) || 0) : facturaPrevia.efectivoRecibido;
-    const cambioEntregado = cambioEntregadoInput !== undefined ? Math.max(0, Number(cambioEntregadoInput) || 0) : facturaPrevia.cambioEntregado;
+    const efectivoRecibido = efectivoRecibidoInput !== undefined
+      ? Math.max(0, Number(efectivoRecibidoInput) || 0)
+      : (body.montoRecibido !== undefined ? Math.max(0, Number(body.montoRecibido) || 0) : facturaPrevia.efectivoRecibido);
+    const cambioEntregado = cambioEntregadoInput !== undefined
+      ? Math.max(0, Number(cambioEntregadoInput) || 0)
+      : (body.vueltasEntregadas !== undefined
+          ? Math.max(0, Number(body.vueltasEntregadas) || 0)
+          : (body.vueltasCambioFinal !== undefined ? Math.max(0, Number(body.vueltasCambioFinal) || 0) : facturaPrevia.cambioEntregado));
 
     // Procesar y calcular subtotales de ítems
     let subtotalProductos = 0;
@@ -1072,17 +1240,26 @@ export async function PUT(req: NextRequest, { params }: Params) {
       estadoFinal = tieneAlquiler ? EstadoFactura.ACTIVA_ALQUILADA : EstadoFactura.ACTIVA;
     }
 
-    // Ejecutar transacción atómica de reemplazo sobre la misma factura
-    const facturaActualizada = await prisma.$transaction(async (tx) => {
-      // 1. Restaurar prendas previas de alquiler a DISPONIBLE
+    // Ejecutar transacción atómica de reemplazo sobre la misma factura con reintentos
+    const facturaActualizada = await ejecutarTransaccionConReintentos(prisma, async (tx) => {
+      // 1. Restaurar prendas previas de alquiler a DISPONIBLE y reponer stock de ventas previas
       for (const d of facturaPrevia.detalles) {
-        if (d.productoId && d.producto?.tipo === TipoProducto.ALQUILER) {
-          try {
-            await tx.producto.update({
-              where: { id: d.productoId },
-              data: { estado: "DISPONIBLE", estadoPrenda: "DISPONIBLE" },
-            });
-          } catch { }
+        if (d.productoId) {
+          if (d.producto?.tipo === TipoProducto.ALQUILER) {
+            try {
+              await tx.producto.update({
+                where: { id: d.productoId },
+                data: { estado: "DISPONIBLE", estadoPrenda: "DISPONIBLE" },
+              });
+            } catch { }
+          } else if (d.producto?.tipo === TipoProducto.VENTA) {
+            try {
+              await tx.producto.update({
+                where: { id: d.productoId },
+                data: { stockActual: { increment: d.cantidad } },
+              });
+            } catch { }
+          }
         }
       }
 
@@ -1149,16 +1326,41 @@ export async function PUT(req: NextRequest, { params }: Params) {
         },
       });
 
-      // 7. Marcar nuevas prendas alquiladas como ALQUILADO (Únicamente si NO es SEPARE)
-      if (tipoOpFinal !== TipoOperacion.SEPARE) {
-        for (const item of detallesProcesados) {
-          if (item.productoId && item.tipoProducto === TipoProducto.ALQUILER) {
+      // 7. Marcar nuevas prendas alquiladas como ALQUILADO y descontar stock de venta
+      for (const item of detallesProcesados) {
+        if (item.productoId) {
+          if (item.tipoProducto === TipoProducto.ALQUILER && tipoOpFinal !== TipoOperacion.SEPARE) {
             try {
               await tx.producto.update({
                 where: { id: item.productoId },
                 data: { estado: "ALQUILADO", estadoPrenda: "ALQUILADO" },
               });
             } catch { }
+          } else if (item.tipoProducto === TipoProducto.VENTA) {
+            const prodActual = await tx.producto.findUnique({
+              where: { id: item.productoId },
+              select: { id: true, nombre: true, stockActual: true },
+            });
+
+            if (!prodActual) {
+              const errProd = new Error(`El producto con ID ${item.productoId} no existe en el inventario.`);
+              (errProd as any).statusCode = 404;
+              throw errProd;
+            }
+
+            if (prodActual.stockActual < item.cantidad) {
+              const errStock = new Error(
+                `Stock insuficiente para el producto "${prodActual.nombre}". Disponibles: ${prodActual.stockActual}, solicitadas: ${item.cantidad}.`
+              );
+              (errStock as any).statusCode = 400;
+              (errStock as any).codigoError = "STOCK_INSUFICIENTE";
+              throw errStock;
+            }
+
+            await tx.producto.update({
+              where: { id: item.productoId },
+              data: { stockActual: { decrement: item.cantidad } },
+            });
           }
         }
       }
@@ -1196,9 +1398,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
   } catch (error: unknown) {
     console.error("Error al actualizar factura en curso:", error);
     const mensajeError = error instanceof Error ? error.message : "Error interno al actualizar la factura";
+    const statusCode = (error as any)?.statusCode || ((error as any)?.codigoError === "STOCK_INSUFICIENTE" ? 400 : 500);
     return NextResponse.json(
       { success: false, error: mensajeError },
-      { status: 500 }
+      { status: statusCode }
     );
   }
 }
@@ -1232,7 +1435,24 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       );
     }
 
-    // 2. Doble validación de seguridad (PIN de Supervisor / Administrador o Contraseña)
+    // 2. Idempotencia: rechazar anulación si ya está anulada
+    if (factura.estado === EstadoFactura.ANULADA) {
+      return NextResponse.json(
+        { success: false, error: `La factura N° ${factura.numeroFactura} ya se encuentra ANULADA en el sistema.` },
+        { status: 400 }
+      );
+    }
+
+    // 3. Motivo obligatorio estricto
+    const motivoLimpio = String(motivo || "").trim();
+    if (!motivoLimpio || motivoLimpio.length < 5) {
+      return NextResponse.json(
+        { success: false, error: "Debe indicar un motivo explícito de al menos 5 caracteres para anular la transacción." },
+        { status: 400 }
+      );
+    }
+
+    // 4. Doble validación de seguridad (PIN de Supervisor / Administrador o Contraseña)
     const credencialIngresada = String(pinSeguridad || "").trim();
     if (!credencialIngresada) {
       return NextResponse.json(
@@ -1269,55 +1489,118 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       );
     }
 
-    // 3. Reversión atómica en base de datos SQLite
-    await prisma.$transaction(async (tx) => {
-      // A. Revertir prendas e inventario a DISPONIBLE
+    // 5. Reversión atómica en base de datos SQLite con reintentos (Inventario, Caja, Cartera y Estado ANULADA)
+    await ejecutarTransaccionConReintentos(prisma, async (tx) => {
+      // A. Revertir prendas e inventario a DISPONIBLE (y stock físico si es venta)
       for (const det of factura.detalles) {
         if (det.productoId && det.producto) {
-          const nuevoStock = det.producto.stockActual + det.cantidad;
-          await tx.producto.update({
-            where: { id: det.productoId },
-            data: {
-              stockActual: nuevoStock,
-              estado: EstadoPrenda.DISPONIBLE,
-              estadoPrenda: EstadoPrenda.DISPONIBLE,
-            },
-          });
+          if (det.producto.tipo === TipoProducto.VENTA) {
+            await tx.producto.update({
+              where: { id: det.productoId },
+              data: {
+                stockActual: { increment: det.cantidad },
+                estado: EstadoPrenda.DISPONIBLE,
+                estadoPrenda: EstadoPrenda.DISPONIBLE,
+              },
+            });
+          } else {
+            await tx.producto.update({
+              where: { id: det.productoId },
+              data: {
+                estado: EstadoPrenda.DISPONIBLE,
+                estadoPrenda: EstadoPrenda.DISPONIBLE,
+              },
+            });
+          }
         }
       }
 
-      // B. Reversión de caja: los abonos eliminados se descontarán naturalmente de calcularArqueoExactoTurno
-      // al eliminar los registros de la tabla abonos (onDelete: Cascade de Prisma al borrar factura)
+      // B. Reversión de caja: descontar del turno respectivo cada abono recaudado
+      const campoMetodoMap: Record<MetodoPago, string> = {
+        [MetodoPago.EFECTIVO]: "totalEfectivo",
+        [MetodoPago.NEQUI]: "totalNequi",
+        [MetodoPago.BANCOLOMBIA]: "totalBancolombia",
+        [MetodoPago.LLAVE]: "totalLlave",
+        [MetodoPago.DAVIPLATA]: "totalDaviplata",
+        [MetodoPago.TRANSFERENCIA]: "totalTransferencia",
+        [MetodoPago.CONSIGNACION]: "totalConsignacion",
+      };
 
-      // C. Eliminar la factura (y sus abonos y detalles asociados vía CASCADE)
-      await tx.factura.delete({
-        where: { id: factura.id },
-      });
+      for (const ab of factura.abonos) {
+        if (ab.turnoCajaId) {
+          const campo = campoMetodoMap[ab.metodoPago];
+          if (campo) {
+            try {
+              await tx.turnoCaja.update({
+                where: { id: ab.turnoCajaId },
+                data: {
+                  [campo]: { decrement: ab.monto },
+                  totalRecaudado: { decrement: ab.monto },
+                },
+              });
+            } catch (errT) {
+              console.warn("[ANULACION] Error al descontar del turno:", errT);
+            }
+          }
+        }
+      }
 
-      // D. Registro de auditoría
-      if (sesion?.userId) {
+      // C. Reversión de cartera y créditos del cliente si tenía saldo o era a crédito
+      if (factura.clienteId && (factura.saldoPendiente > 0 || factura.esCredito)) {
         try {
-          await tx.auditoriaSesion.create({
+          await tx.movimientoCartera.create({
             data: {
-              userId: sesion.userId,
-              accion: "FACTURA_ANULADA",
-              detalles: `Factura N° ${factura.numeroFactura} anulada. Motivo: ${motivo}. Stock restablecido.`,
-              ip: req.headers.get("x-forwarded-for") || "127.0.0.1",
-              userAgent: req.headers.get("user-agent") || "POS Terminal",
+              clienteId: factura.clienteId,
+              facturaId: factura.id,
+              tipoMovimiento: TipoMovimientoCartera.ABONO_CUENTA,
+              monto: factura.saldoPendiente || 0,
+              saldoAnterior: factura.saldoPendiente || 0,
+              saldoNuevo: 0,
+              metodoPago: MetodoPago.EFECTIVO,
+              descripcion: `Reversión contable por anulación de comprobante N° ${factura.numeroFactura}`,
+              usuarioCajeroId: supervisorAutorizado.id,
             },
           });
-        } catch { }
+        } catch (errCart) {
+          console.warn("[ANULACION] Error al registrar movimientoCartera:", errCart);
+        }
       }
+
+      // D. Marcar la factura como ANULADA (conservando histórico inmutable sin registros huérfanos)
+      await tx.factura.update({
+        where: { id: factura.id },
+        data: {
+          estado: EstadoFactura.ANULADA,
+          saldoPendiente: 0,
+          montoDeposito: 0,
+          estadoDeposito: "ANULADA",
+          observaciones: `${factura.observaciones ? factura.observaciones + " | " : ""}ANULADA por ${supervisorAutorizado.nombre || supervisorAutorizado.username} el ${new Date().toLocaleString("es-CO")}. Motivo: ${motivoLimpio}`,
+        },
+      });
+
+      // E. Registro inmutable de auditoría
+      try {
+        await tx.auditoriaSesion.create({
+          data: {
+            userId: supervisorAutorizado.id,
+            accion: "FACTURA_ANULADA",
+            detalles: `Factura N° ${factura.numeroFactura} anulada. Motivo: ${motivoLimpio}. Prendas y valores de caja restituidos.`,
+            ip: req.headers.get("x-forwarded-for") || "127.0.0.1",
+            userAgent: req.headers.get("user-agent") || "POS Terminal",
+          },
+        });
+      } catch { }
     });
 
     return NextResponse.json({
       success: true,
       ok: true,
-      mensaje: `Factura N° ${factura.numeroFactura} anulada exitosamente. El inventario y los valores de caja han sido restablecidos.`,
+      mensaje: `Factura N° ${factura.numeroFactura} anulada exitosamente. El inventario físico y los saldos de caja han sido restablecidos.`,
     });
   } catch (err: unknown) {
-    console.error("Error al eliminar factura:", err);
+    console.error("Error al anular factura:", err);
     const msg = err instanceof Error ? err.message : "Error interno al anular factura";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    const statusCode = (err as any)?.statusCode || 500;
+    return NextResponse.json({ success: false, error: msg }, { status: statusCode });
   }
 }

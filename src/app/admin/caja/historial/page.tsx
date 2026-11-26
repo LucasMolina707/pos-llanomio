@@ -21,14 +21,14 @@ export default function HistorialArqueosCajaPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-                Historial de Arqueos & Novedades de Caja
+                Historial de Arqueos
               </h1>
               <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-300">
-                Auditoría Multi-Periodo
+                Auditoría
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-600 font-medium mt-1">
-              Consolidación periódica de recaudos en efectivo y digitales (Diario, Mensual, Anual) con registro inmutable de novedades.
+              Consolidado de cierres y novedades
             </p>
           </div>
         </div>
@@ -45,7 +45,7 @@ export default function HistorialArqueosCajaPage() {
             href="/caja/pos"
             className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-2 shadow-xs shadow-blue-500/20"
           >
-            <span>Ir a Facturar al POS</span>
+            <span>Ir a Ventas</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

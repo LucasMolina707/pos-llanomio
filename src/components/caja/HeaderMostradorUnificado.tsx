@@ -43,37 +43,37 @@ interface ModuloConfig {
 
 const MODULO_CONFIG: Record<ModuloCaja, ModuloConfig> = {
   VENTAS: {
-    titulo: "CAJA DE VENTAS Y SASTRERÍA",
-    badge: "VENTAS POS",
+    titulo: "VENTAS Y SASTRERÍA",
+    badge: "POS",
     icon: ShoppingCart,
     topBorderClass: "border-t-4 border-t-emerald-600",
     badgeClass: "bg-emerald-50 text-emerald-900 border-emerald-300",
     iconClass: "text-emerald-600",
     activeVariant: "emerald",
     stepperActiveClass: "bg-emerald-600 text-white border-emerald-700 shadow-xs",
-    defaultEtiquetas: ["1. Cliente", "2. Productos", "3. Cobro y Caja", "4. Comprobante"],
+    defaultEtiquetas: ["1. Cliente", "2. Prendas", "3. Cobro", "4. Recibo"],
   },
   ALQUILERES: {
-    titulo: "CAJA DE ALQUILERES Y DEPÓSITOS",
-    badge: "ALQUILERES",
+    titulo: "ALQUILERES Y GARANTÍAS",
+    badge: "ALQUILER",
     icon: Shirt,
     topBorderClass: "border-t-4 border-t-orange-600",
     badgeClass: "bg-orange-50 text-orange-900 border-orange-300",
     iconClass: "text-orange-600",
     activeVariant: "orange",
     stepperActiveClass: "bg-orange-600 text-white border-orange-700 shadow-xs",
-    defaultEtiquetas: ["1. Cliente", "2. Trajes / Prendas", "3. Cobro y Depósito", "4. Comprobante"],
+    defaultEtiquetas: ["1. Cliente", "2. Prendas", "3. Cobro", "4. Recibo"],
   },
   APARTADOS: {
-    titulo: "CAJA DE APARTADOS Y RESERVAS",
-    badge: "APARTADOS",
+    titulo: "APARTADOS Y RESERVAS",
+    badge: "APARTADO",
     icon: CalendarClock,
     topBorderClass: "border-t-4 border-t-indigo-600",
     badgeClass: "bg-indigo-50 text-indigo-900 border-indigo-300",
     iconClass: "text-indigo-600",
     activeVariant: "indigo",
     stepperActiveClass: "bg-indigo-600 text-white border-indigo-700 shadow-xs",
-    defaultEtiquetas: ["1. Cliente", "2. Prendas", "3. Cobro y Abono", "4. Previsualizar", "5. Comprobante"],
+    defaultEtiquetas: ["1. Cliente", "2. Prendas", "3. Cobro", "4. Recibo"],
   },
 };
 
@@ -112,7 +112,7 @@ export function HeaderMostradorUnificado({
   ticketsEnEsperaCount = 0,
   onSincronizar,
   onLimpiar,
-  limpiarLabel = "Limpiar Mostrador",
+  limpiarLabel = "Limpiar",
   extraHerramientas,
   onCerrarSesion,
 }: HeaderMostradorUnificadoProps) {
@@ -143,7 +143,7 @@ export function HeaderMostradorUnificado({
       <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 shrink-0">
         <IconButtonTooltip
           icon={ArrowLeft}
-          label="Regresar al Panel Principal"
+          label="Inicio"
           modulo="Navegación"
           destino="Ruta: /"
           href="/"
@@ -177,7 +177,7 @@ export function HeaderMostradorUnificado({
         <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200 shrink-0">
           <IconButtonTooltip
             icon={ShoppingCart}
-            label={modulo === "VENTAS" ? "Terminal POS Activa" : "Ir a Terminal de Ventas POS"}
+            label={modulo === "VENTAS" ? "POS Activo" : "Ir a Ventas POS"}
             modulo="Mostrador"
             destino="Ventas y facturación en mostrador"
             href="/caja/pos"
@@ -187,7 +187,7 @@ export function HeaderMostradorUnificado({
           />
           <IconButtonTooltip
             icon={Shirt}
-            label={modulo === "ALQUILERES" ? "Terminal de Alquileres Activa" : "Ir a Terminal de Alquileres"}
+            label={modulo === "ALQUILERES" ? "Alquiler Activo" : "Ir a Alquileres"}
             modulo="Mostrador"
             destino="Control y liquidación de prendas alquiladas"
             href="/caja/alquileres"
@@ -197,7 +197,7 @@ export function HeaderMostradorUnificado({
           />
           <IconButtonTooltip
             icon={CalendarClock}
-            label={modulo === "APARTADOS" ? "Terminal de Apartados Activa" : "Ir a Terminal de Apartados y Reservas"}
+            label={modulo === "APARTADOS" ? "Apartado Activo" : "Ir a Apartados"}
             modulo="Mostrador"
             destino="Reservas y abonos en mostrador"
             href="/caja/apartados"
@@ -235,7 +235,7 @@ export function HeaderMostradorUnificado({
         {/* Nueva Operación */}
         <IconButtonTooltip
           icon={PlusCircle}
-          label={nuevaOperacionLabel || (modulo === "VENTAS" ? "Nueva Venta en Blanco" : modulo === "ALQUILERES" ? "Nuevo Alquiler en Blanco" : "Nuevo Apartado en Blanco")}
+          label={nuevaOperacionLabel || (modulo === "VENTAS" ? "Nueva Venta" : modulo === "ALQUILERES" ? "Nuevo Alquiler" : "Nuevo Apartado")}
           modulo={cfg.titulo}
           destino="Inicia un nuevo flujo en blanco"
           active={nuevaOperacionActiva}
@@ -250,10 +250,10 @@ export function HeaderMostradorUnificado({
           label={
             historialLabel ||
             (modulo === "ALQUILERES"
-              ? "Devoluciones de Prendas, Moras e Historial"
+              ? "Devoluciones y Moras"
               : modulo === "VENTAS"
-              ? "Historial de Ventas y Facturas"
-              : "Historial de Apartados y Saldos")
+              ? "Historial Ventas"
+              : "Historial Apartados")
           }
           modulo={cfg.titulo}
           destino="Consulta de operaciones, estados y comprobantes"
@@ -271,8 +271,8 @@ export function HeaderMostradorUnificado({
             icon={PauseCircle}
             label={
               ticketsEnEsperaCount > 0
-                ? `Operaciones en Espera (${ticketsEnEsperaCount} en pausa - Reanudar)`
-                : "Pausar Operación Actual / Ver Espera (F8)"
+                ? `En Espera (${ticketsEnEsperaCount})`
+                : "En Espera (F8)"
             }
             modulo="Espera"
             destino="Pausa la orden actual o reanuda órdenes guardadas"
@@ -285,7 +285,7 @@ export function HeaderMostradorUnificado({
         {/* Sincronizar */}
         <IconButtonTooltip
           icon={RefreshCw}
-          label="Sincronizar Mostrador"
+          label="Sincronizar"
           modulo="Datos"
           destino="Recarga catálogos, clientes y turno en caja"
           variant="neutral"

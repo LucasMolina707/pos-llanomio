@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
         where: {
           OR: [
             { nombre: categoriaNombre },
+            { nombre: "YOHANNA" },
             { nombre: "JOHANA" },
             { nombre: "YOANA" },
           ],

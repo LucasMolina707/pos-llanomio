@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, user: null }, { status: 401 });
     }
 
-    // Validación estricta contra base de datos local SQLite
+    // Validación estricta contra base de datos local SQLite (lectura rápida)
     const usuarioBD = await prisma.user.findUnique({
       where: { id: sesion.userId },
       select: {
@@ -44,18 +44,18 @@ export async function GET(req: NextRequest) {
       return resp;
     }
 
-    // Concurrencia Multidispositivo y Sesión Compartida:
-    // Se permite explícitamente que múltiples dispositivos y terminales en la red local
-    // operen simultáneamente con la misma cuenta sin cerrar la sesión de otros equipos.
-
-    // Actualizar latido / heartbeat en SQLite para mantener viva la sesión activa
-    await prisma.user.update({
-      where: { id: usuarioBD.id },
-      data: {
-        sesionUltimaActividad: new Date(),
-        ...(sesion.sessionToken && !usuarioBD.sesionActivaToken ? { sesionActivaToken: sesion.sessionToken } : {}),
-      },
-    }).catch(() => {});
+    // Actualizar latido / heartbeat en SQLite solo cuando explícitamente se invoque
+    // Esto evita escrituras concurrentes y bloqueos WAL en SQLite durante consultas normales
+    const esHeartbeat = req.nextUrl.searchParams.get("heartbeat") === "1";
+    if (esHeartbeat) {
+      await prisma.user.update({
+        where: { id: usuarioBD.id },
+        data: {
+          sesionUltimaActividad: new Date(),
+          ...(sesion.sessionToken && !usuarioBD.sesionActivaToken ? { sesionActivaToken: sesion.sessionToken } : {}),
+        },
+      }).catch(() => {});
+    }
 
     // Verificar si la cuenta se encuentra bloqueada por intentos fallidos
     if (usuarioBD.bloqueadoHasta && new Date(usuarioBD.bloqueadoHasta) > new Date()) {

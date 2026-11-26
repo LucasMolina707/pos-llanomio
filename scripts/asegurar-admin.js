@@ -193,9 +193,9 @@ async function asegurarCredencialesMaestras() {
     console.warn(`[AVISO] No se pudo duplicar el respaldo local:`, err.message);
   }
 
-  // 5. Actualizar timestamp en USUARIOS_Y_CREDENCIALES_MAESTRAS.md
+  // 5. Actualizar timestamp en docs/CREDENCIALES_MAESTRAS_SISTEMA.md
   try {
-    const rutaCredenciales = path.resolve(__dirname, "..", "USUARIOS_Y_CREDENCIALES_MAESTRAS.md");
+    const rutaCredenciales = path.resolve(__dirname, "..", "docs", "CREDENCIALES_MAESTRAS_SISTEMA.md");
     if (fs.existsSync(rutaCredenciales)) {
       let contenido = fs.readFileSync(rutaCredenciales, "utf8");
       const ahoraStr = new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" });

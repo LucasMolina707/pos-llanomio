@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, ejecutarTransaccionConReintentos } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
 import {
   verificarEstadoCajaParaFacturacion,
   parsearCajerosParticipantes,
   obtenerTurnoAbiertoActivo,
 } from "@/lib/caja-control";
-import { EstadoFactura, MetodoPago, TipoOperacion, TipoProducto, EstadoTurno } from "@prisma/client";
+import { EstadoFactura, MetodoPago, TipoOperacion, TipoProducto, EstadoTurno, TipoMovimientoCartera } from "@prisma/client";
 
 interface ItemDetalleInput {
   productoId?: string | null;
@@ -50,7 +50,16 @@ export async function GET(req: NextRequest) {
     if (moduloParam === "ALQUILERES" || tipoParam === "ALQUILER") {
       where.tipoOperacion = "ALQUILER";
     } else if (moduloParam === "APARTADOS" || moduloParam === "SEPARE" || tipoParam === "SEPARE") {
-      where.tipoOperacion = "SEPARE";
+      // Incluye apartados vigentes (SEPARE) y apartados formalizados a Alquiler Activo para historial
+      where.OR = [
+        { tipoOperacion: "SEPARE" },
+        {
+          AND: [
+            { tipoOperacion: "ALQUILER" },
+            { observaciones: { contains: "Apartado" } },
+          ],
+        },
+      ];
     } else if (
       moduloParam === "POS" ||
       tipoParam === "VENTA" ||
@@ -248,8 +257,8 @@ export async function POST(req: NextRequest) {
 
     // Sanitización segura de montos principales
     const montoDeposito = Math.max(0, Number(montoDepositoInput) || 0);
-    const efectivoRecibido = Math.max(0, Number(efectivoRecibidoInput) || 0);
-    const cambioEntregado = Math.max(0, Number(cambioEntregadoInput) || 0);
+    const efectivoRecibidoInputSanitizado = Math.max(0, Number(efectivoRecibidoInput || body.montoRecibido) || 0);
+    const cambioEntregadoInputSanitizado = Math.max(0, Number(cambioEntregadoInput || body.vueltasEntregadas || body.vueltasCambioFinal) || 0);
 
     // 1. Determinar y validar el cajero autenticado obligatoriamente (Blindaje Anti-P2003)
     let cajeroId = sesion?.userId || cajeroIdBody;
@@ -432,12 +441,35 @@ export async function POST(req: NextRequest) {
 
     const totalFactura = Math.round((subtotalProductos + subtotalArreglosLibres) * 100) / 100;
 
-    // 5. Procesar abono inicial (uno o múltiples pagos parciales / mixtos)
+    // 5. Procesar abono inicial (uno o múltiples pagos parciales / mixtos al servicio)
+    const esSepare = tipoOperacion === "SEPARE" || body.tipoOperacion === "SEPARE";
+
+    // Depósito en Custodia (Fondo reembolsable independiente del alquiler)
+    const depositoAbonadoInput = body.depositoAbonadoHoy !== undefined
+      ? Number(body.depositoAbonadoHoy) || 0
+      : (body.abonoDeposito !== undefined
+          ? Number(body.abonoDeposito) || 0
+          : (body.depositoRecibidoHoy || body.depositoEntregado ? montoDeposito : 0));
+
+    const depositoAbonado = Math.min(montoDeposito, Math.max(0, depositoAbonadoInput));
+    const saldoDeposito = Math.max(0, Math.round((montoDeposito - depositoAbonado) * 100) / 100);
+
+    let estadoDepositoCalculado = "SIN_DEPOSITO";
+    if (montoDeposito > 0) {
+      if (depositoAbonado >= montoDeposito) {
+        estadoDepositoCalculado = "RECIBIDO_EN_GARANTIA";
+      } else if (depositoAbonado > 0) {
+        estadoDepositoCalculado = "ABONADO_PARCIAL";
+      } else {
+        estadoDepositoCalculado = "ESTIPULADO_PARA_ENTREGA";
+      }
+    }
+
     const abonosInput: any[] = listaPagosEntrada
       ? listaPagosEntrada
       : (typeof abonoInicial === "number" && abonoInicial > 0
-          ? [{ monto: abonoInicial, metodoPago: body.metodoPagoAbono || body.metodoPagoPrincipal || MetodoPago.EFECTIVO }]
-          : (abonoInicial && Number((abonoInicial as any).monto) > 0 ? [abonoInicial] : []));
+        ? [{ monto: abonoInicial, metodoPago: body.metodoPagoAbono || body.metodoPagoPrincipal || MetodoPago.EFECTIVO }]
+        : (abonoInicial && Number((abonoInicial as any).monto) > 0 ? [abonoInicial] : []));
 
     const abonosDataCreacion: {
       monto: number;
@@ -447,6 +479,7 @@ export async function POST(req: NextRequest) {
       cajeroId: string;
       referenciaComprobante?: string | null;
       notas?: string | null;
+      tipoAbono?: string;
     }[] = [];
 
     let totalAbonado = 0;
@@ -467,16 +500,34 @@ export async function POST(req: NextRequest) {
           vueltasEntregadas: ab.vueltasEntregadas ? Number(ab.vueltasEntregadas) || null : null,
           cajeroId,
           referenciaComprobante: ab.referenciaComprobante ? String(ab.referenciaComprobante).trim() : null,
-          notas: ab.notas ? String(ab.notas).trim() : "Abono en mostrador",
+          notas: ab.notas ? String(ab.notas).trim() : (esSepare ? "Abono inicial apartado (Alquiler)" : "Abono en mostrador"),
+          tipoAbono: "ALQUILER",
         });
       }
+    }
+
+    // Registrar abono del Depósito en Custodia como fondo de garantía independiente
+    if (depositoAbonado > 0) {
+      let metodoPagoDep: MetodoPago = MetodoPago.EFECTIVO;
+      if (metodoPagoDeposito && Object.values(MetodoPago).includes(metodoPagoDeposito as MetodoPago)) {
+        metodoPagoDep = metodoPagoDeposito as MetodoPago;
+      }
+      abonosDataCreacion.push({
+        monto: depositoAbonado,
+        metodoPago: metodoPagoDep,
+        montoRecibido: body.montoRecibidoDeposito ? Number(body.montoRecibidoDeposito) || null : null,
+        vueltasEntregadas: body.vueltasDeposito ? Number(body.vueltasDeposito) || null : null,
+        cajeroId,
+        referenciaComprobante: body.referenciaDeposito ? String(body.referenciaDeposito).trim() : null,
+        notas: "Depósito en custodia (Garantía reembolsable)",
+        tipoAbono: "DEPOSITO_GARANTIA",
+      });
     }
 
     totalAbonado = Math.round(totalAbonado * 100) / 100;
     const saldoPendiente = Math.max(0, Math.round((totalFactura - totalAbonado) * 100) / 100);
 
     // 6. Determinar estado final según liquidación
-    const esSepare = tipoOperacion === "SEPARE" || body.tipoOperacion === "SEPARE";
     const esOpAlquiler = tieneAlquiler || tipoOperacion === "ALQUILER" || body.tipoOperacion === "ALQUILER";
     let estadoFinal: EstadoFactura = EstadoFactura.ACTIVA;
     if (esSepare) {
@@ -511,8 +562,8 @@ export async function POST(req: NextRequest) {
       tipoOpFinal = TipoOperacion.VENTA;
     }
 
-    // 8. Crear factura y registrar abono atómicamente con Prisma
-    const nuevaFactura = await prisma.$transaction(async (tx) => {
+    // 8. Crear factura y registrar abono atómicamente con Prisma y reintentos ante SQLITE_BUSY
+    const nuevaFactura = await ejecutarTransaccionConReintentos(prisma, async (tx) => {
       // Reservar correlativo estrictamente numérico, secuencial e inmodificable
       const { consecutivo, numeroFactura } = await reservarSiguienteFolioFactura(tx);
 
@@ -533,6 +584,12 @@ export async function POST(req: NextRequest) {
           ? "MIXTO"
           : (abonosDataCreacion[0]?.metodoPago || "EFECTIVO"));
 
+      const esOperacionCredito = Boolean(
+        body.esCredito === true ||
+        body.modalidadPago === "PENDIENTE" ||
+        (saldoPendiente > 0 && (body.modalidadPago === "ADELANTO" || cliente.creditoHabilitado))
+      );
+
       const factura = await tx.factura.create({
         data: {
           consecutivo,
@@ -542,6 +599,7 @@ export async function POST(req: NextRequest) {
           turnoCajaId: turnoAbierto?.id || null,
           tipoOperacion: tipoOpFinal,
           estado: estadoFinal,
+          esCredito: esOperacionCredito,
           metodoPagoPrincipal: metodoPagoPrincipalFinal,
           subtotalProductos,
           subtotalArreglosLibres,
@@ -552,12 +610,18 @@ export async function POST(req: NextRequest) {
             ? Number(body.tarifaMoraDiaria)
             : 3000,
           montoDeposito,
-          estadoDeposito: montoDeposito > 0 ? (body.depositoRecibidoHoy ? "RECIBIDO_EN_GARANTIA" : "ESTIPULADO_PARA_ENTREGA") : "SIN_DEPOSITO",
+          depositoAbonado,
+          saldoDeposito,
+          estadoDeposito: estadoDepositoCalculado,
           montoRetenidoDeposito: 0,
           montoDevueltoDeposito: 0,
           metodoPagoDeposito: montoDeposito > 0 ? (metodoPagoDeposito || "EFECTIVO") : null,
-          efectivoRecibido,
-          cambioEntregado,
+          efectivoRecibido: efectivoRecibidoInputSanitizado > 0
+            ? efectivoRecibidoInputSanitizado
+            : (abonosDataCreacion.reduce((sum, a) => sum + (Number(a.montoRecibido) || 0), 0) || (metodoPagoPrincipalFinal === "EFECTIVO" ? totalAbonado : 0)),
+          cambioEntregado: cambioEntregadoInputSanitizado > 0
+            ? cambioEntregadoInputSanitizado
+            : abonosDataCreacion.reduce((sum, a) => sum + (Number(a.vueltasEntregadas) || 0), 0),
           notas: notas?.trim() || null,
           observaciones: body.observaciones?.trim() || notas?.trim() || null,
           fechaRetiroApartado,
@@ -578,8 +642,8 @@ export async function POST(req: NextRequest) {
           abonos:
             abonosConTurno.length > 0
               ? {
-                  create: abonosConTurno,
-                }
+                create: abonosConTurno,
+              }
               : undefined,
         },
         include: {
@@ -611,10 +675,44 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Actualizar estado de prendas alquiladas en inventario (SOLO si NO es un apartado/separe)
-      if (tipoOpFinal !== TipoOperacion.SEPARE) {
-        for (const item of detallesProcesados) {
-          if (item.productoId && item.tipoProducto === TipoProducto.ALQUILER) {
+      // Si la factura tiene saldo pendiente, impactar la cartera del cliente con un cargo
+      if (saldoPendiente > 0) {
+        try {
+          const facturasPreviasConSaldo = await tx.factura.findMany({
+            where: {
+              clienteId: cliente.id,
+              saldoPendiente: { gt: 0 },
+              id: { not: factura.id },
+            },
+            select: { saldoPendiente: true },
+          });
+
+          const saldoCarteraAntes = Math.round(
+            facturasPreviasConSaldo.reduce((acc, f) => acc + (f.saldoPendiente || 0), 0) * 100
+          ) / 100;
+          const saldoCarteraNuevo = Math.round((saldoCarteraAntes + saldoPendiente) * 100) / 100;
+
+          await tx.movimientoCartera.create({
+            data: {
+              clienteId: cliente.id,
+              facturaId: factura.id,
+              tipoMovimiento: esOpAlquiler ? TipoMovimientoCartera.CARGO_ALQUILER : TipoMovimientoCartera.CARGO_VENTA,
+              monto: saldoPendiente,
+              saldoAnterior: saldoCarteraAntes,
+              saldoNuevo: saldoCarteraNuevo,
+              usuarioCajeroId: cajeroId,
+              descripcion: `Cargo a crédito por ${esOpAlquiler ? "alquiler" : "venta"} N° ${factura.numeroFactura}`,
+            },
+          });
+        } catch (errMov) {
+          console.warn("[CARTERA] Error al registrar movimiento de cartera en factura:", errMov);
+        }
+      }
+
+      // Actualizar estado de prendas alquiladas y descontar stock de ventas en inventario
+      for (const item of detallesProcesados) {
+        if (item.productoId) {
+          if (item.tipoProducto === TipoProducto.ALQUILER && tipoOpFinal !== TipoOperacion.SEPARE) {
             try {
               await tx.producto.update({
                 where: { id: item.productoId },
@@ -625,6 +723,38 @@ export async function POST(req: NextRequest) {
               });
             } catch (errProd) {
               console.warn(`[INVENTARIO] No se pudo cambiar estado a ALQUILADO para producto ${item.productoId}:`, errProd);
+            }
+          } else if (item.tipoProducto === TipoProducto.VENTA) {
+            // Protección contra Stock Negativo: validar existencias disponibles antes de descontar
+            const prodActual = await tx.producto.findUnique({
+              where: { id: item.productoId },
+              select: { id: true, nombre: true, stockActual: true },
+            });
+
+            if (!prodActual) {
+              const errProd = new Error(`El producto con ID ${item.productoId} no existe en el inventario.`);
+              (errProd as any).statusCode = 404;
+              throw errProd;
+            }
+
+            if (prodActual.stockActual < item.cantidad) {
+              const errStock = new Error(
+                `Stock insuficiente para el producto "${prodActual.nombre}". Disponibles: ${prodActual.stockActual}, solicitadas: ${item.cantidad}.`
+              );
+              (errStock as any).statusCode = 400;
+              (errStock as any).codigoError = "STOCK_INSUFICIENTE";
+              throw errStock;
+            }
+
+            try {
+              await tx.producto.update({
+                where: { id: item.productoId },
+                data: {
+                  stockActual: { decrement: item.cantidad },
+                },
+              });
+            } catch (errProd) {
+              console.warn(`[INVENTARIO] No se pudo descontar stock de venta para producto ${item.productoId}:`, errProd);
             }
           }
         }
@@ -708,9 +838,10 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     console.error("Error al crear factura:", error);
     const mensajeError = error instanceof Error ? error.message : "Error interno al procesar y guardar la factura";
+    const statusCode = (error as any)?.statusCode || ((error as any)?.codigoError === "STOCK_INSUFICIENTE" ? 400 : 500);
     return NextResponse.json(
       { success: false, error: mensajeError },
-      { status: 500 }
+      { status: statusCode }
     );
   }
 }

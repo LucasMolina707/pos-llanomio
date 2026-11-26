@@ -150,16 +150,38 @@ export async function GET(req: NextRequest | Request) {
         codigoDaneMunicipio: true,
         fechaCreacion: true,
         updatedAt: true,
+        creditoHabilitado: true,
+        cupoCredito: true,
+        diasCredito: true,
+        notasCredito: true,
+        facturas: {
+          where: {
+            saldoPendiente: { gt: 0 },
+          },
+          select: {
+            saldoPendiente: true,
+          },
+        },
         _count: {
           select: { facturas: true },
         },
       },
     });
 
-    const clientes = clientesRaw.map((c) => ({
-      ...c,
-      identificacion: c.documento,
-    }));
+    const clientes = clientesRaw.map((c) => {
+      const saldoCartera = Math.round((c.facturas?.reduce((acc, f) => acc + (f.saldoPendiente || 0), 0) || 0) * 100) / 100;
+      const cupoCredito = c.cupoCredito || 0;
+      const cupoDisponible = Math.max(0, Math.round((cupoCredito - saldoCartera) * 100) / 100);
+
+      const { facturas, ...clienteData } = c;
+
+      return {
+        ...clienteData,
+        identificacion: c.documento,
+        saldoCartera,
+        cupoDisponible,
+      };
+    });
 
     return NextResponse.json(
       {
@@ -246,6 +268,10 @@ export async function POST(req: NextRequest) {
     let respFiscal = responsabilidadFiscal ? responsabilidadFiscal.trim().toUpperCase() : (esRespIVA ? "O-48" : "O-99");
     let mun = municipio ? municipio.trim() : "Villavicencio - Meta";
     let codDane = codigoDaneMunicipio ? String(codigoDaneMunicipio).trim() : "50001";
+    const creditoHab = Boolean(body.creditoHabilitado);
+    const cupoCred = Math.max(0, Number(body.cupoCredito) || 0);
+    const diasCred = Math.max(1, Number(body.diasCredito) || 30);
+    const notasCred = body.notasCredito ? String(body.notasCredito).trim() : null;
 
     // Si es tipo NIT y no se proporcionó DV, calcularlo automáticamente con el algoritmo DIAN Módulo 11
     if (tipoId === "NIT" && !dv) {
@@ -394,6 +420,10 @@ export async function POST(req: NextRequest) {
         responsabilidadFiscal: respFiscal,
         municipio: mun,
         codigoDaneMunicipio: codDane,
+        creditoHabilitado: creditoHab,
+        cupoCredito: cupoCred,
+        diasCredito: diasCred,
+        notasCredito: notasCred,
       },
       select: {
         id: true,
@@ -411,6 +441,10 @@ export async function POST(req: NextRequest) {
         responsabilidadFiscal: true,
         municipio: true,
         codigoDaneMunicipio: true,
+        creditoHabilitado: true,
+        cupoCredito: true,
+        diasCredito: true,
+        notasCredito: true,
         fechaCreacion: true,
         updatedAt: true,
       },

@@ -59,7 +59,7 @@ export default function IconButtonTooltip({
   id,
   title,
   href,
-  prefetch = true,
+  prefetch = false,
   target,
 }: IconButtonTooltipProps) {
   const [mounted, setMounted] = useState(false);

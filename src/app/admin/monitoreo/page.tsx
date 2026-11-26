@@ -97,9 +97,13 @@ interface EstadisticasMonitoreo {
   totalFacturas: number;
   conteoCajaAlquiler?: number;
   conteoCajaAlquilerMora?: number;
+  conteoCajaAlquilerAlDia?: number;
   conteoApartados?: number;
+  conteoApartadosMora?: number;
+  conteoApartadosVigentes?: number;
   conteoPazYSalvos?: number;
   conteoAlquileresFinalizados?: number;
+  conteoPazYSalvoVentas?: number;
   totalCarteraMora: number;
   totalSaldoPendiente: number;
   totalAlertas: number;
@@ -111,6 +115,7 @@ interface EstadisticasMonitoreo {
 
 export default function CentralMonitoreoPage() {
   const [pestanaActiva, setPestanaActiva] = useState<PestanaHistorial>("CAJA_ALQUILER");
+  const [subfiltro, setSubfiltro] = useState<string>("TODOS");
   const [filtroSoloMora, setFiltroSoloMora] = useState<boolean>(false);
   const [busqueda, setBusqueda] = useState("");
   const [facturas, setFacturas] = useState<FacturaMonitoreo[]>([]);
@@ -167,6 +172,9 @@ export default function CentralMonitoreoPage() {
 
       const params = new URLSearchParams();
       params.set("pestana", pestanaActiva);
+      if (subfiltro && subfiltro !== "TODOS") {
+        params.set("subfiltro", subfiltro);
+      }
       if (pestanaActiva === "CAJA_ALQUILER" && filtroSoloMora) {
         params.set("soloMora", "true");
       }
@@ -195,7 +203,7 @@ export default function CentralMonitoreoPage() {
       setCargando(false);
       setSincronizando(false);
     }
-  }, [pestanaActiva, filtroSoloMora]);
+  }, [pestanaActiva, subfiltro, filtroSoloMora]);
 
   useEffect(() => {
     cargarFacturas();
@@ -258,14 +266,14 @@ export default function CentralMonitoreoPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-                Historial de Facturas y Moras
+                Monitoreo y Cartera
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                Centro de Gestión y Cartera
+                Cartera
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-500">
-              Seguimiento centralizado de facturas pendientes, cobro de moras, prendas en alquiler y reimpresión de Paz y Salvos.
+              Control de facturas, prendas y mora.
             </p>
           </div>
         </div>
@@ -318,7 +326,7 @@ export default function CentralMonitoreoPage() {
         <div className="bg-white p-5 rounded-2xl border border-amber-200 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
-              Caja de Alquiler
+              En Alquiler
             </span>
             <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
               <ShoppingBag className="w-5 h-5" />
@@ -336,7 +344,7 @@ export default function CentralMonitoreoPage() {
         <div className="bg-white p-5 rounded-2xl border border-rose-200 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-rose-700">
-              Alquileres en Mora
+              En Mora
             </span>
             <div className="p-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-100">
               <AlertTriangle className="w-5 h-5" />
@@ -354,7 +362,7 @@ export default function CentralMonitoreoPage() {
         <div className="bg-white p-5 rounded-2xl border border-blue-200 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
-              Apartados Activos
+              Apartados
             </span>
             <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
               <Calendar className="w-5 h-5" />
@@ -372,7 +380,7 @@ export default function CentralMonitoreoPage() {
         <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-              Paz y Salvos / Vendidos
+              Saldados
             </span>
             <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
               <CheckCircle2 className="w-5 h-5" />
@@ -406,7 +414,7 @@ export default function CentralMonitoreoPage() {
           >
             <div className="flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>1. Caja de Alquiler</span>
+              <span>1. En Alquiler</span>
             </div>
             <span
               className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
@@ -462,7 +470,7 @@ export default function CentralMonitoreoPage() {
           >
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>3. Paz y Salvos / Vendidos</span>
+              <span>3. Saldados</span>
             </div>
             <span
               className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
@@ -490,7 +498,7 @@ export default function CentralMonitoreoPage() {
           >
             <div className="flex items-center gap-2">
               <History className="w-4 h-4 text-purple-600 shrink-0" />
-              <span>4. Alquileres Finalizados</span>
+              <span>4. Devueltos</span>
             </div>
             <span
               className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
@@ -504,15 +512,18 @@ export default function CentralMonitoreoPage() {
           </button>
         </div>
 
-        {/* Subfiltro interactivo dentro de Caja de Alquiler */}
+        {/* Subfiltros interactivos según pestaña */}
         {pestanaActiva === "CAJA_ALQUILER" && (
-          <div className="flex items-center gap-2 p-2 rounded-xl bg-amber-50/70 border border-amber-200">
+          <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-amber-50/70 border border-amber-200">
             <span className="text-xs font-bold text-amber-950 px-2">Subfiltro de Alquiler:</span>
             <button
               type="button"
-              onClick={() => setFiltroSoloMora(false)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                !filtroSoloMora
+              onClick={() => {
+                setSubfiltro("TODOS");
+                setFiltroSoloMora(false);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                subfiltro === "TODOS" && !filtroSoloMora
                   ? "bg-amber-600 text-white shadow-xs"
                   : "bg-white text-slate-700 hover:bg-amber-100/50 border border-amber-200"
               }`}
@@ -521,15 +532,111 @@ export default function CentralMonitoreoPage() {
             </button>
             <button
               type="button"
-              onClick={() => setFiltroSoloMora(true)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                filtroSoloMora
+              onClick={() => {
+                setSubfiltro("AL_DIA");
+                setFiltroSoloMora(false);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                subfiltro === "AL_DIA"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-200"
+              }`}
+            >
+              Al Día ({estadisticas.conteoCajaAlquilerAlDia ?? 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSubfiltro("MORA");
+                setFiltroSoloMora(true);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                subfiltro === "MORA" || filtroSoloMora
                   ? "bg-rose-600 text-white shadow-xs"
                   : "bg-white text-rose-700 hover:bg-rose-50 border border-rose-200"
               }`}
             >
               <AlertTriangle className="w-3.5 h-3.5" />
-              <span>Solo en Mora / Vencidos ({estadisticas.conteoCajaAlquilerMora ?? 0})</span>
+              <span>En Mora con Días Corriendo ({estadisticas.conteoCajaAlquilerMora ?? 0})</span>
+            </button>
+          </div>
+        )}
+
+        {pestanaActiva === "APARTADOS" && (
+          <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-blue-50/70 border border-blue-200">
+            <span className="text-xs font-bold text-blue-950 px-2">Subfiltro de Apartados:</span>
+            <button
+              type="button"
+              onClick={() => setSubfiltro("TODOS")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                subfiltro === "TODOS"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "bg-white text-slate-700 hover:bg-blue-100/50 border border-blue-200"
+              }`}
+            >
+              Todos ({estadisticas.conteoApartados ?? 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSubfiltro("AL_DIA")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                subfiltro === "AL_DIA"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-white text-indigo-700 hover:bg-indigo-50 border border-indigo-200"
+              }`}
+            >
+              Vigentes para Retiro ({estadisticas.conteoApartadosVigentes ?? 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSubfiltro("MORA")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                subfiltro === "MORA"
+                  ? "bg-rose-600 text-white shadow-xs"
+                  : "bg-white text-rose-700 hover:bg-rose-50 border border-rose-200"
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Vencidos por Retirar ({estadisticas.conteoApartadosMora ?? 0})</span>
+            </button>
+          </div>
+        )}
+
+        {pestanaActiva === "PAZ_Y_SALVOS" && (
+          <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-emerald-50/70 border border-emerald-200">
+            <span className="text-xs font-bold text-emerald-950 px-2">Subfiltro Paz y Salvo:</span>
+            <button
+              type="button"
+              onClick={() => setSubfiltro("TODOS")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                subfiltro === "TODOS"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-white text-slate-700 hover:bg-emerald-100/50 border border-emerald-200"
+              }`}
+            >
+              Todos ({estadisticas.conteoPazYSalvos ?? 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSubfiltro("DEVUELTOS")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                subfiltro === "DEVUELTOS"
+                  ? "bg-purple-600 text-white shadow-xs"
+                  : "bg-white text-purple-700 hover:bg-purple-50 border border-purple-200"
+              }`}
+            >
+              Trajes Devueltos ({estadisticas.conteoAlquileresFinalizados ?? 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSubfiltro("VENTAS")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                subfiltro === "VENTAS"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-white text-emerald-700 hover:bg-emerald-50 border border-emerald-200"
+              }`}
+            >
+              Ventas Saldadas ({estadisticas.conteoPazYSalvoVentas ?? 0})
             </button>
           </div>
         )}
@@ -540,7 +647,7 @@ export default function CentralMonitoreoPage() {
             <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
             <input
               type="text"
-              placeholder="Fuzzy: Factura, Cliente, Documento, Prenda, Teléfono o Saldo..."
+              placeholder="Buscar factura, cliente o prenda..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
@@ -748,6 +855,17 @@ export default function CentralMonitoreoPage() {
                       {/* 9. Botones de Acción */}
                       <td className="px-3.5 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5 flex-nowrap h-9">
+                          {/* Botón especial para Apartados: Pasar a Alquiler */}
+                          {(f.esApartado || (f.tipoOperacion === "SEPARE" && f.estado !== "CERRADA")) && (
+                            <IconButtonTooltip
+                              icon={ShoppingBag}
+                              label="Pasar este Apartado a Alquiler Activo"
+                              variant="indigo"
+                              size="md"
+                              href={`/caja/alquileres?apartadoId=${f.id}`}
+                            />
+                          )}
+
                           {/* Botón Principal para Alquileres Activos */}
                           {f.esCajaAlquiler || (f.tipoOperacion === "ALQUILER" && !f.fechaDevolucionReal && f.estado !== "CERRADA") ? (
                             <button

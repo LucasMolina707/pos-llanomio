@@ -32,11 +32,19 @@ import {
   FileDown,
   FileUp,
 } from "lucide-react";
-import ModalProducto, { ProductoData } from "@/components/inventario/ModalProducto";
-import ModalGestionExcel from "@/components/excel/ModalGestionExcel";
+import dynamic from "next/dynamic";
+import type { ProductoData } from "@/components/inventario/ModalProducto";
+
+const ModalProducto = dynamic(() => import("@/components/inventario/ModalProducto"), {
+  ssr: false,
+});
+const ModalGestionExcel = dynamic(() => import("@/components/excel/ModalGestionExcel"), {
+  ssr: false,
+});
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import Tooltip from "@/components/ui/Tooltip";
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
+import { safeFetchJson } from "@/lib/safe-fetch";
 
 interface ProductoItem extends ProductoData {
   id: string;
@@ -85,15 +93,17 @@ export default function InventarioAdminPage() {
   // Notificaciones
   const [notificacion, setNotificacion] = useState<{ tipo: "exito" | "error"; texto: string } | null>(null);
 
-  const cargarInventario = async () => {
+  const cargarInventario = async (silencioso?: boolean | unknown) => {
+    const esSilencioso = typeof silencioso === "boolean" ? silencioso : false;
     try {
-      setCargando(true);
+      if (!esSilencioso && productos.length === 0) setCargando(true);
       const params = new URLSearchParams();
       if (pestañaTipo !== "TODOS") params.set("tipo", pestañaTipo);
 
-      const res = await fetch(`/api/inventario?${params.toString()}`);
-      const data = await res.json();
-      if (data.ok) {
+      const { ok, data } = await safeFetchJson<any>(`/api/inventario?${params.toString()}`, {
+        forzarFresco: esSilencioso,
+      });
+      if (ok && data?.ok) {
         setProductos(data.productos || []);
         if (data.resumen) setResumen(data.resumen);
       }
@@ -273,10 +283,10 @@ export default function InventarioAdminPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-slate-900 leading-tight truncate">
-              Inventario de Prendas
+              Inventario
             </h1>
             <p className="text-xs text-slate-500 font-medium truncate">
-              Catálogo de trajes, tallas, disponibilidad y tarifas
+              Trajes, tallas y disponibilidad
             </p>
           </div>
         </div>
@@ -284,7 +294,7 @@ export default function InventarioAdminPage() {
         <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-end flex-nowrap">
           <IconButtonTooltip
             icon={FileDown}
-            label="Descargar Plantilla Oficial"
+            label="Plantilla Excel"
             modulo="Excel"
             destino="Descarga formato .xlsx para carga masiva"
             size="md"
@@ -294,7 +304,7 @@ export default function InventarioAdminPage() {
 
           <IconButtonTooltip
             icon={Download}
-            label="Exportar Catálogo a Excel"
+            label="Exportar"
             modulo="Reportes"
             destino="Descarga inventario y existencias"
             size="md"
@@ -304,7 +314,7 @@ export default function InventarioAdminPage() {
 
           <IconButtonTooltip
             icon={FileUp}
-            label="Importar Inventario desde Excel"
+            label="Importar"
             modulo="Excel"
             destino="Abre asistente de carga y validación"
             variant="emerald"
@@ -334,7 +344,7 @@ export default function InventarioAdminPage() {
 
           <IconButtonTooltip
             icon={Plus}
-            label="Crear Nueva Prenda o Producto"
+            label="+ Nueva Prenda"
             modulo="Inventario"
             destino="Abre formulario para registrar nuevo ítem"
             variant="primary"
@@ -413,7 +423,7 @@ export default function InventarioAdminPage() {
                 }`}
             >
               <Tag className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Disfraces y Prendas de Alquiler ({resumen.alquileres})</span>
+              <span>Alquiler ({resumen.alquileres})</span>
             </button>
 
             <button
@@ -424,7 +434,7 @@ export default function InventarioAdminPage() {
                 }`}
             >
               <Package className="h-3.5 w-3.5 text-blue-600" />
-              <span>Ropa de Venta Directa ({resumen.ventas})</span>
+              <span>Venta ({resumen.ventas})</span>
             </button>
 
             <button
@@ -435,7 +445,7 @@ export default function InventarioAdminPage() {
                 }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5 text-slate-600" />
-              <span>Todo el Inventario ({resumen.total})</span>
+              <span>Todos ({resumen.total})</span>
             </button>
           </div>
 
@@ -713,7 +723,7 @@ export default function InventarioAdminPage() {
                       {/* Acciones */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Tooltip content="Editar Prenda" subtext="Modifica datos, precios o estado" position="left">
+                          <Tooltip content="Editar" subtext="Modifica datos, precios o estado" position="left">
                             <button
                               type="button"
                               onClick={() => handleEditarProducto(prod)}
@@ -723,7 +733,7 @@ export default function InventarioAdminPage() {
                             </button>
                           </Tooltip>
 
-                          <Tooltip content="Eliminar Prenda" subtext="Elimina o da de baja del inventario" position="left">
+                          <Tooltip content="Eliminar" subtext="Elimina o da de baja del inventario" position="left">
                             <button
                               type="button"
                               onClick={() => handleEliminarProducto(prod)}

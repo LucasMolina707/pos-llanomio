@@ -152,6 +152,7 @@ export function useCajonSincronizado() {
   const [errorAccionCaja, setErrorAccionCaja] = useState<string | null>(null);
   const actualizandoRef = useRef(false);
   const pendienteRef = useRef(false);
+  const ultimoUpdateRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   /**
@@ -160,11 +161,18 @@ export function useCajonSincronizado() {
    */
   const actualizarCajon = useCallback(
     async (silencioso = false) => {
+      // Throttle de peticiones silenciosas repetitivas en menos de 1.8 segundos
+      const ahora = Date.now();
+      if (silencioso && ahora - ultimoUpdateRef.current < 1800) {
+        return;
+      }
+
       if (actualizandoRef.current) {
         pendienteRef.current = true;
         return;
       }
       actualizandoRef.current = true;
+      ultimoUpdateRef.current = ahora;
 
       if (abortControllerRef.current) {
         try {
@@ -180,8 +188,18 @@ export function useCajonSincronizado() {
 
         const currentDeviceId = deviceId || obtenerODefinirDeviceId();
 
-        // Obtener usuario autenticado si aún no se tiene
+        // Obtener usuario autenticado si aún no se tiene, verificando primero caché de sesión
         let uSesion = usuarioSesion;
+        if (!uSesion && typeof window !== "undefined") {
+          try {
+            const cachedUser = sessionStorage.getItem("pos_user");
+            if (cachedUser) {
+              uSesion = JSON.parse(cachedUser);
+              setUsuarioSesion(uSesion);
+            }
+          } catch {}
+        }
+
         if (!uSesion) {
           try {
             const resAuth = await fetch("/api/auth/me", { signal: controller.signal });
@@ -463,11 +481,11 @@ export function useCajonSincronizado() {
     window.addEventListener("focus", handleVisibilidadCaja);
     document.addEventListener("visibilitychange", handleVisibilidadCaja);
 
-    // Sincronización continua de mostrador cada 3.5 segundos (mientras la pestaña esté activa)
+    // Sincronización pasiva de respaldo de mostrador cada 25 segundos (mientras la pestaña esté activa)
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       actualizarCajon(true);
-    }, 3500);
+    }, 25000);
 
     return () => {
       window.removeEventListener("pos_caja_actualizada", handleCajaEvent);

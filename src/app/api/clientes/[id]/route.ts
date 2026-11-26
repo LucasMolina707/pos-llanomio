@@ -66,22 +66,29 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     // Procesar cada factura del cliente calculando moras en tiempo real
     const historialFacturas = cliente.facturas.map((fac) => {
-      const calculo = calcularMoraDeFactura(fac, ahora);
+      const esAnulada = fac.estado === EstadoFactura.ANULADA;
+      const calculo = esAnulada
+        ? { enMora: false, recargoMoraCalculado: 0, diasRetraso: 0, horasRetraso: 0, prendasEnMora: [] }
+        : calcularMoraDeFactura(fac, ahora);
 
-      const saldoBase = Math.max(
-        0,
-        Math.round(((fac.totalFactura || 0) - (fac.totalAbonado || 0)) * 100) / 100
-      );
-      const recargoMora = Math.round(calculo.recargoMoraCalculado * 100) / 100;
-      const totalExigible = Math.round((saldoBase + recargoMora) * 100) / 100;
+      const saldoBase = esAnulada
+        ? 0
+        : Math.max(
+            0,
+            Math.round(((fac.totalFactura || 0) - (fac.totalAbonado || 0)) * 100) / 100
+          );
+      const recargoMora = esAnulada ? 0 : Math.round(calculo.recargoMoraCalculado * 100) / 100;
+      const totalExigible = esAnulada ? 0 : Math.round((saldoBase + recargoMora) * 100) / 100;
 
       const prendaSinEntregar =
+        !esAnulada &&
         (fac.tipoOperacion === "ALQUILER" || fac.tipoOperacion === "MIXTO") &&
         !fac.fechaDevolucionReal &&
         !!fac.fechaDevolucionPactada &&
         new Date(fac.fechaDevolucionPactada) < ahora;
 
       const estaCerrada =
+        esAnulada ||
         fac.estado === EstadoFactura.CERRADA ||
         (saldoBase === 0 && recargoMora === 0 && !prendaSinEntregar);
 
@@ -122,6 +129,9 @@ export async function GET(req: NextRequest, { params }: Params) {
     }> = [];
 
     historialFacturas.forEach((fac) => {
+      // Facturas anuladas quedan totalmente excluidas de métricas financieras e inventario activo
+      if (fac.estado === EstadoFactura.ANULADA) return;
+
       totalFacturado += fac.totalFactura;
       totalAbonado += fac.totalAbonado;
       saldoTotalPendiente += fac.totalExigible;
@@ -165,6 +175,10 @@ export async function GET(req: NextRequest, { params }: Params) {
           responsabilidadFiscal: cliente.responsabilidadFiscal,
           municipio: cliente.municipio,
           codigoDaneMunicipio: cliente.codigoDaneMunicipio,
+          creditoHabilitado: cliente.creditoHabilitado,
+          cupoCredito: cliente.cupoCredito || 0,
+          diasCredito: cliente.diasCredito || 30,
+          notasCredito: cliente.notasCredito,
           fechaCreacion: cliente.fechaCreacion,
           updatedAt: cliente.updatedAt,
         },
@@ -173,6 +187,11 @@ export async function GET(req: NextRequest, { params }: Params) {
           totalFacturado: Math.round(totalFacturado * 100) / 100,
           totalAbonado: Math.round(totalAbonado * 100) / 100,
           saldoTotalPendiente: Math.round(saldoTotalPendiente * 100) / 100,
+          saldoCartera: Math.round(saldoTotalPendiente * 100) / 100,
+          cupoCredito: cliente.cupoCredito || 0,
+          cupoDisponible: Math.max(0, Math.round(((cliente.cupoCredito || 0) - saldoTotalPendiente) * 100) / 100),
+          creditoHabilitado: Boolean(cliente.creditoHabilitado),
+          diasCredito: cliente.diasCredito || 30,
           totalMoraVigente: Math.round(totalMoraVigente * 100) / 100,
           prendasAlquiladasActivas: prendasEnPoderCliente.length,
         },
@@ -218,6 +237,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
       responsabilidadFiscal,
       municipio,
       codigoDaneMunicipio,
+      creditoHabilitado,
+      cupoCredito,
+      diasCredito,
+      notasCredito,
     } = body;
 
     const clienteExistente = await prisma.cliente.findFirst({
@@ -315,6 +338,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
           : "O-99",
         municipio: municipio ? municipio.trim() : (clienteExistente.municipio || "Villavicencio - Meta"),
         codigoDaneMunicipio: codigoDaneMunicipio ? String(codigoDaneMunicipio).trim() : (clienteExistente.codigoDaneMunicipio || "50001"),
+        ...(creditoHabilitado !== undefined ? { creditoHabilitado: Boolean(creditoHabilitado) } : {}),
+        ...(cupoCredito !== undefined ? { cupoCredito: Math.max(0, Number(cupoCredito) || 0) } : {}),
+        ...(diasCredito !== undefined ? { diasCredito: Math.max(1, Number(diasCredito) || 30) } : {}),
+        ...(notasCredito !== undefined ? { notasCredito: notasCredito ? String(notasCredito).trim() : null } : {}),
       },
     });
 

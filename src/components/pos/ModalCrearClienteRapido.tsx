@@ -25,6 +25,7 @@ import {
   RESPONSABILIDADES_FISCALES_DIAN,
   MUNICIPIOS_DANE,
 } from "@/lib/dian-utils";
+import { invalidarCacheApi } from "@/lib/safe-fetch";
 
 export interface ClienteCreado {
   id: string;
@@ -42,6 +43,12 @@ export interface ClienteCreado {
   responsabilidadFiscal?: string;
   municipio?: string;
   codigoDaneMunicipio?: string;
+  creditoHabilitado?: boolean;
+  cupoCredito?: number;
+  diasCredito?: number;
+  notasCredito?: string | null;
+  saldoCartera?: number;
+  cupoDisponible?: number;
 }
 
 interface ModalCrearClienteRapidoProps {
@@ -340,6 +347,7 @@ export default function ModalCrearClienteRapido({
         throw new Error(data.error || "Error al procesar el cliente en la base de datos.");
       }
 
+      invalidarCacheApi("/api/clientes");
       onClienteCreado(data.cliente);
       onClose();
     } catch (err: unknown) {

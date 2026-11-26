@@ -56,7 +56,7 @@ export function formatearPermisosResumen(p: PermisosUsuario): string {
   return list.length > 0 ? list.join(", ") : "Sin permisos operativos";
 }
 
-const RUTA_ARCHIVO_MAESTRO = path.join(process.cwd(), "USUARIOS_Y_CREDENCIALES_MAESTRAS.md");
+const RUTA_ARCHIVO_MAESTRO = path.join(process.cwd(), "docs", "CREDENCIALES_MAESTRAS_SISTEMA.md");
 
 /**
  * Genera el encabezado y contenido estático de las Secciones 1 y 2 del archivo maestro.
@@ -64,7 +64,7 @@ const RUTA_ARCHIVO_MAESTRO = path.join(process.cwd(), "USUARIOS_Y_CREDENCIALES_M
 function generarContenidoBase(): string {
   return `# REGISTRO MAESTRO DE USUARIOS, CREDENCIALES Y PROTOCOLO DE RECUPERACIÓN POS LOCAL
 
-> **AVISO DE SEGURIDAD OPERATIVA:** Este documento reside en el directorio raíz del servidor local de la tienda (\`./USUARIOS_Y_CREDENCIALES_MAESTRAS.md\`). Contiene las credenciales base, la matriz oficial de roles y permisos (RBAC), el Protocolo Criptográfico de 3 Factores Locales contra SQLite (\`database/llanomio.db\`) y el registro auto-sincronizado de cuentas.
+> **AVISO DE SEGURIDAD OPERATIVA:** Este documento reside en el directorio de documentación técnica del servidor local (\`./docs/CREDENCIALES_MAESTRAS_SISTEMA.md\`). Contiene las credenciales base, la matriz oficial de roles y permisos (RBAC), el Protocolo Criptográfico de 3 Factores Locales contra SQLite (\`database/llanomio.db\`) y el registro auto-sincronizado de cuentas.
 
 ---
 
@@ -192,8 +192,12 @@ export async function sincronizarArchivoCredencialesMaestras(prisma: PrismaClien
     tablaUsuarios += `\n*Nota: Esta tabla se actualiza de forma automática cada vez que se crea, modifica o restaura una cuenta desde el panel \`/admin/usuarios\` o mediante la recuperación por 3 Factores en \`/login\`.*\n`;
 
     const contenidoCompleto = generarContenidoBase() + tablaUsuarios;
+    const dirMaestro = path.dirname(RUTA_ARCHIVO_MAESTRO);
+    if (!fs.existsSync(dirMaestro)) {
+      fs.mkdirSync(dirMaestro, { recursive: true });
+    }
     fs.writeFileSync(RUTA_ARCHIVO_MAESTRO, contenidoCompleto, "utf-8");
   } catch (error) {
-    console.warn("[USUARIOS_SYNC] No se pudo auto-sincronizar USUARIOS_Y_CREDENCIALES_MAESTRAS.md:", error);
+    console.warn("[USUARIOS_SYNC] No se pudo auto-sincronizar docs/CREDENCIALES_MAESTRAS_SISTEMA.md:", error);
   }
 }

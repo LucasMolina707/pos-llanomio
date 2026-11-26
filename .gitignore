@@ -58,13 +58,17 @@ desktop.ini
 *.ntvs*
 *.njsproj
 
-# Directorios temporales de compilación
+# Directorios temporales y artefactos residuales
 /.tmp/
 /.pm2/
+/.next/cache/
 *.sln
 *.sw?
 *.tsbuildinfo
+*.old
+*.bak
 *.lnk
+/database/backups_antiguos_historicos/
 
 # Runtime portable binaries (generados por npm run preparar:instalador)
 /runtime/node/*

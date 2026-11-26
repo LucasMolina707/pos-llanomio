@@ -26,9 +26,11 @@ import {
 } from "lucide-react";
 import PlantillaImpresion, { DatosImpresionFactura } from "@/components/impresion/PlantillaImpresion";
 import Tooltip from "@/components/ui/Tooltip";
+import InputDinero from "@/components/ui/InputDinero";
 import PanelPagosSecuenciales, { PagoAplicado } from "@/components/caja/PanelPagosSecuenciales";
 import { descargarPdfSegunFormato } from "@/lib/pdf-media-carta";
 import { MetodoPagoPos } from "@/app/caja/pos/page";
+import { safeFetchJson, invalidarCacheApi } from "@/lib/safe-fetch";
 
 interface ModalLiquidarFacturaProps {
   facturaId: string | null;
@@ -118,15 +120,32 @@ export default function ModalLiquidarFactura({
     };
   }, [isOpen, facturaId, recargoMoraSugerido]);
 
-  if (!isOpen) return null;
-
-  const saldoBase = factura
-    ? Math.max(0, (factura.totalFactura || 0) - (factura.totalAbonado || 0))
-    : 0;
-  const totalACobrar = Math.round((saldoBase + moraACobrar) * 100) / 100;
   const totalPagadoEnCascada = useMemo(() => {
     return pagosAplicados.reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
   }, [pagosAplicados]);
+
+  if (!isOpen) return null;
+
+  const saldoAlquiler = factura
+    ? Math.max(0, (factura.totalFactura || 0) - (factura.totalAbonado || 0))
+    : 0;
+  const saldoBase = saldoAlquiler; // Alias para compatibilidad
+
+  const depositoPactado = factura ? Math.max(0, factura.montoDeposito || 0) : 0;
+  const depositoAbonado = factura
+    ? Math.max(
+        0,
+        factura.depositoAbonado !== undefined
+          ? factura.depositoAbonado
+          : factura.estadoDeposito === "RECIBIDO_EN_GARANTIA"
+          ? depositoPactado
+          : 0
+      )
+    : 0;
+  const saldoDeposito = Math.max(0, depositoPactado - depositoAbonado);
+
+  // Total exigible: Saldo de Alquiler + Mora + Saldo Faltante de Custodia (si no se ha entregado)
+  const totalACobrar = Math.round((saldoAlquiler + moraACobrar + saldoDeposito) * 100) / 100;
 
   const efectivoRecibidoNum = parseFloat(efectivoRecibido) || 0;
   const vueltasCalculadas =
@@ -202,39 +221,53 @@ export default function ModalLiquidarFactura({
         ];
       }
 
-      const res = await fetch(`/api/facturas/${factura.id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          monto: totalACobrar,
-          recargoMora: moraACobrar,
-          confirmarDevolucionPrendas: confirmarDevolucion,
-          estadoDeposito: estDep,
-          montoRetenidoDeposito: retDep,
-          montoDevueltoDeposito: devDep,
-          motivoRetencionDeposito: motivoRetencion.trim() || undefined,
-          estadoPrendasDevueltas: estadoPrendasDevueltas,
-          metodoPagoPrincipal: abonosLiquidacion.length === 1 ? abonosLiquidacion[0].metodoPago : abonosLiquidacion.length > 1 ? "MIXTO" : metodoPago,
-          metodoPago: abonosLiquidacion.length === 1 ? abonosLiquidacion[0].metodoPago : abonosLiquidacion.length > 1 ? "MIXTO" : metodoPago,
-          pagos: abonosLiquidacion,
-          abonos: abonosLiquidacion,
-          montoRecibido: efectivoRecibidoNum,
-          vueltasEntregadas: vueltasCalculadas,
-          referenciaComprobante: referencia.trim() || undefined,
-          notas:
-            notas.trim() ||
-            (moraACobrar > 0
-              ? `Liquidación de saldo y recargo por mora (${diasRetrasoSugerido} días / ${horasRetrasoSugerido} hrs)`
-              : "Liquidación total y paz y salvo"),
-        }),
-      });
+      const res = await safeFetchJson<{ success?: boolean; error?: string; factura?: any }>(
+        `/api/facturas/${factura.id}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            monto: totalACobrar,
+            recargoMora: moraACobrar,
+            confirmarDevolucionPrendas: confirmarDevolucion,
+            estadoDeposito: estDep,
+            montoRetenidoDeposito: retDep,
+            montoDevueltoDeposito: devDep,
+            motivoRetencionDeposito: motivoRetencion.trim() || undefined,
+            estadoPrendasDevueltas: estadoPrendasDevueltas,
+            metodoPagoPrincipal: abonosLiquidacion.length === 1 ? abonosLiquidacion[0].metodoPago : abonosLiquidacion.length > 1 ? "MIXTO" : metodoPago,
+            metodoPago: abonosLiquidacion.length === 1 ? abonosLiquidacion[0].metodoPago : abonosLiquidacion.length > 1 ? "MIXTO" : metodoPago,
+            pagos: abonosLiquidacion,
+            abonos: abonosLiquidacion,
+            montoRecibido: efectivoRecibidoNum,
+            vueltasEntregadas: vueltasCalculadas,
+            referenciaComprobante: referencia.trim() || undefined,
+            notas:
+              notas.trim() ||
+              (moraACobrar > 0
+                ? `Liquidación de saldo y recargo por mora (${diasRetrasoSugerido} días / ${horasRetrasoSugerido} hrs)`
+                : "Liquidación total y paz y salvo"),
+          }),
+        }
+      );
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Error al procesar el pago en el servidor.");
+      if (!res.ok || !res.data?.success) {
+        throw new Error(res.data?.error || res.error || "Error al procesar el pago en el servidor.");
       }
 
-      const facturaActualizada = data.factura;
+      // Invalidación instantánea de caché para reflejar prendas liberadas de inmediato
+      invalidarCacheApi("/api/inventario");
+      invalidarCacheApi("/api/facturas");
+      invalidarCacheApi("/api/apartados");
+      invalidarCacheApi("/api/caja");
+      invalidarCacheApi("/api/dashboard");
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("pos_inventario_actualizado"));
+        window.dispatchEvent(new Event("pos_facturas_actualizadas"));
+      }
+
+      const facturaActualizada = res.data.factura;
       setFactura(facturaActualizada);
 
       // Cargar datos formateados para impresión
@@ -327,19 +360,33 @@ export default function ModalLiquidarFactura({
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Tarjeta de Liquidación de Rubros */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5 text-xs">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                  <span className="text-slate-600 font-bold">Saldo Pendiente de Factura Base:</span>
-                  <span className="font-mono font-bold text-slate-900 text-sm">
-                    ${saldoBase.toLocaleString("es-CO")}
-                  </span>
+              {/* Tarjeta de Liquidación de Rubros Desacoplados */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 text-xs">
+                {/* Rubro 1: Servicio de Alquiler */}
+                <div className="p-2.5 rounded-xl bg-white border border-indigo-100 space-y-1.5">
+                  <div className="flex items-center justify-between text-slate-700">
+                    <span className="font-bold flex items-center gap-1.5 text-indigo-950">
+                      1. Canon de Alquiler:
+                    </span>
+                    <span className="font-mono font-bold text-slate-900">
+                      ${(factura.totalFactura || 0).toLocaleString("es-CO")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[11px] text-emerald-700 font-semibold">
+                    <span>Abonos Previos al Alquiler:</span>
+                    <span className="font-mono">-${(factura.totalAbonado || 0).toLocaleString("es-CO")}</span>
+                  </div>
+                  <div className="flex justify-between font-black text-rose-700 pt-1 border-t border-slate-100">
+                    <span>Saldo Faltante de Alquiler:</span>
+                    <span className="font-mono">${saldoAlquiler.toLocaleString("es-CO")}</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                {/* Rubro 2: Recargo por Mora */}
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-rose-100">
                   <div className="space-y-0.5">
                     <span className="text-rose-700 font-bold block">
-                      Recargo por Mora en Entrega de Prendas:
+                      2. Recargo por Mora en Retorno:
                     </span>
                     {(diasRetrasoSugerido > 0 || horasRetrasoSugerido > 0) && (
                       <span className="text-[10px] text-slate-500 block">
@@ -349,24 +396,46 @@ export default function ModalLiquidarFactura({
                   </div>
                   <div className="flex items-center gap-1 font-mono">
                     <span className="text-rose-600 font-bold">+$</span>
-                    <input
-                      type="number"
-                      min={0}
+                    <InputDinero
                       value={moraACobrar}
-                      onChange={(e) => setMoraACobrar(Math.max(0, parseFloat(e.target.value) || 0))}
+                      onValueChange={(val) => setMoraACobrar(Math.max(0, val))}
                       className="w-24 px-2 py-1 text-right rounded border border-rose-300 font-bold text-rose-700 focus:outline-none focus:ring-1 focus:ring-rose-500 bg-white"
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  <div>
-                    <strong className="text-sm text-slate-900 uppercase block font-black">
-                      Total Exigible para Paz y Salvo:
-                    </strong>
-                    <span className="text-[10px] text-slate-500">Saldo Factura + Mora Acumulada</span>
+                {/* Rubro 3: Depósito en Custodia (Garantía Reembolsable) */}
+                {depositoPactado > 0 && (
+                  <div className="p-2.5 rounded-xl bg-white border border-amber-200 space-y-1.5">
+                    <div className="flex items-center justify-between font-bold text-slate-700">
+                      <span className="text-amber-950 flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                        3. Depósito en Custodia (Garantía):
+                      </span>
+                      <span className="font-mono text-slate-900">${depositoPactado.toLocaleString("es-CO")}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] text-emerald-700 font-semibold">
+                      <span>Abonado Previamente a Custodia:</span>
+                      <span className="font-mono">-${depositoAbonado.toLocaleString("es-CO")}</span>
+                    </div>
+                    <div className="flex justify-between font-black text-amber-900 pt-1 border-t border-slate-100">
+                      <span>Saldo Pendiente de Custodia:</span>
+                      <span className="font-mono">${saldoDeposito.toLocaleString("es-CO")}</span>
+                    </div>
                   </div>
-                  <span className="font-mono text-lg font-black text-emerald-700">
+                )}
+
+                {/* Rubro 4: Sumatoria Consolidada para Paz y Salvo */}
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 text-white pt-2">
+                  <div>
+                    <strong className="text-xs uppercase block font-black text-slate-200">
+                      Total Exigible para Paz y Salvo (Consolidado):
+                    </strong>
+                    <span className="text-[10px] text-slate-400">
+                      Saldo Alquiler (${saldoAlquiler.toLocaleString("es-CO")}) + Mora (${moraACobrar.toLocaleString("es-CO")}){saldoDeposito > 0 ? ` + Custodia ($${saldoDeposito.toLocaleString("es-CO")})` : ""}
+                    </span>
+                  </div>
+                  <span className="font-mono text-base font-black text-amber-400">
                     ${totalACobrar.toLocaleString("es-CO")}
                   </span>
                 </div>
@@ -495,12 +564,9 @@ export default function ModalLiquidarFactura({
                         <label className="text-xs font-bold text-amber-950">
                           Monto a Retener ($):
                         </label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={factura.montoDeposito || 0}
+                        <InputDinero
                           value={montoRetenido}
-                          onChange={(e) => setMontoRetenido(Math.min(factura.montoDeposito || 0, Math.max(0, parseFloat(e.target.value) || 0)))}
+                          onValueChange={(val) => setMontoRetenido(Math.min(factura.montoDeposito || 0, Math.max(0, val)))}
                           className="w-28 px-2 py-1 text-right rounded border border-amber-400 font-mono font-bold text-rose-700 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
                         />
                       </div>

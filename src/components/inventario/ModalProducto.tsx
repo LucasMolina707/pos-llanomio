@@ -13,6 +13,8 @@ import {
   HelpCircle,
   DollarSign,
 } from "lucide-react";
+import InputDinero from "@/components/ui/InputDinero";
+import { invalidarCacheApi } from "@/lib/safe-fetch";
 
 export interface ProductoData {
   id?: string;
@@ -216,6 +218,7 @@ export default function ModalProducto({
         throw new Error(data.error || "No se pudo guardar la prenda.");
       }
 
+      invalidarCacheApi("/api/inventario");
       onSaved(data.producto);
       onClose();
     } catch (err: unknown) {
@@ -437,18 +440,13 @@ export default function ModalProducto({
               {formData.tipo === "ALQUILER" ? "Precio Base de Alquiler ($ COP)" : "Precio de Venta ($ COP)"}
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <DollarSign className="h-4 w-4" />
-              </div>
-              <input
-                type="number"
-                min="0"
-                step="100"
+              <InputDinero
+                mostrarPrefijo
                 name="precioBase"
                 value={formData.precioBase}
-                onChange={handleChange}
+                onValueChange={(val) => setFormData((prev) => ({ ...prev, precioBase: val }))}
                 placeholder="0"
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full pr-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
           </div>
@@ -468,14 +466,11 @@ export default function ModalProducto({
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                     Tarifa de Mora ($ COP) *
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01" // Soporte estricto de decimales
+                  <InputDinero
                     name="tarifaMora"
                     value={formData.tarifaMora}
-                    onChange={handleChange}
-                    placeholder="ej. 15000.50"
+                    onValueChange={(val) => setFormData((prev) => ({ ...prev, tarifaMora: val }))}
+                    placeholder="0"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
                   />
                   <span className="text-[10px] text-slate-500 mt-1 block">

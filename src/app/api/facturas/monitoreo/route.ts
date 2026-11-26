@@ -20,8 +20,10 @@ const NO_CACHE_HEADERS = {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const pestana = (searchParams.get("pestana") || searchParams.get("estado") || "CAJA_ALQUILER").toUpperCase();
+    const pestanaParam = searchParams.get("pestana") || searchParams.get("estado");
+    const pestana = (pestanaParam || (searchParams.get("modulo") ? "TODOS" : "EN_ALQUILER")).toUpperCase();
     const soloMoraFiltro = searchParams.get("soloMora") === "true";
+    const subfiltro = (searchParams.get("subfiltro") || searchParams.get("filtro") || "").toUpperCase();
     const q = searchParams.get("q")?.trim() || "";
     const clienteId = searchParams.get("clienteId")?.trim() || "";
     const sincronizar = searchParams.get("sync") === "true";
@@ -36,16 +38,11 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {};
 
-    if (moduloParam === "ALQUILERES" || tipoParam === "ALQUILER") {
+    if (tipoParam === "ALQUILER" || (moduloParam === "ALQUILERES" && pestana !== "TODOS" && pestana !== "APARTADOS")) {
       where.tipoOperacion = "ALQUILER";
-    } else if (moduloParam === "APARTADOS" || tipoParam === "SEPARE") {
+    } else if (tipoParam === "SEPARE" || (moduloParam === "APARTADOS" && pestana !== "TODOS")) {
       where.tipoOperacion = "SEPARE";
-    } else if (
-      moduloParam === "POS" ||
-      tipoParam === "VENTA" ||
-      tipoParam === "POS" ||
-      tipoParam === "VENTA_ARREGLO"
-    ) {
+    } else if (tipoParam === "VENTA" || tipoParam === "VENTA_ARREGLO") {
       where.tipoOperacion = { not: "ALQUILER" };
     }
 
@@ -108,42 +105,65 @@ export async function GET(req: NextRequest) {
       const recargoMora = Math.round(calculo.recargoMoraCalculado * 100) / 100;
       const totalExigible = Math.round((saldoBase + recargoMora) * 100) / 100;
 
-      const prendaSinEntregar =
-        (fac.tipoOperacion === "ALQUILER" || fac.tipoOperacion === "MIXTO") &&
+      const esAlquilerOp = fac.tipoOperacion === "ALQUILER";
+      const esSepareOp = fac.tipoOperacion === "SEPARE" || (fac.tipoOperacion as string) === "APARTADO";
+      const esVentaOp = !esAlquilerOp && !esSepareOp;
+
+      // 1. Alquileres finalizados / cerrados: el traje ya regresó a la tienda
+      const esAlquilerFinalizado =
+        esAlquilerOp &&
+        (fac.estado === EstadoFactura.CERRADA || Boolean(fac.fechaDevolucionReal));
+
+      // 2. Alquileres activos ("En Alquiler"): trajes que actualmente están en poder del cliente
+      const esCajaAlquiler =
+        esAlquilerOp &&
         !fac.fechaDevolucionReal &&
-        !!fac.fechaDevolucionPactada &&
-        new Date(fac.fechaDevolucionPactada) < ahora;
+        fac.estado !== EstadoFactura.CERRADA;
+
+      // 3. Apartados activos: prendas reservadas en tienda esperando retiro
+      const esApartado =
+        esSepareOp &&
+        fac.estado !== EstadoFactura.CERRADA;
+
+      // Apartado vencido (fecha de retiro ya expiró)
+      const fechaRetiroDate = fac.fechaRetiroApartado || fac.fechaDevolucionEstimada;
+      const esApartadoVencido =
+        esApartado &&
+        Boolean(fechaRetiroDate) &&
+        new Date(fechaRetiroDate!) < ahora;
+
+      // Alquiler con fecha pactada vencida y traje aún sin regresar
+      const prendaSinEntregar =
+        esCajaAlquiler &&
+        Boolean(fac.fechaDevolucionPactada) &&
+        new Date(fac.fechaDevolucionPactada!) < ahora;
+
+      // En mora activa con días corriendo
+      const enMora =
+        !esAlquilerFinalizado &&
+        (calculo.enMora || prendaSinEntregar || calculo.diasRetraso > 0 || recargoMora > 0);
+
+      // Venta saldada (100% pagada)
+      const esPazYSalvoVenta =
+        esVentaOp &&
+        (fac.estado === EstadoFactura.CERRADA || saldoBase === 0);
+
+      // Paz y Salvo general:
+      // Si es alquiler: debe tener traje devuelto y estar sin saldo de mora ni canon
+      // Si es venta: saldoBase === 0
+      const esPazYSalvo =
+        (esAlquilerOp && esAlquilerFinalizado && saldoBase === 0 && recargoMora === 0) ||
+        (esVentaOp && esPazYSalvoVenta);
 
       const estaCerrada =
         fac.estado === EstadoFactura.CERRADA ||
-        (saldoBase === 0 && recargoMora === 0 && !prendaSinEntregar);
+        (esAlquilerFinalizado && saldoBase === 0) ||
+        (esVentaOp && saldoBase === 0);
 
-      // Clasificación en las 4 Vistas Oficiales del Sistema
-      const esCajaAlquiler =
-        fac.tipoOperacion === "ALQUILER" &&
-        !fac.fechaDevolucionReal &&
-        fac.estado !== EstadoFactura.CERRADA;
-
-      const esApartado =
-        (fac.tipoOperacion === "SEPARE" || (fac.tipoOperacion as string) === "APARTADO") &&
-        fac.estado !== EstadoFactura.CERRADA;
-
-      const esAlquilerFinalizado =
-        fac.tipoOperacion === "ALQUILER" &&
-        (fac.estado === EstadoFactura.CERRADA || Boolean(fac.fechaDevolucionReal));
-
-      const esPazYSalvoVenta =
-        fac.tipoOperacion !== "ALQUILER" &&
-        fac.tipoOperacion !== "SEPARE";
-
-      // Clasificación retrocompatible anterior
-      const esSoloMora =
-        !estaCerrada && saldoBase === 0 && (recargoMora > 0 || prendaSinEntregar);
-      const esMoraYSaldo =
-        !estaCerrada && saldoBase > 0 && recargoMora > 0;
-      const esPendienteAlDia =
-        !estaCerrada && saldoBase > 0 && recargoMora === 0;
-      const esPazYSalvo = estaCerrada || (saldoBase === 0 && recargoMora === 0 && !prendaSinEntregar);
+      // Retrocompatibilidad
+      const esPendienteAlDia = esCajaAlquiler && !enMora;
+      const esMoraYSaldo = esCajaAlquiler && enMora && saldoBase > 0;
+      const esSoloMora = esCajaAlquiler && enMora && saldoBase === 0;
 
       // Prenda principal para mensajes y resúmenes
       const prendaPrincipal =
@@ -158,33 +178,41 @@ export async function GET(req: NextRequest) {
         totalExigible,
         diasRetraso: calculo.diasRetraso,
         horasRetraso: calculo.horasRetraso,
-        enMora: calculo.enMora && (recargoMora > 0 || calculo.diasRetraso > 0),
+        enMora,
         prendasEnMora: calculo.prendasEnMora,
         prendaPrincipal,
-        // Flags de las 4 Vistas Oficiales
+        // Flags principales unificados
         esCajaAlquiler,
         esApartado,
+        esApartadoVencido,
         esAlquilerFinalizado,
         esPazYSalvoVenta,
+        esPazYSalvo,
+        estaCerrada,
         // Flags retrocompatibles
         esPendienteAlDia,
         esMoraYSaldo,
         esSoloMora,
-        esPazYSalvo,
       };
     });
 
-    // Conteos exactos para las 4 Vistas Oficiales
+    // Conteos exactos para las vistas oficiales
     const conteoCajaAlquiler = facturasProcesadas.filter((f) => f.esCajaAlquiler).length;
     const conteoCajaAlquilerMora = facturasProcesadas.filter(
       (f) => f.esCajaAlquiler && (f.enMora || f.diasRetraso > 0)
     ).length;
+    const conteoCajaAlquilerAlDia = Math.max(0, conteoCajaAlquiler - conteoCajaAlquilerMora);
     const conteoApartados = facturasProcesadas.filter((f) => f.esApartado).length;
-    const conteoPazYSalvos = facturasProcesadas.filter((f) => f.esPazYSalvoVenta || f.esPazYSalvo).length;
+    const conteoApartadosMora = facturasProcesadas.filter(
+      (f) => f.esApartado && f.esApartadoVencido
+    ).length;
+    const conteoApartadosVigentes = Math.max(0, conteoApartados - conteoApartadosMora);
     const conteoAlquileresFinalizados = facturasProcesadas.filter((f) => f.esAlquilerFinalizado).length;
+    const conteoPazYSalvos = facturasProcesadas.filter((f) => f.esPazYSalvo || f.esPazYSalvoVenta || f.esAlquilerFinalizado).length;
+    const conteoPazYSalvoVentas = facturasProcesadas.filter((f) => f.esPazYSalvoVenta).length;
 
     // Conteos legados
-    const conteoPendientesAlDia = facturasProcesadas.filter((f) => f.esPendienteAlDia).length;
+    const conteoPendientesAlDia = conteoCajaAlquilerAlDia;
     const conteoMoraYSaldo = facturasProcesadas.filter((f) => f.esMoraYSaldo).length;
     const conteoSoloMora = facturasProcesadas.filter((f) => f.esSoloMora).length;
 
@@ -200,7 +228,7 @@ export async function GET(req: NextRequest) {
         .reduce((acc, curr) => acc + curr.totalExigible, 0) * 100
     ) / 100;
 
-    // Filtrar según la pestaña activa seleccionada (4 Vistas Oficiales)
+    // Filtrar según la pestaña activa seleccionada
     let facturasFiltradas = facturasProcesadas;
     if (
       pestana === "CAJA_ALQUILER" ||
@@ -211,7 +239,12 @@ export async function GET(req: NextRequest) {
     ) {
       facturasFiltradas = facturasProcesadas.filter((f) => {
         if (!f.esCajaAlquiler) return false;
-        if (soloMoraFiltro) return f.enMora || f.diasRetraso > 0;
+        if (soloMoraFiltro || subfiltro === "MORA" || subfiltro === "EN_MORA") {
+          return f.enMora || f.diasRetraso > 0;
+        }
+        if (subfiltro === "AL_DIA" || subfiltro === "ALDIA") {
+          return !f.enMora && f.diasRetraso <= 0;
+        }
         return true;
       });
     } else if (
@@ -219,17 +252,34 @@ export async function GET(req: NextRequest) {
       pestana === "APARTADO" ||
       pestana === "SEPARE"
     ) {
-      facturasFiltradas = facturasProcesadas.filter((f) => f.esApartado);
+      facturasFiltradas = facturasProcesadas.filter((f) => {
+        if (!f.esApartado) return false;
+        if (subfiltro === "MORA" || subfiltro === "VENCIDOS") {
+          return f.esApartadoVencido;
+        }
+        if (subfiltro === "VIGENTES" || subfiltro === "AL_DIA") {
+          return !f.esApartadoVencido;
+        }
+        return true;
+      });
     } else if (
       pestana === "PAZ_Y_SALVOS" ||
       pestana === "PAZ_Y_SALVO" ||
-      pestana === "VENTAS" ||
-      pestana === "VENDIDOS"
+      pestana === "SALDADOS"
     ) {
-      facturasFiltradas = facturasProcesadas.filter((f) => f.esPazYSalvoVenta || f.esPazYSalvo);
+      facturasFiltradas = facturasProcesadas.filter((f) => {
+        if (subfiltro === "DEVUELTOS" || subfiltro === "ALQUILERES_DEVUELTOS") {
+          return f.esAlquilerFinalizado;
+        }
+        if (subfiltro === "VENTAS" || subfiltro === "VENTAS_SALDADAS") {
+          return f.esPazYSalvoVenta;
+        }
+        return f.esPazYSalvo || f.esAlquilerFinalizado || f.esPazYSalvoVenta;
+      });
     } else if (
       pestana === "ALQUILERES_FINALIZADOS" ||
       pestana === "FINALIZADOS" ||
+      pestana === "DEVUELTOS" ||
       pestana === "CERRADAS" ||
       pestana === "CERRADA"
     ) {
@@ -240,6 +290,8 @@ export async function GET(req: NextRequest) {
       facturasFiltradas = facturasProcesadas.filter((f) => f.esMoraYSaldo);
     } else if (pestana === "SOLO_MORA") {
       facturasFiltradas = facturasProcesadas.filter((f) => f.esSoloMora);
+    } else if (pestana === "TODOS" || pestana === "ALL") {
+      facturasFiltradas = facturasProcesadas;
     }
 
     return NextResponse.json(
@@ -249,9 +301,13 @@ export async function GET(req: NextRequest) {
           totalFacturas: facturasProcesadas.length,
           conteoCajaAlquiler,
           conteoCajaAlquilerMora,
+          conteoCajaAlquilerAlDia,
           conteoApartados,
+          conteoApartadosMora,
+          conteoApartadosVigentes,
           conteoPazYSalvos,
           conteoAlquileresFinalizados,
+          conteoPazYSalvoVentas,
           conteoPendientesAlDia,
           conteoMoraYSaldo,
           conteoSoloMora,

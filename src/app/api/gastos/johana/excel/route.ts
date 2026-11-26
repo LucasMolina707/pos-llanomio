@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     const fechaHoyStr = fechaParam || ahora.toISOString().split("T")[0];
 
     const where: any = {
-      categoriaNombre: { in: ["JOHANA", "YOANA"] },
+      categoriaNombre: { in: ["YOHANNA", "JOHANA", "YOANA"] },
     };
 
     let fechaFiltroInicio: Date;
@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
     // -------------------------------------------------------------------------
     // HOJA 1: Gastos Detallados
     // -------------------------------------------------------------------------
-    const hojaDetalle = workbook.addWorksheet("Gastos Johana Detallado", {
+    const hojaDetalle = workbook.addWorksheet("Gastos Yohanna Detallado", {
       views: [{ showGridLines: true }],
     });
 
@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
     // Fila 1: Título Principal
     hojaDetalle.mergeCells("A1:G1");
     const celdaTitulo = hojaDetalle.getCell("A1");
-    celdaTitulo.value = "SISTEMA POS LLANOMIO - REPORTE EXCLUSIVO DE GASTOS: JOHANA";
+    celdaTitulo.value = "SISTEMA POS LLANOMIO - REPORTE EXCLUSIVO DE GASTOS: YOHANNA";
     celdaTitulo.font = { name: "Arial", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
     celdaTitulo.alignment = { horizontal: "center", vertical: "middle" };
     celdaTitulo.fill = {
@@ -250,7 +250,7 @@ export async function GET(req: NextRequest) {
     const filaTotal = hojaDetalle.getRow(indexFila);
     hojaDetalle.mergeCells(`A${indexFila}:F${indexFila}`);
     const celdaTextoTotal = hojaDetalle.getCell(`A${indexFila}`);
-    celdaTextoTotal.value = "TOTAL GENERAL GASTOS JOHANA:";
+    celdaTextoTotal.value = "TOTAL GENERAL GASTOS YOHANNA:";
     celdaTextoTotal.font = { name: "Arial", size: 10, bold: true, color: { argb: "FF1E1B4B" } };
     celdaTextoTotal.alignment = { horizontal: "right", vertical: "middle" };
     celdaTextoTotal.fill = {
@@ -298,7 +298,7 @@ export async function GET(req: NextRequest) {
 
     hojaResumen.mergeCells("A1:E1");
     const celdaTitulo2 = hojaResumen.getCell("A1");
-    celdaTitulo2.value = "DESGLOSE CONSOLIDADO POR SUBCATEGORÍA - JOHANA";
+    celdaTitulo2.value = "DESGLOSE CONSOLIDADO POR SUBCATEGORÍA - YOHANNA";
     celdaTitulo2.font = { name: "Arial", size: 13, bold: true, color: { argb: "FFFFFFFF" } };
     celdaTitulo2.alignment = { horizontal: "center", vertical: "middle" };
     celdaTitulo2.fill = {
@@ -448,7 +448,7 @@ export async function GET(req: NextRequest) {
 
     const buffer = await workbook.xlsx.writeBuffer();
     const sufijoArchivo = periodo === "DIA" ? fechaHoyStr : `${NOMBRES_MESES[mesActual - 1]}_${anioActual}`;
-    const filename = `Reporte_Gastos_Johana_${sufijoArchivo}.xlsx`;
+    const filename = `Reporte_Gastos_Yohanna_${sufijoArchivo}.xlsx`;
 
     return new NextResponse(buffer as unknown as BodyInit, {
       status: 200,

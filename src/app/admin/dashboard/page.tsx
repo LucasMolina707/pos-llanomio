@@ -382,10 +382,10 @@ export default function DashboardGerencialPage() {
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-lg font-bold text-slate-900 leading-tight truncate">
-            Dashboard Gerencial
+            Metricas
           </h1>
           <p className="text-xs text-slate-500 font-medium truncate">
-            Visualización en tiempo real de ingresos, cuentas por cobrar, moras y balance
+            Resumen financiero en vivo
           </p>
         </div>
 
@@ -418,7 +418,7 @@ export default function DashboardGerencialPage() {
                     : "text-slate-600 hover:text-slate-900 hover:bg-white"
                 }`}
               >
-                Día (Hoy)
+                Hoy
               </button>
             </Tooltip>
             <Tooltip content="Filtrar métricas acumuladas del mes en curso" position="bottom">
@@ -431,7 +431,7 @@ export default function DashboardGerencialPage() {
                     : "text-slate-600 hover:text-slate-900 hover:bg-white"
                 }`}
               >
-                Mes Actual
+                Mes
               </button>
             </Tooltip>
             <Tooltip content="Filtrar métricas consolidadas del año actual" position="bottom">
@@ -444,7 +444,7 @@ export default function DashboardGerencialPage() {
                     : "text-slate-600 hover:text-slate-900 hover:bg-white"
                 }`}
               >
-                Año Actual
+                Ano
               </button>
             </Tooltip>
           </div>
@@ -476,7 +476,7 @@ export default function DashboardGerencialPage() {
           {/* Botón de Refresco Manual */}
           <IconButtonTooltip
             icon={RefreshCw}
-            label="Actualizar Métricas y Balance"
+            label="Actualizar"
             modulo="Dashboard"
             destino={`Recalcula ventas, cartera y moras (Última: ${montado ? ultimaSincronizacion.toLocaleTimeString("es-CO") : "--:--"})`}
             onClick={() => cargarMetricas(true)}
@@ -509,7 +509,7 @@ export default function DashboardGerencialPage() {
             </span>
             <IconButtonTooltip
               icon={ArrowUpRight}
-              label="Control y Arqueo de Caja"
+              label="Arqueo de Caja"
               modulo="Operaciones"
               destino="Ruta: /admin/caja"
               href="/admin/caja"
@@ -526,7 +526,7 @@ export default function DashboardGerencialPage() {
         <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Ingresos Totales
+              Ingresos
             </span>
             <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-100/80 flex items-center justify-center text-blue-600">
               <DollarSign className="w-5 h-5" />
@@ -547,7 +547,7 @@ export default function DashboardGerencialPage() {
         <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Total Efectivo
+              Efectivo
             </span>
             <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600">
               <Banknote className="w-5 h-5" />
@@ -572,7 +572,7 @@ export default function DashboardGerencialPage() {
         <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Transacción (Digital)
+              Digital
             </span>
             <div className="h-10 w-10 rounded-xl bg-purple-50 border border-purple-100/80 flex items-center justify-center text-purple-600">
               <Smartphone className="w-5 h-5" />
@@ -601,7 +601,7 @@ export default function DashboardGerencialPage() {
         <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Depósitos en Garantía
+              Garantias
             </span>
             <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100/80 flex items-center justify-center text-amber-600">
               <ShieldCheck className="w-5 h-5" />
@@ -660,7 +660,7 @@ export default function DashboardGerencialPage() {
                 <Banknote className="w-4 h-4" />
               </div>
               <h2 className="text-base font-bold text-slate-900">
-                Ingresos por Método de Pago
+                Por Medio de Pago
               </h2>
             </div>
             <span className="text-xs font-semibold text-slate-500">
@@ -779,7 +779,7 @@ export default function DashboardGerencialPage() {
                 <Layers className="w-4 h-4" />
               </div>
               <h2 className="text-base font-bold text-slate-900">
-                Rendimiento por Línea de Negocio
+                Por Linea de Negocio
               </h2>
             </div>
             <span className="text-xs font-semibold text-slate-500">
@@ -855,7 +855,7 @@ export default function DashboardGerencialPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900">
-                  Últimas Facturas Emitidas
+                  Ultimas Facturas
                 </h2>
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
                   {ultimasFacturas.length} en pantalla
@@ -871,7 +871,7 @@ export default function DashboardGerencialPage() {
             href="/admin/monitoreo"
             className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition"
           >
-            <span>Ver Centro de Facturas y Moras</span>
+            <span>Ir a Monitoreo</span>
             <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
         </div>

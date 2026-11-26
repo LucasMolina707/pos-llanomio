@@ -29,13 +29,88 @@ export interface ResultadoRestauracion {
 }
 
 /**
- * Retorna la ruta base canonica para respaldos externos (C:\POS_BACKUPS por defecto)
- * de forma dinamica para evitar colisiones de trazabilidad estatica en Next.js NFT.
+ * Retorna la ruta base canonica por defecto según la plataforma:
+ * - Windows: C:\POS_BACKUPS (o variable SystemDrive)
+ * - Linux / Ubuntu: ruta configurada en POS_BACKUP_DIR o database/backups dentro del proyecto
+ */
+export function obtenerDirectorioRespaldosDefault(): string {
+  if (process.env.POS_BACKUP_DIR) return process.env.POS_BACKUP_DIR;
+  if (process.platform === "win32") {
+    const drive = process.env.SystemDrive || "C:";
+    return path.join(drive + "\\", "POS_BACKUPS");
+  }
+  return path.join(process.cwd(), "database", "backups_locales");
+}
+
+/**
+ * Consulta la configuración de la empresa para obtener la ruta de respaldo personalizada por el usuario,
+ * con fallback seguro al directorio por defecto.
+ */
+export async function obtenerRutaRespaldoActiva(): Promise<string> {
+  try {
+    const config = await prisma.configuracionEmpresa.findFirst({
+      select: { rutaCarpetaRespaldo: true },
+    });
+    if (config?.rutaCarpetaRespaldo && config.rutaCarpetaRespaldo.trim() !== "") {
+      const rutaLimpia = config.rutaCarpetaRespaldo.trim();
+      // Si estamos en Linux pero hay guardada una ruta Windows (ej: C:\...), fallback seguro
+      if (process.platform !== "win32" && /^[a-zA-Z]:\\/.test(rutaLimpia)) {
+        return obtenerDirectorioRespaldosDefault();
+      }
+      return rutaLimpia;
+    }
+  } catch {
+    // Si la BD no está accesible aún, usar default
+  }
+  return obtenerDirectorioRespaldosDefault();
+}
+
+/**
+ * Retorna la ruta base canonica para respaldos externos de forma síncrona con fallback.
  */
 export function obtenerDirectorioRespaldos(): string {
-  if (process.env.POS_BACKUP_DIR) return process.env.POS_BACKUP_DIR;
-  const drive = process.env.SystemDrive || "C:";
-  return path.join(drive + "\\", "POS_BACKUPS");
+  return obtenerDirectorioRespaldosDefault();
+}
+
+/**
+ * Valida y asegura la existencia de un directorio destino, verificando permisos de escritura.
+ */
+export function validarYAsegurarDirectorio(directorio: string): {
+  valido: boolean;
+  rutaResuelta: string;
+  error?: string;
+} {
+  try {
+    if (!directorio || directorio.trim() === "") {
+      return { valido: false, rutaResuelta: "", error: "La ruta no puede estar vacía." };
+    }
+    const rutaNormalizada = path.resolve(directorio.trim());
+
+    if (process.platform === "win32") {
+      const sinDrive = rutaNormalizada.replace(/^[a-zA-Z]:/, "");
+      if (/[<>:"|?*]/.test(sinDrive)) {
+        return {
+          valido: false,
+          rutaResuelta: rutaNormalizada,
+          error: "La ruta contiene caracteres no permitidos en Windows (< > : \" | ? *).",
+        };
+      }
+    }
+
+    if (!fs.existsSync(rutaNormalizada)) {
+      fs.mkdirSync(rutaNormalizada, { recursive: true });
+    }
+
+    // Probar permisos de escritura creando y borrando un archivo temporal
+    const archivoPrueba = path.join(rutaNormalizada, `.pos_test_perm_${Date.now()}.tmp`);
+    fs.writeFileSync(archivoPrueba, "test_perm", "utf-8");
+    fs.unlinkSync(archivoPrueba);
+
+    return { valido: true, rutaResuelta: rutaNormalizada };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { valido: false, rutaResuelta: directorio, error: msg };
+  }
 }
 
 /**
@@ -93,6 +168,14 @@ export function obtenerTimestamp(): string {
 export function generarNombreArchivoRespaldo(motivo: string, timestamp: string): string {
   const motivoUpper = motivo.toUpperCase();
   if (motivoUpper.includes("CIERRE")) {
+    const sufijoLimpio = motivoUpper
+      .replace(/^CIERRE_CAJA_?/, "")
+      .replace(/[^A-Z0-9_]/g, "_")
+      .replace(/_+/g, "_")
+      .trim();
+    if (sufijoLimpio && sufijoLimpio !== "CIERRE") {
+      return `pos_CIERRE_CAJA_${sufijoLimpio}_${timestamp}.db`;
+    }
     return `pos_CIERRE_CAJA_${timestamp}.db`;
   }
   if (motivoUpper.includes("GERENCIAL") || motivoUpper === "MANUAL" || motivoUpper.includes("ADMIN")) {
@@ -333,62 +416,78 @@ export async function generarVolcadosEstructurados(
 }
 
 /**
- * Abre la carpeta de respaldos en el Explorador de Windows en el servidor local.
+ * Abre la carpeta de respaldos en el Explorador de Windows en el servidor local
+ * o retorna la ruta resuelta si se ejecuta en Linux/Ubuntu.
  */
-export function abrirCarpetaEnExplorador(ruta?: string): { ok: boolean; mensaje: string; ruta: string } {
-  const rutaDestino = ruta || obtenerDirectorioRespaldos();
+export function abrirCarpetaEnExplorador(ruta?: string): {
+  ok: boolean;
+  mensaje: string;
+  ruta: string;
+  esWindows: boolean;
+} {
+  const esWin = process.platform === "win32";
+  const rutaDestino = ruta || obtenerDirectorioRespaldosDefault();
   try {
     if (!fs.existsSync(rutaDestino)) {
       fs.mkdirSync(rutaDestino, { recursive: true });
     }
-    exec(`explorer.exe "${rutaDestino}"`, (err) => {
-      if (err) {
-        console.warn("[EXPLORER] Advertencia al ejecutar explorer.exe:", err);
-      }
-    });
-    return {
-      ok: true,
-      mensaje: `Carpeta de respaldos abierta en el Explorador de Windows: ${rutaDestino}`,
-      ruta: rutaDestino,
-    };
+    if (esWin) {
+      exec(`explorer.exe "${rutaDestino}"`, (err) => {
+        if (err) {
+          console.warn("[EXPLORER] Advertencia al ejecutar explorer.exe:", err);
+        }
+      });
+      return {
+        ok: true,
+        mensaje: `Carpeta de respaldos abierta en el Explorador de Windows: ${rutaDestino}`,
+        ruta: rutaDestino,
+        esWindows: true,
+      };
+    } else {
+      return {
+        ok: true,
+        mensaje: `Ruta de almacenamiento local en el servidor: ${rutaDestino}`,
+        ruta: rutaDestino,
+        esWindows: false,
+      };
+    }
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     return {
       ok: false,
-      mensaje: `No se pudo abrir la carpeta en el Explorador: ${msg}`,
+      mensaje: `No se pudo abrir o acceder a la carpeta: ${msg}`,
       ruta: rutaDestino,
+      esWindows: esWin,
     };
   }
 }
 
 /**
  * Ejecuta un respaldo en caliente de la base de datos SQLite utilizando VACUUM INTO.
- * Garantiza consistencia atómica sin bloquear ni corromper las transacciones activas.
+ * Garantiza consistencia atómica mediante PRAGMA wal_checkpoint(TRUNCATE) previo
+ * sin bloquear ni corromper las transacciones activas.
  */
-export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Promise<ResultadoRespaldo> {
+export async function ejecutarRespaldoEnCaliente(
+  motivo: string = "MANUAL",
+  rutaDestinoOpt?: string
+): Promise<ResultadoRespaldo> {
   const timestamp = obtenerTimestamp();
   const nombreArchivo = generarNombreArchivoRespaldo(motivo, timestamp);
 
-  const carpetaPrincipal = obtenerDirectorioRespaldos();
+  // 1. Resolver carpeta de almacenamiento configurada por el usuario en BD o provista
+  const carpetaConfigurada = rutaDestinoOpt || (await obtenerRutaRespaldoActiva());
+  const validacionDir = validarYAsegurarDirectorio(carpetaConfigurada);
+
+  // Carpeta principal de destino (con fallback si falla la carpeta configurada)
+  const carpetaPrincipal = validacionDir.valido
+    ? validacionDir.rutaResuelta
+    : obtenerDirectorioRespaldosDefault();
+
   const carpetaHistorial = path.join(carpetaPrincipal, "historial");
   const carpetaLocal = path.join(process.cwd(), "database", "backups_locales");
 
-  // Resolver carpeta de sincronización en la nube (Google Drive / OneDrive / Dropbox)
-  let carpetaNube: string | null = process.env.CLOUD_BACKUP_PATH || null;
-  if (!carpetaNube) {
-    try {
-      const config = await prisma.configuracionEmpresa.findFirst({
-        select: { rutaCarpetaRespaldo: true },
-      });
-      if (
-        config?.rutaCarpetaRespaldo &&
-        config.rutaCarpetaRespaldo !== carpetaPrincipal &&
-        fs.existsSync(path.dirname(config.rutaCarpetaRespaldo))
-      ) {
-        carpetaNube = config.rutaCarpetaRespaldo;
-      }
-    } catch {}
-  }
+  // Resolver carpeta de sincronización en la nube (Google Drive / OneDrive / Dropbox) si existe
+  const carpetaNube: string | null = process.env.CLOUD_BACKUP_PATH || null;
 
   const rutaUltimo = path.join(carpetaPrincipal, "llanomio_ULTIMO.db");
   const rutaUltimoCompat = path.join(carpetaPrincipal, "pos_ULTIMO.db");
@@ -397,7 +496,10 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
   const rutaLocal = path.join(carpetaLocal, nombreArchivo);
 
   try {
-    // 1. Asegurar la existencia de los directorios de destino
+    // 2. Asegurar la existencia de los directorios de destino
+    if (!fs.existsSync(carpetaLocal)) {
+      fs.mkdirSync(carpetaLocal, { recursive: true });
+    }
     if (!fs.existsSync(carpetaPrincipal)) {
       try {
         fs.mkdirSync(carpetaPrincipal, { recursive: true });
@@ -412,9 +514,6 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
         console.warn("[BACKUP] No se pudo crear subcarpeta historial externa:", errHist);
       }
     }
-    if (!fs.existsSync(carpetaLocal)) {
-      fs.mkdirSync(carpetaLocal, { recursive: true });
-    }
 
     if (carpetaNube && !fs.existsSync(carpetaNube)) {
       try {
@@ -424,20 +523,27 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
       }
     }
 
-    // 2. Definir archivo de salida para VACUUM INTO
+    // 3. Consolidar escrituras pendientes de WAL en SQLite antes del respaldo (Zero Data Loss)
+    try {
+      await prisma.$queryRawUnsafe("PRAGMA wal_checkpoint(TRUNCATE);");
+    } catch (errWal) {
+      console.warn("[BACKUP] Advertencia al ejecutar checkpoint WAL previo:", errWal);
+    }
+
+    // 4. Definir archivo de salida para VACUUM INTO
     // En SQLite, VACUUM INTO falla si el archivo de salida ya existe previamente.
     const rutaDestinoInicial = rutaLocal;
     if (fs.existsSync(rutaDestinoInicial)) {
       fs.unlinkSync(rutaDestinoInicial);
     }
 
-    // 3. Normalizar la ruta con barras diagonales (/) para compatibilidad SQL SQLite
+    // 5. Normalizar la ruta con barras diagonales (/) para compatibilidad SQL SQLite
     const sqlSafePath = rutaDestinoInicial.replace(/\\/g, "/");
 
-    // 4. Ejecutar el comando SQLite nativo VACUUM INTO sobre la base local
+    // 6. Ejecutar el comando SQLite nativo VACUUM INTO sobre la base local
     await prisma.$executeRawUnsafe(`VACUUM INTO '${sqlSafePath}'`);
 
-    // 5. Verificar que el archivo se haya creado correctamente
+    // 7. Verificar que el archivo se haya creado correctamente
     if (!fs.existsSync(rutaDestinoInicial)) {
       throw new Error(`El archivo de respaldo no fue generado en: ${rutaDestinoInicial}`);
     }
@@ -447,10 +553,10 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
       throw new Error("El archivo de respaldo generado tiene tamaño de 0 bytes.");
     }
 
-    // 6. Actualizar copia local maestra llanomio_ULTIMO.db en database/backups_locales
+    // 8. Actualizar copia local maestra llanomio_ULTIMO.db en database/backups_locales
     await copiarConReintento(rutaDestinoInicial, rutaLocalUltimo);
 
-    // 7. Replicar a la bóveda local C:\POS_BACKUPS (llanomio_ULTIMO.db, pos_ULTIMO.db y subcarpeta historial)
+    // 9. Replicar a la ubicación configurada (llanomio_ULTIMO.db, pos_ULTIMO.db y subcarpeta historial)
     try {
       if (fs.existsSync(carpetaPrincipal)) {
         await copiarConReintento(rutaDestinoInicial, rutaUltimo);
@@ -461,10 +567,10 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
         }
       }
     } catch (errCopiaExterna) {
-      console.warn(`[BACKUP] Advertencia al replicar en almacenamiento externo ${carpetaPrincipal}:`, errCopiaExterna);
+      console.warn(`[BACKUP] Advertencia al replicar en almacenamiento configurado ${carpetaPrincipal}:`, errCopiaExterna);
     }
 
-    // 8. Replicar en la carpeta compartida con la NUBE (Google Drive / OneDrive / Dropbox)
+    // 10. Replicar en la carpeta compartida con la NUBE si existe
     if (carpetaNube && fs.existsSync(carpetaNube)) {
       try {
         const rutaNubeUltimo = path.join(carpetaNube, "llanomio_ULTIMO.db");
@@ -479,20 +585,13 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
         await copiarConReintento(rutaDestinoInicial, rutaNubeUltimoCompat);
 
         fs.copyFileSync(rutaDestinoInicial, path.join(carpetaNubeHistorial, nombreArchivo));
-
-        // Respaldo de configuración de entorno (.env.backup)
-        const rutaEnv = path.join(process.cwd(), ".env");
-        if (fs.existsSync(rutaEnv)) {
-          fs.copyFileSync(rutaEnv, path.join(carpetaNube, ".env.backup"));
-        }
-
         purgarRespaldosExcedentes(carpetaNubeHistorial, 15);
       } catch (errCloudCopy) {
         console.warn("[BACKUP NUBE] Advertencia al replicar en carpeta compartida con la nube:", errCloudCopy);
       }
     }
 
-    // 9. Generar volcados estructurados por carpetas (inventario, clientes, facturas, caja, gastos)
+    // 11. Generar volcados estructurados por carpetas (JSON legibles para inspección humana)
     try {
       await generarVolcadosEstructurados(carpetaLocal, timestamp);
       if (fs.existsSync(carpetaPrincipal)) {
@@ -505,14 +604,14 @@ export async function ejecutarRespaldoEnCaliente(motivo: string = "MANUAL"): Pro
       console.warn("[BACKUP] Advertencia al generar volcados estructurados:", errDump);
     }
 
-    // 10. Rotación y retención automática: conservar únicamente los últimos 15 respaldos
-    const eliminadosLocal = purgarRespaldosExcedentes(carpetaLocal, 15);
-    const eliminadosHistorial = fs.existsSync(carpetaHistorial)
-      ? purgarRespaldosExcedentes(carpetaHistorial, 15)
-      : 0;
+    // 12. Rotación y retención automática: conservar únicamente los últimos 15 respaldos
+    purgarRespaldosExcedentes(carpetaLocal, 15);
+    if (fs.existsSync(carpetaHistorial)) {
+      purgarRespaldosExcedentes(carpetaHistorial, 15);
+    }
 
     console.log(
-      `[RESPALDO EXITOSO - TRIPLE ESPEJO] Motivo: ${motivo} | Bytes: ${stat.size} | Archivo: ${nombreArchivo} | Nube: ${carpetaNube || "No configurada"}`
+      `[RESPALDO EXITOSO] Motivo: ${motivo} | Bytes: ${stat.size} | Archivo: ${nombreArchivo} | Destino: ${carpetaPrincipal}`
     );
 
     return {
@@ -739,13 +838,9 @@ export async function restaurarBaseDeDatosDesdeBuffer(
       fs.unlinkSync(rutaTemp);
     }
 
-    // 8. Reconectar Prisma y restablecer PRAGMAs optimizados
+    // 8. Reconectar Prisma, restablecer PRAGMAs y alinear esquema
     await prisma.$connect();
-    await Promise.all([
-      prisma.$queryRawUnsafe("PRAGMA journal_mode = WAL;"),
-      prisma.$queryRawUnsafe("PRAGMA busy_timeout = 5000;"),
-      prisma.$queryRawUnsafe("PRAGMA synchronous = NORMAL;"),
-    ]);
+    await asegurarEsquemaSqlitePostRestauracion(prisma);
 
     console.log(
       `[RESTAURACION EXITOSA] Base de datos restaurada correctamente. Respaldo de emergencia en: ${rutaEmergenciaLocal}`
@@ -775,5 +870,125 @@ export async function restaurarBaseDeDatosDesdeBuffer(
       mensaje: `Fallo durante la restauración de la base de datos: ${errorMsg}`,
       error: errorMsg,
     };
+  }
+}
+
+/**
+ * Restaura la base de datos a partir de un archivo ya existente en el servidor o historial.
+ */
+export async function restaurarBaseDeDatosDesdeArchivo(
+  nombreArchivoOId: string
+): Promise<ResultadoRestauracion> {
+  const nombreLimpio = path.basename(nombreArchivoOId);
+  const carpetaPrincipal = await obtenerRutaRespaldoActiva();
+  const carpetaHistorial = path.join(carpetaPrincipal, "historial");
+  const carpetaLocal = path.join(process.cwd(), "database", "backups_locales");
+
+  const posiblesRutas = [
+    path.join(carpetaPrincipal, nombreLimpio),
+    path.join(carpetaHistorial, nombreLimpio),
+    path.join(carpetaLocal, nombreLimpio),
+  ];
+
+  let rutaEncontrada: string | null = null;
+  for (const r of posiblesRutas) {
+    if (fs.existsSync(r)) {
+      rutaEncontrada = r;
+      break;
+    }
+  }
+
+  if (!rutaEncontrada) {
+    return {
+      ok: false,
+      mensaje: `No se localizó el archivo '${nombreLimpio}' en las carpetas de almacenamiento del servidor.`,
+      error: "Archivo no encontrado.",
+    };
+  }
+
+  const buffer = fs.readFileSync(rutaEncontrada);
+  return restaurarBaseDeDatosDesdeBuffer(buffer);
+}
+
+/**
+ * Valida y alinea el esquema relacional de SQLite tras la restauración de una copia de seguridad antigua.
+ * Agrega de manera segura y no destructiva columnas requeridas por versiones recientes
+ * y garantiza la integridad de secuencias y administradores por defecto.
+ */
+export async function asegurarEsquemaSqlitePostRestauracion(prismaClient: any): Promise<void> {
+  try {
+    // 1. Activar PRAGMAs indispensables
+    await Promise.all([
+      prismaClient.$queryRawUnsafe("PRAGMA journal_mode = WAL;"),
+      prismaClient.$queryRawUnsafe("PRAGMA busy_timeout = 15000;"),
+      prismaClient.$queryRawUnsafe("PRAGMA synchronous = NORMAL;"),
+      prismaClient.$queryRawUnsafe("PRAGMA foreign_keys = ON;"),
+    ]);
+
+    // 2. Helper seguro para añadir columnas faltantes
+    const agregarColumnaSeguro = async (tabla: string, columna: string, defSql: string) => {
+      try {
+        const info: Array<{ name: string }> = await prismaClient.$queryRawUnsafe(`PRAGMA table_info("${tabla}");`);
+        const existe = info.some((c) => c.name.toLowerCase() === columna.toLowerCase());
+        if (!existe) {
+          await prismaClient.$executeRawUnsafe(`ALTER TABLE "${tabla}" ADD COLUMN "${columna}" ${defSql};`);
+        }
+      } catch {
+        // Ignorar si la tabla no existe o ya tenía la columna
+      }
+    };
+
+    // Columnas agregadas en versiones recientes
+    await agregarColumnaSeguro("detalles_factura", "descripcionDetallada", "TEXT");
+    await agregarColumnaSeguro("detalles_factura", "devuelto", "INTEGER DEFAULT 0");
+    await agregarColumnaSeguro("detalles_factura", "fechaDevolucionItem", "DATETIME");
+    await agregarColumnaSeguro("detalles_factura", "estadoDevolucionItem", "TEXT");
+    await agregarColumnaSeguro("detalles_factura", "cargoAveria", "REAL DEFAULT 0");
+    await agregarColumnaSeguro("detalles_factura", "notaAveria", "TEXT");
+
+    await agregarColumnaSeguro("facturas", "montoDeposito", "REAL DEFAULT 0");
+    await agregarColumnaSeguro("facturas", "depositoAbonado", "REAL DEFAULT 0");
+    await agregarColumnaSeguro("facturas", "saldoDeposito", "REAL DEFAULT 0");
+    await agregarColumnaSeguro("facturas", "estadoDeposito", "TEXT DEFAULT 'SIN_DEPOSITO'");
+    await agregarColumnaSeguro("facturas", "montoRetenidoDeposito", "REAL DEFAULT 0");
+    await agregarColumnaSeguro("facturas", "montoDevueltoDeposito", "REAL DEFAULT 0");
+    await agregarColumnaSeguro("facturas", "motivoRetencionDeposito", "TEXT");
+    await agregarColumnaSeguro("facturas", "metodoPagoDeposito", "TEXT");
+    await agregarColumnaSeguro("facturas", "metodoPagoPrincipal", "TEXT DEFAULT 'EFECTIVO'");
+    await agregarColumnaSeguro("facturas", "efectivoRecibido", "REAL DEFAULT 0");
+    await agregarColumnaSeguro("facturas", "cambioEntregado", "REAL DEFAULT 0");
+    await agregarColumnaSeguro("facturas", "tarifaMoraDiaria", "REAL DEFAULT 3000");
+    await agregarColumnaSeguro("facturas", "fechaRetiroApartado", "DATETIME");
+    await agregarColumnaSeguro("facturas", "fechaDevolucionEstimada", "DATETIME");
+    await agregarColumnaSeguro("facturas", "esCredito", "INTEGER DEFAULT 0");
+
+    await agregarColumnaSeguro("abonos", "montoRecibido", "REAL");
+    await agregarColumnaSeguro("abonos", "vueltasEntregadas", "REAL");
+    await agregarColumnaSeguro("abonos", "tipoAbono", "TEXT DEFAULT 'ALQUILER'");
+    await agregarColumnaSeguro("abonos", "turnoCajaId", "TEXT");
+
+    await agregarColumnaSeguro("configuracion_empresa", "ultimoAbonoAlquiler", "REAL DEFAULT 20000");
+    await agregarColumnaSeguro("configuracion_empresa", "ultimoAbonoApartado", "REAL DEFAULT 20000");
+    await agregarColumnaSeguro("configuracion_empresa", "nombreImpresoraPos", "TEXT DEFAULT ''");
+    await agregarColumnaSeguro("configuracion_empresa", "abrirCajonAutoEfectivo", "INTEGER DEFAULT 1");
+    await agregarColumnaSeguro("configuracion_empresa", "pinCajon", "INTEGER DEFAULT 0");
+
+    await agregarColumnaSeguro("usuarios", "pinSeguridadHash", "TEXT");
+    await agregarColumnaSeguro("usuarios", "documentoIdentidad", "TEXT");
+    await agregarColumnaSeguro("usuarios", "preguntaSeguridad", "TEXT");
+    await agregarColumnaSeguro("usuarios", "respuestaSeguridadHash", "TEXT");
+    await agregarColumnaSeguro("usuarios", "permisos", "TEXT");
+
+    // Asegurar tabla de secuencias de factura
+    await prismaClient.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "secuencia_facturas" (
+        "id" TEXT PRIMARY KEY,
+        "ultimoFolio" INTEGER NOT NULL
+      );
+    `);
+
+    console.log("[RESTAURACION] Esquema SQLite verificado y alineado exitosamente.");
+  } catch (errEsquema) {
+    console.warn("[RESTAURACION AVISO] Error no bloqueante al alinear esquema:", errEsquema);
   }
 }

@@ -5,6 +5,7 @@ import {
   crearTokenSesion,
   NOMBRE_COOKIE_SESION,
   OPCIONES_COOKIE_SESION,
+  resolverOpcionesCookie,
   TIEMPO_EXPIRACION_INACTIVIDAD_MS,
 } from "@/lib/auth";
 
@@ -147,10 +148,11 @@ export async function POST(req: NextRequest) {
       redirectTo: destinoRedireccion,
     });
 
+    const opcionesCookie = resolverOpcionesCookie(req);
     respuesta.cookies.set({
       name: NOMBRE_COOKIE_SESION,
       value: token,
-      ...OPCIONES_COOKIE_SESION,
+      ...opcionesCookie,
     });
 
     return respuesta;

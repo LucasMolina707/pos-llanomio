@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, ejecutarTransaccionConReintentos } from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
 import {
   verificarEstadoCajaParaFacturacion,
@@ -283,23 +283,25 @@ export async function POST(req: NextRequest) {
         },
       ];
 
-      const nuevoTurno = await prisma.turnoCaja.create({
-        data: {
-          usuarioCajeroId: usuarioResponsableId,
-          baseInicialEfectivo: baseNumerica,
-          nombreGabinete: nombreGabineteFinal,
-          modalidad: modalidadFinal,
-          cajerosParticipantes: JSON.stringify(participantesIniciales),
-          estado: EstadoTurno.ABIERTO,
-          observaciones:
-            observaciones?.trim() ||
-            `Apertura de ${nombreGabineteFinal} (${modalidadFinal === "DIVIDIDA" ? "Caja Dividida Independiente" : "Caja Compartida"})`,
-        },
-        include: {
-          usuarioCajero: {
-            select: { id: true, nombre: true, username: true },
+      const nuevoTurno = await ejecutarTransaccionConReintentos(prisma, async (tx) => {
+        return tx.turnoCaja.create({
+          data: {
+            usuarioCajeroId: usuarioResponsableId,
+            baseInicialEfectivo: baseNumerica,
+            nombreGabinete: nombreGabineteFinal,
+            modalidad: modalidadFinal,
+            cajerosParticipantes: JSON.stringify(participantesIniciales),
+            estado: EstadoTurno.ABIERTO,
+            observaciones:
+              observaciones?.trim() ||
+              `Apertura de ${nombreGabineteFinal} (${modalidadFinal === "DIVIDIDA" ? "Caja Dividida Independiente" : "Caja Compartida"})`,
           },
-        },
+          include: {
+            usuarioCajero: {
+              select: { id: true, nombre: true, username: true },
+            },
+          },
+        });
       });
 
       return NextResponse.json(
@@ -538,8 +540,8 @@ export async function POST(req: NextRequest) {
 
       const fechaCierre = new Date();
 
-      // Transacción atómica: Cerrar turno y generar CierreCaja con campos inmutables
-      const resultadoCierre = await prisma.$transaction(async (tx) => {
+      // Transacción atómica con reintentos: Cerrar turno y generar CierreCaja con campos inmutables
+      const resultadoCierre = await ejecutarTransaccionConReintentos(prisma, async (tx) => {
         const nuevoCierre = await tx.cierreCaja.create({
           data: {
             usuarioId: usuarioResponsableId,
@@ -612,11 +614,41 @@ export async function POST(req: NextRequest) {
         return { turnoCerrado, nuevoCierre };
       });
 
-      // Disparar respaldo automático SQLite VACUUM INTO
+      // Disparar respaldo automático SQLite VACUUM INTO con referencia de turno/gabinete
+      let resultadoRespaldoAuto: {
+        success: boolean;
+        nombreArchivo?: string;
+        rutaDestino?: string;
+        tamanioBytes?: number;
+        advertencia?: string;
+      } | null = null;
+
       try {
-        await ejecutarRespaldoEnCaliente("CIERRE_CAJA");
-      } catch (backupErr) {
-        console.warn("[BACKUP] No se pudo completar el respaldo automático tras cierre:", backupErr);
+        const nombreGabineteSeguro = (turnoACerrar.nombreGabinete || "Gabinete")
+          .replace(/[^a-zA-Z0-9]/g, "_");
+        const respBackup = await ejecutarRespaldoEnCaliente(
+          `CIERRE_CAJA_${nombreGabineteSeguro}`
+        );
+        if (respBackup.success) {
+          resultadoRespaldoAuto = {
+            success: true,
+            nombreArchivo: respBackup.nombreArchivo,
+            rutaDestino: respBackup.rutaUltimo,
+            tamanioBytes: respBackup.tamanioBytes,
+          };
+        } else {
+          resultadoRespaldoAuto = {
+            success: false,
+            advertencia: respBackup.error || respBackup.mensaje,
+          };
+        }
+      } catch (backupErr: unknown) {
+        const msg = backupErr instanceof Error ? backupErr.message : String(backupErr);
+        console.warn("[BACKUP] No se pudo completar el respaldo automático tras cierre:", msg);
+        resultadoRespaldoAuto = {
+          success: false,
+          advertencia: `No se pudo generar el archivo de respaldo automático: ${msg}`,
+        };
       }
 
       return NextResponse.json({
@@ -624,6 +656,7 @@ export async function POST(req: NextRequest) {
         mensaje: `Cierre de ${turnoACerrar.nombreGabinete} completado exitosamente`,
         cierre: resultadoCierre.nuevoCierre,
         turno: resultadoCierre.turnoCerrado,
+        respaldoAutomatico: resultadoRespaldoAuto,
         cuadre: {
           nombreGabinete: turnoACerrar.nombreGabinete,
           baseInicial: arqueo.baseInicialEfectivo,
@@ -648,9 +681,11 @@ export async function POST(req: NextRequest) {
     );
   } catch (error: unknown) {
     console.error("Error al procesar apertura/cierre de caja:", error);
+    const mensajeError = error instanceof Error ? error.message : "Error interno al procesar la operación de caja";
+    const statusCode = (error as any)?.statusCode || 500;
     return NextResponse.json(
-      { success: false, error: "Error interno al procesar la operación de caja" },
-      { status: 500 }
+      { success: false, error: mensajeError },
+      { status: statusCode }
     );
   }
 }

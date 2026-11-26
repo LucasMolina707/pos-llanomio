@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
     const fechaFinParam = searchParams.get("fechaFin");
     const categoriaId = searchParams.get("categoriaId");
     const categoriaNombreParam = searchParams.get("categoriaNombre")?.trim();
-    const soloJohana = searchParams.get("soloJohana") === "true" || categoriaNombreParam?.toUpperCase() === "JOHANA" || categoriaNombreParam?.toUpperCase() === "YOANA";
+    const soloJohana = searchParams.get("soloJohana") === "true" || searchParams.get("soloYohanna") === "true" || categoriaNombreParam?.toUpperCase() === "YOHANNA" || categoriaNombreParam?.toUpperCase() === "JOHANA" || categoriaNombreParam?.toUpperCase() === "YOANA";
     const subcategoriaParam = searchParams.get("subcategoria")?.trim();
     const empleado = searchParams.get("empleado")?.trim();
     const q = searchParams.get("q")?.trim();
@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (soloJohana) {
-      where.categoriaNombre = { in: ["JOHANA", "YOANA"] };
+      where.categoriaNombre = { in: ["YOHANNA", "JOHANA", "YOANA"] };
     } else if (categoriaId && categoriaId !== "TODAS") {
       where.categoriaId = categoriaId;
     }
@@ -407,8 +407,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Si es categoría especial JOHANA (o YOANA), asegurar subcategoría persistente
+    // Si es categoría especial YOHANNA (o JOHANA/YOANA), asegurar subcategoría persistente
     const esJohana =
+      categoria.nombre.toUpperCase() === "YOHANNA" ||
       categoria.nombre.toUpperCase() === "JOHANA" ||
       categoria.nombre.toUpperCase() === "YOANA";
 
@@ -435,7 +436,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const categoriaNombreFinal = esJohana ? "JOHANA" : categoria.nombre;
+    const categoriaNombreFinal = esJohana ? "YOHANNA" : categoria.nombre;
 
     // 6. Crear el registro en Gasto (Sin alterar cajas ni turnos)
     const nuevoGasto = await prisma.gasto.create({

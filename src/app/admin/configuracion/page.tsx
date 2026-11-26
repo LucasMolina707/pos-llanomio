@@ -37,14 +37,13 @@ import {
   FolderSync,
   FolderOpen,
   X,
-  PackageCheck,
-  GitBranch,
-  FileArchive,
-  Terminal,
-  ArrowUpCircle,
   Scissors,
 } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
+import {
+  guardarPreferenciasImpresion,
+  obtenerPreferenciasImpresion,
+} from "@/lib/preferencias-impresion";
 
 interface Configuracion {
   id: string;
@@ -115,57 +114,43 @@ export default function ConfiguracionAdminPage() {
   const [formatoSimulador, setFormatoSimulador] = useState<"TIRILLA" | "MEDIA_CARTA" | "MEDIA_CARTA_DOBLE" | "CARTA">("MEDIA_CARTA");
   const [tipoOperacionSimulador, setTipoOperacionSimulador] = useState<"VENTA" | "ALQUILER">("VENTA");
 
-  // Estado del respaldo en caliente y migración
+  // Estado del respaldo en caliente y descarga
   const [respaldando, setRespaldando] = useState(false);
   const [descargandoRespaldo, setDescargandoRespaldo] = useState(false);
   const [abriendoCarpeta, setAbriendoCarpeta] = useState(false);
-  const [restaurandoRespaldo, setRestaurandoRespaldo] = useState(false);
-  const [archivoRestaurar, setArchivoRestaurar] = useState<File | null>(null);
-  const [modalRestaurar, setModalRestaurar] = useState(false);
-  const inputArchivoRef = React.useRef<HTMLInputElement | null>(null);
   const [ultimoRespaldoInfo, setUltimoRespaldoInfo] = useState<{
     bytes: number;
     timestamp?: string;
   } | null>(null);
-
-  // Estados del Sistema de Actualización Segura (Preservación de Datos)
-  const [infoActualizacion, setInfoActualizacion] = useState<{
-    sistema: {
-      nombre: string;
-      version: string;
-      carpetaRaiz: string;
-    };
-    parchesDisponibles: {
+  const [infoRespaldoServidor, setInfoRespaldoServidor] = useState<{
+    rutaCarpetaPrincipal: string;
+    rutaCarpetaLocal: string;
+    rutaPorDefecto: string;
+    esWindows: boolean;
+    permisosEscritura: boolean;
+    errorRuta?: string | null;
+    ultimoRespaldo?: {
       nombre: string;
       ruta: string;
       tamanioBytes: number;
-      tamanioFormateado: string;
       fechaModificacion: string;
-    }[];
-    salvaguardasPrevias: {
+    } | null;
+    historialReciente: Array<{
       nombre: string;
       tamanioBytes: number;
       fechaModificacion: string;
-    }[];
+      origen: string;
+    }>;
   } | null>(null);
-  const [cargandoActualizacion, setCargandoActualizacion] = useState(false);
-  const [actualizandoSistema, setActualizandoSistema] = useState(false);
-  const [archivoParche, setArchivoParche] = useState<File | null>(null);
-  const [parcheLocalSeleccionado, setParcheLocalSeleccionado] = useState<string>("");
-  const [modoConfirmacionActualizar, setModoConfirmacionActualizar] = useState<"archivo" | "servidor" | "github">("archivo");
-  const [modalActualizarConfirm, setModalActualizarConfirm] = useState(false);
-  const [resultadoActualizacion, setResultadoActualizacion] = useState<{
-    tipo: "exito" | "error";
+  const [validandoRuta, setValidandoRuta] = useState(false);
+  const [resultadoValidacionRuta, setResultadoValidacionRuta] = useState<{
+    valido: boolean;
     mensaje: string;
-    detalles?: string;
   } | null>(null);
-  const [mostrarDetallesActualizacion, setMostrarDetallesActualizacion] = useState(false);
-  const inputParcheRef = React.useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     cargarConfiguracion();
     cargarInfoRespaldo();
-    cargarInfoActualizacion();
     cargarImpresorasWindows();
   }, []);
 
@@ -279,11 +264,14 @@ export default function ConfiguracionAdminPage() {
     try {
       const res = await fetch("/api/backup?info=true", { cache: "no-store" });
       const data = await res.json();
-      if (data.ok && data.ultimoRespaldo) {
-        setUltimoRespaldoInfo({
-          bytes: data.ultimoRespaldo.tamanioBytes,
-          timestamp: data.ultimoRespaldo.fechaModificacion,
-        });
+      if (data.ok) {
+        setInfoRespaldoServidor(data);
+        if (data.ultimoRespaldo) {
+          setUltimoRespaldoInfo({
+            bytes: data.ultimoRespaldo.tamanioBytes,
+            timestamp: data.ultimoRespaldo.fechaModificacion,
+          });
+        }
       }
     } catch {
       // Silencioso
@@ -402,6 +390,10 @@ export default function ConfiguracionAdminPage() {
 
       setMensajeExito("La configuración de factura y el logotipo han sido actualizados con éxito en todo el sistema.");
       if (typeof window !== "undefined") {
+        guardarPreferenciasImpresion({
+          formato: config.formatoPredeterminado,
+          nombreImpresora: config.nombreImpresoraPos,
+        });
         window.dispatchEvent(new Event("empresa-updated"));
       }
       setTimeout(() => setMensajeExito(null), 5000);
@@ -411,6 +403,53 @@ export default function ConfiguracionAdminPage() {
     } finally {
       setGuardando(false);
     }
+  };
+
+  const handleValidarRutaRespaldo = async () => {
+    setValidandoRuta(true);
+    setResultadoValidacionRuta(null);
+    try {
+      const ruta = config.rutaCarpetaRespaldo?.trim() || "";
+      const res = await fetch("/api/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "VALIDAR_RUTA", ruta }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setResultadoValidacionRuta({
+          valido: true,
+          mensaje: `Ruta accesible con permisos completos de escritura: ${data.rutaResuelta}`,
+        });
+      } else {
+        setResultadoValidacionRuta({
+          valido: false,
+          mensaje: data.error || "La ruta no es accesible o carece de permisos de escritura.",
+        });
+      }
+    } catch {
+      setResultadoValidacionRuta({
+        valido: false,
+        mensaje: "Error de red al comprobar la ruta en el servidor.",
+      });
+    } finally {
+      setValidandoRuta(false);
+    }
+  };
+
+  const handleRestablecerRutaDefault = () => {
+    const rutaDef = infoRespaldoServidor?.rutaPorDefecto || (navigator.platform.includes("Win") ? "C:\\POS_BACKUPS" : "database/backups_locales");
+    setConfig((prev) => ({ ...prev, rutaCarpetaRespaldo: rutaDef }));
+    setResultadoValidacionRuta(null);
+  };
+
+  const handleDescargarArchivoHistorial = (nombreArchivo: string) => {
+    const enlace = document.createElement("a");
+    enlace.href = `/api/backup?archivo=${encodeURIComponent(nombreArchivo)}`;
+    enlace.download = nombreArchivo;
+    document.body.appendChild(enlace);
+    enlace.click();
+    document.body.removeChild(enlace);
   };
 
   const handleForzarRespaldo = async () => {
@@ -429,6 +468,7 @@ export default function ConfiguracionAdminPage() {
           timestamp: new Date().toISOString(),
         });
         setMensajeExito(`Respaldo SQLite generado con éxito en ${config.rutaCarpetaRespaldo || "POS_BACKUPS"}.`);
+        cargarInfoRespaldo();
         setTimeout(() => setMensajeExito(null), 4000);
       }
     } catch {
@@ -510,188 +550,6 @@ export default function ConfiguracionAdminPage() {
     }
   };
 
-  /**
-   * Al seleccionar un archivo .db, valida la extensión y abre el diálogo modal de confirmación
-   */
-  const handleSeleccionarArchivoRestaurar = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith(".db")) {
-      setMensajeError("El archivo seleccionado debe ser un respaldo válido con extensión .db.");
-      if (inputArchivoRef.current) inputArchivoRef.current.value = "";
-      return;
-    }
-
-    setArchivoRestaurar(file);
-    setModalRestaurar(true);
-  };
-
-  /**
-   * Envía el archivo seleccionado a /api/backup para verificación de integridad SQLite
-   * y posterior sobrescritura segura con respaldo de emergencia.
-   */
-  const handleConfirmarRestauracion = async () => {
-    if (!archivoRestaurar) return;
-
-    setRestaurandoRespaldo(true);
-    setMensajeError(null);
-    setMensajeExito(null);
-
-    try {
-      const formData = new FormData();
-      formData.append("archivo", archivoRestaurar);
-
-      const res = await fetch("/api/backup", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || data.mensaje || "Error durante la restauración de la base de datos.");
-      }
-
-      setMensajeExito(
-        data.mensaje || "Base de datos restaurada y migrada exitosamente. Recargando el sistema..."
-      );
-      setModalRestaurar(false);
-      setArchivoRestaurar(null);
-      if (inputArchivoRef.current) inputArchivoRef.current.value = "";
-
-      // Recargar la página tras 2.5 segundos para que la interfaz cargue los datos de la nueva BD
-      setTimeout(() => {
-        window.location.reload();
-      }, 2500);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Fallo durante la restauración de la base de datos.";
-      setMensajeError(msg);
-    } finally {
-      setRestaurandoRespaldo(false);
-    }
-  };
-
-  /**
-   * Carga la información de versión y parches disponibles para actualización segura
-   */
-  const cargarInfoActualizacion = async () => {
-    try {
-      setCargandoActualizacion(true);
-      const res = await fetch("/api/sistema/actualizar", { cache: "no-store" });
-      const data = await res.json();
-      if (data.ok) {
-        setInfoActualizacion(data);
-        if (data.parchesDisponibles?.length > 0 && !parcheLocalSeleccionado) {
-          setParcheLocalSeleccionado(data.parchesDisponibles[0].nombre);
-        }
-      }
-    } catch {
-      // Manejo silencioso
-    } finally {
-      setCargandoActualizacion(false);
-    }
-  };
-
-  /**
-   * Selección de archivo .ZIP desde el explorador del usuario
-   */
-  const handleSeleccionarArchivoParche = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith(".zip")) {
-      setMensajeError("El archivo de actualización debe ser un paquete comprimido en formato .ZIP.");
-      if (inputParcheRef.current) inputParcheRef.current.value = "";
-      return;
-    }
-
-    setArchivoParche(file);
-    setModoConfirmacionActualizar("archivo");
-    setModalActualizarConfirm(true);
-  };
-
-  const handlePrepararActualizacionParcheLocal = () => {
-    if (!parcheLocalSeleccionado) {
-      setMensajeError("Debe seleccionar un parche local disponible.");
-      return;
-    }
-    setModoConfirmacionActualizar("servidor");
-    setModalActualizarConfirm(true);
-  };
-
-  const handlePrepararActualizacionGithub = () => {
-    setModoConfirmacionActualizar("github");
-    setModalActualizarConfirm(true);
-  };
-
-  /**
-   * Ejecuta el proceso de actualización llamando a la API protegida
-   */
-  const handleConfirmarActualizacion = async () => {
-    setActualizandoSistema(true);
-    setMensajeError(null);
-    setMensajeExito(null);
-    setResultadoActualizacion(null);
-
-    try {
-      let res: Response;
-
-      if (modoConfirmacionActualizar === "archivo") {
-        if (!archivoParche) throw new Error("No hay ningún archivo seleccionado.");
-        const formData = new FormData();
-        formData.append("parche", archivoParche);
-        res = await fetch("/api/sistema/actualizar", {
-          method: "POST",
-          body: formData,
-        });
-      } else if (modoConfirmacionActualizar === "servidor") {
-        res = await fetch("/api/sistema/actualizar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ archivoLocal: parcheLocalSeleccionado }),
-        });
-      } else {
-        // GitHub
-        res = await fetch("/api/sistema/actualizar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ modo: "github" }),
-        });
-      }
-
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Fallo en el proceso de actualización del sistema.");
-      }
-
-      setResultadoActualizacion({
-        tipo: "exito",
-        mensaje: data.mensaje || "Sistema actualizado con éxito sin alterar su base de datos ni configuración.",
-        detalles: data.detalles,
-      });
-
-      setMensajeExito("¡Actualización aplicada con éxito! La base de datos y configuración se mantuvieron intactas.");
-      setModalActualizarConfirm(false);
-      setArchivoParche(null);
-      if (inputParcheRef.current) inputParcheRef.current.value = "";
-
-      // Recargar la información de versiones y salvaguardas
-      await cargarInfoActualizacion();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error inesperado durante la actualización.";
-      setResultadoActualizacion({
-        tipo: "error",
-        mensaje: msg,
-      });
-      setMensajeError(msg);
-      setModalActualizarConfirm(false);
-    } finally {
-      setActualizandoSistema(false);
-    }
-  };
-
   if (cargando) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -714,14 +572,14 @@ export default function ConfiguracionAdminPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-                Configuración de Facturación y Datos Corporativos
+                Configuración
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/80">
                 Solo Administrador
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-500">
-              Personaliza el logotipo, los datos de encabezado, la información del vendedor y las políticas de alquiler
+              Parámetros generales de tienda y facturación
             </p>
           </div>
         </div>
@@ -759,7 +617,7 @@ export default function ConfiguracionAdminPage() {
 
           <IconButtonTooltip
             icon={Database}
-            label={respaldando ? "Generando respaldo..." : "Forzar Respaldo SQLite"}
+            label={respaldando ? "Creando..." : "Crear Respaldo"}
             modulo="Copias de Seguridad"
             destino="Crea copia en caliente en boveda local y nube"
             onClick={handleForzarRespaldo}
@@ -789,7 +647,7 @@ export default function ConfiguracionAdminPage() {
       <TarjetaConexionLAN />
 
       {/* ===================================================================== */}
-      {/* SECCIÓN: COPIAS DE SEGURIDAD, MIGRACIÓN Y RECUPERACIÓN DE DESASTRES   */}
+      {/* SECCIÓN: COPIAS DE SEGURIDAD, MIGRACIÓN Y CONTINUIDAD OPERATIVA       */}
       {/* ===================================================================== */}
       <section className="bg-white rounded-2xl border border-slate-200/90 p-5 md:p-6 shadow-xs text-slate-900 space-y-5">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
@@ -800,14 +658,17 @@ export default function ConfiguracionAdminPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                  Copias de Seguridad, Migración y Recuperación de Desastres
+                  Copias de Seguridad, Migración y Continuidad Operativa
                 </h2>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
-                  SQLite VACUUM INTO
+                  SQLite WAL Checkpoint
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
+                  VACUUM INTO
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
-                Exporte respaldos completos del sistema para migrar de un computador a otro (Punto A a Punto B) o suba un archivo de respaldo para restaurar la base de datos desde cualquier memoria USB o carpeta. El sistema genera respaldos automáticos en caliente cada vez que se cierra un turno de caja.
+                Genere respaldos atómicos sin detener la operación, descargue copias completas al computador desde el cual está conectado (cliente o servidor) o restaure copias previas para migración entre equipos y recuperación de desastres.
               </p>
             </div>
           </div>
@@ -825,13 +686,108 @@ export default function ConfiguracionAdminPage() {
           )}
         </div>
 
-        {/* Botonera Operativa Principal */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {/* Panel 1: Configuración de Ruta Predeterminada en Servidor / PC Principal */}
+        <div className="p-4 rounded-xl bg-slate-50/90 border border-slate-200/90 space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div>
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <HardDrive className="w-4 h-4 text-blue-600" />
+                Ubicación / Carpeta Predeterminada de Respaldos (Servidor Local)
+              </span>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Ruta física en el computador donde se ejecuta el sistema POS para respaldos automáticos de cierre de caja y sincronización en disco.
+              </p>
+            </div>
+            {infoRespaldoServidor && (
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                  infoRespaldoServidor.permisosEscritura
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-rose-50 text-rose-700 border-rose-200"
+                }`}
+              >
+                {infoRespaldoServidor.permisosEscritura
+                  ? "Permisos de Escritura Verificados"
+                  : "Atención: Verifique Permisos de Ruta"}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                name="rutaCarpetaRespaldo"
+                value={config.rutaCarpetaRespaldo}
+                onChange={handleChange}
+                placeholder="Ejemplo: C:\POS_BACKUPS o /var/backups/pos"
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono font-medium focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleValidarRutaRespaldo}
+              disabled={validandoRuta}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition disabled:opacity-50 cursor-pointer shrink-0"
+              title="Comprobar si el sistema puede escribir en este directorio"
+            >
+              {validandoRuta ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              )}
+              <span>Probar Acceso</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleRestablecerRutaDefault}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition cursor-pointer shrink-0"
+              title="Restablecer la ruta predeterminada del sistema operativo"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+              <span>Restablecer</span>
+            </button>
+          </div>
+
+          {resultadoValidacionRuta && (
+            <div
+              className={`p-2.5 rounded-lg text-xs font-semibold flex items-center gap-2 ${
+                resultadoValidacionRuta.valido
+                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  : "bg-rose-50 text-rose-800 border border-rose-200"
+              }`}
+            >
+              {resultadoValidacionRuta.valido ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span>{resultadoValidacionRuta.mensaje}</span>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 gap-1">
+            <span>
+              Ruta activa actual en servidor:{" "}
+              <code className="font-mono font-bold text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                {infoRespaldoServidor?.rutaCarpetaPrincipal || config.rutaCarpetaRespaldo}
+              </code>
+            </span>
+            <span className="text-slate-400">
+              Copia interna espejo: <code className="font-mono text-slate-600">database/backups_locales/</code>
+            </span>
+          </div>
+        </div>
+
+        {/* Panel 2: Botonera Operativa de Copias de Seguridad */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* 1. Generar y Descargar al PC Cliente */}
           <button
             type="button"
             onClick={handleDescargarRespaldo}
             disabled={descargandoRespaldo}
-            className="flex-1 inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
+            title="Genera un respaldo con checkpoint atómico y lo descarga directamente al navegador de este computador"
           >
             {descargandoRespaldo ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -840,57 +796,143 @@ export default function ConfiguracionAdminPage() {
             )}
             <span>
               {descargandoRespaldo
-                ? "Generando y Descargando Respaldo..."
-                : "Descargar Copia de Seguridad Completa (.db)"}
+                ? "Generando y Descargando..."
+                : "Generar y Descargar al PC (.db)"}
             </span>
           </button>
 
-          <input
-            type="file"
-            ref={inputArchivoRef}
-            accept=".db"
-            onChange={handleSeleccionarArchivoRestaurar}
-            className="hidden"
-          />
-
+          {/* 2. Generar Respaldo en Servidor */}
           <button
             type="button"
-            onClick={() => inputArchivoRef.current?.click()}
-            disabled={restaurandoRespaldo}
-            className="flex-1 inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
+            onClick={handleForzarRespaldo}
+            disabled={respaldando}
+            className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
+            title="Ejecuta el respaldo en caliente y lo guarda en la carpeta configurada del servidor"
           >
-            {restaurandoRespaldo ? (
+            {respaldando ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
             ) : (
-              <UploadCloud className="w-4 h-4" />
+              <Database className="w-4 h-4 text-emerald-400" />
             )}
             <span>
-              {restaurandoRespaldo
-                ? "Restaurando Base de Datos..."
-                : "Subir y Restaurar Respaldo .db"}
+              {respaldando ? "Creando en Servidor..." : "Generar Copia en Servidor"}
             </span>
           </button>
 
+          {/* 3. Abrir Carpeta en Servidor / Copiar Ruta */}
           <button
             type="button"
             onClick={handleAbrirCarpetaExplorador}
             disabled={abriendoCarpeta}
-            className="flex-1 inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-200 shadow-2xs transition disabled:opacity-50 cursor-pointer"
+            title="Abre la carpeta en el Explorador de Windows del servidor local o copia la ruta"
           >
             {abriendoCarpeta ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
+              <RefreshCw className="w-4 h-4 animate-spin text-slate-600" />
             ) : (
-              <FolderOpen className="w-4 h-4 text-amber-400" />
+              <FolderOpen className="w-4 h-4 text-amber-600" />
             )}
             <span>
               {abriendoCarpeta
                 ? "Abriendo en Servidor..."
-                : "Abrir Carpeta en Explorador de Windows"}
+                : "Abrir Carpeta en Servidor"}
             </span>
           </button>
         </div>
 
-        {/* Subcarpetas Estructuradas por Módulos para Auditoría e Inspección Humana */}
+        {/* Panel Informativo: Gestión de Infraestructura, Servicio y Restauración */}
+        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-white space-y-2">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-100">
+              Control de Infraestructura, Servicio y Restauración de Base de Datos
+            </h4>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Para garantizar la integridad y coherencia contable del sistema, las operaciones críticas de infraestructura (restauración de base de datos, auto-arranque del servicio de Windows, detención segura con respaldo previo y formateo de fábrica) se gestionan de forma centralizada desde el programa de escritorio nativo:
+          </p>
+          <div className="flex items-center gap-2 pt-1 font-mono text-xs text-emerald-400 font-bold bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+            <span>Panel Servidor POS (Panel_Servidor_POS.exe)</span>
+          </div>
+        </div>
+
+        {/* Panel 3: Historial de Respaldos Disponibles en el Servidor con Descarga / Restauración */}
+        {infoRespaldoServidor && infoRespaldoServidor.historialReciente.length > 0 && (
+          <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <FileCheck2 className="w-4 h-4 text-emerald-600" />
+                Copias de Seguridad Disponibles en el Servidor ({infoRespaldoServidor.historialReciente.length})
+              </span>
+              <button
+                type="button"
+                onClick={cargarInfoRespaldo}
+                className="text-[11px] font-bold text-blue-600 hover:text-blue-800 inline-flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>Actualizar Lista</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-2xs">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px]">
+                  <tr>
+                    <th className="px-3.5 py-2.5">Archivo</th>
+                    <th className="px-3 py-2.5">Fecha y Hora</th>
+                    <th className="px-3 py-2.5 text-right">Tamaño</th>
+                    <th className="px-3 py-2.5 text-center">Ubicación</th>
+                    <th className="px-3 py-2.5 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                  {infoRespaldoServidor.historialReciente.slice(0, 8).map((archivo, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/80 transition">
+                      <td className="px-3.5 py-2 font-bold text-slate-900 truncate max-w-[280px]">
+                        {archivo.nombre}
+                      </td>
+                      <td className="px-3 py-2 text-slate-500 font-sans text-xs">
+                        {new Date(archivo.fechaModificacion).toLocaleString("es-CO", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
+                      </td>
+                      <td className="px-3 py-2 text-right font-bold text-slate-700">
+                        {Math.round(archivo.tamanioBytes / 1024)} KB
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <span
+                          className={`text-[9.5px] px-1.5 py-0.5 rounded font-bold uppercase font-sans ${
+                            archivo.origen === "EXTERNO"
+                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                              : "bg-slate-100 text-slate-600 border border-slate-200"
+                          }`}
+                        >
+                          {archivo.origen === "EXTERNO" ? "Carpeta Predeterminada" : "Local"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <div className="flex items-center justify-center font-sans">
+                          <button
+                            type="button"
+                            onClick={() => handleDescargarArchivoHistorial(archivo.nombre)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-blue-50 hover:text-blue-700 text-slate-600 transition cursor-pointer text-xs font-semibold"
+                            title="Descargar este archivo a este computador"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Descargar</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Panel 4: Subcarpetas Estructuradas por Módulos para Auditoría e Inspección Humana */}
         <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -898,7 +940,7 @@ export default function ConfiguracionAdminPage() {
               Volcados Estructurados por Carpetas (Archivos JSON Legibles)
             </span>
             <span className="text-[11px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-              C:\POS_BACKUPS\
+              {config.rutaCarpetaRespaldo}
             </span>
           </div>
 
@@ -944,293 +986,6 @@ export default function ConfiguracionAdminPage() {
             </div>
           </div>
         </div>
-
-        {/* Recuadro Informativo de Rutas y Nube */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 text-xs space-y-1">
-            <div className="flex items-center gap-2 text-slate-700 font-bold">
-              <HardDrive className="w-4 h-4 text-blue-600" />
-              <span>Ruta Local Principal</span>
-            </div>
-            <p className="font-mono text-[11px] text-slate-800 bg-white px-2 py-1 rounded border border-slate-200/80 truncate select-all">
-              database/backups_locales/
-            </p>
-            <p className="text-[11px] text-slate-500">
-              Historial rotativo interno con retención automática de las últimas 15 copias.
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 text-xs space-y-1">
-            <div className="flex items-center gap-2 text-slate-700 font-bold">
-              <Cloud className="w-4 h-4 text-emerald-600" />
-              <span>Ruta Externa / Nube</span>
-            </div>
-            <p className="font-mono text-[11px] text-slate-800 bg-white px-2 py-1 rounded border border-slate-200/80 truncate select-all">
-              C:\POS_BACKUPS\
-            </p>
-            <p className="text-[11px] text-slate-500">
-              Carpeta sincronizable con Google Drive o OneDrive para custodia fuera del equipo.
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 text-xs space-y-1">
-            <div className="flex items-center gap-2 text-slate-700 font-bold">
-              <FileCheck2 className="w-4 h-4 text-purple-600" />
-              <span>Nomenclatura Automática</span>
-            </div>
-            <p className="font-mono text-[11px] text-slate-800 bg-white px-2 py-1 rounded border border-slate-200/80 truncate">
-              pos_CIERRE_CAJA_*.db
-            </p>
-            <p className="text-[11px] text-slate-500">
-              Archivo maestro sincronizado: <code className="font-bold text-slate-700">pos_ULTIMO.db</code>
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* SECCIÓN: ACTUALIZACIÓN DEL SISTEMA (PRESERVACIÓN DE BASE DE DATOS Y CONFIGURACIÓN) */}
-      <section className="bg-[#FCFDFE] rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200/80 text-indigo-600">
-              <PackageCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-black text-slate-900 tracking-tight">
-                  Actualización del Sistema POS
-                </h2>
-                <span className="text-[11px] font-mono font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
-                  v{infoActualizacion?.sistema?.version || "1.0.0"}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Inyección de mejoras y parches con blindaje inquebrantable de base de datos y configuración (.env).
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={cargarInfoActualizacion}
-              disabled={cargandoActualizacion || actualizandoSistema}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold transition disabled:opacity-50 cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${cargandoActualizacion ? "animate-spin" : ""}`} />
-              <span>Verificar</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Notificación de Blindaje de Datos */}
-        <div className="p-4 rounded-xl bg-emerald-50/90 border border-emerald-200/80 flex items-start gap-3">
-          <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 shrink-0 mt-0.5">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div className="text-xs text-emerald-950 space-y-1">
-            <p className="font-bold text-emerald-900">
-              Protocolo de Preservación Inmutable de Datos
-            </p>
-            <p className="text-emerald-800/90 leading-relaxed">
-              Durante cualquier actualización, el sistema ejecuta una copia de salvaguarda inmediata en{" "}
-              <code className="font-mono font-bold bg-white/70 px-1.5 py-0.5 rounded text-emerald-900">
-                C:\POS_BACKUPS\salvaguarda_pre_actualizacion\
-              </code>
-              . Sus clientes, productos, facturas, abonos y las variables de puerto de su archivo{" "}
-              <code className="font-mono font-bold bg-white/70 px-1.5 py-0.5 rounded text-emerald-900">.env</code>{" "}
-              se mantendrán 100% protegidos y jamás serán borrados.
-            </p>
-          </div>
-        </div>
-
-        {/* Input Oculto para Selección de Archivo .ZIP */}
-        <input
-          type="file"
-          ref={inputParcheRef}
-          accept=".zip"
-          onChange={handleSeleccionarArchivoParche}
-          className="hidden"
-        />
-
-        {/* Botones de Acción de Actualización */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Opción 1: Subir Archivo ZIP */}
-          <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3 flex flex-col justify-between">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-indigo-700 font-bold text-xs">
-                <UploadCloud className="w-4 h-4" />
-                <span>Parche Local (.ZIP)</span>
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Suba el archivo de actualización provisto por el desarrollador para instalar la última versión.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => inputParcheRef.current?.click()}
-              disabled={actualizandoSistema}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
-            >
-              {actualizandoSistema && modoConfirmacionActualizar === "archivo" ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <UploadCloud className="w-4 h-4" />
-              )}
-              <span>Seleccionar y Aplicar .ZIP</span>
-            </button>
-          </div>
-
-          {/* Opción 2: Parches Detectados en Servidor */}
-          <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3 flex flex-col justify-between">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
-                <FileArchive className="w-4 h-4 text-amber-600" />
-                <span>Parches en Servidor</span>
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Archivos detectados en la carpeta local <code className="font-mono text-[10px]">actualizaciones/</code>.
-              </p>
-            </div>
-
-            {infoActualizacion && infoActualizacion.parchesDisponibles.length > 0 ? (
-              <div className="space-y-2">
-                <select
-                  value={parcheLocalSeleccionado}
-                  onChange={(e) => setParcheLocalSeleccionado(e.target.value)}
-                  disabled={actualizandoSistema}
-                  className="w-full text-xs font-mono p-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  {infoActualizacion.parchesDisponibles.map((p) => (
-                    <option key={p.nombre} value={p.nombre}>
-                      {p.nombre} ({p.tamanioFormateado})
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={handlePrepararActualizacionParcheLocal}
-                  disabled={actualizandoSistema || !parcheLocalSeleccionado}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
-                >
-                  <PackageCheck className="w-4 h-4 text-amber-400" />
-                  <span>Aplicar Seleccionado</span>
-                </button>
-              </div>
-            ) : (
-              <div className="p-2.5 rounded-lg bg-slate-50 border border-dashed border-slate-200 text-center">
-                <span className="text-[11px] text-slate-400">
-                  Sin parches en espera en /actualizaciones
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Opción 3: Actualizar desde Repositorio Oficial (GitHub) */}
-          <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3 flex flex-col justify-between">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
-                <GitBranch className="w-4 h-4 text-emerald-600" />
-                <span>Repositorio Oficial (Git)</span>
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Sincroniza la rama principal directamente desde GitHub si el computador cuenta con acceso a internet.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handlePrepararActualizacionGithub}
-              disabled={actualizandoSistema}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs hover:shadow transition disabled:opacity-50 cursor-pointer"
-            >
-              {actualizandoSistema && modoConfirmacionActualizar === "github" ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <GitBranch className="w-4 h-4" />
-              )}
-              <span>Sincronizar desde GitHub</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Panel de Resultado o Consola de Ejecución */}
-        {resultadoActualizacion && (
-          <div
-            className={`p-4 rounded-xl border space-y-3 ${
-              resultadoActualizacion.tipo === "exito"
-                ? "bg-emerald-50 border-emerald-200 text-emerald-950"
-                : "bg-rose-50 border-rose-200 text-rose-950"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5 font-bold text-xs">
-                {resultadoActualizacion.tipo === "exito" ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                ) : (
-                  <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-                )}
-                <span>{resultadoActualizacion.mensaje}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {resultadoActualizacion.detalles && (
-                  <button
-                    type="button"
-                    onClick={() => setMostrarDetallesActualizacion(!mostrarDetallesActualizacion)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/80 border border-slate-200 text-[11px] font-semibold text-slate-700 hover:bg-white transition cursor-pointer"
-                  >
-                    <Terminal className="w-3.5 h-3.5" />
-                    <span>{mostrarDetallesActualizacion ? "Ocultar Log" : "Ver Log"}</span>
-                  </button>
-                )}
-                {resultadoActualizacion.tipo === "exito" && (
-                  <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition cursor-pointer"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Recargar Página</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {mostrarDetallesActualizacion && resultadoActualizacion.detalles && (
-              <pre className="p-3 rounded-lg bg-slate-900 text-slate-200 text-[11px] font-mono overflow-x-auto max-h-56 leading-tight whitespace-pre-wrap">
-                {resultadoActualizacion.detalles}
-              </pre>
-            )}
-          </div>
-        )}
-
-        {/* Historial de Salvaguardas Automáticas Previas */}
-        {infoActualizacion && infoActualizacion.salvaguardasPrevias.length > 0 && (
-          <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700 flex items-center gap-2">
-                <HardDrive className="w-4 h-4 text-indigo-600" />
-                Copias de Salvaguarda Pre-Actualización Almacenadas en Disco
-              </span>
-              <span className="text-[10px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-                C:\POS_BACKUPS\salvaguarda_pre_actualizacion\
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
-              {infoActualizacion.salvaguardasPrevias.slice(0, 6).map((salv) => (
-                <div
-                  key={salv.nombre}
-                  className="p-2 rounded-lg bg-white border border-slate-200 text-[11px] space-y-0.5"
-                >
-                  <p className="font-mono font-bold text-slate-800 truncate">{salv.nombre}</p>
-                  <div className="flex items-center justify-between text-slate-500 text-[10px]">
-                    <span>{(salv.tamanioBytes / 1024).toFixed(1)} KB</span>
-                    <span>{new Date(salv.fechaModificacion).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </section>
 
       {/* Distribución Principal en 2 Columnas */}
@@ -1439,6 +1194,23 @@ export default function ConfiguracionAdminPage() {
                     <option value="TIRILLA">Tirilla POS (80mm / Térmica)</option>
                     <option value="CARTA">Carta Completa Vertical (1 página)</option>
                   </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Carpeta Predeterminada de Respaldos en Servidor
+                  </label>
+                  <input
+                    type="text"
+                    name="rutaCarpetaRespaldo"
+                    value={config.rutaCarpetaRespaldo}
+                    onChange={handleChange}
+                    placeholder="Ejemplo: C:\POS_BACKUPS o /var/backups/pos"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Ubicación en el equipo servidor donde se guardan automáticamente las copias al cerrar turno de caja.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1688,20 +1460,6 @@ export default function ConfiguracionAdminPage() {
               </div>
             </div>
 
-            {/* SECCIÓN 6: POLÍTICA ESTRICTA CERO CÓDIGOS QR EN FACTURAS */}
-            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start space-x-3">
-              <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="text-xs sm:text-sm">
-                <span className="font-bold text-amber-900 block mb-0.5">
-                  Política Estricta del Sistema: CERO Códigos QR en Facturas de Cliente
-                </span>
-                <span className="text-amber-800 leading-relaxed block text-xs">
-                  Por directriz operativa, las facturas entregadas a los clientes no incorporan códigos QR
-                  externos, preservando el espacio para los detalles de las prendas, el desglose financiero y las firmas autorizadas.
-                </span>
-              </div>
-            </div>
-
             {/* BOTÓN GUARDAR CONFIGURACIÓN */}
             <div className="flex justify-end">
               <button
@@ -1710,7 +1468,7 @@ export default function ConfiguracionAdminPage() {
                 className="px-8 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition duration-200 flex items-center space-x-2 disabled:opacity-50 min-h-[44px]"
               >
                 <Save className="h-4 w-4" />
-                <span>{guardando ? "Guardando cambios..." : "Guardar Configuración de Facturación"}</span>
+                <span>{guardando ? "Guardando..." : "Guardar"}</span>
               </button>
             </div>
           </form>
@@ -1921,7 +1679,7 @@ export default function ConfiguracionAdminPage() {
                         <span className="font-mono">$50.000</span>
                       </div>
                       <div className="flex justify-between font-black text-slate-950 pt-0.5 border-t border-black bg-slate-200/70 px-1 rounded">
-                        <span>Total (Alquiler + Depósito):</span>
+                        <span>Total Alquiler más Depósito:</span>
                         <span className="font-mono text-sm">$150.000</span>
                       </div>
                       <div className="flex justify-between text-slate-800 font-bold pt-0.5 border-t border-dashed border-black">
@@ -2059,7 +1817,7 @@ export default function ConfiguracionAdminPage() {
                       <>
                         <div className="text-slate-800">Total Valor Alquiler: <strong>$100.000</strong></div>
                         <div className="text-amber-800 font-bold">Depósito en Garantía: <strong>$50.000</strong></div>
-                        <div className="font-black text-slate-950 bg-slate-100 p-0.5 rounded">Total (Alquiler + Depósito): $150.000</div>
+                        <div className="font-black text-slate-950 bg-slate-100 p-0.5 rounded">Total Alquiler más Depósito: $150.000</div>
                         <div className="text-slate-700 font-semibold">Recibido: <strong>$150.000</strong></div>
                         <div className="text-emerald-700 font-black">Valor Pagado (Efectivo): $150.000</div>
                         <div className="text-emerald-700 font-semibold">Vueltas: $0</div>
@@ -2301,7 +2059,7 @@ export default function ConfiguracionAdminPage() {
                       <>
                         <div className="text-slate-800">Total Valor Alquiler: <strong>$100.000</strong></div>
                         <div className="text-amber-800 font-bold">Depósito en Garantía: <strong>$50.000</strong></div>
-                        <div className="font-black text-slate-950 bg-slate-100 p-1 rounded">Total (Alquiler + Depósito): $150.000</div>
+                        <div className="font-black text-slate-950 bg-slate-100 p-1 rounded">Total Alquiler más Depósito: $150.000</div>
                         <div className="text-slate-700 font-semibold">Recibido: <strong>$150.000</strong></div>
                         <div className="text-emerald-700 font-black">Valor Pagado (Efectivo): $150.000</div>
                         <div className="text-emerald-700 font-semibold">Vueltas: $0</div>
@@ -2328,236 +2086,6 @@ export default function ConfiguracionAdminPage() {
         </div>
       </div>
 
-      {/* Modal de Confirmación de Restauración */}
-      {modalRestaurar && archivoRestaurar && (
-        <div
-          onClick={() => {
-            if (!restaurandoRespaldo) {
-              setModalRestaurar(false);
-              setArchivoRestaurar(null);
-              if (inputArchivoRef.current) inputArchivoRef.current.value = "";
-            }
-          }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150 relative space-y-4"
-          >
-            <div className="flex items-start gap-3">
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 shrink-0">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-base font-black text-slate-900">
-                  Confirmar Restauración de Base de Datos
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Operación crítica de migración y sustitución de datos.
-                </p>
-              </div>
-              {!restaurandoRespaldo && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalRestaurar(false);
-                    setArchivoRestaurar(null);
-                    if (inputArchivoRef.current) inputArchivoRef.current.value = "";
-                  }}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 text-xs leading-relaxed space-y-1.5">
-              <p className="font-bold">
-                Advertencia de Alto Impacto:
-              </p>
-              <p>
-                Esta acción sobrescribirá por completo la base de datos activa con el contenido del archivo seleccionado. Todas las transacciones que no estén incluidas en este respaldo serán reemplazadas.
-              </p>
-              <p className="text-[11px] text-amber-800 pt-1 border-t border-amber-200/60">
-                El sistema realizará automáticamente una copia de seguridad de emergencia previa antes de aplicar los cambios.
-              </p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                Archivo Seleccionado para Restaurar:
-              </span>
-              <p className="font-mono text-xs font-bold text-slate-900 truncate">
-                {archivoRestaurar.name}
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Tamaño: {(archivoRestaurar.size / 1024).toFixed(1)} KB
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                disabled={restaurandoRespaldo}
-                onClick={() => {
-                  setModalRestaurar(false);
-                  setArchivoRestaurar(null);
-                  if (inputArchivoRef.current) inputArchivoRef.current.value = "";
-                }}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition disabled:opacity-50 cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={restaurandoRespaldo}
-                onClick={handleConfirmarRestauracion}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
-              >
-                {restaurandoRespaldo ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Verificando y Restaurando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Database className="w-4 h-4" />
-                    <span>Sí, Sobrescribir y Restaurar</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Confirmación de Actualización Segura */}
-      {modalActualizarConfirm && (
-        <div
-          onClick={() => {
-            if (!actualizandoSistema) {
-              setModalActualizarConfirm(false);
-              setArchivoParche(null);
-              if (inputParcheRef.current) inputParcheRef.current.value = "";
-            }
-          }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 select-none"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150 relative space-y-4"
-          >
-            <div className="flex items-start gap-3">
-              <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 shrink-0">
-                <PackageCheck className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-base font-black text-slate-900">
-                  Confirmar Actualización Segura del Sistema
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Inyección de mejoras con protección incondicional de base de datos.
-                </p>
-              </div>
-              {!actualizandoSistema && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalActualizarConfirm(false);
-                    setArchivoParche(null);
-                    if (inputParcheRef.current) inputParcheRef.current.value = "";
-                  }}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-950 text-xs leading-relaxed space-y-1.5">
-              <p className="font-bold flex items-center gap-1.5 text-emerald-900">
-                <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                Garantía de Preservación de Datos:
-              </p>
-              <p>
-                Sus clientes, productos, facturas, abonos y el archivo de configuración <code className="font-bold font-mono">.env</code> están 100% protegidos y no serán modificados ni eliminados.
-              </p>
-              <p className="text-[11px] text-emerald-800 pt-1 border-t border-emerald-200/60">
-                Se guardará una copia de salvaguarda inmediata en <code className="font-mono font-bold">C:\POS_BACKUPS\salvaguarda_pre_actualizacion\</code> antes de comenzar.
-              </p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                Origen de la Actualización:
-              </span>
-              {modoConfirmacionActualizar === "archivo" && archivoParche && (
-                <>
-                  <p className="font-mono text-xs font-bold text-slate-900 truncate">
-                    {archivoParche.name}
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    Tamaño del paquete: {(archivoParche.size / (1024 * 1024)).toFixed(2)} MB
-                  </p>
-                </>
-              )}
-              {modoConfirmacionActualizar === "servidor" && (
-                <>
-                  <p className="font-mono text-xs font-bold text-slate-900 truncate">
-                    {parcheLocalSeleccionado}
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    Archivo ubicado en carpeta local /actualizaciones
-                  </p>
-                </>
-              )}
-              {modoConfirmacionActualizar === "github" && (
-                <>
-                  <p className="font-mono text-xs font-bold text-slate-900">
-                    Repositorio Oficial de GitHub (Rama Main)
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    Sincronización directa vía git pull y migración de esquemas
-                  </p>
-                </>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                disabled={actualizandoSistema}
-                onClick={() => {
-                  setModalActualizarConfirm(false);
-                  setArchivoParche(null);
-                  if (inputParcheRef.current) inputParcheRef.current.value = "";
-                }}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition disabled:opacity-50 cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={actualizandoSistema}
-                onClick={handleConfirmarActualizacion}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition disabled:opacity-50 cursor-pointer"
-              >
-                {actualizandoSistema ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Aplicando Actualización Segura...</span>
-                  </>
-                ) : (
-                  <>
-                    <PackageCheck className="w-4 h-4" />
-                    <span>Sí, Iniciar Actualización</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

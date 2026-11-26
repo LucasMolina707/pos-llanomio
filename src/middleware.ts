@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
 const NOMBRE_COOKIE_SESION = "pos_session";
-const SECRET_JWT = new TextEncoder().encode(
-  process.env.JWT_SECRET || "pos_jwt_secret_token_seguro_2026_local_pos_key"
-);
+const JWT_SECRET_STRING = process.env.JWT_SECRET || "pos_jwt_secret_token_seguro_2026_local_pos_key";
+const SECRET_JWT = new TextEncoder().encode(JWT_SECRET_STRING);
 
-// Cabeceras estrictas antifatiga de caché para evitar retrocesos sin sesión
+// Cabeceras estrictas antifatiga de caché exclusivas para APIs y mutaciones
 const NO_CACHE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
   Pragma: "no-cache",
@@ -30,11 +29,13 @@ const RUTAS_EXCLUSIVAS_ADMIN = [
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1. Excluir recursos estáticos e imágenes directas
+  // 1. Excluir recursos estáticos e imágenes directas de inmediato
   if (
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
-    pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|css|js)$/)
+    pathname.startsWith("/iconos") ||
+    pathname === "/aurora.ico" ||
+    pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|css|js|woff|woff2)$/)
   ) {
     return NextResponse.next();
   }
@@ -78,7 +79,7 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  // Si es otra ruta pública (como /api/auth/login o /api/auth/recuperar), permitir acceso
+  // Si es otra ruta pública, permitir acceso
   if (esRutaPublica) {
     return NextResponse.next();
   }
@@ -128,14 +129,16 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // 6. Permitir paso con cabeceras de seguridad
+  // 6. Permitir paso optimizado: Solo aplicar cabeceras no-cache a llamadas API
   const respuesta = NextResponse.next();
-  Object.entries(NO_CACHE_HEADERS).forEach(([k, v]) => respuesta.headers.set(k, v));
+  if (pathname.startsWith("/api/")) {
+    Object.entries(NO_CACHE_HEADERS).forEach(([k, v]) => respuesta.headers.set(k, v));
+  }
   return respuesta;
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/auth/login|api/auth/recuperar|api/empresa/publico).*)",
+    "/((?!_next/static|_next/image|favicon.ico|iconos|aurora.ico|api/auth/login|api/auth/recuperar|api/empresa/publico).*)",
   ],
 };

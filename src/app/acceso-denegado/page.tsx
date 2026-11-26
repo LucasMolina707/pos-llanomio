@@ -30,17 +30,15 @@ export default function AccesoDenegadoPage() {
         </div>
 
         <span className="inline-block px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold tracking-wider uppercase mb-3">
-          Error 403 &bull; Permisos Insuficientes
+          Error 403 &bull; Sin Permisos
         </span>
 
         <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight mb-2">
-          Acceso Restringido
+          Acceso Denegado
         </h1>
 
         <p className="text-xs sm:text-sm text-slate-600 mb-6 leading-relaxed">
-          El módulo al que intenta acceder está reservado para usuarios con rol de{" "}
-          <strong className="text-slate-800 font-semibold">Administrador General</strong>. Su sesión actual tiene permisos de{" "}
-          <strong className="text-slate-800 font-semibold">Cajero</strong>.
+          Modulo exclusivo de administracion.
         </p>
 
         <div className="space-y-3">
@@ -49,7 +47,7 @@ export default function AccesoDenegadoPage() {
             className="w-full inline-flex items-center justify-center min-h-[44px] px-4 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Regresar al Menú Principal
+            Volver al Inicio
           </Link>
 
           <button
@@ -58,7 +56,7 @@ export default function AccesoDenegadoPage() {
             className="w-full inline-flex items-center justify-center min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition border border-slate-300/80"
           >
             <LogOut className="w-4 h-4 mr-2" />
-            Cerrar Sesión / Cambiar de Cuenta
+            Cambiar Cuenta
           </button>
         </div>
       </div>

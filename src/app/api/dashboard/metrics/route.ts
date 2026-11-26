@@ -51,13 +51,14 @@ export async function GET(req: NextRequest) {
       fechaHasta = new Date(`${fechaHoyLocal}T23:59:59.999`);
     }
 
-    // 1. Consultar facturas en el rango seleccionado
+    // 1. Consultar facturas en el rango seleccionado (excluyendo transacciones anuladas)
     const facturas = await prisma.factura.findMany({
       where: {
         fechaCreacion: {
           gte: fechaDesde,
           lte: fechaHasta,
         },
+        estado: { not: EstadoFactura.ANULADA },
       },
       include: {
         cliente: {
@@ -98,13 +99,17 @@ export async function GET(req: NextRequest) {
       orderBy: { fechaCreacion: "desc" },
     });
 
-    // 2. Consultar abonos registrados en el rango
+    // 2. Consultar abonos registrados en el rango (excluyendo anulados y depósitos en custodia que no son ingreso operativo)
     const abonos = await prisma.abono.findMany({
       where: {
         fecha: {
           gte: fechaDesde,
           lte: fechaHasta,
         },
+        factura: {
+          estado: { not: EstadoFactura.ANULADA },
+        },
+        tipoAbono: { notIn: ["DEPOSITO_GARANTIA", "DEPOSITO_DEVUELTO"] },
       },
       select: {
         id: true,
@@ -212,7 +217,7 @@ export async function GET(req: NextRequest) {
     const alquileresActivosConDeposito = await prisma.factura.findMany({
       where: {
         tipoOperacion: "ALQUILER",
-        estado: { not: EstadoFactura.CERRADA },
+        estado: { notIn: [EstadoFactura.CERRADA, EstadoFactura.ANULADA] },
         fechaDevolucionReal: null,
         montoDeposito: { gt: 0 },
       },
@@ -228,21 +233,27 @@ export async function GET(req: NextRequest) {
       0
     );
 
-    // Facturas de Apartados activos (dinero recibido en garantía/abono no cerrado)
+    // Facturas de Apartados activos (dinero recibido en garantía/custodia)
     const apartadosActivos = await prisma.factura.findMany({
       where: {
         tipoOperacion: "SEPARE",
-        estado: { not: EstadoFactura.CERRADA },
+        estado: { notIn: [EstadoFactura.CERRADA, EstadoFactura.ANULADA] },
       },
       select: {
         id: true,
-        totalAbonado: true,
+        depositoAbonado: true,
         montoDeposito: true,
+        estadoDeposito: true,
       },
     });
 
     const custodiaApartados = apartadosActivos.reduce(
-      (acc, f) => acc + (f.totalAbonado || f.montoDeposito || 0),
+      (acc, f) => {
+        const dep = (f.depositoAbonado && f.depositoAbonado > 0)
+          ? f.depositoAbonado
+          : (f.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? (f.montoDeposito || 0) : 0);
+        return acc + dep;
+      },
       0
     );
 
@@ -251,7 +262,7 @@ export async function GET(req: NextRequest) {
     // 7. DINERO EN LA CALLE (Regla 4: Saldos Pendientes Activos + Moras Activas de Vencidos)
     const facturasActivas = await prisma.factura.findMany({
       where: {
-        estado: { not: EstadoFactura.CERRADA },
+        estado: { notIn: [EstadoFactura.CERRADA, EstadoFactura.ANULADA] },
       },
       select: {
         id: true,

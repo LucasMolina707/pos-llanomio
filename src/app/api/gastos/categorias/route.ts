@@ -21,7 +21,7 @@ const CATEGORIAS_BASE = [
   { nombre: "Insumos de Producción y Sastrería (Cintas, Tizas, Lápices, Hilos, Agujas)", requiereEmpleado: false, esPredeterminada: true },
   { nombre: "Arriendo", requiereEmpleado: false, esPredeterminada: true },
   { nombre: "Servicios Públicos (Agua, Luz, Gas, Internet)", requiereEmpleado: false, esPredeterminada: true },
-  { nombre: "JOHANA", requiereEmpleado: false, esPredeterminada: true },
+  { nombre: "YOHANNA", requiereEmpleado: false, esPredeterminada: true },
 ];
 
 const SUBCATEGORIAS_JOHANA_DEFAULT = [
@@ -33,37 +33,37 @@ const SUBCATEGORIAS_JOHANA_DEFAULT = [
 ];
 
 /**
- * Asegura la existencia y vigencia de la categoría especial JOHANA
+ * Asegura la existencia y vigencia de la categoría especial YOHANNA
  * y sus subcategorías predeterminadas persistentes.
  */
 async function asegurarCategoriaJohana() {
   try {
-    // 1. Si existía YOANA con Y, migrarla limpiamente a JOHANA para unificar
-    const catYoanaVieja = await prisma.categoriaGasto.findFirst({
-      where: { nombre: "YOANA" },
+    // 1. Si existía JOHANA o YOANA, migrarla limpiamente a YOHANNA para unificar
+    const catVieja = await prisma.categoriaGasto.findFirst({
+      where: { nombre: { in: ["JOHANA", "YOANA"] } },
     });
-    if (catYoanaVieja) {
-      const yaExisteJohana = await prisma.categoriaGasto.findFirst({
-        where: { nombre: "JOHANA" },
+    if (catVieja) {
+      const yaExisteYohanna = await prisma.categoriaGasto.findFirst({
+        where: { nombre: "YOHANNA" },
       });
-      if (!yaExisteJohana) {
+      if (!yaExisteYohanna) {
         await prisma.categoriaGasto.update({
-          where: { id: catYoanaVieja.id },
-          data: { nombre: "JOHANA", activa: true },
+          where: { id: catVieja.id },
+          data: { nombre: "YOHANNA", activa: true },
         });
       }
       await prisma.gasto.updateMany({
-        where: { categoriaId: catYoanaVieja.id },
-        data: { categoriaNombre: "JOHANA" },
+        where: { categoriaNombre: { in: ["JOHANA", "YOANA"] } },
+        data: { categoriaNombre: "YOHANNA" },
       });
     }
 
-    // 2. Upsert categoría JOHANA
+    // 2. Upsert categoría YOHANNA
     const catJohana = await prisma.categoriaGasto.upsert({
-      where: { nombre: "JOHANA" },
+      where: { nombre: "YOHANNA" },
       update: { activa: true, requiereEmpleado: false },
       create: {
-        nombre: "JOHANA",
+        nombre: "YOHANNA",
         requiereEmpleado: false,
         esPredeterminada: true,
         activa: true,

@@ -26,6 +26,51 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
+  // Blindaje global: evitar alteraciones fantasma al hacer scroll con la rueda del ratón en casillas numéricas
+  useEffect(() => {
+    const handleWheelGlobal = (e: WheelEvent) => {
+      const activo = document.activeElement;
+      if (activo instanceof HTMLInputElement && (activo.type === "number" || activo.dataset.noWheel === "true")) {
+        activo.blur();
+      }
+    };
+    window.addEventListener("wheel", handleWheelGlobal, { passive: true });
+    return () => {
+      window.removeEventListener("wheel", handleWheelGlobal);
+    };
+  }, []);
+
+  // Blindaje global contra ChunkLoadError (auto-recuperación transparente ante despliegues o nuevos builds)
+  useEffect(() => {
+    const handleChunkError = (e: ErrorEvent | PromiseRejectionEvent) => {
+      const errorObj = "error" in e ? e.error : e.reason;
+      const msg = errorObj?.message || (typeof e === "object" && "message" in e ? String(e.message) : "");
+
+      const esErrorChunk =
+        msg.includes("Loading chunk") ||
+        msg.includes("ChunkLoadError") ||
+        msg.includes("Failed to fetch dynamically imported module") ||
+        msg.includes("error loading dynamically imported module");
+
+      if (esErrorChunk && typeof window !== "undefined") {
+        const ultimoReintento = sessionStorage.getItem("pos_chunk_reload_ts");
+        const ahora = Date.now();
+        if (!ultimoReintento || ahora - Number(ultimoReintento) > 8000) {
+          sessionStorage.setItem("pos_chunk_reload_ts", String(ahora));
+          console.warn("[CHUNKS] Recargando versión actualizada de componentes...");
+          window.location.reload();
+        }
+      }
+    };
+
+    window.addEventListener("error", handleChunkError);
+    window.addEventListener("unhandledrejection", handleChunkError);
+    return () => {
+      window.removeEventListener("error", handleChunkError);
+      window.removeEventListener("unhandledrejection", handleChunkError);
+    };
+  }, []);
+
   // Consultar usuario en sesión una sola vez al montar (evita llamadas repetitivas en cada cambio de ruta)
   useEffect(() => {
     let activo = true;

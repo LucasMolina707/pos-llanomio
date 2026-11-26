@@ -20,6 +20,7 @@ import {
   DollarSign,
   ShieldCheck,
 } from "lucide-react";
+import { safeFetchJson } from "@/lib/safe-fetch";
 
 interface MetricasData {
   ingresosNetos: number;
@@ -123,7 +124,7 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
   };
 
   const cargarDatos = useCallback(async (silencioso = false) => {
-    if (!silencioso) setCargando(true);
+    if (!silencioso && !metricas) setCargando(true);
     setActualizando(true);
 
     if (abortControllerRef.current) {
@@ -133,16 +134,13 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
     abortControllerRef.current = controller;
 
     try {
-      const res = await fetch(`/api/admin/dashboard?periodo=${periodo}`, {
-        cache: "no-store",
-        headers: { "Pragma": "no-cache" },
+      const { ok, data } = await safeFetchJson<any>(`/api/admin/dashboard?periodo=${periodo}`, {
         signal: controller.signal,
+        cacheTtlMs: 25000,
+        forzarFresco: silencioso,
       });
 
-      if (!res.ok) throw new Error("Error al consultar métricas del servidor");
-
-      const data = await res.json();
-      if (data.success) {
+      if (ok && data?.success) {
         setMetricas(data.metricas);
         setDondeEstaElDinero(data.dondeEstaElDinero);
         setDesgloseMetodos(data.desgloseMetodos || data.desgloseMetodosPago);
@@ -158,7 +156,7 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
       setCargando(false);
       setActualizando(false);
     }
-  }, [periodo]);
+  }, [periodo, metricas]);
 
   useEffect(() => {
     if (esAdmin) {

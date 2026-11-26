@@ -483,7 +483,7 @@ export default function GestionUsuariosPage() {
               Usuarios y Permisos
             </h1>
             <p className="text-xs text-slate-500 font-medium truncate">
-              Cuentas de cajeros, administradores y permisos de acceso
+              Cuentas, roles y accesos
             </p>
           </div>
         </div>
@@ -491,7 +491,7 @@ export default function GestionUsuariosPage() {
         <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-end flex-nowrap">
           <IconButtonTooltip
             icon={Settings}
-            label="Configuración General"
+            label="Configuración"
             modulo="Sistema"
             destino="Ruta: /admin/configuracion"
             href="/admin/configuracion"
@@ -511,7 +511,7 @@ export default function GestionUsuariosPage() {
 
           <IconButtonTooltip
             icon={RefreshCw}
-            label="Actualizar Directorio"
+            label="Actualizar"
             modulo="Usuarios"
             destino="Recarga lista de cuentas activas"
             onClick={consultarUsuarios}
@@ -523,7 +523,7 @@ export default function GestionUsuariosPage() {
 
           <IconButtonTooltip
             icon={KeyRound}
-            label="Seguridad de 3 Factores"
+            label="Claves Maestras"
             modulo="Seguridad"
             destino="Abre panel de recuperación y protección"
             onClick={() => setMostrarCardSeguridad(!mostrarCardSeguridad)}
@@ -534,7 +534,7 @@ export default function GestionUsuariosPage() {
 
           <IconButtonTooltip
             icon={Plus}
-            label="Crear Nuevo Usuario"
+            label="+ Nuevo Usuario"
             modulo="Usuarios"
             destino="Abre formulario para registrar cuenta"
             variant="primary"
@@ -1257,7 +1257,7 @@ export default function GestionUsuariosPage() {
                     }
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
-                  <span>Facturar Ventas, Alquileres y Arreglos</span>
+                  <span>Facturar en mostrador</span>
                 </label>
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
                   <input
@@ -1268,7 +1268,7 @@ export default function GestionUsuariosPage() {
                     }
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
-                  <span>Cobrar Carteras, Moras y Emitir Paz y Salvos</span>
+                  <span>Cobrar cartera y abonos</span>
                 </label>
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
                   <input
@@ -1279,7 +1279,7 @@ export default function GestionUsuariosPage() {
                     }
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
-                  <span>Apertura y Cierre / Arqueo de Turno de Caja</span>
+                  <span>Abrir y cerrar caja</span>
                 </label>
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
                   <input
@@ -1290,7 +1290,7 @@ export default function GestionUsuariosPage() {
                     }
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
-                  <span>Crear Prendas o Ítems Rápidos desde el POS</span>
+                  <span>Crear prendas rápidas</span>
                 </label>
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
                   <input
@@ -1301,7 +1301,7 @@ export default function GestionUsuariosPage() {
                     }
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
-                  <span>Modificar Precios Base en Mostrador</span>
+                  <span>Editar precios y descuentos</span>
                 </label>
               </div>
 

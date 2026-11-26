@@ -25,7 +25,7 @@ export default async function ImpresionFacturaPage({ params }: ImpresionPageProp
             title="Volver al panel principal"
           >
             <ArrowLeft className="w-4 h-4 text-slate-700" />
-            <span>Regresar</span>
+            <span>Volver</span>
           </Link>
 
           <div className="shrink-0">
@@ -35,7 +35,7 @@ export default async function ImpresionFacturaPage({ params }: ImpresionPageProp
           <div className="min-w-0">
             <div className="flex items-center gap-2 truncate">
               <span className="font-mono text-xs sm:text-sm font-black tracking-wider text-slate-900 uppercase">
-                VISOR OFICIAL DE COMPROBANTES E IMPRESIÓN
+                VISTA PREVIA
               </span>
             </div>
           </div>

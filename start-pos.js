@@ -35,8 +35,9 @@ process.env.TMP = localTmp;
 const dbFileName = (process.env.DATABASE_URL || envConfig.DATABASE_URL || "file:./llanomio.db")
   .replace(/^file:(\.\/)?(database\/)?/, "");
 const canonicalDbPath = path.resolve(__dirname, "database", dbFileName);
-process.env.DATABASE_URL = `file:${canonicalDbPath}`;
-console.log(`[SQLITE] Base de datos canonica unificada: ${canonicalDbPath}`);
+const normalizedDbPath = canonicalDbPath.replace(/\\/g, "/");
+process.env.DATABASE_URL = `file:${normalizedDbPath}`;
+console.log(`[SQLITE] Base de datos canonica unificada: ${normalizedDbPath}`);
 
 // 1. Rutina de resiliencia SQLite ante cortes de energia (WAL Checkpoint pasivo y optimizacion)
 async function ejecutarRecuperacionSQLite() {
@@ -51,7 +52,8 @@ async function ejecutarRecuperacionSQLite() {
     });
     await prisma.$queryRawUnsafe("PRAGMA journal_mode = WAL;");
     await prisma.$queryRawUnsafe("PRAGMA synchronous = NORMAL;");
-    await prisma.$queryRawUnsafe("PRAGMA busy_timeout = 5000;");
+    await prisma.$queryRawUnsafe("PRAGMA busy_timeout = 15000;");
+    await prisma.$queryRawUnsafe("PRAGMA foreign_keys = ON;");
     await prisma.$queryRawUnsafe("PRAGMA cache_size = -64000;");
     await prisma.$queryRawUnsafe("PRAGMA temp_store = MEMORY;");
     await prisma.$queryRawUnsafe("PRAGMA mmap_size = 268435456;");
@@ -65,7 +67,22 @@ async function ejecutarRecuperacionSQLite() {
 }
 
 async function arrancarServidor() {
+  const modoCheck = process.argv.includes("--check");
   await ejecutarRecuperacionSQLite();
+
+  const standaloneServer = path.join(__dirname, ".next", "standalone", "server.js");
+  const buildIdPath = path.join(__dirname, ".next", "BUILD_ID");
+  const nextBin = path.join(__dirname, "node_modules", "next", "dist", "bin", "next");
+
+  if (modoCheck) {
+    const tieneBuild = (fs.existsSync(buildIdPath) && fs.existsSync(nextBin)) || fs.existsSync(standaloneServer);
+    if (!tieneBuild) {
+      console.error("[CHECK ERROR] No se encontro compilacion de produccion (.next/BUILD_ID) ni servidor standalone.");
+      process.exit(1);
+    }
+    console.log(`[CHECK OK] Entorno portable integro y listo para operar en puerto ${puerto}.`);
+    process.exit(0);
+  }
 
   // Iniciar servicio mDNS en segundo plano si no corre en proceso hermano separado (PM2)
   if (process.env.INICIAR_MDNS_PROCESO !== "false") {
@@ -78,10 +95,6 @@ async function arrancarServidor() {
       console.warn("[mDNS AVISO] No se pudo cargar servicio mDNS en proceso principal:", errMdns.message);
     }
   }
-
-  const standaloneServer = path.join(__dirname, ".next", "standalone", "server.js");
-  const buildIdPath = path.join(__dirname, ".next", "BUILD_ID");
-  const nextBin = path.join(__dirname, "node_modules", "next", "dist", "bin", "next");
 
   if (fs.existsSync(buildIdPath) && fs.existsSync(nextBin)) {
     console.log(`[INICIO] Desplegando en modo Next.js produccion optimizada en puerto ${puerto}...`);

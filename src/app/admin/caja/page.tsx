@@ -27,10 +27,13 @@ import {
   ArrowRight,
   ShieldCheck,
   DollarSign,
+  Download,
+  Database,
 } from "lucide-react";
 import HistorialArqueosView from "@/components/caja/HistorialArqueosView";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import InputDinero from "@/components/ui/InputDinero";
 import { notificarCajaActualizada } from "@/hooks/useCajonSincronizado";
 
 interface CajeroParticipante {
@@ -177,6 +180,18 @@ export default function ControlCajaAdminPage() {
   const [notaObservacionesInput, setNotaObservacionesInput] = useState<string>("");
   const [tipoCierre, setTipoCierre] = useState<"DIARIO" | "CONSOLIDADO_MENSUAL">("DIARIO");
   const [mostrarModalConfirmarCierre, setMostrarModalConfirmarCierre] = useState(false);
+  const [resumenCierreExitoso, setResumenCierreExitoso] = useState<{
+    nombreGabinete: string;
+    mensaje: string;
+    tieneDiferencia: boolean;
+    diferencia: number;
+    respaldoAutomatico?: {
+      success: boolean;
+      nombreArchivo?: string;
+      rutaDestino?: string;
+      advertencia?: string;
+    } | null;
+  } | null>(null);
 
   // Modal para ver nota de novedad en la tabla rápida inferior
   const [turnoNovedadModal, setTurnoNovedadModal] = useState<TurnoCerradoItem | null>(null);
@@ -394,6 +409,14 @@ export default function ControlCajaAdminPage() {
           }`,
       });
 
+      setResumenCierreExitoso({
+        nombreGabinete: gabineteSeleccionado.nombreGabinete || "Gabinete Principal",
+        mensaje: data.mensaje || "Cierre de caja completado exitosamente",
+        tieneDiferencia: Boolean(data.cuadre?.tieneDiferencia),
+        diferencia: Number(data.cuadre?.diferencia || 0),
+        respaldoAutomatico: data.respaldoAutomatico || null,
+      });
+
       setMostrarModalConfirmarCierre(false);
       setEfectivoContadoInput("");
       setNotaObservacionesInput("");
@@ -419,10 +442,10 @@ export default function ControlCajaAdminPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-slate-900 leading-tight truncate">
-              Control de Caja
+              Arqueo de Caja
             </h1>
             <p className="text-xs text-slate-500 font-medium truncate">
-              Apertura, arqueos, gabinetes divididos y balance de efectivo
+              Apertura, turnos y balance
             </p>
           </div>
         </div>
@@ -431,7 +454,7 @@ export default function ControlCajaAdminPage() {
           {hayTurnoAbierto && (
             <IconButtonTooltip
               icon={Plus}
-              label="Abrir Caja Dividida"
+              label="+ Caja Dividida"
               modulo="Caja"
               destino="Habilita un nuevo gabinete de efectivo independiente"
               variant="indigo"
@@ -447,7 +470,7 @@ export default function ControlCajaAdminPage() {
 
           <IconButtonTooltip
             icon={RefreshCw}
-            label="Sincronizar Saldos y Arqueos"
+            label="Sincronizar"
             modulo="Caja"
             destino="Actualiza balance de efectivo en tiempo real"
             onClick={consultarEstadoCaja}
@@ -481,7 +504,7 @@ export default function ControlCajaAdminPage() {
               }`}
           >
             <Vault className="w-4 h-4" />
-            <span>Control de Turnos Activos</span>
+            <span>Turnos Activos</span>
             {hayTurnoAbierto && (
               <span
                 className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold ${pestanaActiva === "TURNOS_ACTIVOS"
@@ -503,7 +526,7 @@ export default function ControlCajaAdminPage() {
               }`}
           >
             <History className={`w-4 h-4 ${pestanaActiva === "HISTORIAL_ARQUEOS" ? "text-white" : "text-amber-600"}`} />
-            <span>Historial de Arqueos & Novedades</span>
+            <span>Historial Cierres</span>
           </button>
         </div>
 
@@ -626,18 +649,14 @@ export default function ControlCajaAdminPage() {
                     Base Inicial en Efectivo ($ COP) *
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
-                      $
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      step="500"
+                    <InputDinero
+                      mostrarPrefijo
+                      clasePrefijo="text-slate-500 font-black text-lg"
                       required
                       placeholder="100000"
                       value={baseInicialInput}
                       onChange={(e) => setBaseInicialInput(e.target.value)}
-                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
+                      className="w-full pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
                     />
                   </div>
                   <div className="flex gap-2 mt-2.5 flex-wrap">
@@ -1067,18 +1086,14 @@ export default function ControlCajaAdminPage() {
                             ($ COP) *
                           </label>
                           <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
-                              $
-                            </div>
-                            <input
-                              type="number"
-                              min="0"
-                              step="100"
+                            <InputDinero
+                              mostrarPrefijo
+                              clasePrefijo="text-slate-500 font-black text-lg"
                               required
-                              placeholder="Ingrese el conteo real de billetes y monedas..."
+                              placeholder="0"
                               value={efectivoContadoInput}
                               onChange={(e) => setEfectivoContadoInput(e.target.value)}
-                              className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-950 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs font-mono"
+                              className="w-full pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-950 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs font-mono"
                             />
                           </div>
                         </div>
@@ -1125,7 +1140,7 @@ export default function ControlCajaAdminPage() {
                           <label className="block text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center justify-between">
                             <span className="flex items-center gap-1.5">
                               <FileText className="w-3.5 h-3.5 text-blue-600" />
-                              <span>Observaciones / Nota de Novedad o Justificación de Diferencia</span>
+                              <span>Nota / Justificación</span>
                             </span>
                             {efectivoContadoInput !== "" && diferenciaEnVivo !== 0 && (
                               <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
@@ -1182,14 +1197,14 @@ export default function ControlCajaAdminPage() {
 
                         <div className="space-y-2.5 text-xs sm:text-sm">
                           <div className="flex justify-between items-center text-slate-700 font-medium">
-                            <span>Total Físico Esperado (Base + Efectivo + Depósitos):</span>
+                            <span>Esperado:</span>
                             <span className="font-mono font-bold text-slate-900 text-sm md:text-base">
                               ${esperadoGaveta.toLocaleString("es-CO")}
                             </span>
                           </div>
 
                           <div className="flex justify-between items-center text-slate-700 font-medium">
-                            <span>Efectivo Físico Contado por Cajero:</span>
+                            <span>Contado:</span>
                             <span className="font-mono font-bold text-slate-900 text-sm md:text-base">
                               ${contadoNumerico.toLocaleString("es-CO")}
                             </span>
@@ -1420,18 +1435,14 @@ export default function ControlCajaAdminPage() {
                       Base Inicial en Efectivo ($ COP) *
                     </label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
-                        $
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        step="500"
+                      <InputDinero
+                        mostrarPrefijo
+                        clasePrefijo="text-slate-500 font-black text-lg"
                         required
                         placeholder="50000"
                         value={baseNuevaCajaDividida}
                         onChange={(e) => setBaseNuevaCajaDividida(e.target.value)}
-                        className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-lg font-black focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs font-mono"
+                        className="w-full pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-lg font-black focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs font-mono"
                       />
                     </div>
                     <div className="flex gap-2 mt-2 flex-wrap">
@@ -1658,6 +1669,94 @@ export default function ControlCajaAdminPage() {
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer"
               >
                 Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación de Cierre Exitoso con Respaldo Automático */}
+      {resumenCierreExitoso && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in select-none">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg p-6 space-y-4 text-slate-800 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    Cierre de Caja Asentado con Éxito
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {resumenCierreExitoso.nombreGabinete}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResumenCierreExitoso(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+              <span className="font-bold text-slate-700">Estado del Arqueo:</span>
+              <p className="text-slate-600 font-medium">
+                {resumenCierreExitoso.tieneDiferencia
+                  ? `Cierre registrado con novedad autorizada de $${resumenCierreExitoso.diferencia.toLocaleString("es-CO")}.`
+                  : "Cuadre exacto sin diferencias de gaveta."}
+              </p>
+            </div>
+
+            {/* Respaldo Automático SQLite */}
+            {resumenCierreExitoso.respaldoAutomatico?.success ? (
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs space-y-2 text-emerald-950">
+                <div className="flex items-center gap-2 font-bold text-emerald-900">
+                  <Database className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Copia de Seguridad Automática Generada</span>
+                </div>
+                <p className="font-mono text-[11px] text-emerald-800 break-all bg-white/80 p-1.5 rounded border border-emerald-200">
+                  {resumenCierreExitoso.respaldoAutomatico.nombreArchivo}
+                </p>
+                <p className="text-[11px] text-emerald-700">
+                  Guardado de forma segura en la carpeta predeterminada del servidor con checkpoint WAL preventivo.
+                </p>
+
+                {resumenCierreExitoso.respaldoAutomatico.nombreArchivo && (
+                  <a
+                    href={`/api/backup?archivo=${encodeURIComponent(
+                      resumenCierreExitoso.respaldoAutomatico.nombreArchivo
+                    )}`}
+                    download={resumenCierreExitoso.respaldoAutomatico.nombreArchivo}
+                    className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition mt-1 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Descargar Copia a este Computador (.db)</span>
+                  </a>
+                )}
+              </div>
+            ) : resumenCierreExitoso.respaldoAutomatico?.advertencia ? (
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
+                <div className="flex items-center gap-2 font-bold text-amber-950">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Aviso de Respaldo</span>
+                </div>
+                <p className="text-[11px] text-amber-800">
+                  {resumenCierreExitoso.respaldoAutomatico.advertencia}
+                </p>
+              </div>
+            ) : null}
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setResumenCierreExitoso(null)}
+                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+              >
+                Aceptar y Finalizar
               </button>
             </div>
           </div>

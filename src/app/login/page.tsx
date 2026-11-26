@@ -18,8 +18,6 @@ import {
   Hash,
   ShieldAlert,
   LogOut,
-  Delete,
-  Smartphone,
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import BotonMinimizarVentana from "@/components/ui/BotonMinimizarVentana";
@@ -39,18 +37,6 @@ export default function LoginPage() {
     mensaje: string;
   } | null>(null);
   const [liberandoRemoto, setLiberandoRemoto] = useState(false);
-  const [mostrarPadTactil, setMostrarPadTactil] = useState(true);
-
-  // Acciones rápidas del Pad Numérico Táctil
-  const handleDigitoPad = (d: string) => {
-    setPassword((prev) => prev + d);
-  };
-  const handleBorrarDigito = () => {
-    setPassword((prev) => prev.slice(0, -1));
-  };
-  const handleLimpiarPassword = () => {
-    setPassword("");
-  };
 
   // Estados del modal de recuperación de 3 factores
   const [modalRecuperarAbierto, setModalRecuperarAbierto] = useState(false);
@@ -291,7 +277,7 @@ export default function LoginPage() {
             subtitleClassName="text-xs sm:text-sm text-slate-500 font-medium mt-1"
           />
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/80 border border-slate-300/70 text-slate-700 text-xs font-semibold mt-2">
-            <span>Sistema POS & Control de Mostrador</span>
+            <span>Acceso al Sistema</span>
           </div>
         </div>
 
@@ -349,7 +335,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5" autoComplete="off">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Nombre de Usuario
+                Usuario
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -360,7 +346,7 @@ export default function LoginPage() {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Ingresa tu usuario"
+                  placeholder="Usuario"
                   autoComplete="off"
                   className="w-full pl-10 pr-4 py-2.5 sm:py-3 rounded-xl border border-slate-300 text-slate-800 text-[15px] sm:text-base font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:text-slate-400"
                 />
@@ -369,7 +355,7 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Contraseña
+                Clave / PIN
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -388,75 +374,19 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setMostrarPassword(!mostrarPassword)}
                   className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
-                  title={mostrarPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                  title={mostrarPassword ? "Ocultar clave" : "Ver clave"}
                 >
                   {mostrarPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Control para alternar el Pad Numérico Táctil */}
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Teclado Numérico en Pantalla
-              </span>
-              <button
-                type="button"
-                onClick={() => setMostrarPadTactil(!mostrarPadTactil)}
-                className="text-xs font-bold text-blue-600 hover:text-blue-800 transition flex items-center gap-1 cursor-pointer"
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>{mostrarPadTactil ? "Ocultar Pad" : "Mostrar Pad"}</span>
-              </button>
-            </div>
-
-            {/* Pad Numérico Táctil de Mostrador */}
-            {mostrarPadTactil && (
-              <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200/90 shadow-2xs space-y-1.5">
-                <div className="grid grid-cols-3 gap-1.5">
-                  {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digito) => (
-                    <button
-                      key={digito}
-                      type="button"
-                      onClick={() => handleDigitoPad(digito)}
-                      className="h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black font-mono bg-white hover:bg-slate-100 active:scale-95 transition-all text-slate-800 border border-slate-200 shadow-2xs flex items-center justify-center cursor-pointer select-none"
-                    >
-                      {digito}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={handleLimpiarPassword}
-                    className="h-11 sm:h-12 rounded-xl text-xs font-black font-mono bg-rose-50 hover:bg-rose-100 active:scale-95 transition-all text-rose-700 border border-rose-200 shadow-2xs flex items-center justify-center cursor-pointer select-none"
-                    title="Limpiar campo"
-                  >
-                    C
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDigitoPad("0")}
-                    className="h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black font-mono bg-white hover:bg-slate-100 active:scale-95 transition-all text-slate-800 border border-slate-200 shadow-2xs flex items-center justify-center cursor-pointer select-none"
-                  >
-                    0
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleBorrarDigito}
-                    className="h-11 sm:h-12 rounded-xl text-sm font-bold bg-amber-50 hover:bg-amber-100 active:scale-95 transition-all text-amber-800 border border-amber-200 shadow-2xs flex items-center justify-center cursor-pointer select-none"
-                    title="Borrar último dígito"
-                  >
-                    <Delete className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
             <button
               type="submit"
               disabled={cargando}
               className="w-full min-h-[46px] py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[15px] sm:text-base shadow-sm shadow-blue-500/20 transition-all duration-150 flex items-center justify-center space-x-2 disabled:opacity-60 cursor-pointer"
             >
-              <span>{cargando ? "Validando credenciales..." : "Iniciar Sesión"}</span>
+              <span>{cargando ? "Validando..." : "Ingresar"}</span>
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
@@ -472,7 +402,7 @@ export default function LoginPage() {
               className="text-xs text-slate-600 hover:text-blue-700 font-semibold hover:underline transition inline-flex items-center gap-1.5 cursor-pointer"
             >
               <KeyRound className="h-3.5 w-3.5 text-blue-600" />
-              <span>Restaurar contraseña mediante verificación de identidad</span>
+              <span>Recuperar Clave</span>
             </button>
           </div>
         </div>
@@ -492,11 +422,11 @@ export default function LoginPage() {
                   <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900">Restauración de Contraseña</h3>
+                  <h3 className="text-base font-extrabold text-slate-900">Recuperar Clave</h3>
                   <p className="text-xs text-slate-500 font-medium">
                     {pasoRecuperacion === 1
-                      ? "Paso 1: Verificación de Identidad"
-                      : "Paso 2: Desafío de Seguridad & PIN"}
+                      ? "1. Validar Identidad"
+                      : "2. Nueva Contrasena"}
                   </p>
                 </div>
               </div>
@@ -552,7 +482,7 @@ export default function LoginPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Documento de Identidad (Cédula o NIT)
+                    Documento (CC / NIT)
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -563,7 +493,7 @@ export default function LoginPage() {
                       required
                       value={recuperarDocumento}
                       onChange={(e) => setRecuperarDocumento(e.target.value)}
-                      placeholder="Número de cédula o NIT registrado"
+                      placeholder="Documento registrado"
                       autoComplete="off"
                       className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     />
@@ -583,7 +513,7 @@ export default function LoginPage() {
                     disabled={recuperando}
                     className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm transition disabled:opacity-50 cursor-pointer inline-flex items-center gap-1.5"
                   >
-                    <span>{recuperando ? "Verificando..." : "Continuar Desafío"}</span>
+                    <span>{recuperando ? "Verificando..." : "Verificar"}</span>
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
@@ -596,21 +526,21 @@ export default function LoginPage() {
                 <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-100 text-xs text-blue-900 flex items-start gap-2">
                   <HelpCircle className="h-4 w-4 shrink-0 mt-0.5 text-blue-600" />
                   <div>
-                    <span className="font-bold block">Pregunta de Seguridad Registrada:</span>
+                    <span className="font-bold block">Pregunta:</span>
                     <span>{preguntaSeguridadServidor}</span>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Respuesta de Seguridad
+                    Respuesta
                   </label>
                   <input
                     type="text"
                     required
                     value={recuperarRespuesta}
                     onChange={(e) => setRecuperarRespuesta(e.target.value)}
-                    placeholder="Tu respuesta exacta"
+                    placeholder="Respuesta"
                     autoComplete="off"
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
@@ -618,7 +548,7 @@ export default function LoginPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    PIN Numérico de Seguridad (6 Dígitos)
+                    PIN Maestro (6 digitos)
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -701,7 +631,7 @@ export default function LoginPage() {
                       className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm transition disabled:opacity-50 cursor-pointer inline-flex items-center gap-1.5"
                     >
                       <KeyRound className="h-4 w-4" />
-                      <span>{recuperando ? "Restableciendo..." : "Restablecer Clave"}</span>
+                      <span>{recuperando ? "Guardando..." : "Guardar Clave"}</span>
                     </button>
                   </div>
                 </div>

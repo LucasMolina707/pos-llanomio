@@ -89,6 +89,16 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Blindaje contra alteraciones accidentales por rueda del ratón (mouse wheel) y eliminación de spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 /* Texto de tamaño base ergonómico para terminales de PC */
 @media (min-width: 1024px) {
   .texto-pos-base {
@@ -111,7 +121,7 @@ div[data-nextjs-portal] {
   pointer-events: none !important;
 }
 
-/* Reglas de impresión limpia para reportes ejecutivos y panel de Johana */
+/* Reglas de impresión limpia para reportes ejecutivos y panel de Yohanna */
 @media print {
   header, nav, aside, .no-print {
     display: none !important;
@@ -122,6 +132,7 @@ div[data-nextjs-portal] {
     padding: 0 !important;
     margin: 0 !important;
   }
+  #panel-yohanna-impresion,
   #panel-johana-impresion {
     border: none !important;
     box-shadow: none !important;

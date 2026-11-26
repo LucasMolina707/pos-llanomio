@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Tooltip from "@/components/ui/Tooltip";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
+import InputDinero from "@/components/ui/InputDinero";
 
 export interface PagoAplicado {
   id: string;
@@ -196,13 +197,6 @@ export default function PanelPagosSecuenciales({
   const inputMontoRef = useRef<HTMLInputElement>(null);
   const selectOtrosBancosRef = useRef<HTMLSelectElement>(null);
 
-  // Sincronizar el input de monto por defecto al saldo faltante si no ha sido editado a mano
-  useEffect(() => {
-    if (!montoModificadoManualmente) {
-      setMontoAbonarInput(saldoFaltante > 0 ? String(saldoFaltante) : "0");
-    }
-  }, [saldoFaltante, montoModificadoManualmente]);
-
   // Foco automático al montar y cuando se active autoFocus
   useEffect(() => {
     if (autoFocus) {
@@ -247,7 +241,10 @@ export default function PanelPagosSecuenciales({
   // Manejador para aplicar un abono (total o parcial)
   const agregarPagoALista = useCallback(() => {
     setErrorInput(null);
-    const montoDigitado = Math.round(montoAbonarNum * 100) / 100;
+    // Si el usuario no digitó nada en el input pero presiona Enter, toma por defecto el saldo faltante
+    const montoDigitado = montoAbonarInput.trim() === ""
+      ? saldoFaltante
+      : Math.round(montoAbonarNum * 100) / 100;
 
     if (montoDigitado <= 0) {
       setErrorInput("Digite un monto válido mayor a $0.");
@@ -321,7 +318,7 @@ export default function PanelPagosSecuenciales({
     }
 
     // Si el saldo sigue siendo mayor a 0 (Abono Parcial):
-    setMontoAbonarInput(nuevoSaldo > 0 ? String(nuevoSaldo) : "0");
+    setMontoAbonarInput("");
     setMontoModificadoManualmente(false);
     setReferenciaInput("");
     setErrorInput(null);
@@ -351,7 +348,7 @@ export default function PanelPagosSecuenciales({
     const nuevoTotalPagado = nuevaLista.reduce((acc, p) => acc + p.monto, 0);
     const nuevoSaldo = Math.max(0, Math.round((totalExigible - nuevoTotalPagado) * 100) / 100);
 
-    setMontoAbonarInput(String(nuevoSaldo));
+    setMontoAbonarInput("");
     setMontoModificadoManualmente(false);
     setUltimasVueltas(0);
     setErrorInput(null);
@@ -368,7 +365,7 @@ export default function PanelPagosSecuenciales({
     onChangePagos(nuevaLista);
     const nuevoTotalPagado = nuevaLista.reduce((acc, p) => acc + p.monto, 0);
     const nuevoSaldo = Math.max(0, Math.round((totalExigible - nuevoTotalPagado) * 100) / 100);
-    setMontoAbonarInput(String(nuevoSaldo));
+    setMontoAbonarInput("");
     setMontoModificadoManualmente(false);
     setTimeout(() => {
       inputMontoRef.current?.focus();
@@ -379,7 +376,7 @@ export default function PanelPagosSecuenciales({
   // Restablecer todos los pagos aplicados
   const limpiarTodosLosPagos = () => {
     onChangePagos([]);
-    setMontoAbonarInput(String(totalExigible));
+    setMontoAbonarInput("");
     setMontoModificadoManualmente(false);
     setReferenciaInput("");
     setUltimasVueltas(0);
@@ -467,47 +464,36 @@ export default function PanelPagosSecuenciales({
 
   return (
     <div className={`space-y-3 select-none ${className}`}>
-      {/* 1. Barra de Control de Montos: Total Factura, Pagado y Saldo */}
-      <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+      {/* 1. Control Contable: Resumen de Saldos (Solo activo al registrar abonos parciales) */}
+      {totalPagado > 0 && (
+        <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-              {etiquetaTotal}
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              Abonado:
             </span>
-            <span className="font-mono text-2xl font-black text-slate-900 tabular-nums">
-              ${totalExigible.toLocaleString("es-CO")}
+            <span className={`font-mono text-lg font-black tabular-nums ${estilosColor.textoPrimario}`}>
+              ${totalPagado.toLocaleString("es-CO")}
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <span className="text-[10px] font-bold uppercase text-slate-400 block">
-                Total Aplicado:
-              </span>
-              <span className={`font-mono text-base sm:text-lg font-black tabular-nums ${estilosColor.textoPrimario}`}>
-                ${totalPagado.toLocaleString("es-CO")}
-              </span>
-            </div>
+          <div className="h-7 w-px bg-slate-200" />
 
-            <div className="h-8 w-px bg-slate-200" />
-
-            <div className="text-right">
-              <span className="text-[10px] font-bold uppercase text-slate-400 block">
-                Saldo Pendiente:
-              </span>
-              <span
-                className={`font-mono text-base sm:text-lg font-black tabular-nums px-2 py-0.5 rounded-lg border transition ${
-                  saldoFaltante === 0
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                    : "bg-rose-50 text-rose-700 border-rose-300"
-                }`}
-              >
-                ${saldoFaltante.toLocaleString("es-CO")}
-              </span>
-            </div>
+          <div className="text-right">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              Saldo:
+            </span>
+            <span
+              className={`font-mono text-lg font-black tabular-nums px-2 py-0.5 rounded-lg border transition ${
+                saldoFaltante === 0
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                  : "bg-rose-50 text-rose-700 border-rose-300"
+              }`}
+            >
+              ${saldoFaltante.toLocaleString("es-CO")}
+            </span>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Banner Prominente de Vueltas / Cambio si aplica */}
       {totalVueltasVisibles > 0 && (
@@ -515,7 +501,7 @@ export default function PanelPagosSecuenciales({
           <div className="flex items-center gap-2">
             <Coins className="w-5 h-5 shrink-0 text-emerald-200" />
             <span className="text-xs font-black uppercase tracking-wider">
-              Cambio / Vueltas a Entregar:
+              Vueltas:
             </span>
           </div>
           <span className="font-mono text-2xl font-black tabular-nums">
@@ -529,7 +515,7 @@ export default function PanelPagosSecuenciales({
         <div className="flex items-center justify-between">
           <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
             <Wallet className="w-4 h-4 text-slate-600" />
-            <span>Medio de Pago:</span>
+            <span>Medio:</span>
           </label>
 
           <span className="text-[10.5px] font-semibold text-slate-400">
@@ -551,23 +537,15 @@ export default function PanelPagosSecuenciales({
                 inputMontoRef.current?.select();
               }, 30);
             }}
-            className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-between gap-2 cursor-pointer w-full ${
+            className={`py-2 px-3 rounded-xl text-xs font-bold border transition inline-flex items-center justify-center gap-1.5 cursor-pointer w-full whitespace-nowrap ${
               metodoSeleccionado === "EFECTIVO"
                 ? `${estilosColor.botonPrimario} shadow-xs ring-2 ${estilosColor.ringFocus}`
                 : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
             }`}
+            title="Pagar con Efectivo (Alt+1)"
           >
-            <div className="flex items-center gap-2">
-              <Banknote className="w-4 h-4 shrink-0" />
-              <span>Efectivo</span>
-            </div>
-            <span
-              className={`text-[9.5px] font-mono px-1 rounded ${
-                metodoSeleccionado === "EFECTIVO" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
-              }`}
-            >
-              Alt+1
-            </span>
+            <Banknote className="w-4 h-4 shrink-0" />
+            <span>Efectivo</span>
           </button>
 
           {/* 2. Bancolombia */}
@@ -580,23 +558,24 @@ export default function PanelPagosSecuenciales({
                 inputMontoRef.current?.select();
               }, 30);
             }}
-            className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-between gap-2 cursor-pointer w-full ${
+            className={`py-2 px-3 rounded-xl text-xs font-bold border transition inline-flex items-center justify-center gap-1.5 cursor-pointer w-full whitespace-nowrap ${
               metodoSeleccionado === "BANCOLOMBIA"
                 ? `${estilosColor.botonPrimario} shadow-xs ring-2 ${estilosColor.ringFocus}`
                 : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
             }`}
+            title="Pagar con Bancolombia (Alt+2)"
           >
-            <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 shrink-0" />
-              <span>Bancolombia</span>
-            </div>
-            <span
-              className={`text-[9.5px] font-mono px-1 rounded ${
-                metodoSeleccionado === "BANCOLOMBIA" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
-              }`}
-            >
-              Alt+2
+            <span className="w-4 h-4 shrink-0 overflow-hidden flex items-center justify-center rounded-xs">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/iconos/bancolombia-logo.png"
+                alt=""
+                className={`w-3.5 h-3.5 object-contain ${
+                  metodoSeleccionado === "BANCOLOMBIA" ? "brightness-0 invert" : ""
+                }`}
+              />
             </span>
+            <span>Bancolombia</span>
           </button>
 
           {/* 3. Desplegable Otros Bancos / Medios */}
@@ -634,7 +613,7 @@ export default function PanelPagosSecuenciales({
                 }`}
               >
                 <option value="" disabled className="text-slate-800 bg-white">
-                  Otros Bancos / Medios ▼
+                  Otros Medios ▼
                 </option>
                 {OTROS_METODOS_CATALOGO.map((om) => (
                   <option key={om.id} value={om.id} className="text-slate-800 bg-white">
@@ -653,7 +632,7 @@ export default function PanelPagosSecuenciales({
           <div className={`${metodoSeleccionado === "EFECTIVO" ? "sm:col-span-8" : "sm:col-span-8"} space-y-1`}>
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-bold text-slate-700 block">
-                {metodoSeleccionado === "EFECTIVO" ? "Efectivo Recibido:" : "Monto a Pagar:"}
+                Recibido:
               </label>
 
               {saldoFaltante > 0 && montoAbonarNum !== saldoFaltante && (
@@ -672,11 +651,11 @@ export default function PanelPagosSecuenciales({
             </div>
 
             <div className="flex items-center gap-1.5">
-              <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                <input
+              <div className="flex-1">
+                <InputDinero
                   ref={inputMontoRef}
-                  type="number"
+                  id="input-recibido-panel-pagos"
+                  mostrarPrefijo
                   value={montoAbonarInput}
                   onChange={(e) => {
                     setMontoAbonarInput(e.target.value);
@@ -697,7 +676,7 @@ export default function PanelPagosSecuenciales({
                     }
                   }}
                   placeholder={String(saldoFaltante)}
-                  className={`w-full pl-7 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono text-base font-black tabular-nums text-slate-900 focus:outline-none focus:ring-2 ${estilosColor.ringFocus}`}
+                  className={`w-full pr-3 py-2 bg-white border border-slate-300 rounded-xl font-mono text-base font-black tabular-nums text-slate-900 focus:outline-none focus:ring-2 ${estilosColor.ringFocus}`}
                 />
               </div>
 
@@ -723,7 +702,7 @@ export default function PanelPagosSecuenciales({
           {metodoSeleccionado !== "EFECTIVO" && (
             <div className="sm:col-span-4 space-y-1">
               <label className="text-[11px] font-bold text-slate-700 block">
-                Referencia (Opcional):
+                Ref / Aprobacion:
               </label>
               <input
                 type="text"
@@ -735,7 +714,7 @@ export default function PanelPagosSecuenciales({
                     agregarPagoALista();
                   }
                 }}
-                placeholder="N° aprobación o comprobante"
+                placeholder="Comprobante"
                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -750,7 +729,7 @@ export default function PanelPagosSecuenciales({
               className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs ${estilosColor.botonPrimario}`}
             >
               <CornerDownLeft className="w-4 h-4" />
-              <span>{saldoFaltante <= montoAbonarNum && saldoFaltante > 0 ? "Completar Cobro [Enter]" : "Registrar Abono [Enter]"}</span>
+              <span>{saldoFaltante <= montoAbonarNum && saldoFaltante > 0 ? "Cobrar [Enter]" : "Abonar [Enter]"}</span>
             </button>
           </div>
         </div>
@@ -764,18 +743,18 @@ export default function PanelPagosSecuenciales({
         )}
       </div>
 
-      {/* 3. Lista de Abonos / Pagos Registrados */}
-      <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2.5">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-          <div className="flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-slate-700" />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-              Abonos Registrados ({pagos.length})
-            </h4>
-          </div>
+      {/* 3. Lista de Abonos Registrados (Solo visible cuando hay abonos) */}
+      {pagos.length > 0 && (
+        <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-2">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-slate-700" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                Abonos Registrados ({pagos.length})
+              </h4>
+            </div>
 
-          <div className="flex items-center gap-2">
-            {pagos.length > 0 && (
+            <div className="flex items-center gap-2">
               <Tooltip content="Eliminar el último abono registrado (F3 o Alt+Z)" position="left">
                 <button
                   type="button"
@@ -786,30 +765,21 @@ export default function PanelPagosSecuenciales({
                   <span>Deshacer [F3]</span>
                 </button>
               </Tooltip>
-            )}
 
-            {pagos.length > 1 && (
-              <Tooltip content="Eliminar todos los abonos y reiniciar desde cero" position="left">
-                <button
-                  type="button"
-                  onClick={limpiarTodosLosPagos}
-                  className="text-[11px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 hover:underline cursor-pointer ml-1"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Limpiar</span>
-                </button>
-              </Tooltip>
-            )}
+              {pagos.length > 1 && (
+                <Tooltip content="Eliminar todos los abonos y reiniciar desde cero" position="left">
+                  <button
+                    type="button"
+                    onClick={limpiarTodosLosPagos}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 hover:underline cursor-pointer ml-1"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reiniciar</span>
+                  </button>
+                </Tooltip>
+              )}
+            </div>
           </div>
-        </div>
-
-        {pagos.length === 0 ? (
-          <div className="p-2.5 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center">
-            <p className="text-xs text-slate-500 font-medium">
-              Sin abonos registrados. Presione <kbd className="px-1 py-0.5 bg-slate-200 rounded font-mono font-bold text-slate-700 text-[10px]">Enter</kbd> para cobrar con {metodoSeleccionado}.
-            </p>
-          </div>
-        ) : (
           <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
             {pagos.map((p, idx) => {
               const metaMetodo = METODOS_PAGO_CATALOGO.find((m) => m.id === p.metodoPago);
@@ -862,8 +832,8 @@ export default function PanelPagosSecuenciales({
               );
             })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

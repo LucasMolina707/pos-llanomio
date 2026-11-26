@@ -60,6 +60,7 @@ enum EstadoFactura {
   ACTIVA_ALQUILADA
   EN_MORA
   CERRADA
+  ANULADA
 }
 
 enum MetodoPago {
@@ -190,14 +191,22 @@ model Cliente {
   municipio             String    @default("Villavicencio - Meta")
   codigoDaneMunicipio   String    @default("50001")
 
+  // Cartera de Crédito y Cupo Financiero
+  creditoHabilitado     Boolean   @default(false)
+  cupoCredito           Float     @default(0)
+  diasCredito           Int       @default(30)
+  notasCredito          String?
+
   fechaCreacion         DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
   facturas              Factura[]
+  movimientosCartera    MovimientoCartera[]
 
   @@index([nombre])
   @@index([telefono])
   @@index([esResponsableIVA])
+  @@index([creditoHabilitado])
   @@map("clientes")
 }
 
@@ -227,6 +236,8 @@ model Producto {
   detallesFactura        DetalleFactura[]
 
   @@index([tipo])
+  @@index([nombre])
+  @@index([tipo, activo])
   @@index([estadoPrenda])
   @@index([activo])
   @@index([categoria])
@@ -257,9 +268,11 @@ model Factura {
   totalAbonado           Float          @default(0)
   saldoPendiente         Float          @default(0)
   
-  // Gestión de Depósito en Garantía para Alquileres
+  // Gestión de Depósito en Custodia / Garantía
   montoDeposito           Float          @default(0)
-  estadoDeposito          String         @default("SIN_DEPOSITO") // SIN_DEPOSITO | RECIBIDO_EN_GARANTIA | DEVUELTO_COMPLETO | RETENIDO_PARCIAL | RETENIDO_TOTAL
+  depositoAbonado         Float          @default(0)
+  saldoDeposito           Float          @default(0)
+  estadoDeposito          String         @default("SIN_DEPOSITO") // SIN_DEPOSITO | PENDIENTE | ABONADO_PARCIAL | RECIBIDO_EN_GARANTIA | DEVUELTO_COMPLETO | RETENIDO_PARCIAL | RETENIDO_TOTAL
   montoRetenidoDeposito   Float          @default(0)
   montoDevueltoDeposito   Float          @default(0)
   motivoRetencionDeposito String?
@@ -274,25 +287,33 @@ model Factura {
   observaciones          String?
   fechaRetiroApartado    DateTime?
   fechaDevolucionEstimada DateTime?
+  
+  // Modalidad de Crédito y Cartera
+  esCredito              Boolean        @default(false)
+
   updatedAt              DateTime       @updatedAt
 
   detalles               DetalleFactura[]
   abonos                 Abono[]
+  movimientosCartera     MovimientoCartera[]
 
   @@index([clienteId])
   @@index([usuarioCajeroId])
   @@index([turnoCajaId])
   @@index([estado])
+  @@index([tipoOperacion, estado])
+  @@index([tipoOperacion, fechaCreacion])
   @@index([fechaCreacion])
   @@index([fechaDevolucionPactada])
   @@index([saldoPendiente])
+  @@index([esCredito])
   @@map("facturas")
 }
 
 model DetalleFactura {
   id               String    @id @default(cuid())
   facturaId        String
-  factura          Factura   @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  factura          Factura   @relation(fields: [facturaId], references: [id], onDelete: Restrict)
   productoId       String?
   producto         Producto? @relation(fields: [productoId], references: [id])
   esServicioLibre      Boolean   @default(false)
@@ -319,7 +340,7 @@ model DetalleFactura {
 model Abono {
   id                    String     @id @default(cuid())
   facturaId             String
-  factura               Factura    @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  factura               Factura    @relation(fields: [facturaId], references: [id], onDelete: Restrict)
   cajeroId              String
   cajero                User       @relation(fields: [cajeroId], references: [id])
   turnoCajaId           String?
@@ -329,6 +350,7 @@ model Abono {
   montoRecibido         Float?
   vueltasEntregadas     Float?
   referenciaComprobante String?
+  tipoAbono             String?    @default("ALQUILER") // "ALQUILER" | "DEPOSITO_GARANTIA"
   notas                 String?
   fecha                 DateTime   @default(now())
 
@@ -337,6 +359,7 @@ model Abono {
   @@index([turnoCajaId])
   @@index([fecha])
   @@index([metodoPago])
+  @@index([tipoAbono])
   @@map("abonos")
 }
 
@@ -497,4 +520,38 @@ model Gasto {
   @@index([esNomina])
   @@index([nombreEmpleado])
   @@map("gastos")
+}
+
+// ==========================================
+// CARTERA DE CLIENTES Y MOVIMIENTOS A CRÉDITO
+// ==========================================
+
+enum TipoMovimientoCartera {
+  CARGO_VENTA
+  CARGO_ALQUILER
+  ABONO_CUENTA
+  AJUSTE_CUPO
+}
+
+model MovimientoCartera {
+  id              String                @id @default(cuid())
+  clienteId       String
+  cliente         Cliente               @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  facturaId       String?
+  factura         Factura?              @relation(fields: [facturaId], references: [id], onDelete: SetNull)
+  tipoMovimiento  TipoMovimientoCartera @default(CARGO_VENTA)
+  monto           Float
+  saldoAnterior   Float                 @default(0)
+  saldoNuevo      Float                 @default(0)
+  metodoPago      String?
+  referencia      String?
+  descripcion     String?
+  usuarioCajeroId String?
+  fecha           DateTime              @default(now())
+
+  @@index([clienteId])
+  @@index([facturaId])
+  @@index([fecha])
+  @@index([tipoMovimiento])
+  @@map("movimientos_cartera")
 }

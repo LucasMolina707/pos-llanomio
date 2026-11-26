@@ -29,8 +29,15 @@ import {
   FileUp,
   Plus,
 } from "lucide-react";
-import ModalCrearClienteRapido, { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
-import ModalGestionExcel from "@/components/excel/ModalGestionExcel";
+import dynamic from "next/dynamic";
+import type { ClienteCreado } from "@/components/pos/ModalCrearClienteRapido";
+
+const ModalCrearClienteRapido = dynamic(() => import("@/components/pos/ModalCrearClienteRapido"), {
+  ssr: false,
+});
+const ModalGestionExcel = dynamic(() => import("@/components/excel/ModalGestionExcel"), {
+  ssr: false,
+});
 import { filtrarPorRelevancia } from "@/lib/fuzzy-search";
 import { safeFetchJson } from "@/lib/safe-fetch";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
@@ -67,11 +74,14 @@ export default function DirectorioClientesPage() {
   const [clienteAEditar, setClienteAEditar] = useState<ClienteDirectorio | null>(null);
   const [mostrarModalExcel, setMostrarModalExcel] = useState(false);
 
-  const cargarClientes = useCallback(async () => {
+  const cargarClientes = useCallback(async (silencioso?: boolean | unknown) => {
+    const esSilencioso = typeof silencioso === "boolean" ? silencioso : false;
     try {
-      setCargando(true);
+      if (!esSilencioso && clientes.length === 0) setCargando(true);
       setError(null);
-      const res = await safeFetchJson<{ success?: boolean; ok?: boolean; clientes?: ClienteDirectorio[]; error?: string }>("/api/clientes");
+      const res = await safeFetchJson<{ success?: boolean; ok?: boolean; clientes?: ClienteDirectorio[]; error?: string }>("/api/clientes", {
+        forzarFresco: esSilencioso,
+      });
       if (res.ok && res.data?.clientes) {
         setClientes(res.data.clientes);
       } else {
@@ -124,10 +134,10 @@ export default function DirectorioClientesPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-slate-900 leading-tight truncate">
-              Directorio de Clientes
+              Clientes
             </h1>
             <p className="text-xs text-slate-500 font-medium truncate">
-              Gestión de clientes, historial de contratos y datos de facturación
+              Padrón, contratos y cartera
             </p>
           </div>
         </div>
@@ -135,7 +145,7 @@ export default function DirectorioClientesPage() {
         <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto justify-end flex-nowrap">
           <IconButtonTooltip
             icon={FileDown}
-            label="Descargar Plantilla Oficial"
+            label="Plantilla Excel"
             modulo="Excel"
             destino="Descarga formato .xlsx para carga masiva"
             size="md"
@@ -145,7 +155,7 @@ export default function DirectorioClientesPage() {
 
           <IconButtonTooltip
             icon={Download}
-            label="Exportar Clientes a Excel"
+            label="Exportar"
             modulo="Reportes"
             destino="Descarga lista completa de clientes"
             size="md"
@@ -155,7 +165,7 @@ export default function DirectorioClientesPage() {
 
           <IconButtonTooltip
             icon={FileUp}
-            label="Importar Clientes desde Excel"
+            label="Importar"
             modulo="Excel"
             destino="Abre asistente de carga y validación"
             variant="emerald"
@@ -165,7 +175,7 @@ export default function DirectorioClientesPage() {
 
           <IconButtonTooltip
             icon={RefreshCw}
-            label="Actualizar Directorio"
+            label="Actualizar"
             modulo="Clientes"
             destino="Recarga listado en tiempo real"
             onClick={cargarClientes}
@@ -177,7 +187,7 @@ export default function DirectorioClientesPage() {
 
           <IconButtonTooltip
             icon={Plus}
-            label="Crear Nuevo Cliente"
+            label="+ Nuevo Cliente"
             modulo="Clientes"
             destino="Abre formulario para registrar cliente"
             variant="primary"
@@ -194,7 +204,7 @@ export default function DirectorioClientesPage() {
             <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar cliente por Cédula / NIT, Razón Social, Nombre, Teléfono o Correo..."
+              placeholder="Buscar cédula, nombre o teléfono..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
@@ -355,13 +365,13 @@ export default function DirectorioClientesPage() {
                           </button>
                         </Tooltip>
 
-                        <Tooltip content="Ver Historial Completo" subtext="Expediente de compras, alquileres y cartera" position="left">
+                        <Tooltip content="Ver Ficha" subtext="Expediente de compras, alquileres y cartera" position="left">
                           <Link
                             href={`/admin/clientes/${c.id}`}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-[34px] rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition shadow-xs cursor-pointer"
                           >
                             <FileText className="w-4 h-4" />
-                            <span className="hidden xl:inline">Historial</span>
+                            <span className="hidden xl:inline">Ver Ficha</span>
                             <ArrowRight className="w-3 h-3 hidden sm:inline" />
                           </Link>
                         </Tooltip>

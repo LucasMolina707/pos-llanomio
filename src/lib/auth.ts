@@ -22,9 +22,23 @@ export const TIEMPO_EXPIRACION_INACTIVIDAD_MS = 3 * 60 * 1000;
 
 /**
  * Opciones para la cookie HttpOnly de sesión del POS local.
- * NOTA CRÍTICA LAN: 'secure' se mantiene en false para permitir conexiones HTTP
- * desde celulares, tablets y computadores conectados a la red Wi-Fi local sin HTTPS.
+ * En LAN opera en HTTP sin HTTPS; si se detecta conexión segura (HTTPS), se eleva automáticamente a secure: true.
  */
+export function resolverOpcionesCookie(req?: NextRequest | Request) {
+  let esHttps = false;
+  if (req) {
+    const proto = req.headers.get("x-forwarded-proto") || "";
+    esHttps = proto === "https" || (req as any).url?.startsWith("https://");
+  }
+  return {
+    httpOnly: true,
+    secure: esHttps,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 60 * 60 * 12, // 12 horas de duración
+  };
+}
+
 export const OPCIONES_COOKIE_SESION = {
   httpOnly: true,
   secure: false, // Soporte estricto para HTTP en LAN (Android / iOS / PC)
@@ -33,9 +47,13 @@ export const OPCIONES_COOKIE_SESION = {
   maxAge: 60 * 60 * 12, // 12 horas de duración
 };
 
-const SECRET_JWT = new TextEncoder().encode(
-  process.env.JWT_SECRET || "pos_jwt_secret_token_seguro_2026_local_pos_key"
-);
+const JWT_SECRET_STRING = process.env.JWT_SECRET || "pos_jwt_secret_token_seguro_2026_local_pos_key";
+
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
+  console.warn("[SEGURIDAD ADVERTENCIA] JWT_SECRET no configurado en .env. Se utiliza clave local predeterminada.");
+}
+
+const SECRET_JWT = new TextEncoder().encode(JWT_SECRET_STRING);
 
 /**
  * Genera un token JWT firmado para la sesión activa del usuario

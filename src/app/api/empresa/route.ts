@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { obtenerSesionDesdeRequest } from "@/lib/auth";
+import { validarYAsegurarDirectorio } from "@/lib/backup";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -115,6 +116,19 @@ async function guardarConfiguracion(req: NextRequest) {
 
     let config = await prisma.configuracionEmpresa.findFirst();
 
+    // Validar ruta de respaldo si se suministró
+    let advertenciaRutaRespaldo: string | null = null;
+    let rutaRespaldoFinal = config ? config.rutaCarpetaRespaldo : "C:\\POS_BACKUPS";
+    if (rutaCarpetaRespaldo !== undefined && String(rutaCarpetaRespaldo).trim() !== "") {
+      const rutaLimpia = String(rutaCarpetaRespaldo).trim();
+      const val = validarYAsegurarDirectorio(rutaLimpia);
+      if (val.valido) {
+        rutaRespaldoFinal = val.rutaResuelta;
+      } else {
+        advertenciaRutaRespaldo = `Advertencia de ruta: ${val.error || "No se pudo acceder al directorio especificado"}.`;
+      }
+    }
+
     if (config) {
       config = await prisma.configuracionEmpresa.update({
         where: { id: config.id },
@@ -147,10 +161,7 @@ async function guardarConfiguracion(req: NextRequest) {
             body.tarifaMoraDiariaDefault !== undefined
               ? Math.max(0, Number(body.tarifaMoraDiariaDefault) || 3000)
               : (config.tarifaMoraDiariaDefault || 3000),
-          rutaCarpetaRespaldo:
-            rutaCarpetaRespaldo !== undefined
-              ? String(rutaCarpetaRespaldo).trim()
-              : config.rutaCarpetaRespaldo,
+          rutaCarpetaRespaldo: rutaRespaldoFinal,
           nombreImpresoraPos:
             nombreImpresoraPos !== undefined ? String(nombreImpresoraPos).trim() : config.nombreImpresoraPos,
           abrirCajonAutoEfectivo:
@@ -190,7 +201,7 @@ async function guardarConfiguracion(req: NextRequest) {
             body.tarifaMoraDiariaDefault !== undefined
               ? Math.max(0, Number(body.tarifaMoraDiariaDefault) || 3000)
               : 3000,
-          rutaCarpetaRespaldo: rutaCarpetaRespaldo || "C:\\POS_BACKUPS",
+          rutaCarpetaRespaldo: rutaRespaldoFinal,
           nombreImpresoraPos: nombreImpresoraPos ? String(nombreImpresoraPos).trim() : "",
           abrirCajonAutoEfectivo: abrirCajonAutoEfectivo !== undefined ? Boolean(abrirCajonAutoEfectivo) : true,
           pinCajon: pinCajon !== undefined ? Number(pinCajon) : 0,
@@ -210,6 +221,7 @@ async function guardarConfiguracion(req: NextRequest) {
       {
         ok: true,
         mensaje: "Configuración y plantilla de facturación actualizadas correctamente.",
+        advertencia: advertenciaRutaRespaldo,
         configuracion: config,
       },
       { headers: NO_CACHE_HEADERS }

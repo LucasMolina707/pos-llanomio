@@ -85,105 +85,105 @@ export default function HomePage() {
 
   const modulos = [
     {
-      titulo: "Terminal POS (Ventas y Arreglos)",
-      descripcion: "Emisión ágil de facturas para productos en venta directa y servicios libres de sastrería / costura.",
+      titulo: "Ventas POS",
+      descripcion: "Facturación y sastrería",
       icono: ShoppingBag,
       colorIcono: "bg-blue-50 text-blue-600 border-blue-200",
-      etiqueta: "Venta y Servicios",
+      etiqueta: "POS",
       colorBadge: "bg-blue-50 text-blue-700 border-blue-200",
       href: "/caja/pos",
     },
     {
-      titulo: "Sistema de Alquileres (Caja y Depósitos)",
-      descripcion: "Terminal exclusiva para alquiler de trajes y prendas, cronograma de llegadas, depósitos en garantía y control de moras.",
+      titulo: "Alquileres",
+      descripcion: "Contratos, garantías y entregas",
       icono: CalendarCheck,
       colorIcono: "bg-emerald-50 text-emerald-600 border-emerald-200",
-      etiqueta: "Alquiler Exclusivo",
+      etiqueta: "Alquiler",
       colorBadge: "bg-emerald-50 text-emerald-700 border-emerald-200",
       href: "/caja/alquileres",
     },
     {
-      titulo: "Sistema de Apartados y Reservas",
-      descripcion: "Terminal completa para separar prendas y trajes con anticipación, registro de abonos y control de entrega futura.",
+      titulo: "Apartados",
+      descripcion: "Reservas y abonos",
       icono: CalendarClock,
       colorIcono: "bg-amber-50 text-amber-600 border-amber-200",
-      etiqueta: "Apartados y Separes",
+      etiqueta: "Apartado",
       colorBadge: "bg-amber-50 text-amber-700 border-amber-200",
       href: "/caja/apartados",
     },
     {
-      titulo: "Control y Arqueo de Caja",
-      descripcion: "Apertura con base inicial en efectivo, arqueo físico en gaveta y cierre diario por métodos de pago.",
+      titulo: "Arqueo de Caja",
+      descripcion: "Apertura, turnos y balance",
       icono: Vault,
       colorIcono: "bg-emerald-50 text-emerald-600 border-emerald-200",
-      etiqueta: "Caja y Turnos",
+      etiqueta: "Caja",
       colorBadge: "bg-emerald-50 text-emerald-700 border-emerald-200",
       href: "/admin/caja",
     },
     {
-      titulo: "Gráficas y Métricas del Sistema (Dashboard)",
-      descripcion: "Visualización diaria, mensual y anual de ingresos, gráficas de rendimiento y ubicación del dinero.",
+      titulo: "Métricas",
+      descripcion: "Balances e indicadores",
       icono: BarChart3,
       colorIcono: "bg-indigo-50 text-indigo-600 border-indigo-200",
-      etiqueta: "Inteligencia Gerencial",
+      etiqueta: "Métricas",
       colorBadge: "bg-indigo-50 text-indigo-700 border-indigo-200",
       href: "/admin/dashboard",
       adminOnly: true,
     },
     {
-      titulo: "Gastos Operativos y Nómina",
-      descripcion: "Hoja de cálculo consolidada de compras a proveedores, nómina de empleados, arriendo y balance neto de tesorería.",
+      titulo: "Gastos y Nómina",
+      descripcion: "Egresos operativos y salarios",
       icono: Receipt,
       colorIcono: "bg-emerald-50 text-emerald-600 border-emerald-200",
-      etiqueta: "Tesorería y Nómina",
+      etiqueta: "Gastos",
       colorBadge: "bg-emerald-50 text-emerald-700 border-emerald-200",
       href: "/admin/gastos",
       adminOnly: true,
     },
     {
-      titulo: "Configuración de Sitio Web y Factura",
-      descripcion: "Personalizar nombre del sitio, eslogan, logo, NIT, teléfonos, correo y reglas de la factura.",
+      titulo: "Configuración",
+      descripcion: "Parámetros de tienda y respaldo",
       icono: Settings,
       colorIcono: "bg-purple-50 text-purple-600 border-purple-200",
-      etiqueta: "Personalización y Datos",
+      etiqueta: "Sistema",
       colorBadge: "bg-purple-50 text-purple-700 border-purple-200",
       href: "/admin/configuracion",
       adminOnly: true,
     },
     {
-      titulo: "Inventario de Productos y Prendas",
-      descripcion: "Control de stock, prendas por talla y color, estados de disponibilidad y tarifas de penalización.",
+      titulo: "Inventario",
+      descripcion: "Catálogo, tallas y tarifas",
       icono: Package,
       colorIcono: "bg-amber-50 text-amber-600 border-amber-200",
-      etiqueta: "Catálogo y Stock",
+      etiqueta: "Inventario",
       colorBadge: "bg-amber-50 text-amber-700 border-amber-200",
       href: "/admin/inventario",
       adminOnly: true,
     },
     {
-      titulo: "Galería y Directorio de Clientes",
-      descripcion: "Consulta de clientes, saldos pendientes consolidados, historial de prendas alquiladas y compras registradas.",
+      titulo: "Clientes",
+      descripcion: "Padrón, contratos y cartera",
       icono: ShieldCheck,
       colorIcono: "bg-cyan-50 text-cyan-600 border-cyan-200",
-      etiqueta: "Cartera y Clientes",
+      etiqueta: "Clientes",
       colorBadge: "bg-cyan-50 text-cyan-700 border-cyan-200",
       href: "/admin/clientes",
     },
     {
-      titulo: "Central de Monitoreo de Facturas y Moras",
-      descripcion: "Centro unificado de cartera: facturas pendientes, cobro de moras acumuladas, prendas fuera de inventario y reimpresión de Paz y Salvos.",
+      titulo: "Monitoreo",
+      descripcion: "Cartera y facturas pendientes",
       icono: CalendarCheck,
       colorIcono: "bg-rose-50 text-rose-600 border-rose-200",
-      etiqueta: "Cartera y Auditoría",
+      etiqueta: "Monitoreo",
       colorBadge: "bg-rose-50 text-rose-700 border-rose-200",
       href: "/admin/monitoreo",
     },
     {
-      titulo: "Gestión de Usuarios y Permisos",
-      descripcion: "Creación de cajeros, asignación de permisos granulares y configuración de llaves de recuperación.",
+      titulo: "Usuarios",
+      descripcion: "Cuentas, roles y accesos",
       icono: ShieldCheck,
       colorIcono: "bg-blue-50 text-blue-600 border-blue-200",
-      etiqueta: "Solo Administrador",
+      etiqueta: "Usuarios",
       colorBadge: "bg-blue-50 text-blue-700 border-blue-200",
       href: "/admin/usuarios",
       adminOnly: true,
@@ -234,7 +234,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 px-5 py-2.5 min-h-[44px] rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm md:text-base font-bold transition shadow-xs cursor-pointer"
             >
               <ShoppingBag className="h-5 w-5" />
-              <span>Abrir Terminal POS</span>
+              <span>Facturar POS</span>
             </Link>
 
             <button
@@ -243,7 +243,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold transition shadow-sm shadow-emerald-500/20 cursor-pointer"
             >
               <QrCode className="h-4 w-4" />
-              <span>Conectar Celular / PC en Red</span>
+              <span>Conectar Terminal</span>
             </button>
 
             {esAdmin && (
@@ -252,20 +252,20 @@ export default function HomePage() {
                   href="/admin/dashboard"
                   prefetch={true}
                   className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs sm:text-sm font-bold transition shadow-2xs"
-                  title="Ver Métricas y Rendimiento Financiero del Sistema"
+                  title="Ver Métricas"
                 >
                   <BarChart3 className="h-4 w-4 text-indigo-600" />
-                  <span>Métricas del Sistema</span>
+                  <span>Métricas</span>
                 </Link>
 
                 <Link
                   href="/admin/configuracion"
                   prefetch={true}
                   className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs sm:text-sm font-bold transition shadow-2xs"
-                  title="Configurar y Personalizar Tienda y Factura"
+                  title="Configurar Sistema"
                 >
                   <Settings className="h-4 w-4 text-purple-600" />
-                  <span>Configuración del Sitio</span>
+                  <span>Configuración</span>
                 </Link>
               </>
             )}
@@ -282,7 +282,7 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <div className="h-6 w-1.5 rounded-full bg-blue-600"></div>
             <h2 className="text-base sm:text-lg md:text-xl font-bold text-slate-800">
-              Módulos Operativos del Negocio
+              Panel Operativo
             </h2>
           </div>
           <span className="text-xs sm:text-sm font-medium text-slate-500">
@@ -293,13 +293,12 @@ export default function HomePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
           {modulosVisibles.map((modulo, idx) => {
             const Icono = modulo.icono;
-            const esPos = modulo.href === "/caja/pos";
 
             return (
               <Link
                 key={idx}
                 href={modulo.href}
-                prefetch={true}
+                prefetch={false}
                 className="group bg-[#FCFDFE] rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs hover:border-blue-400 transition-all duration-200 flex flex-col justify-between"
               >
                 <div>
@@ -322,7 +321,7 @@ export default function HomePage() {
                 </div>
 
                 <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs sm:text-sm font-bold text-blue-600">
-                  <span>{esPos ? "Acceder a Terminal POS" : "Acceder al módulo"}</span>
+                  <span>Acceder</span>
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </div>
               </Link>
@@ -333,8 +332,8 @@ export default function HomePage() {
 
       {/* 3. Módulo Vivo de Conexión LAN y Código QR */}
       <TarjetaConexionLAN
-        titulo="Dispositivos Conectados en Red Local (Wi-Fi de Tienda)"
-        subtitulo="Inspección automática de direcciones IP y código QR para conectar tablets y celulares de cajeros sin internet."
+        titulo="Red Local (LAN)"
+        subtitulo="Escanea el QR para conectar dispositivos en la red."
       />
 
       {/* Modal Flotante de Conexión Rápida QR (Sin duplicación de cabeceras ni scroll de fondo) */}
