@@ -426,16 +426,22 @@ export default function ModalLiquidarFactura({
                 )}
 
                 {/* Rubro 4: Sumatoria Consolidada para Paz y Salvo */}
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 text-white pt-2">
+                <div className={`flex items-center justify-between p-3 rounded-xl border-2 ${
+                  factura.tipoOperacion === "ALQUILER"
+                    ? "bg-orange-50 border-orange-200 text-orange-950"
+                    : factura.tipoOperacion === "SEPARE"
+                    ? "bg-indigo-50 border-indigo-200 text-indigo-950"
+                    : "bg-emerald-50 border-emerald-200 text-emerald-950"
+                }`}>
                   <div>
-                    <strong className="text-xs uppercase block font-black text-slate-200">
-                      Total Exigible para Paz y Salvo (Consolidado):
+                    <strong className="text-xs uppercase block font-black">
+                      Total Exigible para Paz y Salvo:
                     </strong>
-                    <span className="text-[10px] text-slate-400">
-                      Saldo Alquiler (${saldoAlquiler.toLocaleString("es-CO")}) + Mora (${moraACobrar.toLocaleString("es-CO")}){saldoDeposito > 0 ? ` + Custodia ($${saldoDeposito.toLocaleString("es-CO")})` : ""}
+                    <span className="text-[10.5px] opacity-80">
+                      Saldo (${saldoAlquiler.toLocaleString("es-CO")}) + Mora (${moraACobrar.toLocaleString("es-CO")}){saldoDeposito > 0 ? ` + Custodia ($${saldoDeposito.toLocaleString("es-CO")})` : ""}
                     </span>
                   </div>
-                  <span className="font-mono text-base font-black text-amber-400">
+                  <span className="font-mono text-base font-black">
                     ${totalACobrar.toLocaleString("es-CO")}
                   </span>
                 </div>

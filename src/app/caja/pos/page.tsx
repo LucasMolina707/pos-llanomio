@@ -2668,8 +2668,8 @@ export default function PosPage() {
                                 Modalidad:
                               </span>
                               {clienteSeleccionado?.creditoHabilitado && (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                                  <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
                                   <span>Cupo: ${(clienteSeleccionado.cupoDisponible !== undefined ? clienteSeleccionado.cupoDisponible : (clienteSeleccionado.cupoCredito || 0)).toLocaleString("es-CO")}</span>
                                 </span>
                               )}
@@ -2694,11 +2694,11 @@ export default function PosPage() {
                                 onClick={() => setModalidadPago("ADELANTO")}
                                 className={`w-full py-2.5 px-3 rounded-xl border text-center transition flex items-center justify-center gap-2 cursor-pointer ${
                                   modalidadPago === "ADELANTO"
-                                    ? "bg-amber-50 border-amber-600 text-amber-800 ring-2 ring-amber-600/20 font-bold"
+                                    ? "bg-emerald-50 border-emerald-600 text-emerald-800 ring-2 ring-emerald-600/20 font-bold"
                                     : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 font-medium"
                                 }`}
                               >
-                                <Coins className="w-4 h-4 text-amber-600 shrink-0" />
+                                <Coins className="w-4 h-4 text-emerald-600 shrink-0" />
                                 <span className="text-xs">Abono</span>
                               </button>
 
@@ -2719,8 +2719,8 @@ export default function PosPage() {
 
                           {/* Registro de Pago */}
                           {modalidadPago === "PENDIENTE" ? (
-                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 space-y-3 shadow-2xs">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                            <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 text-slate-800 space-y-3 shadow-2xs">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/70 pb-3">
                                 <div className="flex items-center gap-2.5">
                                   <div className="p-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 shrink-0">
                                     <Clock className="w-5 h-5 text-rose-600" />
@@ -2735,7 +2735,7 @@ export default function PosPage() {
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <span className="text-[10px] font-bold uppercase text-slate-400 block">A Credito:</span>
+                                  <span className="text-[10px] font-bold uppercase text-slate-400 block">A Crédito:</span>
                                   <span className="font-mono text-xl font-black text-rose-700 tabular-nums">
                                     ${totalFactura.toLocaleString("es-CO")}
                                   </span>
@@ -2746,7 +2746,7 @@ export default function PosPage() {
                                 type="button"
                                 disabled={procesandoFactura}
                                 onClick={() => finalizarTransaccion([])}
-                                className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-black text-white text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
+                                className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
                               >
                                 {procesandoFactura ? (
                                   <>
@@ -2755,7 +2755,7 @@ export default function PosPage() {
                                   </>
                                 ) : (
                                   <>
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                    <CheckCircle2 className="w-4 h-4 text-white" />
                                     <span>Cargar a Cartera</span>
                                   </>
                                 )}
@@ -2764,57 +2764,28 @@ export default function PosPage() {
                           ) : (
                             <div className="space-y-3 pt-1">
                               {modalidadPago === "ADELANTO" && (
-                                <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2">
+                                <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-2">
                                   <div className="flex items-center justify-between text-xs">
-                                    <span className="font-bold text-amber-950 uppercase tracking-tight">
+                                    <span className="font-bold text-emerald-950 uppercase tracking-tight">
                                       Abono inicial a cobrar hoy:
                                     </span>
-                                    <span className="font-semibold text-amber-900">
+                                    <span className="font-semibold text-emerald-900">
                                       Saldo a cartera:{" "}
                                       <strong className="text-rose-700 font-mono">
                                         ${Math.max(0, totalFactura - valorACobrarHoy).toLocaleString("es-CO")}
                                       </strong>
                                     </span>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex-1">
-                                      <InputDinero
-                                        value={montoAbonoParcial}
-                                        onChange={(e) => {
-                                          setMontoAbonoParcial(e.target.value);
-                                          setPagosAplicados([]);
-                                        }}
-                                        mostrarPrefijo
-                                        placeholder="Valor del abono inicial hoy"
-                                        className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-white font-black text-base text-slate-900"
-                                      />
-                                    </div>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      {[20000, 50000].filter((c) => c < totalFactura).map((chip) => (
-                                        <button
-                                          key={chip}
-                                          type="button"
-                                          onClick={() => {
-                                            setMontoAbonoParcial(String(chip));
-                                            setPagosAplicados([]);
-                                          }}
-                                          className="px-2 py-2 rounded-lg border border-amber-300 bg-white hover:bg-amber-100 text-[11px] font-bold text-amber-950"
-                                        >
-                                          ${chip / 1000}k
-                                        </button>
-                                      ))}
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setMontoAbonoParcial(String(Math.round(totalFactura / 2)));
-                                          setPagosAplicados([]);
-                                        }}
-                                        className="px-2 py-2 rounded-lg border border-amber-300 bg-white hover:bg-amber-100 text-[11px] font-bold text-amber-950"
-                                      >
-                                        50%
-                                      </button>
-                                    </div>
-                                  </div>
+                                  <InputDinero
+                                    value={montoAbonoParcial}
+                                    onChange={(e) => {
+                                      setMontoAbonoParcial(e.target.value);
+                                      setPagosAplicados([]);
+                                    }}
+                                    mostrarPrefijo
+                                    placeholder="Valor del abono inicial hoy"
+                                    className="w-full px-3 py-2 rounded-xl border border-emerald-300 bg-white font-mono font-black text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                  />
                                 </div>
                               )}
 

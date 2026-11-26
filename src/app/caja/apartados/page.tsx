@@ -1741,10 +1741,14 @@ useBarcodeScanner({
               {/* Pie Fijo con Resumen Numérico y Botones Grandes de Navegación Siempre Visibles */}
               <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
                 {(() => {
+                  const hayPrendas = itemsApartado.length > 0;
                   const abonoHoyVista = liquidacionMostrador ? liquidacionMostrador.montoOperacionHoy : abonoNumerico;
                   const saldoAlqVista = Math.max(0, totalAlquiler - abonoHoyVista);
-                  const abonoDepVista = liquidacionMostrador ? liquidacionMostrador.montoDepositoHoy : abonoDepositoNum;
-                  const saldoDepVista = Math.max(0, depositoNumerico - abonoDepVista);
+                  const depositoVista = hayPrendas ? depositoNumerico : 0;
+                  const abonoDepVista = hayPrendas
+                    ? (liquidacionMostrador ? liquidacionMostrador.montoDepositoHoy : abonoDepositoNum)
+                    : 0;
+                  const saldoDepVista = Math.max(0, depositoVista - abonoDepVista);
                   const vueltasHoyVista = liquidacionMostrador
                     ? liquidacionMostrador.vueltasEntregarCliente
                     : vueltasAlquiler + vueltasDeposito;
@@ -1752,12 +1756,12 @@ useBarcodeScanner({
 
                   return (
                     <div className="space-y-2 text-xs">
-                      {/* MÓDULO 1: ALQUILER (SERVICIO) */}
+                      {/* MÓDULO 1: APARTADO / ALQUILER (COLORIMETRÍA ÍNDIGO) */}
                       <div className="p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 space-y-1">
                         <div className="flex items-center justify-between font-bold text-slate-800">
                           <span className="flex items-center gap-1.5 text-indigo-950">
                             <Shirt className="w-3.5 h-3.5 text-indigo-600" />
-                            Alquiler:
+                            Apartado:
                           </span>
                           <span className="font-mono text-slate-900">${totalAlquiler.toLocaleString("es-CO")}</span>
                         </div>
@@ -1766,23 +1770,23 @@ useBarcodeScanner({
                           <span className="font-mono">-${abonoHoyVista.toLocaleString("es-CO")}</span>
                         </div>
                         <div className="flex justify-between text-[11px] font-bold pt-1 border-t border-indigo-100">
-                          <span className={saldoAlqVista === 0 ? "text-emerald-700" : "text-amber-900"}>
-                            Saldo Alquiler:
+                          <span className={saldoAlqVista === 0 ? "text-emerald-700" : "text-indigo-900"}>
+                            Saldo Apartado:
                           </span>
-                          <span className={`font-mono ${saldoAlqVista === 0 ? "text-emerald-700 font-bold" : "text-amber-900 font-black"}`}>
+                          <span className={`font-mono ${saldoAlqVista === 0 ? "text-emerald-700 font-bold" : "text-indigo-900 font-black"}`}>
                             ${saldoAlqVista.toLocaleString("es-CO")}
                           </span>
                         </div>
                       </div>
 
-                      {/* MÓDULO 2: DEPÓSITO EN CUSTODIA */}
+                      {/* MÓDULO 2: DEPÓSITO EN CUSTODIA (COLORIMETRÍA ÁMBAR) */}
                       <div className="p-2.5 rounded-xl border border-amber-300 bg-amber-50/50 space-y-1">
                         <div className="flex items-center justify-between font-bold text-slate-800">
                           <span className="flex items-center gap-1.5 text-amber-950">
                             <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
                             Depósito Custodia:
                           </span>
-                          <span className="font-mono text-slate-900">${depositoNumerico.toLocaleString("es-CO")}</span>
+                          <span className="font-mono text-slate-900">${depositoVista.toLocaleString("es-CO")}</span>
                         </div>
                         <div className="flex justify-between text-[11px] text-emerald-700 font-semibold">
                           <span>Pagado hoy:</span>
@@ -1813,8 +1817,8 @@ useBarcodeScanner({
                         </div>
                       )}
 
-                      {/* MÓDULO 3: SUMATORIA CONSOLIDADA FALTANTE AL RETIRAR */}
-                      {faltanteRetiroVista === 0 ? (
+                      {/* MÓDULO 3: SUMATORIA CONSOLIDADA FALTANTE AL RETIRAR (COLORIMETRÍA ÍNDIGO) */}
+                      {hayPrendas && faltanteRetiroVista === 0 ? (
                         <div className="p-3 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-950 flex items-center justify-between font-black shadow-xs">
                           <div className="flex items-center gap-1.5">
                             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1823,11 +1827,11 @@ useBarcodeScanner({
                           <span className="font-mono text-base font-black text-emerald-700">$0</span>
                         </div>
                       ) : (
-                        <div className="p-3 rounded-xl border border-slate-800 bg-slate-900 text-white flex items-center justify-between font-black shadow-xs">
-                          <span className="text-xs font-black uppercase tracking-wider text-slate-200">
+                        <div className="p-3 rounded-xl border-2 border-indigo-200 bg-indigo-50/80 text-indigo-950 flex items-center justify-between font-black shadow-xs">
+                          <span className="text-xs font-black uppercase tracking-wider text-indigo-900">
                             Pendiente al Retiro:
                           </span>
-                          <span className="font-mono text-base font-black text-white shrink-0">
+                          <span className="font-mono text-base font-black text-indigo-700 shrink-0">
                             ${faltanteRetiroVista.toLocaleString("es-CO")}
                           </span>
                         </div>

@@ -883,14 +883,7 @@ export default function TerminalAlquileresPage() {
   const dineroRecibidoAlquilerHoy = useMemo(() => {
     if (pasoActual < 3) return 0;
     if (liquidacionMostrador) {
-      if (liquidacionMostrador.esValido) return liquidacionMostrador.montoOperacionHoy;
-      const noEfectivo = liquidacionMostrador.pagosComerciales
-        .filter((p) => p.metodoPago !== "EFECTIVO")
-        .reduce((s, p) => s + p.monto, 0);
-      return Math.min(
-        liquidacionMostrador.montoOperacionHoy,
-        noEfectivo + liquidacionMostrador.billetesRecibidosCliente
-      );
+      return liquidacionMostrador.efectivoRecibidoOperacion;
     }
     const confirmados = totalRecibidoConfirmadoAlquiler;
     if (metodoPagoPrincipal !== "EFECTIVO") {
@@ -904,8 +897,12 @@ export default function TerminalAlquileresPage() {
   const dineroRecibidoHoyAlquiler = dineroRecibidoAlquilerHoy;
 
   // Fórmula matemática de Vueltas vs Saldo Pendiente de Alquiler
-  const esVueltasAlquiler = !liquidacionMostrador && totalObjetivoAlquilerHoy > 0 && dineroRecibidoAlquilerHoy > totalObjetivoAlquilerHoy;
-  const montoVueltasAlquiler = esVueltasAlquiler ? Math.max(0, dineroRecibidoAlquilerHoy - totalObjetivoAlquilerHoy) : 0;
+  const esVueltasAlquiler = liquidacionMostrador
+    ? liquidacionMostrador.vueltasOperacion > 0
+    : (totalObjetivoAlquilerHoy > 0 && dineroRecibidoAlquilerHoy > totalObjetivoAlquilerHoy);
+  const montoVueltasAlquiler = liquidacionMostrador
+    ? liquidacionMostrador.vueltasOperacion
+    : (esVueltasAlquiler ? Math.max(0, dineroRecibidoAlquilerHoy - totalObjetivoAlquilerHoy) : 0);
   const saldoPorCobrarHoyAlquiler = !esVueltasAlquiler ? Math.max(0, totalObjetivoAlquilerHoy - dineroRecibidoAlquilerHoy) : 0;
 
   // 2. FINANZAS EXCLUSIVAS DEL DEPÓSITO EN CUSTODIA (SEPARACIÓN TOTAL)
@@ -940,24 +937,21 @@ export default function TerminalAlquileresPage() {
     if (pasoActual < 3) return 0;
     if (depositoExigibleHoy <= 0) return 0;
     if (liquidacionMostrador) {
-      if (liquidacionMostrador.esValido) return liquidacionMostrador.montoDepositoHoy;
-      if (liquidacionMostrador.metodoDeposito !== "EFECTIVO") return liquidacionMostrador.montoDepositoHoy;
-      const efectivoCanon = Math.max(0, liquidacionMostrador.efectivoExigibleEnManoHoy - liquidacionMostrador.montoDepositoHoy);
-      const sobranteParaCustodia = Math.max(0, liquidacionMostrador.billetesRecibidosCliente - efectivoCanon);
-      return Math.min(liquidacionMostrador.montoDepositoHoy, sobranteParaCustodia);
+      return liquidacionMostrador.efectivoRecibidoCustodia;
     }
     if (metodoPagoDeposito !== "EFECTIVO") return depositoExigibleHoy;
     return efectivoRecibidoDepositoNum;
   }, [pasoActual, depositoExigibleHoy, liquidacionMostrador, metodoPagoDeposito, efectivoRecibidoDepositoNum]);
 
   const esVueltasDeposito = useMemo(() => {
-    if (liquidacionMostrador) return false;
+    if (liquidacionMostrador) return liquidacionMostrador.vueltasCustodia > 0;
     return metodoPagoDeposito === "EFECTIVO" && depositoExigibleHoy > 0 && dineroRecibidoDepositoHoy > depositoExigibleHoy;
   }, [liquidacionMostrador, metodoPagoDeposito, depositoExigibleHoy, dineroRecibidoDepositoHoy]);
 
   const montoVueltasDeposito = useMemo(() => {
+    if (liquidacionMostrador) return liquidacionMostrador.vueltasCustodia;
     return esVueltasDeposito ? Math.max(0, dineroRecibidoDepositoHoy - depositoExigibleHoy) : 0;
-  }, [esVueltasDeposito, dineroRecibidoDepositoHoy, depositoExigibleHoy]);
+  }, [liquidacionMostrador, esVueltasDeposito, dineroRecibidoDepositoHoy, depositoExigibleHoy]);
 
   const vueltasCambioFinal = liquidacionMostrador
     ? liquidacionMostrador.vueltasEntregarCliente
@@ -3079,12 +3073,12 @@ export default function TerminalAlquileresPage() {
                   <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50 space-y-2">
                     <div className="space-y-2 text-xs">
                       {/* ============================================================== */}
-                      {/* BLOQUE 1: CANON DE ALQUILER (VALOR DEL SERVICIO) */}
+                      {/* BLOQUE 1: CANON DE ALQUILER (COLORIMETRÍA NARANJA OFICIAL)     */}
                       {/* ============================================================== */}
-                      <div className="p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 space-y-1 shadow-2xs">
-                        <div className="flex items-center justify-between border-b border-indigo-100 pb-1">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-indigo-950 flex items-center gap-1">
-                            <Shirt className="w-3.5 h-3.5 text-indigo-600" />
+                      <div className="p-2.5 rounded-xl border border-orange-200 bg-orange-50/50 space-y-1 shadow-2xs">
+                        <div className="flex items-center justify-between border-b border-orange-100 pb-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-orange-950 flex items-center gap-1">
+                            <Shirt className="w-3.5 h-3.5 text-orange-600" />
                             Cobro por Alquiler
                           </span>
                           {apartadoOrigen && (
@@ -3111,12 +3105,12 @@ export default function TerminalAlquileresPage() {
                           esVueltasAlquiler
                             ? "border-emerald-300 bg-emerald-50 text-emerald-950"
                             : saldoPorCobrarHoyAlquiler === 0
-                            ? "border-indigo-100 bg-white/80 text-emerald-700"
-                            : "border-indigo-200 bg-white text-slate-900"
+                            ? "border-emerald-200 bg-emerald-50/60 text-emerald-800"
+                            : "border-orange-200 bg-white text-orange-950"
                         }`}>
                           <span>{esVueltasAlquiler ? "Vueltas Alquiler:" : "Falta por Alquiler:"}</span>
                           <span className={`font-mono text-xs font-black ${
-                            esVueltasAlquiler ? "text-emerald-700" : saldoPorCobrarHoyAlquiler === 0 ? "text-emerald-700" : "text-indigo-900"
+                            esVueltasAlquiler ? "text-emerald-700" : saldoPorCobrarHoyAlquiler === 0 ? "text-emerald-700" : "text-orange-700"
                           }`}>
                             ${(esVueltasAlquiler ? montoVueltasAlquiler : saldoPorCobrarHoyAlquiler).toLocaleString("es-CO")}
                           </span>
@@ -3226,17 +3220,17 @@ export default function TerminalAlquileresPage() {
                           </div>
                         )
                       ) : (
-                        <div className="p-3 rounded-xl border border-slate-800 bg-slate-900 text-white flex items-center justify-between font-black shadow-xs transition-all">
+                        <div className="p-3 rounded-xl border-2 border-orange-200 bg-orange-50/80 text-orange-950 flex items-center justify-between font-black shadow-xs transition-all">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-black uppercase tracking-wider text-slate-200">
+                            <span className="text-xs font-black uppercase tracking-wider text-orange-900">
                               Cobrar:
                             </span>
                           </div>
                           <div className="text-right shrink-0">
-                            <span className="font-mono font-black text-base text-white block">
+                            <span className="font-mono font-black text-base text-orange-700 block">
                               ${(saldoPorCobrarHoyAlquiler + saldoPorCobrarDeposito).toLocaleString("es-CO")}
                             </span>
-                            <span className="text-[9.5px] font-semibold text-slate-300 block">
+                            <span className="text-[9.5px] font-semibold text-orange-800 block">
                               Pendiente
                             </span>
                           </div>
@@ -3768,22 +3762,25 @@ export default function TerminalAlquileresPage() {
                     <label className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
                       Monto a Abonar Hoy ($):
                     </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <InputDinero
+                        mostrarPrefijo
+                        value={montoAbonar}
+                        onChange={(e) => setMontoAbonar(e.target.value)}
+                        placeholder="0"
+                        className="w-full pr-3 py-2 text-sm font-black bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-orange-500 text-slate-900"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => setMontoAbonar(String(alquilerAbonar.saldoPendiente))}
-                      className="text-[11px] font-black text-emerald-700 hover:underline"
+                      className="px-3.5 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition shadow-2xs flex items-center gap-1 shrink-0 cursor-pointer"
                     >
-                      Abonar Saldo Total (${alquilerAbonar.saldoPendiente.toLocaleString("es-CO")})
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Exacto</span>
                     </button>
-                  </div>
-                  <div className="relative">
-                    <InputDinero
-                      mostrarPrefijo
-                      value={montoAbonar}
-                      onChange={(e) => setMontoAbonar(e.target.value)}
-                      placeholder="0"
-                      className="w-full pr-3 py-2 text-sm font-black bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-slate-900"
-                    />
                   </div>
                   {parseFloat(montoAbonar) > 0 && (
                     <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 font-medium">

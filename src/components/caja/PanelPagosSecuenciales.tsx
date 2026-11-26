@@ -634,20 +634,6 @@ export default function PanelPagosSecuenciales({
               <label className="text-[11px] font-bold text-slate-700 block">
                 Recibido:
               </label>
-
-              {saldoFaltante > 0 && montoAbonarNum !== saldoFaltante && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMontoAbonarInput(String(saldoFaltante));
-                    setMontoModificadoManualmente(false);
-                    inputMontoRef.current?.focus();
-                  }}
-                  className="text-[10.5px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-                >
-                  Resto ($ {saldoFaltante.toLocaleString("es-CO")})
-                </button>
-              )}
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -680,8 +666,8 @@ export default function PanelPagosSecuenciales({
                 />
               </div>
 
-              {/* Botón Exacto (Fija el saldo faltante exacto) */}
-              <Tooltip content="Cobrar el valor exacto del saldo faltante" position="top">
+              {/* Botón Único de Ingreso Rápido: Exacto */}
+              <Tooltip content="Insertar el valor exacto a recibir" position="top">
                 <button
                   type="button"
                   onClick={() => {
@@ -689,7 +675,7 @@ export default function PanelPagosSecuenciales({
                     setMontoModificadoManualmente(false);
                     inputMontoRef.current?.focus();
                   }}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0"
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0 ${estilosColor.botonPrimario}`}
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>Exacto</span>
@@ -715,7 +701,7 @@ export default function PanelPagosSecuenciales({
                   }
                 }}
                 placeholder="Comprobante"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 ${estilosColor.ringFocus}`}
               />
             </div>
           )}

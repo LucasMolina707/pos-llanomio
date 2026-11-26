@@ -3,11 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Banknote,
-  Building2,
-  Smartphone,
-  Coins,
   CreditCard,
-  Landmark,
   ShieldCheck,
   Calculator,
   Plus,
@@ -16,9 +12,11 @@ import {
   AlertCircle,
   Split,
   Wallet,
+  Check,
+  ChevronDown,
 } from "lucide-react";
 import InputDinero from "@/components/ui/InputDinero";
-import { PagoAplicado, METODOS_PAGO_CATALOGO } from "@/components/caja/PanelPagosSecuenciales";
+import { PagoAplicado, METODOS_PAGO_CATALOGO, OTROS_METODOS_CATALOGO } from "@/components/caja/PanelPagosSecuenciales";
 
 export type ModuloLiquidacion = "VENTAS" | "ALQUILERES" | "APARTADOS";
 export type ModalidadVentaCobro = "TOTAL" | "ADELANTO" | "PENDIENTE";
@@ -40,6 +38,10 @@ export interface ResultadoLiquidacionMostrador {
   totalRecibirClienteHoy: number;
   efectivoExigibleEnManoHoy: number;
   digitalExigibleHoy: number;
+  efectivoRecibidoOperacion: number;
+  vueltasOperacion: number;
+  efectivoRecibidoCustodia: number;
+  vueltasCustodia: number;
   billetesRecibidosCliente: number;
   vueltasEntregarCliente: number;
   metodoPrincipalOperacion: MetodoPagoValido;
@@ -53,15 +55,12 @@ export interface PanelLiquidacionMostradorProps {
   modulo: ModuloLiquidacion;
   totalOperacion: number;
   abonoPrevioOperacion?: number;
-  // Ventas: modalidad (Total, Abono parcial o Credito cartera)
   modalidadVenta?: ModalidadVentaCobro;
   onModalidadVentaChange?: (modalidad: ModalidadVentaCobro) => void;
   permiteCreditoCartera?: boolean;
   cupoDisponibleCliente?: number;
-  // Monto comercial a cobrar hoy (editable en Apartados y en Ventas modo ADELANTO)
   montoOperacionHoyInput?: string;
   onMontoOperacionHoyInputChange?: (valor: string) => void;
-  // Custodia de Deposito (solo Alquileres y Apartados)
   montoDepositoPactadoInput?: string;
   onMontoDepositoPactadoInputChange?: (valor: string) => void;
   depositoAbonadoPrevio?: number;
@@ -69,24 +68,15 @@ export interface PanelLiquidacionMostradorProps {
   onCobrarDepositoHoyApartadoChange?: (cobrarHoy: boolean) => void;
   montoDepositoHoyInput?: string;
   onMontoDepositoHoyInputChange?: (valor: string) => void;
-  // Metodos seleccionados
   metodoOperacion?: MetodoPagoValido;
   onMetodoOperacionChange?: (metodo: MetodoPagoValido) => void;
   metodoDeposito?: MetodoPagoValido;
   onMetodoDepositoChange?: (metodo: MetodoPagoValido) => void;
   referenciaOperacion?: string;
   onReferenciaOperacionChange?: (ref: string) => void;
-  // Callback consolidado
   onResultadoChange?: (resultado: ResultadoLiquidacionMostrador) => void;
   onConfirmarEnter?: () => void;
 }
-
-const METODOS_PRINCIPALES: MetodoPagoValido[] = ["EFECTIVO", "BANCOLOMBIA", "NEQUI"];
-const METODOS_SECUNDARIOS: MetodoPagoValido[] = ["DAVIPLATA", "LLAVE", "TRANSFERENCIA", "CONSIGNACION"];
-
-const DENOMINACIONES_RAPIDAS = [20000, 50000, 100000, 200000];
-const CHIPS_DEPOSITO = [0, 20000, 30000, 50000];
-const CHIPS_ABONO_RESERVA = [20000, 30000, 50000];
 
 export default function PanelLiquidacionMostrador({
   modulo,
@@ -123,36 +113,64 @@ export default function PanelLiquidacionMostrador({
   const [montoTramoNuevo, setMontoTramoNuevo] = useState<string>("");
   const [refTramoNuevo, setRefTramoNuevo] = useState<string>("");
 
-  // Unico input de billetes fisicos recibidos en mano
-  const [billetesRecibidosStr, setBilletesRecibidosStr] = useState<string>("");
-  const inputBilletesRef = useRef<HTMLInputElement>(null);
+  // Entradas independientes de efectivo recibido (Operacion Tienda vs Custodia Garantia)
+  const [efectivoOperacionStr, setEfectivoOperacionStr] = useState<string>("");
+  const [efectivoCustodiaStr, setEfectivoCustodiaStr] = useState<string>("");
 
-  // Colores de identidad por modulo manteniendo anatomia identica
+  const inputEfectivoOperacionRef = useRef<HTMLInputElement>(null);
+  const inputEfectivoCustodiaRef = useRef<HTMLInputElement>(null);
+
+  // Colorimetria estandar oficial del sistema por modulo:
+  // VENTAS = Esmeralda | ALQUILERES = Naranja | APARTADOS = Indigo | CUSTODIA = Ambar
   const theme = useMemo(() => {
     if (modulo === "ALQUILERES") {
       return {
-        ring: "focus:ring-orange-500",
-        activeBtn: "bg-orange-600 text-white border-orange-700 shadow-xs",
+        cardBorder: "border-orange-200",
+        headerIcon: "text-orange-600",
         softBg: "bg-orange-50/70 border-orange-200",
+        inputBorder: "border-orange-300 focus:ring-orange-500",
+        activeBtn: "bg-orange-600 hover:bg-orange-700 text-white border-orange-700 shadow-xs",
+        exactoBtn: "bg-orange-600 hover:bg-orange-700 text-white border-orange-700",
         accentText: "text-orange-700",
-        badge: "bg-orange-100 text-orange-900 border-orange-300",
+        accentDark: "text-orange-950",
+        summarySurface: "bg-orange-50/80 border-orange-200 text-orange-950",
+        summaryDivider: "border-orange-200/80",
+        summaryHighlight: "bg-white border-orange-300 text-orange-950",
+        summaryLabel: "text-orange-800",
+        summaryValue: "text-orange-700",
       };
     }
     if (modulo === "APARTADOS") {
       return {
-        ring: "focus:ring-indigo-500",
-        activeBtn: "bg-indigo-600 text-white border-indigo-700 shadow-xs",
+        cardBorder: "border-indigo-200",
+        headerIcon: "text-indigo-600",
         softBg: "bg-indigo-50/70 border-indigo-200",
+        inputBorder: "border-indigo-300 focus:ring-indigo-500",
+        activeBtn: "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700 shadow-xs",
+        exactoBtn: "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-700",
         accentText: "text-indigo-700",
-        badge: "bg-indigo-100 text-indigo-900 border-indigo-300",
+        accentDark: "text-indigo-950",
+        summarySurface: "bg-indigo-50/80 border-indigo-200 text-indigo-950",
+        summaryDivider: "border-indigo-200/80",
+        summaryHighlight: "bg-white border-indigo-300 text-indigo-950",
+        summaryLabel: "text-indigo-800",
+        summaryValue: "text-indigo-700",
       };
     }
     return {
-      ring: "focus:ring-emerald-500",
-      activeBtn: "bg-emerald-600 text-white border-emerald-700 shadow-xs",
+      cardBorder: "border-emerald-200",
+      headerIcon: "text-emerald-600",
       softBg: "bg-emerald-50/70 border-emerald-200",
+      inputBorder: "border-emerald-300 focus:ring-emerald-500",
+      activeBtn: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-xs",
+      exactoBtn: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700",
       accentText: "text-emerald-700",
-      badge: "bg-emerald-100 text-emerald-900 border-emerald-300",
+      accentDark: "text-emerald-950",
+      summarySurface: "bg-emerald-50/80 border-emerald-200 text-emerald-950",
+      summaryDivider: "border-emerald-200/80",
+      summaryHighlight: "bg-white border-emerald-300 text-emerald-950",
+      summaryLabel: "text-emerald-800",
+      summaryValue: "text-emerald-700",
     };
   }, [modulo]);
 
@@ -174,7 +192,6 @@ export default function PanelLiquidacionMostrador({
       const val = Number(montoOperacionHoyInput || 0);
       return Math.max(0, Math.min(saldoOperacionRestante, Math.round(val * 100) / 100));
     }
-    // En ALQUILERES se liquida el 100% del canon restante al retirar las prendas
     return saldoOperacionRestante;
   }, [modulo, modalidadVenta, montoOperacionHoyInput, saldoOperacionRestante]);
 
@@ -194,7 +211,6 @@ export default function PanelLiquidacionMostrador({
     if (modulo === "ALQUILERES") {
       return saldoDepositoFaltante;
     }
-    // En APARTADOS depende de si eligio cobrar hoy en custodia o al retirar
     if (!cobrarDepositoHoyApartado) return 0;
     if (montoDepositoHoyInput !== undefined && montoDepositoHoyInput !== "") {
       const v = Number(montoDepositoHoyInput) || 0;
@@ -209,7 +225,7 @@ export default function PanelLiquidacionMostrador({
     montoDepositoHoyInput,
   ]);
 
-  // 3. Pagos comerciales (Modo Simple 1-clic vs Modo Mixto en tramos)
+  // 3. Pagos comerciales (Modo Simple vs Modo Dividido)
   const sumaTramosMixtos = useMemo(() => {
     return tramosMixtos.reduce((acc, t) => acc + (Number(t.monto) || 0), 0);
   }, [tramosMixtos]);
@@ -223,10 +239,17 @@ export default function PanelLiquidacionMostrador({
     const montoReal = Math.min(faltanteMixtoComercial, Math.round(digitado * 100) / 100);
     if (montoReal <= 0) return;
 
+    const vueltasTramo =
+      metodoTramoNuevo === "EFECTIVO" && digitado > montoReal
+        ? Math.round((digitado - montoReal) * 100) / 100
+        : 0;
+
     const nuevo: PagoAplicado = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       metodoPago: metodoTramoNuevo,
       monto: montoReal,
+      montoRecibido: metodoTramoNuevo === "EFECTIVO" ? Math.max(montoReal, digitado) : null,
+      vueltasEntregadas: metodoTramoNuevo === "EFECTIVO" ? vueltasTramo : null,
       referencia: refTramoNuevo.trim() || null,
     };
     setTramosMixtos((prev) => [...prev, nuevo]);
@@ -238,15 +261,14 @@ export default function PanelLiquidacionMostrador({
     setTramosMixtos((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Si desactiva modo mixto o cambia monto objetivo por debajo de los tramos, limpiar tramos invalidos
   useEffect(() => {
     if (!modoMixtoActivo && tramosMixtos.length > 0) {
       setTramosMixtos([]);
     }
   }, [modoMixtoActivo, tramosMixtos.length]);
 
-  // 4. Consolidacion de Efectivo en Mano vs Digital (Operacion + Custodia)
-  const efectivoComercialHoy = useMemo(() => {
+  // 4. Efectivo y Vueltas POR SEPARADO (Operacion vs Custodia)
+  const efectivoComercialExigibleHoy = useMemo(() => {
     if (montoOperacionHoy <= 0) return 0;
     if (modoMixtoActivo) {
       return tramosMixtos
@@ -266,7 +288,7 @@ export default function PanelLiquidacionMostrador({
     return metodoOperacion !== "EFECTIVO" ? montoOperacionHoy : 0;
   }, [montoOperacionHoy, modoMixtoActivo, tramosMixtos, metodoOperacion]);
 
-  const efectivoCustodiaHoy = useMemo(() => {
+  const efectivoCustodiaExigibleHoy = useMemo(() => {
     if (montoDepositoHoy <= 0) return 0;
     return metodoDeposito === "EFECTIVO" ? montoDepositoHoy : 0;
   }, [montoDepositoHoy, metodoDeposito]);
@@ -276,6 +298,55 @@ export default function PanelLiquidacionMostrador({
     return metodoDeposito !== "EFECTIVO" ? montoDepositoHoy : 0;
   }, [montoDepositoHoy, metodoDeposito]);
 
+  // Recibido en Operacion
+  const efectivoOperacionNum = useMemo(() => {
+    if (modoMixtoActivo) {
+      return tramosMixtos
+        .filter((t) => t.metodoPago === "EFECTIVO")
+        .reduce((acc, t) => acc + (Number(t.montoRecibido ?? t.monto) || 0), 0);
+    }
+    if (metodoOperacion !== "EFECTIVO") return montoOperacionHoy;
+    if (efectivoOperacionStr.trim() === "") return 0;
+    return Math.max(0, Number(efectivoOperacionStr) || 0);
+  }, [modoMixtoActivo, tramosMixtos, metodoOperacion, montoOperacionHoy, efectivoOperacionStr]);
+
+  const vueltasOperacion = useMemo(() => {
+    if (modoMixtoActivo) {
+      return tramosMixtos.reduce((acc, t) => acc + (Number(t.vueltasEntregadas) || 0), 0);
+    }
+    if (metodoOperacion === "EFECTIVO" && montoOperacionHoy > 0 && efectivoOperacionNum > montoOperacionHoy) {
+      return Math.round((efectivoOperacionNum - montoOperacionHoy) * 100) / 100;
+    }
+    return 0;
+  }, [modoMixtoActivo, tramosMixtos, metodoOperacion, montoOperacionHoy, efectivoOperacionNum]);
+
+  const faltaEfectivoOperacion =
+    !modoMixtoActivo &&
+    metodoOperacion === "EFECTIVO" &&
+    montoOperacionHoy > 0 &&
+    efectivoOperacionNum < montoOperacionHoy;
+
+  // Recibido en Custodia (independiente de la operacion)
+  const efectivoCustodiaNum = useMemo(() => {
+    if (montoDepositoHoy <= 0) return 0;
+    if (metodoDeposito !== "EFECTIVO") return montoDepositoHoy;
+    if (efectivoCustodiaStr.trim() === "") return 0;
+    return Math.max(0, Number(efectivoCustodiaStr) || 0);
+  }, [montoDepositoHoy, metodoDeposito, efectivoCustodiaStr]);
+
+  const vueltasCustodia = useMemo(() => {
+    if (metodoDeposito === "EFECTIVO" && montoDepositoHoy > 0 && efectivoCustodiaNum > montoDepositoHoy) {
+      return Math.round((efectivoCustodiaNum - montoDepositoHoy) * 100) / 100;
+    }
+    return 0;
+  }, [metodoDeposito, montoDepositoHoy, efectivoCustodiaNum]);
+
+  const faltaEfectivoCustodia =
+    metodoDeposito === "EFECTIVO" &&
+    montoDepositoHoy > 0 &&
+    efectivoCustodiaNum < montoDepositoHoy;
+
+  // 5. Tasacion final sumada del documento
   const totalTasadoDocumento = useMemo(() => {
     return Math.round((totalOperacion + montoDepositoPactado) * 100) / 100;
   }, [totalOperacion, montoDepositoPactado]);
@@ -285,67 +356,55 @@ export default function PanelLiquidacionMostrador({
   }, [montoOperacionHoy, montoDepositoHoy]);
 
   const efectivoExigibleEnManoHoy = useMemo(() => {
-    return Math.round((efectivoComercialHoy + efectivoCustodiaHoy) * 100) / 100;
-  }, [efectivoComercialHoy, efectivoCustodiaHoy]);
+    return Math.round((efectivoComercialExigibleHoy + efectivoCustodiaExigibleHoy) * 100) / 100;
+  }, [efectivoComercialExigibleHoy, efectivoCustodiaExigibleHoy]);
 
   const digitalExigibleHoy = useMemo(() => {
     return Math.round((digitalComercialHoy + digitalCustodiaHoy) * 100) / 100;
   }, [digitalComercialHoy, digitalCustodiaHoy]);
 
-  // 5. Calculo unificado de Billetes Recibidos y Vueltas (CERO cuentas mentales)
-  const billetesDigitadosNum = Number(billetesRecibidosStr) || 0;
-  const usaPagoExactoAutomatico = billetesRecibidosStr.trim() === "";
+  const billetesRecibidosTotales = useMemo(() => {
+    const efOp = metodoOperacion === "EFECTIVO" || modoMixtoActivo
+      ? (modoMixtoActivo ? efectivoOperacionNum : (metodoOperacion === "EFECTIVO" ? efectivoOperacionNum : 0))
+      : 0;
+    const efDep = metodoDeposito === "EFECTIVO" ? efectivoCustodiaNum : 0;
+    return Math.round((efOp + efDep) * 100) / 100;
+  }, [metodoOperacion, modoMixtoActivo, efectivoOperacionNum, metodoDeposito, efectivoCustodiaNum]);
 
-  const billetesRecibidosEfectivos = useMemo(() => {
-    if (efectivoExigibleEnManoHoy <= 0) return 0;
-    if (usaPagoExactoAutomatico) return efectivoExigibleEnManoHoy;
-    return billetesDigitadosNum;
-  }, [efectivoExigibleEnManoHoy, usaPagoExactoAutomatico, billetesDigitadosNum]);
+  const vueltasEntregarTotales = useMemo(() => {
+    return Math.round((vueltasOperacion + vueltasCustodia) * 100) / 100;
+  }, [vueltasOperacion, vueltasCustodia]);
 
-  const vueltasEntregarCliente = useMemo(() => {
-    if (efectivoExigibleEnManoHoy <= 0) return 0;
-    if (billetesRecibidosEfectivos > efectivoExigibleEnManoHoy) {
-      return Math.round((billetesRecibidosEfectivos - efectivoExigibleEnManoHoy) * 100) / 100;
-    }
-    return 0;
-  }, [efectivoExigibleEnManoHoy, billetesRecibidosEfectivos]);
-
-  const efectivoInsuficiente =
-    efectivoExigibleEnManoHoy > 0 &&
-    !usaPagoExactoAutomatico &&
-    billetesDigitadosNum < efectivoExigibleEnManoHoy;
-
-  // 6. Validacion integral y construccion de lista PagoAplicado comercial
+  // 6. Resultado consolidado y validacion
   const resultadoConsolidado: ResultadoLiquidacionMostrador = useMemo(() => {
     let motivoBloqueo: string | null = null;
 
     if (modulo === "VENTAS" && modalidadVenta === "ADELANTO" && montoOperacionHoy <= 0) {
       motivoBloqueo = "Indique el valor del abono inicial a cobrar hoy.";
     } else if (modulo === "APARTADOS" && montoOperacionHoy <= 0 && montoDepositoHoy <= 0) {
-      motivoBloqueo = "El apartado requiere registrar un abono inicial mayor a $0.";
+      motivoBloqueo = "Ingrese un abono inicial mayor a $0 para registrar el apartado.";
     } else if (modoMixtoActivo && faltanteMixtoComercial > 0) {
       motivoBloqueo = `Falta asignar $${faltanteMixtoComercial.toLocaleString("es-CO")} en el pago dividido.`;
-    } else if (efectivoInsuficiente) {
-      const falta = efectivoExigibleEnManoHoy - billetesDigitadosNum;
-      motivoBloqueo = `Faltan $${falta.toLocaleString("es-CO")} en billetes recibidos para cubrir el efectivo total.`;
+    } else if (faltaEfectivoOperacion) {
+      const faltaOp = montoOperacionHoy - efectivoOperacionNum;
+      motivoBloqueo = `Ingrese el efectivo recibido de ${modulo === "ALQUILERES" ? "alquiler" : "reserva"} (faltan $${faltaOp.toLocaleString("es-CO")}) o pulse Exacto.`;
+    } else if (faltaEfectivoCustodia) {
+      const faltaDep = montoDepositoHoy - efectivoCustodiaNum;
+      motivoBloqueo = `Ingrese el efectivo recibido del depósito en custodia (faltan $${faltaDep.toLocaleString("es-CO")}) o pulse Exacto.`;
     }
 
     let pagosComerciales: PagoAplicado[] = [];
     if (montoOperacionHoy > 0) {
       if (modoMixtoActivo) {
-        pagosComerciales = tramosMixtos.map((t, idx) => ({
-          ...t,
-          montoRecibido: t.metodoPago === "EFECTIVO" && idx === 0 ? billetesRecibidosEfectivos : null,
-          vueltasEntregadas: t.metodoPago === "EFECTIVO" && idx === 0 ? vueltasEntregarCliente : null,
-        }));
+        pagosComerciales = tramosMixtos;
       } else {
         pagosComerciales = [
           {
             id: "pago-comercial-unico",
             metodoPago: metodoOperacion,
             monto: montoOperacionHoy,
-            montoRecibido: metodoOperacion === "EFECTIVO" ? billetesRecibidosEfectivos : null,
-            vueltasEntregadas: metodoOperacion === "EFECTIVO" ? vueltasEntregarCliente : null,
+            montoRecibido: metodoOperacion === "EFECTIVO" ? efectivoOperacionNum : null,
+            vueltasEntregadas: metodoOperacion === "EFECTIVO" ? vueltasOperacion : null,
             referencia: referenciaOperacion.trim() || null,
           },
         ];
@@ -366,8 +425,12 @@ export default function PanelLiquidacionMostrador({
       totalRecibirClienteHoy,
       efectivoExigibleEnManoHoy,
       digitalExigibleHoy,
-      billetesRecibidosCliente: billetesRecibidosEfectivos,
-      vueltasEntregarCliente,
+      efectivoRecibidoOperacion: efectivoOperacionNum,
+      vueltasOperacion,
+      efectivoRecibidoCustodia: efectivoCustodiaNum,
+      vueltasCustodia,
+      billetesRecibidosCliente: billetesRecibidosTotales,
+      vueltasEntregarCliente: vueltasEntregarTotales,
       metodoPrincipalOperacion: metodoPrincipalResuelto,
       metodoDeposito,
       pagosComerciales,
@@ -381,19 +444,23 @@ export default function PanelLiquidacionMostrador({
     montoDepositoHoy,
     modoMixtoActivo,
     faltanteMixtoComercial,
-    efectivoInsuficiente,
-    efectivoExigibleEnManoHoy,
-    billetesDigitadosNum,
+    faltaEfectivoOperacion,
+    faltaEfectivoCustodia,
+    efectivoOperacionNum,
+    efectivoCustodiaNum,
     tramosMixtos,
     metodoOperacion,
-    billetesRecibidosEfectivos,
-    vueltasEntregarCliente,
+    vueltasOperacion,
+    vueltasCustodia,
     referenciaOperacion,
     totalOperacion,
     montoDepositoPactado,
     totalTasadoDocumento,
     totalRecibirClienteHoy,
+    efectivoExigibleEnManoHoy,
     digitalExigibleHoy,
+    billetesRecibidosTotales,
+    vueltasEntregarTotales,
     metodoDeposito,
   ]);
 
@@ -403,13 +470,13 @@ export default function PanelLiquidacionMostrador({
     }
   }, [resultadoConsolidado, onResultadoChange]);
 
-  // Atajos rapidos F5 / F6 / F7 homologados en los 3 modulos
+  // Atajos rapidos F5 / F6 / F7 homologados sin provocar auto-scroll brusco
   useEffect(() => {
     const manejarTeclado = (e: KeyboardEvent) => {
       if (e.key === "F5" || (e.altKey && e.key === "1")) {
         e.preventDefault();
         onMetodoOperacionChange?.("EFECTIVO");
-        inputBilletesRef.current?.focus();
+        inputEfectivoOperacionRef.current?.focus({ preventScroll: true });
       } else if (e.key === "F6" || (e.altKey && e.key === "2")) {
         e.preventDefault();
         onMetodoOperacionChange?.("BANCOLOMBIA");
@@ -422,85 +489,103 @@ export default function PanelLiquidacionMostrador({
     return () => window.removeEventListener("keydown", manejarTeclado);
   }, [onMetodoOperacionChange]);
 
+  // Selector de 3 columnas amplias (Efectivo | Bancolombia | Otros Medios) con color propio del bloque
   const renderSelectorMetodos = (
     seleccionado: MetodoPagoValido,
     onSelect: (m: MetodoPagoValido) => void,
-    etiquetaAtajos: boolean
+    claseActivo: string
   ) => {
-    const esSecundarioActivo = METODOS_SECUNDARIOS.includes(seleccionado);
+    const esOtroMedio = seleccionado !== "EFECTIVO" && seleccionado !== "BANCOLOMBIA";
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-        {METODOS_PRINCIPALES.map((idMetodo, idx) => {
-          const info = METODOS_PAGO_CATALOGO.find((m) => m.id === idMetodo)!;
-          const Icono = info.icono;
-          const activo = seleccionado === idMetodo;
-          const tecla = idx === 0 ? "F5" : idx === 1 ? "F6" : "F7";
-          return (
-            <button
-              key={idMetodo}
-              type="button"
-              onClick={() => onSelect(idMetodo)}
-              className={`flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl border text-xs font-bold transition ${
-                activo
-                  ? theme.activeBtn
-                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-              }`}
-            >
-              <Icono className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{info.nombre}</span>
-              {etiquetaAtajos && (
-                <span className={`text-[10px] px-1 rounded ${activo ? "bg-white/20" : "bg-slate-100 text-slate-500"}`}>
-                  {tecla}
-                </span>
-              )}
-            </button>
-          );
-        })}
-
-        <select
-          value={esSecundarioActivo ? seleccionado : ""}
-          onChange={(e) => {
-            if (e.target.value) onSelect(e.target.value as MetodoPagoValido);
-          }}
-          className={`px-2.5 py-2 rounded-xl border text-xs font-bold transition outline-none ${
-            esSecundarioActivo
-              ? theme.activeBtn
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={() => onSelect("EFECTIVO")}
+          className={`py-2 px-3 rounded-xl text-xs font-bold border transition inline-flex items-center justify-center gap-1.5 cursor-pointer w-full whitespace-nowrap ${
+            seleccionado === "EFECTIVO"
+              ? claseActivo
               : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
           }`}
         >
-          <option value="" className="text-slate-700 bg-white">
-            Otros medios...
-          </option>
-          {METODOS_SECUNDARIOS.map((idSec) => {
-            const info = METODOS_PAGO_CATALOGO.find((m) => m.id === idSec)!;
-            return (
-              <option key={idSec} value={idSec} className="text-slate-800 bg-white">
-                {info.nombre}
+          <Banknote className="w-4 h-4 shrink-0" />
+          <span>Efectivo</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onSelect("BANCOLOMBIA")}
+          className={`py-2 px-3 rounded-xl text-xs font-bold border transition inline-flex items-center justify-center gap-1.5 cursor-pointer w-full whitespace-nowrap ${
+            seleccionado === "BANCOLOMBIA"
+              ? claseActivo
+              : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <span className="w-4 h-4 shrink-0 overflow-hidden flex items-center justify-center rounded-xs">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/iconos/bancolombia-logo.png"
+              alt=""
+              className={`w-3.5 h-3.5 object-contain ${
+                seleccionado === "BANCOLOMBIA" ? "brightness-0 invert" : ""
+              }`}
+            />
+          </span>
+          <span>Bancolombia</span>
+        </button>
+
+        <div className="relative">
+          <div
+            className={`relative flex items-center rounded-xl border transition cursor-pointer w-full ${
+              esOtroMedio
+                ? claseActivo
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <div className="pl-2.5 py-2 flex items-center pointer-events-none">
+              <CreditCard className="w-4 h-4 shrink-0" />
+            </div>
+            <select
+              value={esOtroMedio ? seleccionado : ""}
+              onChange={(e) => {
+                if (e.target.value) onSelect(e.target.value as MetodoPagoValido);
+              }}
+              className={`w-full py-2 pl-1.5 pr-7 text-xs font-bold bg-transparent outline-none cursor-pointer appearance-none ${
+                esOtroMedio ? "text-white font-black" : "text-slate-700"
+              }`}
+            >
+              <option value="" disabled className="text-slate-800 bg-white">
+                Otros Medios
               </option>
-            );
-          })}
-        </select>
+              {OTROS_METODOS_CATALOGO.map((om) => (
+                <option key={om.id} value={om.id} className="text-slate-800 bg-white">
+                  {om.alias}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 absolute right-2 pointer-events-none opacity-75" />
+          </div>
+        </div>
       </div>
     );
   };
 
   const tituloRubroComercial =
     modulo === "VENTAS"
-      ? "1. Cobro de Venta (Ingreso Tienda)"
+      ? "1. Cobro de Venta"
       : modulo === "ALQUILERES"
-      ? "1. Canon de Alquiler (Ingreso Tienda)"
-      : "1. Abono de Reserva Hoy (Ingreso Tienda)";
+      ? "1. Cobro de Alquiler"
+      : "1. Abono de Apartado Hoy";
 
   return (
     <div className="space-y-3">
-      {/* BLOQUE SUPERIOR: RUBRO COMERCIAL + RUBRO DEPOSITO EN CUSTODIA */}
+      {/* BLOQUE SUPERIOR: OPERACION COMERCIAL + DEPOSITO EN CUSTODIA POR SEPARADO */}
       <div className={`grid grid-cols-1 ${manejaDeposito ? "xl:grid-cols-2" : ""} gap-3`}>
-        {/* TARJETA A: RUBRO COMERCIAL (INGRESO TIENDA) */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-3">
+        {/* TARJETA 1: OPERACION PRINCIPAL (COLORIMETRIA DEL MODULO) */}
+        <div className={`bg-white rounded-2xl border ${theme.cardBorder} p-4 shadow-2xs space-y-3`}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Wallet className={`w-4 h-4 ${theme.accentText}`} />
-              <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight text-slate-900">
+              <Wallet className={`w-4 h-4 shrink-0 ${theme.headerIcon}`} />
+              <h3 className={`text-xs sm:text-sm font-black uppercase tracking-tight ${theme.accentDark}`}>
                 {tituloRubroComercial}
               </h3>
             </div>
@@ -508,64 +593,64 @@ export default function PanelLiquidacionMostrador({
               <button
                 type="button"
                 onClick={() => setModoMixtoActivo((v) => !v)}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
                   modoMixtoActivo
-                    ? "bg-slate-900 text-white border-slate-900"
+                    ? theme.activeBtn
                     : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                 }`}
               >
                 <Split className="w-3 h-3" />
-                {modoMixtoActivo ? "Pago Único" : "Dividir Pago"}
+                <span>{modoMixtoActivo ? "Pago Único" : "Dividir Pago"}</span>
               </button>
             )}
           </div>
 
-          {/* Modalidad exclusiva de Ventas: Pago Total | Abono Inicial | Credito Cartera */}
+          {/* Modalidad exclusiva de Ventas */}
           {modulo === "VENTAS" && onModalidadVentaChange && (
             <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
               <button
                 type="button"
                 onClick={() => onModalidadVentaChange("TOTAL")}
                 className={`py-1.5 px-2 rounded-lg text-xs font-bold transition ${
-                  modalidadVenta === "TOTAL" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                  modalidadVenta === "TOTAL" ? "bg-white text-emerald-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Pago Total
+                Contado
               </button>
               <button
                 type="button"
                 disabled={!permiteCreditoCartera}
                 onClick={() => onModalidadVentaChange("ADELANTO")}
                 className={`py-1.5 px-2 rounded-lg text-xs font-bold transition disabled:opacity-40 ${
-                  modalidadVenta === "ADELANTO" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                  modalidadVenta === "ADELANTO" ? "bg-white text-emerald-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Abono Inicial
+                Abono
               </button>
               <button
                 type="button"
                 disabled={!permiteCreditoCartera}
                 onClick={() => onModalidadVentaChange("PENDIENTE")}
                 className={`py-1.5 px-2 rounded-lg text-xs font-bold transition disabled:opacity-40 ${
-                  modalidadVenta === "PENDIENTE" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                  modalidadVenta === "PENDIENTE" ? "bg-white text-emerald-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Crédito Cartera
+                Crédito
               </button>
             </div>
           )}
 
-          {/* Resumen o Input del monto comercial de hoy */}
+          {/* Valor del rubro comercial (Editable en Apartados, fijo en Alquileres) */}
           {modulo === "APARTADOS" || (modulo === "VENTAS" && modalidadVenta === "ADELANTO") ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs text-slate-600">
                 <span className="font-semibold">
-                  {modulo === "APARTADOS" ? "Valor Total Prendas:" : "Total Venta:"}{" "}
-                  <strong className="text-slate-900">${totalOperacion.toLocaleString("es-CO")}</strong>
+                  {modulo === "APARTADOS" ? "Valor Prendas:" : "Total Venta:"}{" "}
+                  <strong className="text-slate-900 font-mono">${totalOperacion.toLocaleString("es-CO")}</strong>
                 </span>
                 <span className="font-semibold">
-                  Queda pendiente:{" "}
-                  <strong className="text-rose-600">
+                  Saldo pendiente:{" "}
+                  <strong className={`${theme.accentText} font-mono`}>
                     ${Math.max(0, saldoOperacionRestante - montoOperacionHoy).toLocaleString("es-CO")}
                   </strong>
                 </span>
@@ -575,93 +660,138 @@ export default function PanelLiquidacionMostrador({
                 <div className="flex-1">
                   <InputDinero
                     value={montoOperacionHoyInput ?? ""}
-                    onChange={(e) => onMontoOperacionHoyInputChange?.(e.target.value)}
+                    onChange={(e) => {
+                      onMontoOperacionHoyInputChange?.(e.target.value);
+                      setEfectivoOperacionStr("");
+                    }}
                     mostrarPrefijo
                     placeholder="Abono a recibir hoy"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-black text-base text-slate-900 bg-slate-50 focus:bg-white"
+                    className={`w-full px-3 py-2 rounded-xl border ${theme.inputBorder} font-mono font-black text-base text-slate-900 bg-white focus:outline-none focus:ring-2`}
                   />
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {CHIPS_ABONO_RESERVA.filter((c) => c <= saldoOperacionRestante).map((chip) => (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => onMontoOperacionHoyInputChange?.(String(chip))}
-                      className="px-2 py-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[11px] font-bold text-slate-700"
-                    >
-                      ${chip / 1000}k
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => onMontoOperacionHoyInputChange?.(String(saldoOperacionRestante))}
-                    className="px-2 py-2 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-[11px] font-bold text-slate-800"
-                  >
-                    100%
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onMontoOperacionHoyInputChange?.(String(saldoOperacionRestante));
+                    setEfectivoOperacionStr(String(saldoOperacionRestante));
+                  }}
+                  className={`px-3.5 py-2 rounded-xl border text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${theme.exactoBtn}`}
+                  title="Insertar el valor exacto total de las prendas"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Exacto</span>
+                </button>
               </div>
             </div>
           ) : (
             <div className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border ${theme.softBg}`}>
-              <div>
-                <span className="text-[11px] font-bold uppercase text-slate-600 block">
-                  {modulo === "VENTAS" && modalidadVenta === "PENDIENTE"
-                    ? `Cargo a Cartera (Cupo disp: $${cupoDisponibleCliente.toLocaleString("es-CO")})`
-                    : abonoPrevioOperacion > 0
-                    ? `Canon $${totalOperacion.toLocaleString("es-CO")} - Abonado $${abonoPrevioOperacion.toLocaleString("es-CO")}`
-                    : "Valor Neto a Cobrar"}
-                </span>
-              </div>
-              <span className="text-lg font-black text-slate-900">
+              <span className={`text-xs font-bold uppercase ${theme.accentDark}`}>
+                {modulo === "VENTAS" && modalidadVenta === "PENDIENTE"
+                  ? `Cargo a Cartera (Cupo: $${cupoDisponibleCliente.toLocaleString("es-CO")})`
+                  : abonoPrevioOperacion > 0
+                  ? `Alquiler $${totalOperacion.toLocaleString("es-CO")} - Abonado $${abonoPrevioOperacion.toLocaleString("es-CO")}`
+                  : "Valor Neto a Cobrar"}
+              </span>
+              <span className={`text-lg font-mono font-black ${theme.accentDark}`}>
                 ${(modulo === "VENTAS" && modalidadVenta === "PENDIENTE" ? totalOperacion : montoOperacionHoy).toLocaleString("es-CO")}
               </span>
             </div>
           )}
 
-          {/* Selector de Metodo Comercial (Simple vs Mixto) */}
+          {/* Selector de Metodo y Efectivo Recibido de la Operacion (Manejo Separado) */}
           {montoOperacionHoy > 0 && !modoMixtoActivo && (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {renderSelectorMetodos(
                 metodoOperacion,
                 (m) => onMetodoOperacionChange?.(m),
-                true
+                theme.activeBtn
               )}
-              {metodoOperacion !== "EFECTIVO" && onReferenciaOperacionChange && (
-                <input
-                  type="text"
-                  value={referenciaOperacion}
-                  onChange={(e) => onReferenciaOperacionChange(e.target.value)}
-                  placeholder={`Referencia / comprobante ${metodoOperacion} (opcional)`}
-                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800"
-                />
+
+              {metodoOperacion === "EFECTIVO" ? (
+                <div className={`p-2.5 rounded-xl border ${theme.softBg} space-y-1.5`}>
+                  <label className={`text-[11px] font-bold uppercase block ${theme.accentDark}`}>
+                    Efectivo recibido ({modulo === "ALQUILERES" ? "Alquiler" : modulo === "APARTADOS" ? "Apartado" : "Venta"}):
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <InputDinero
+                        ref={inputEfectivoOperacionRef}
+                        value={efectivoOperacionStr}
+                        onChange={(e) => setEfectivoOperacionStr(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && resultadoConsolidado.esValido && onConfirmarEnter) {
+                            e.preventDefault();
+                            onConfirmarEnter();
+                          }
+                        }}
+                        mostrarPrefijo
+                        placeholder={montoOperacionHoy.toLocaleString("es-CO")}
+                        className={`w-full pr-3 py-2 rounded-xl border ${theme.inputBorder} bg-white font-mono font-black text-base text-slate-900 focus:outline-none focus:ring-2`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEfectivoOperacionStr(String(montoOperacionHoy))}
+                      className={`px-3.5 py-2 rounded-xl border text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 ${theme.exactoBtn}`}
+                      title="Insertar el valor exacto recibido para esta operación"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Exacto</span>
+                    </button>
+                  </div>
+
+                  {vueltasOperacion > 0 && (
+                    <div className="flex items-center justify-between pt-1 border-t border-emerald-200 text-xs font-black text-emerald-800">
+                      <span>Vueltas operación:</span>
+                      <span className="font-mono text-sm">${vueltasOperacion.toLocaleString("es-CO")}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                onReferenciaOperacionChange && (
+                  <input
+                    type="text"
+                    value={referenciaOperacion}
+                    onChange={(e) => onReferenciaOperacionChange(e.target.value)}
+                    placeholder={`Referencia / comprobante ${metodoOperacion} (opcional)`}
+                    className={`w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 ${theme.inputBorder}`}
+                  />
+                )
               )}
             </div>
           )}
 
-          {/* Desglose Mixto cuando el cajero activa "Dividir Pago" */}
+          {/* Modo Pago Dividido */}
           {montoOperacionHoy > 0 && modoMixtoActivo && (
-            <div className="space-y-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div className={`space-y-2 p-3 rounded-xl border ${theme.softBg}`}>
               {faltanteMixtoComercial > 0 && (
                 <div className="space-y-2">
-                  {renderSelectorMetodos(metodoTramoNuevo, setMetodoTramoNuevo, false)}
+                  {renderSelectorMetodos(metodoTramoNuevo, setMetodoTramoNuevo, theme.activeBtn)}
                   <div className="flex items-center gap-2">
                     <div className="flex-1">
                       <InputDinero
                         value={montoTramoNuevo}
                         onChange={(e) => setMontoTramoNuevo(e.target.value)}
                         mostrarPrefijo
-                        placeholder={`Faltan $${faltanteMixtoComercial.toLocaleString("es-CO")}`}
-                        className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-sm font-bold bg-white"
+                        placeholder={faltanteMixtoComercial.toLocaleString("es-CO")}
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-sm font-mono font-bold bg-white"
                       />
                     </div>
                     <button
                       type="button"
+                      onClick={() => setMontoTramoNuevo(String(faltanteMixtoComercial))}
+                      className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1 cursor-pointer shrink-0 ${theme.exactoBtn}`}
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Exacto</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={agregarTramoMixto}
-                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800"
+                      className={`inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer shrink-0 ${theme.activeBtn}`}
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      Aplicar
+                      <span>Aplicar</span>
                     </button>
                   </div>
                 </div>
@@ -676,11 +806,11 @@ export default function PanelLiquidacionMostrador({
                     >
                       <span className="font-bold text-slate-700">{t.metodoPago}</span>
                       <div className="flex items-center gap-2">
-                        <span className="font-black text-slate-900">${t.monto.toLocaleString("es-CO")}</span>
+                        <span className="font-mono font-black text-slate-900">${t.monto.toLocaleString("es-CO")}</span>
                         <button
                           type="button"
                           onClick={() => eliminarTramoMixto(t.id)}
-                          className="text-rose-500 hover:text-rose-700"
+                          className="text-rose-500 hover:text-rose-700 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -693,270 +823,239 @@ export default function PanelLiquidacionMostrador({
           )}
         </div>
 
-        {/* TARJETA B: DEPOSITO EN CUSTODIA (SEPARADO DEL INGRESO TIENDA — SOLO ALQUILERES Y APARTADOS) */}
+        {/* TARJETA 2: DEPOSITO EN CUSTODIA (AMBAR ESTRICTO — DINERO EN CUSTODIA POR SEPARADO) */}
         {manejaDeposito && (
           <div className="bg-amber-50/40 rounded-2xl border border-amber-200 p-4 shadow-2xs space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-amber-700" />
+                <ShieldCheck className="w-4 h-4 shrink-0 text-amber-600" />
                 <h3 className="text-xs sm:text-sm font-black uppercase tracking-tight text-amber-950">
                   2. Depósito en Custodia (Garantía)
                 </h3>
               </div>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300">
-                No es ingreso tienda
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+                Custodia Separada
               </span>
             </div>
 
-            {/* Valor pactado del deposito + chips rapidos */}
+            {/* Valor pactado del deposito (Sin chips de billetes) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs text-amber-900">
                 <span className="font-semibold">Garantía pactada del contrato:</span>
                 {depositoAbonadoPrevio > 0 && (
-                  <span className="font-bold text-emerald-700">
-                    Ya en custodia: ${depositoAbonadoPrevio.toLocaleString("es-CO")}
+                  <span className="font-bold text-emerald-700 font-mono">
+                    Previo en custodia: ${depositoAbonadoPrevio.toLocaleString("es-CO")}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <InputDinero
-                    value={montoDepositoPactadoInput}
-                    onChange={(e) => onMontoDepositoPactadoInputChange?.(e.target.value)}
-                    permitirCeroVacio
-                    mostrarPrefijo
-                    placeholder="0"
-                    className="w-full px-3 py-2 rounded-xl border border-amber-300 font-black text-base text-amber-950 bg-white"
-                  />
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {CHIPS_DEPOSITO.map((chip) => (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => onMontoDepositoPactadoInputChange?.(String(chip))}
-                      className={`px-2 py-2 rounded-lg border text-[11px] font-bold transition ${
-                        montoDepositoPactado === chip
-                          ? "bg-amber-600 text-white border-amber-700"
-                          : "bg-white text-amber-900 border-amber-200 hover:bg-amber-100"
-                      }`}
-                    >
-                      {chip === 0 ? "$0" : `$${chip / 1000}k`}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <InputDinero
+                value={montoDepositoPactadoInput}
+                onChange={(e) => {
+                  onMontoDepositoPactadoInputChange?.(e.target.value);
+                  setEfectivoCustodiaStr("");
+                }}
+                permitirCeroVacio
+                mostrarPrefijo
+                placeholder="0"
+                className="w-full px-3 py-2 rounded-xl border border-amber-300 font-mono font-black text-base text-amber-950 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
             </div>
 
-            {/* En Apartados: decidir si el deposito se cobra el dia del retiro ($0 hoy) o hoy */}
+            {/* En Apartados: decidir si el deposito queda pendiente para el retiro o se recibe hoy */}
             {modulo === "APARTADOS" && saldoDepositoFaltante > 0 && (
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-amber-100/70 rounded-xl border border-amber-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onCobrarDepositoHoyApartadoChange?.(false);
-                    onMontoDepositoHoyInputChange?.("0");
-                  }}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition ${
-                    !cobrarDepositoHoyApartado
-                      ? "bg-white text-amber-950 shadow-2xs"
-                      : "text-amber-800 hover:text-amber-950"
-                  }`}
-                >
-                  Cobrar al Retirar ($0 hoy)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onCobrarDepositoHoyApartadoChange?.(true);
-                    onMontoDepositoHoyInputChange?.(String(saldoDepositoFaltante));
-                  }}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-bold transition ${
-                    cobrarDepositoHoyApartado
-                      ? "bg-white text-amber-950 shadow-2xs"
-                      : "text-amber-800 hover:text-amber-950"
-                  }`}
-                >
-                  Recibir Hoy (${saldoDepositoFaltante.toLocaleString("es-CO")})
-                </button>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-1.5 p-1 bg-amber-100/70 rounded-xl border border-amber-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCobrarDepositoHoyApartadoChange?.(false);
+                      onMontoDepositoHoyInputChange?.("0");
+                      setEfectivoCustodiaStr("");
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      !cobrarDepositoHoyApartado
+                        ? "bg-white text-amber-950 shadow-2xs"
+                        : "text-amber-800 hover:text-amber-950"
+                    }`}
+                  >
+                    Cobrar al Retirar ($0 hoy)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCobrarDepositoHoyApartadoChange?.(true);
+                      onMontoDepositoHoyInputChange?.(String(saldoDepositoFaltante));
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      cobrarDepositoHoyApartado
+                        ? "bg-white text-amber-950 shadow-2xs"
+                        : "text-amber-800 hover:text-amber-950"
+                    }`}
+                  >
+                    Recibir Custodia Hoy
+                  </button>
+                </div>
+
+                {cobrarDepositoHoyApartado && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <InputDinero
+                        value={montoDepositoHoyInput ?? ""}
+                        onChange={(e) => {
+                          onMontoDepositoHoyInputChange?.(e.target.value);
+                          setEfectivoCustodiaStr("");
+                        }}
+                        mostrarPrefijo
+                        placeholder="Custodia a recibir hoy"
+                        className="w-full px-3 py-1.5 rounded-xl border border-amber-300 font-mono font-black text-sm text-amber-950 bg-white"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onMontoDepositoHoyInputChange?.(String(saldoDepositoFaltante));
+                        setEfectivoCustodiaStr(String(saldoDepositoFaltante));
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white border border-amber-700 text-xs font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Exacto</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Selector de medio del deposito si se recibe dinero en custodia hoy */}
+            {/* Selector de medio y Efectivo Recibido Independiente para Custodia */}
             {montoDepositoHoy > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between text-xs font-bold text-amber-950">
                   <span>Medio en que entrega la custodia hoy:</span>
-                  <span>${montoDepositoHoy.toLocaleString("es-CO")}</span>
+                  <span className="font-mono">${montoDepositoHoy.toLocaleString("es-CO")}</span>
                 </div>
+
                 {renderSelectorMetodos(
                   metodoDeposito,
                   (m) => onMetodoDepositoChange?.(m),
-                  false
+                  "bg-amber-600 hover:bg-amber-700 text-white border-amber-700 shadow-xs"
+                )}
+
+                {metodoDeposito === "EFECTIVO" && (
+                  <div className="p-2.5 rounded-xl bg-amber-100/50 border border-amber-300 space-y-1.5">
+                    <label className="text-[11px] font-bold uppercase block text-amber-950">
+                      Efectivo recibido (Depósito en Custodia):
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <InputDinero
+                          ref={inputEfectivoCustodiaRef}
+                          value={efectivoCustodiaStr}
+                          onChange={(e) => setEfectivoCustodiaStr(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && resultadoConsolidado.esValido && onConfirmarEnter) {
+                              e.preventDefault();
+                              onConfirmarEnter();
+                            }
+                          }}
+                          mostrarPrefijo
+                          clasePrefijo="text-amber-800 font-bold text-sm"
+                          placeholder={montoDepositoHoy.toLocaleString("es-CO")}
+                          className="w-full pr-3 py-2 rounded-xl border border-amber-300 bg-white font-mono font-black text-base text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEfectivoCustodiaStr(String(montoDepositoHoy))}
+                        className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white border border-amber-700 text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0"
+                        title="Insertar el valor exacto recibido para el depósito en custodia"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Exacto</span>
+                      </button>
+                    </div>
+
+                    {vueltasCustodia > 0 && (
+                      <div className="flex items-center justify-between pt-1 border-t border-amber-300 text-xs font-black text-emerald-800">
+                        <span>Vueltas custodia:</span>
+                        <span className="font-mono text-sm">${vueltasCustodia.toLocaleString("es-CO")}</span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             ) : (
               <div className="px-3 py-2 rounded-xl bg-white/80 border border-amber-200 text-xs font-semibold text-amber-900">
                 {montoDepositoPactado === 0
-                  ? "Contrato sin depósito en garantía ($0)."
+                  ? "Operación sin depósito en custodia ($0)."
                   : modulo === "APARTADOS"
-                  ? `Queda estipulado por $${saldoDepositoFaltante.toLocaleString("es-CO")} para cobrar al entregar las prendas.`
-                  : "Depósito ya cubierto previamente."}
+                  ? `Queda pactado por $${saldoDepositoFaltante.toLocaleString("es-CO")} para recibir al entregar las prendas.`
+                  : "Depósito en custodia cubierto previamente."}
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* BLOQUE INFERIOR UNIFICADO: TASACION TOTAL Y CALCULADORA UNICA DE BILLETES RECIBIDOS */}
-      <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-sm space-y-3">
-        {/* Fila 1: Tasacion completa del documento */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pb-3 border-b border-slate-800">
+      {/* FRANJA FINAL DE TASACION DEL DOCUMENTO (COLORIMETRIA PROPIA DEL MODULO, SIN FONDO NEGRO) */}
+      <div className={`rounded-2xl border p-3.5 shadow-2xs space-y-2.5 ${theme.summarySurface}`}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 items-center">
           <div>
-            <span className="text-[10.5px] font-bold uppercase text-slate-400 block">
-              {modulo === "VENTAS" ? "Valor Venta" : "Valor Alquiler"}
+            <span className={`text-[10.5px] font-bold uppercase block ${theme.summaryLabel}`}>
+              {modulo === "VENTAS" ? "Valor Venta" : modulo === "ALQUILERES" ? "Valor Alquiler" : "Valor Reserva"}
             </span>
-            <span className="text-sm sm:text-base font-black text-white">
+            <span className="text-sm sm:text-base font-mono font-black text-slate-900">
               ${totalOperacion.toLocaleString("es-CO")}
             </span>
           </div>
 
           {manejaDeposito && (
             <div>
-              <span className="text-[10.5px] font-bold uppercase text-amber-400 block">
-                + Custodia Garantía
+              <span className="text-[10.5px] font-bold uppercase text-amber-800 block">
+                + Depósito Custodia
               </span>
-              <span className="text-sm sm:text-base font-black text-amber-300">
+              <span className="text-sm sm:text-base font-mono font-black text-amber-900">
                 ${montoDepositoPactado.toLocaleString("es-CO")}
               </span>
             </div>
           )}
 
           <div>
-            <span className="text-[10.5px] font-bold uppercase text-sky-400 block">
-              = Total Tasado Doc.
+            <span className={`text-[10.5px] font-bold uppercase block ${theme.summaryLabel}`}>
+              = Total Tasado {modulo === "APARTADOS" ? "Comprobante" : "Factura"}
             </span>
-            <span className="text-sm sm:text-base font-black text-sky-300">
+            <span className={`text-sm sm:text-base font-mono font-black ${theme.summaryValue}`}>
               ${totalTasadoDocumento.toLocaleString("es-CO")}
             </span>
           </div>
 
-          <div className="bg-slate-800/90 rounded-xl px-3 py-1.5 border border-slate-700">
-            <span className="text-[10.5px] font-bold uppercase text-emerald-400 block">
-              Total a Recibir Hoy
-            </span>
-            <span className="text-base sm:text-lg font-black text-emerald-300">
-              ${totalRecibirClienteHoy.toLocaleString("es-CO")}
-            </span>
+          <div className={`rounded-xl px-3 py-2 border flex items-center justify-between ${theme.summaryHighlight}`}>
+            <div>
+              <span className={`text-[10px] font-bold uppercase block ${theme.summaryLabel}`}>
+                Total a Recibir Hoy
+              </span>
+              <span className={`text-base font-mono font-black ${theme.accentDark}`}>
+                ${totalRecibirClienteHoy.toLocaleString("es-CO")}
+              </span>
+            </div>
+            {vueltasEntregarTotales > 0 ? (
+              <div className="text-right pl-2 border-l border-emerald-200">
+                <span className="text-[10px] font-bold uppercase text-emerald-700 flex items-center justify-end gap-1">
+                  <Calculator className="w-3 h-3" />
+                  Vueltas
+                </span>
+                <span className="text-sm font-mono font-black text-emerald-700">
+                  ${vueltasEntregarTotales.toLocaleString("es-CO")}
+                </span>
+              </div>
+            ) : resultadoConsolidado.esValido && totalRecibirClienteHoy > 0 ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            ) : null}
           </div>
         </div>
 
-        {/* Fila 2: Ventanilla unica de Efectivo Fisico y Vueltas (evita partir billetes mentalmente) */}
-        {efectivoExigibleEnManoHoy > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
-            <div className="lg:col-span-4 space-y-0.5">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
-                <Banknote className="w-4 h-4 text-emerald-400" />
-                <span>Efectivo en mano hoy:</span>
-                <strong className="text-white text-sm">
-                  ${efectivoExigibleEnManoHoy.toLocaleString("es-CO")}
-                </strong>
-              </div>
-              {manejaDeposito && efectivoCustodiaHoy > 0 && efectivoComercialHoy > 0 && (
-                <p className="text-[11px] text-slate-400">
-                  Separa en gaveta: ${efectivoComercialHoy.toLocaleString("es-CO")} Tienda + $
-                  {efectivoCustodiaHoy.toLocaleString("es-CO")} Custodia
-                </p>
-              )}
-              {digitalExigibleHoy > 0 && (
-                <p className="text-[11px] text-sky-300">
-                  + ${digitalExigibleHoy.toLocaleString("es-CO")} por transferencia digital
-                </p>
-              )}
-            </div>
-
-            <div className="lg:col-span-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <div className="flex-1">
-                <InputDinero
-                  ref={inputBilletesRef}
-                  value={billetesRecibidosStr}
-                  onChange={(e) => setBilletesRecibidosStr(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && resultadoConsolidado.esValido && onConfirmarEnter) {
-                      e.preventDefault();
-                      onConfirmarEnter();
-                    }
-                  }}
-                  mostrarPrefijo
-                  clasePrefijo="text-slate-400 font-black text-sm"
-                  placeholder={`Exacto ($${efectivoExigibleEnManoHoy.toLocaleString("es-CO")})`}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-white font-black text-base focus:border-emerald-400"
-                />
-              </div>
-              <div className="flex items-center gap-1 shrink-0 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setBilletesRecibidosStr("")}
-                  className={`px-2 py-2 rounded-lg text-[11px] font-bold border transition ${
-                    usaPagoExactoAutomatico
-                      ? "bg-emerald-600 text-white border-emerald-500"
-                      : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
-                  }`}
-                >
-                  Exacto
-                </button>
-                {DENOMINACIONES_RAPIDAS.filter((d) => d >= efectivoExigibleEnManoHoy).map((den) => (
-                  <button
-                    key={den}
-                    type="button"
-                    onClick={() => setBilletesRecibidosStr(String(den))}
-                    className={`px-2 py-2 rounded-lg text-[11px] font-bold border transition ${
-                      billetesDigitadosNum === den && !usaPagoExactoAutomatico
-                        ? "bg-emerald-600 text-white border-emerald-500"
-                        : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
-                    }`}
-                  >
-                    ${den / 1000}k
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="lg:col-span-3">
-              {efectivoInsuficiente ? (
-                <div className="px-3 py-2 rounded-xl bg-rose-950/90 border border-rose-700 text-rose-200 flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase">Falta Efectivo</span>
-                  <span className="text-sm font-black">
-                    ${(efectivoExigibleEnManoHoy - billetesDigitadosNum).toLocaleString("es-CO")}
-                  </span>
-                </div>
-              ) : (
-                <div className="px-3 py-2 rounded-xl bg-emerald-950/90 border border-emerald-700 text-emerald-200 flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase flex items-center gap-1">
-                    <Calculator className="w-3.5 h-3.5" />
-                    Vueltas
-                  </span>
-                  <span className="text-base font-black text-emerald-300">
-                    ${vueltasEntregarCliente.toLocaleString("es-CO")}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between text-xs text-slate-300">
-            <span className="flex items-center gap-1.5 font-semibold">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              {totalRecibirClienteHoy === 0
-                ? "Operación sin recaudo en efectivo inmediato ($0 hoy)."
-                : `Cobro 100% digital por $${digitalExigibleHoy.toLocaleString("es-CO")} (sin cambio en efectivo).`}
-            </span>
-          </div>
-        )}
-
         {resultadoConsolidado.motivoBloqueo && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-950/80 border border-rose-700 text-rose-200 text-xs font-bold">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+          <div className={`flex items-center gap-2 pt-2 border-t ${theme.summaryDivider} text-xs font-bold ${theme.accentDark}`}>
+            <AlertCircle className={`w-4 h-4 shrink-0 ${theme.headerIcon}`} />
             <span>{resultadoConsolidado.motivoBloqueo}</span>
           </div>
         )}
