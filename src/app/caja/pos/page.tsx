@@ -976,8 +976,9 @@ export default function PosPage() {
     if (seguridadCaja.bloqueadoParaFacturar) {
       setMensajeError(
         seguridadCaja.motivoBloqueo ||
-        "La terminal POS está bloqueada para facturación. Verifique el estado de la caja."
+        "Inicie turno en caja para completar la factura."
       );
+      cajon.abrirModal();
       return;
     }
 

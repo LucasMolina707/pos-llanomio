@@ -20,6 +20,7 @@ import {
   TipoModalCajonRequerido,
   EstadoSeguridadCajaInfo,
 } from "@/hooks/useCajonSincronizado";
+import InputDinero from "@/components/ui/InputDinero";
 
 interface ModalConexionCajonProps {
   abierto: boolean;
@@ -106,7 +107,8 @@ export default function ModalConexionCajon({
 
   const handleSubmitAperturaInicial = async (e: React.FormEvent) => {
     e.preventDefault();
-    const base = parseFloat(baseAperturaInicial);
+    const limpio = String(baseAperturaInicial ?? "").replace(/\D/g, "");
+    const base = limpio === "" ? 0 : parseFloat(limpio);
     if (isNaN(base) || base < 0) {
       setErrorLocal("Ingrese una base inicial de efectivo válida.");
       return;
@@ -142,7 +144,8 @@ export default function ModalConexionCajon({
 
   const handleSubmitCajaDividida = async (e: React.FormEvent) => {
     e.preventDefault();
-    const base = parseFloat(baseDividida);
+    const limpio = String(baseDividida ?? "").replace(/\D/g, "");
+    const base = limpio === "" ? 0 : parseFloat(limpio);
     if (isNaN(base) || base < 0) {
       setErrorLocal("Ingrese una base inicial en efectivo válida para la caja dividida.");
       return;
@@ -353,25 +356,21 @@ export default function ModalConexionCajon({
                 Dinero actual en caja (Base + Efectivo en custodia)
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 font-black text-lg">
-                  $
-                </div>
-                <input
-                  type="number"
-                  min="0"
-                  step="500"
-                  required
-                  placeholder="100000"
+                <InputDinero
+                  mostrarPrefijo
+                  permitirCeroVacio
+                  clasePrefijo="text-slate-500 font-black text-lg"
+                  placeholder="50000"
                   value={baseAperturaInicial}
                   onChange={(e) => setBaseAperturaInicial(e.target.value)}
-                  className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-950 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                  className="w-full pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-950 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
                   autoFocus
                 />
               </div>
 
               {/* Botones de sugerencia rápida */}
               <div className="flex gap-2 mt-2 flex-wrap">
-                {BASES_SUGERIDAS.map((monto) => (
+                {[0, ...BASES_SUGERIDAS].map((monto) => (
                   <button
                     key={monto}
                     type="button"
@@ -579,11 +578,9 @@ export default function ModalConexionCajon({
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
                       Base Inicial en Efectivo ($):
                     </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1000"
-                      required
+                    <InputDinero
+                      permitirCeroVacio
+                      placeholder="50000"
                       value={baseDividida}
                       onChange={(e) => setBaseDividida(e.target.value)}
                       className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-black text-slate-900 focus:ring-2 focus:ring-indigo-500 font-mono"

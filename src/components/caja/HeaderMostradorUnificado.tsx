@@ -220,13 +220,29 @@ export function HeaderMostradorUnificado({
           compacto={true}
         />
 
-        <BotonAbrirCajon soloIcono={true} size="md" />
+        {Boolean(cajon.cajonConectado || cajon.turnoAbierto) && (
+          <BotonAbrirCajon soloIcono={true} size="md" />
+        )}
       </div>
 
       {/* 3. Bloque Derecho: Botonera Uniforme de Herramientas de Mostrador */}
       <div className="flex items-center gap-1.5 shrink-0">
-        <div className="sm:hidden">
-          <BotonAbrirCajon soloIcono={true} size="md" />
+        <div className="sm:hidden flex items-center gap-1">
+          <BarraEstadoCajon
+            cargando={cajon.cargando}
+            cajonConectado={cajon.cajonConectado}
+            seguridadCaja={cajon.seguridadCaja}
+            saldoActualEnCajon={cajon.saldoActualEnCajon}
+            totalDigital={cajon.totalDigital}
+            estado={cajon.estado}
+            motivoBloqueo={cajon.motivoBloqueo}
+            onRefrescar={() => cajon.actualizarCajon(true)}
+            onAbrirModal={cajon.abrirModal}
+            compacto={true}
+          />
+          {Boolean(cajon.cajonConectado || cajon.turnoAbierto) && (
+            <BotonAbrirCajon soloIcono={true} size="md" />
+          )}
         </div>
 
         {/* Herramienta adicional específica (ej. FolderDown en Alquileres) */}

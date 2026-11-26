@@ -153,6 +153,8 @@ export function useCajonSincronizado() {
   const actualizandoRef = useRef(false);
   const pendienteRef = useRef(false);
   const ultimoUpdateRef = useRef<number>(0);
+  const cerradoManualRef = useRef<boolean>(false);
+  const autoMostradoInicialRef = useRef<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   /**
@@ -243,6 +245,10 @@ export function useCajonSincronizado() {
           setSeguridadCaja(verif);
           setCajonConectado(null);
           setTipoModalRequerido("BLOQUEADO_DIA_ANTERIOR");
+          if (!cerradoManualRef.current || !autoMostradoInicialRef.current) {
+            autoMostradoInicialRef.current = true;
+            setDebeMostrarModal(true);
+          }
           return;
         }
 
@@ -251,7 +257,7 @@ export function useCajonSincronizado() {
           setSeguridadCaja({
             estado: "SIN_TURNO",
             bloqueadoParaFacturar: true,
-            motivoBloqueo: "Turno cerrado",
+            motivoBloqueo: "Turno cerrado. Inicie turno en caja para facturar.",
             turnoAbierto: null,
             turnosAbiertosHoy: [],
           });
@@ -259,6 +265,10 @@ export function useCajonSincronizado() {
           setSaldoActualEnCajon(0);
           setTotalDigital(0);
           setTipoModalRequerido("APERTURA_INICIAL");
+          if (!cerradoManualRef.current || !autoMostradoInicialRef.current) {
+            autoMostradoInicialRef.current = true;
+            setDebeMostrarModal(true);
+          }
 
           if (typeof window !== "undefined") {
             try {
@@ -273,6 +283,7 @@ export function useCajonSincronizado() {
 
         // CASO C: TURNO ABIERTO ACTIVO (El turno ya fue iniciado en la tienda)
         if (data.hayTurnoAbierto) {
+          cerradoManualRef.current = false;
           const turno = (data.turnoAbierto ||
             verif.turnoAbierto ||
             data.turnosAbiertos?.[0]) as InfoTurnoGabinete;
@@ -537,8 +548,15 @@ export function useCajonSincronizado() {
     abrirNuevoCajon,
     desvincularCajonLocal,
     setDebeMostrarModal,
-    abrirModal: () => setDebeMostrarModal(true),
-    cerrarModal: () => setDebeMostrarModal(false),
+    abrirModal: () => {
+      cerradoManualRef.current = false;
+      setTipoModalRequerido((prev) => prev || "APERTURA_INICIAL");
+      setDebeMostrarModal(true);
+    },
+    cerrarModal: () => {
+      cerradoManualRef.current = true;
+      setDebeMostrarModal(false);
+    },
     notificarCajaActualizada: notificarLocal,
   };
 }

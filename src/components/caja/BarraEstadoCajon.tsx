@@ -313,11 +313,12 @@ export default function BarraEstadoCajon({
       type="button"
       onClick={abrirModalHandler}
       title="Turno cerrado. Clic para iniciar turno en caja (aplica para Ventas, Alquileres y Apartados)"
-      className="h-9 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 flex items-center gap-2 transition-all cursor-pointer shadow-2xs"
+      className="h-9 px-2.5 sm:px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shadow-2xs shrink-0"
     >
       <Lock className="w-4 h-4 text-amber-700 shrink-0" />
-      <span className="text-xs font-extrabold tracking-tight whitespace-nowrap px-2 py-0.5 rounded-md bg-amber-200/80 text-amber-950">
-        Iniciar Turno en Caja
+      <span className="text-[11px] sm:text-xs font-extrabold tracking-tight whitespace-nowrap px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-200/80 text-amber-950">
+        <span className="sm:hidden">Abrir Caja</span>
+        <span className="hidden sm:inline">Iniciar Turno en Caja</span>
       </span>
     </button>
   );

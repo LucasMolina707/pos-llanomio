@@ -238,7 +238,8 @@ export default function ControlCajaAdminPage() {
   const handleApertura = async (e: React.FormEvent) => {
     e.preventDefault();
     setMensaje(null);
-    const base = parseFloat(baseInicialInput);
+    const limpio = String(baseInicialInput ?? "").replace(/\D/g, "");
+    const base = limpio === "" ? 0 : parseFloat(limpio);
     if (isNaN(base) || base < 0) {
       setMensaje({
         tipo: "error",
@@ -651,16 +652,16 @@ export default function ControlCajaAdminPage() {
                   <div className="relative">
                     <InputDinero
                       mostrarPrefijo
+                      permitirCeroVacio
                       clasePrefijo="text-slate-500 font-black text-lg"
-                      required
-                      placeholder="100000"
+                      placeholder="50000"
                       value={baseInicialInput}
                       onChange={(e) => setBaseInicialInput(e.target.value)}
                       className="w-full pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-lg font-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
                     />
                   </div>
                   <div className="flex gap-2 mt-2.5 flex-wrap">
-                    {[50000, 100000, 150000, 200000].map((monto) => (
+                    {[0, 50000, 100000, 150000, 200000].map((monto) => (
                       <button
                         key={monto}
                         type="button"

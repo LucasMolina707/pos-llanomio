@@ -722,7 +722,11 @@ const procesarGuardadoApartado = async () => {
     });
 
     if (!res.ok || (!res.data?.success && !res.data?.ok)) {
-      throw new Error(res.error || "No se pudo registrar el apartado en el sistema.");
+      if (res.status === 409) {
+        await cajon.actualizarCajon(false);
+        cajon.abrirModal();
+      }
+      throw new Error(res.data?.error || res.error || "No se pudo registrar el apartado en el sistema.");
     }
 
     const rawFactura = res.data?.factura || res.data;
@@ -767,7 +771,6 @@ const procesarGuardadoApartado = async () => {
     console.error("Error al registrar apartado:", err);
     const msg = err instanceof Error ? err.message : "Error desconocido al procesar el apartado";
     setMensajeError(msg);
-    alert(`Error: ${msg}`);
   } finally {
     setGuardando(false);
   }
