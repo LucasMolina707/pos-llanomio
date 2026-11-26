@@ -212,15 +212,15 @@ async function aplicarActualizacion({ rutaZip = null, modoGithub = false } = {})
   console.log("      [OK] Salvaguarda previa completada con éxito.\n");
 
   // =========================================================================
-  // FASE 2: PAUSA LIMPIA DEL SERVIDOR
+  // FASE 2: PAUSA LIMPIA DEL SERVICIO NATIVO DE WINDOWS
   // =========================================================================
-  console.log("[FASE 2/5] Pausando temporalmente los servicios de PM2 para liberar archivos...");
+  console.log("[FASE 2/5] Deteniendo temporalmente el servicio POS_Llanomio...");
   try {
-    const cmdStop = `npx pm2 stop ${env.INSTANCE_ID} ${env.INSTANCE_ID}-mdns`;
-    execSync(cmdStop, { cwd: PROJECT_ROOT, stdio: "ignore" });
-    console.log("      [OK] Procesos de la instancia pausados limpiamente.");
+    execSync("sc stop POS_Llanomio", { cwd: PROJECT_ROOT, stdio: "ignore" });
+    execSync("timeout /t 3 /nobreak", { cwd: PROJECT_ROOT, stdio: "ignore" });
+    console.log("      [OK] Servicio POS_Llanomio detenido limpiamente.");
   } catch {
-    console.log("      [INFO] Procesos de PM2 ya estaban inactivos o no instalados.");
+    console.log("      [INFO] El servicio POS_Llanomio ya estaba inactivo.");
   }
   console.log("");
 
@@ -240,12 +240,31 @@ async function aplicarActualizacion({ rutaZip = null, modoGithub = false } = {})
     console.log(`[FASE 3/5] Extrayendo paquete de actualizacion en el sistema...`);
     console.log(`          Archivo: ${archivoZipFinal}`);
 
+    // Proteger reemplazo en caliente del ejecutable si esta abierto
+    const rutaPanelExe = path.join(PROJECT_ROOT, "Panel_Servidor_POS.exe");
+    const rutaPanelPrev = path.join(PROJECT_ROOT, ".tmp", "Panel_Servidor_POS_prev.exe");
+    try {
+      if (fs.existsSync(rutaPanelExe)) {
+        const tmpDir = path.join(PROJECT_ROOT, ".tmp");
+        if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+        if (fs.existsSync(rutaPanelPrev)) fs.unlinkSync(rutaPanelPrev);
+        fs.renameSync(rutaPanelExe, rutaPanelPrev);
+      }
+    } catch {}
+
     // Extraer mediante Expand-Archive nativo de PowerShell sin errores de buffer de consola
     const cmdExtract = `powershell -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference = 'SilentlyContinue'; Expand-Archive -Path '${archivoZipFinal}' -DestinationPath '${PROJECT_ROOT}' -Force"`;
     try {
       execSync(cmdExtract, { cwd: PROJECT_ROOT, stdio: "inherit" });
+      // Si el parche no incluia un nuevo .exe, restaurar el anterior
+      if (!fs.existsSync(rutaPanelExe) && fs.existsSync(rutaPanelPrev)) {
+        fs.renameSync(rutaPanelPrev, rutaPanelExe);
+      }
       console.log("      [OK] Código nuevo extraído e inyectado correctamente.");
     } catch (errExt) {
+      if (!fs.existsSync(rutaPanelExe) && fs.existsSync(rutaPanelPrev)) {
+        try { fs.renameSync(rutaPanelPrev, rutaPanelExe); } catch {}
+      }
       throw new Error(`Fallo la extraccion del paquete ZIP: ${errExt.message}`);
     }
   }
@@ -286,21 +305,6 @@ async function aplicarActualizacion({ rutaZip = null, modoGithub = false } = {})
       stdio: "inherit",
     });
     console.log("      [OK] Tablas, índices y esquemas actualizados sin perder registros existentes.\n");
-
-    // Preservar y asegurar datos demo oficiales en cada actualización
-    try {
-      execSync("npx tsx scripts/sembrar-datos-demo.ts", {
-        cwd: PROJECT_ROOT,
-        stdio: "inherit",
-        env: {
-          ...process.env,
-          DATABASE_URL: env.DATABASE_URL || "file:./llanomio.db",
-        },
-      });
-      console.log("      [OK] Datos demo oficiales (cliente y productos de alquiler/venta) verificados y conservados.\n");
-    } catch (errDemo) {
-      console.log("      [INFO] Datos demo ya presentes en la base de datos.");
-    }
   } catch (errPrisma) {
     console.warn("      [AVISO] Observación al sincronizar esquema Prisma:", errPrisma.message);
   }
@@ -312,18 +316,17 @@ async function aplicarActualizacion({ rutaZip = null, modoGithub = false } = {})
   }
 
   // =========================================================================
-  // FASE 5: REINICIO Y VERIFICACIÓN DE SERVICIOS
+  // FASE 5: REINICIO Y VERIFICACIÓN DEL SERVICIO NATIVO
   // =========================================================================
-  console.log("[FASE 5/5] Reactivando y verificando servicios del sistema POS...");
+  console.log("[FASE 5/5] Reactivando servicio de Windows POS_Llanomio...");
   try {
-    execSync(`npx pm2 start ecosystem.config.js --update-env`, {
+    execSync("sc start POS_Llanomio", {
       cwd: PROJECT_ROOT,
       stdio: "ignore",
     });
-    execSync(`npx pm2 save`, { cwd: PROJECT_ROOT, stdio: "ignore" });
-    console.log("      [OK] Servicios en segundo plano reactivados exitosamente en PM2.");
+    console.log("      [OK] Servicio POS_Llanomio reactivado exitosamente.");
   } catch {
-    console.log("      [INFO] Los servicios se iniciaran con el lanzador estandar.");
+    console.log("      [INFO] El servicio puede iniciarse desde Panel_Servidor_POS.exe.");
   }
 
   console.log("\n===============================================================================");

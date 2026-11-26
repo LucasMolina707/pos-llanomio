@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.IO;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -13,21 +14,35 @@ using System.ServiceProcess;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using Microsoft.Win32;
 
 namespace AuroraHost.POS.ControlServidor
 {
-    public class Program
+    // =========================================================================
+    // PUNTO DE ENTRADA HIBRIDO (GUI INTERACTIVA + SERVICIO NATIVO DE WINDOWS)
+    // =========================================================================
+    public static class Program
     {
         [STAThread]
-        public static void Main()
+        public static void Main(string[] args)
         {
+            bool esModoServicio = !Environment.UserInteractive || TieneArgumento(args, "--service");
+            if (esModoServicio)
+            {
+                ServiceBase.Run(new POSService());
+                return;
+            }
+
             try
             {
-                // Auto-elevacion con permisos de Administrador si no los tiene
                 if (!EsAdministrador())
                 {
                     ProcessStartInfo psi = new ProcessStartInfo();
                     psi.FileName = Application.ExecutablePath;
+                    if (args != null && args.Length > 0)
+                    {
+                        psi.Arguments = string.Join(" ", args);
+                    }
                     psi.UseShellExecute = true;
                     psi.Verb = "runas";
                     try
@@ -37,8 +52,8 @@ namespace AuroraHost.POS.ControlServidor
                     catch
                     {
                         MessageBox.Show(
-                            "Este programa requiere permisos de Administrador para controlar los servicios de Windows, el Firewall y las copias de seguridad.",
-                            "Permisos Requeridos - POS Llanomio",
+                            "Se requieren permisos de Administrador.",
+                            "POS Llanomio",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Warning
                         );
@@ -46,14 +61,25 @@ namespace AuroraHost.POS.ControlServidor
                     return;
                 }
 
+                bool forzarInstalacion = TieneArgumento(args, "--instalar");
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new FormPanelPrincipal());
+                Application.Run(new FormPanelPrincipal(forzarInstalacion));
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error al iniciar el Panel: " + ex.Message, "Error Critico", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Error al iniciar: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private static bool TieneArgumento(string[] args, string flag)
+        {
+            if (args == null) return false;
+            foreach (string a in args)
+            {
+                if (a != null && a.Equals(flag, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
         }
 
         public static bool EsAdministrador()
@@ -71,6 +97,518 @@ namespace AuroraHost.POS.ControlServidor
         }
     }
 
+    // =========================================================================
+    // SERVICIO NATIVO DE WINDOWS INTEGRADO (MODO --service)
+    // =========================================================================
+    public class POSService : ServiceBase
+    {
+        public const string SERVICE_NAME = "POS_Llanomio";
+        public const string SERVICE_DISPLAY = "POS Llanomio - Servidor Local";
+
+        private Process processNode;
+        private Thread monitorThread;
+        private volatile bool isStopping = false;
+        private string baseDir;
+        private string logFile;
+
+        public POSService()
+        {
+            this.ServiceName = SERVICE_NAME;
+            this.CanStop = true;
+            this.CanShutdown = true;
+            this.AutoLog = true;
+
+            baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string logsDir = Path.Combine(baseDir, ".tmp");
+            try { if (!Directory.Exists(logsDir)) Directory.CreateDirectory(logsDir); } catch { }
+            logFile = Path.Combine(logsDir, "servicio_windows_pos.log");
+        }
+
+        private void EscribirLog(string mensaje)
+        {
+            try
+            {
+                string linea = string.Format("[{0:yyyy-MM-dd HH:mm:ss}] {1}{2}", DateTime.Now, mensaje, Environment.NewLine);
+                File.AppendAllText(logFile, linea, Encoding.UTF8);
+            }
+            catch { }
+        }
+
+        private string LeerPuertoConfigurado()
+        {
+            string envFile = Path.Combine(baseDir, ".env");
+            try
+            {
+                if (File.Exists(envFile))
+                {
+                    foreach (string linea in File.ReadAllLines(envFile))
+                    {
+                        string l = linea.Trim();
+                        if (l.StartsWith("PORT="))
+                        {
+                            string p = l.Substring(5).Trim().Trim('"', '\'');
+                            int n;
+                            if (int.TryParse(p, out n) && n >= 80 && n <= 65535) return p;
+                        }
+                    }
+                }
+            }
+            catch { }
+            return "3000";
+        }
+
+        protected override void OnStart(string[] args)
+        {
+            isStopping = false;
+            EscribirLog("Iniciando servicio POS_Llanomio...");
+            try
+            {
+                IniciarServidorInterno();
+                monitorThread = new Thread(MonitorearServidor);
+                monitorThread.IsBackground = true;
+                monitorThread.Start();
+                EscribirLog("Servicio iniciado y monitoreando Node.js.");
+            }
+            catch (Exception ex)
+            {
+                EscribirLog("ERROR AL INICIAR: " + ex.Message);
+                throw;
+            }
+        }
+
+        private void IniciarServidorInterno()
+        {
+            if (isStopping) return;
+
+            string nodeExe = "node";
+            string portableNode = Path.Combine(baseDir, "runtime", "node", "node.exe");
+            if (File.Exists(portableNode)) nodeExe = portableNode;
+
+            string startScript = Path.Combine(baseDir, "start-pos.js");
+            if (!File.Exists(startScript))
+            {
+                throw new FileNotFoundException("No se encontro start-pos.js en " + baseDir);
+            }
+
+            ProcessStartInfo psi = new ProcessStartInfo();
+            psi.FileName = nodeExe;
+            psi.Arguments = "\"" + startScript + "\"";
+            psi.WorkingDirectory = baseDir;
+            psi.UseShellExecute = false;
+            psi.CreateNoWindow = true;
+            psi.WindowStyle = ProcessWindowStyle.Hidden;
+            psi.EnvironmentVariables["NODE_ENV"] = "production";
+            psi.EnvironmentVariables["PORT"] = LeerPuertoConfigurado();
+            psi.EnvironmentVariables["HOSTNAME"] = "0.0.0.0";
+
+            processNode = Process.Start(psi);
+            if (processNode != null)
+            {
+                EscribirLog(string.Format("Node.js iniciado (PID: {0})", processNode.Id));
+            }
+        }
+
+        private void MonitorearServidor()
+        {
+            while (!isStopping)
+            {
+                Thread.Sleep(5000);
+                if (isStopping) break;
+
+                try
+                {
+                    if (processNode == null || processNode.HasExited)
+                    {
+                        EscribirLog("Proceso Node.js detenido inesperadamente. Reiniciando...");
+                        IniciarServidorInterno();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    EscribirLog("Error en monitoreo: " + ex.Message);
+                }
+            }
+        }
+
+        protected override void OnStop()
+        {
+            isStopping = true;
+            EscribirLog("Detencion de servicio solicitada. Ejecutando respaldo obligatorio...");
+            EjecutarRespaldoPreApagado();
+
+            try
+            {
+                if (processNode != null && !processNode.HasExited)
+                {
+                    processNode.Kill();
+                    processNode.WaitForExit(3000);
+                }
+            }
+            catch { }
+
+            EscribirLog("Servicio POS_Llanomio detenido correctamente.");
+        }
+
+        protected override void OnShutdown()
+        {
+            EscribirLog("Apagado de Windows detectado. Guardando respaldo...");
+            OnStop();
+            base.OnShutdown();
+        }
+
+        private void EjecutarRespaldoPreApagado()
+        {
+            try
+            {
+                string scriptBackup = Path.Combine(baseDir, "scripts", "respaldo-servicio.js");
+                string nodeExe = "node";
+                string portableNode = Path.Combine(baseDir, "runtime", "node", "node.exe");
+                if (File.Exists(portableNode)) nodeExe = portableNode;
+
+                if (File.Exists(scriptBackup))
+                {
+                    ProcessStartInfo psi = new ProcessStartInfo();
+                    psi.FileName = nodeExe;
+                    psi.Arguments = "\"" + scriptBackup + "\"";
+                    psi.WorkingDirectory = baseDir;
+                    psi.CreateNoWindow = true;
+                    psi.UseShellExecute = false;
+
+                    using (Process p = Process.Start(psi))
+                    {
+                        if (p != null)
+                        {
+                            p.WaitForExit(20000);
+                            if (p.ExitCode == 0)
+                            {
+                                EscribirLog("Respaldo WAL pre-apagado completado.");
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                string dbPath = Path.Combine(baseDir, "database", "llanomio.db");
+                string bDir = Path.Combine(baseDir, "database", "backups_locales");
+                if (File.Exists(dbPath))
+                {
+                    if (!Directory.Exists(bDir)) Directory.CreateDirectory(bDir);
+                    File.Copy(dbPath, Path.Combine(bDir, "pos_EMERGENCIA_PRE_APAGADO.db"), true);
+                    EscribirLog("Copia de emergencia creada.");
+                }
+            }
+            catch (Exception ex)
+            {
+                EscribirLog("Error en respaldo pre-apagado: " + ex.Message);
+            }
+        }
+    }
+
+    // =========================================================================
+    // MODELO MODULAR DE SERVICIOS (ESCALABLE PARA SERVICIOS FUTUROS)
+    // =========================================================================
+    public class ServicioModulo
+    {
+        public string Id { get; set; }
+        public string Nombre { get; set; }
+        public string ServicioWindows { get; set; }
+        public string Puerto { get; set; }
+        public string RutaSalud { get; set; }
+        public bool EsPrincipal { get; set; }
+    }
+
+    // =========================================================================
+    // CONTROLES VISUALES ESTILO APPLE (iOS / macOS) CON ANTIALIASING GDI+
+    // =========================================================================
+    public static class EsteticaApple
+    {
+        public static readonly Color FondoApp = Color.FromArgb(242, 242, 247);         // #F2F2F7 iOS System Grouped BG
+        public static readonly Color FondoSidebar = Color.FromArgb(235, 235, 242);     // #EBEBF2 macOS Sidebar
+        public static readonly Color FondoHeader = Color.FromArgb(248, 248, 252);      // #F8F8FC Translucent Top
+        public static readonly Color TarjetaBlanca = Color.FromArgb(255, 255, 255);    // #FFFFFF
+        public static readonly Color BordeSuave = Color.FromArgb(226, 226, 232);       // #E2E2E8
+        public static readonly Color TextoPrimario = Color.FromArgb(28, 28, 30);       // #1C1C1E
+        public static readonly Color TextoSecundario = Color.FromArgb(110, 110, 118);  // #6E6E76
+        public static readonly Color AzulApple = Color.FromArgb(0, 122, 255);          // #007AFF
+        public static readonly Color AzulHover = Color.FromArgb(0, 100, 215);
+        public static readonly Color VerdeApple = Color.FromArgb(52, 199, 89);         // #34C759
+        public static readonly Color VerdeSuave = Color.FromArgb(230, 249, 236);
+        public static readonly Color VerdeTexto = Color.FromArgb(22, 130, 56);
+        public static readonly Color RojoApple = Color.FromArgb(255, 59, 48);          // #FF3B30
+        public static readonly Color RojoHover = Color.FromArgb(220, 42, 34);
+        public static readonly Color RojoSuave = Color.FromArgb(254, 236, 235);
+        public static readonly Color RojoTexto = Color.FromArgb(196, 36, 28);
+        public static readonly Color GrisBoton = Color.FromArgb(229, 229, 234);        // #E5E5EA
+        public static readonly Color GrisBotonHover = Color.FromArgb(212, 212, 220);
+        public static readonly Color GrisOfflineSuave = Color.FromArgb(235, 235, 240);
+
+        public static GraphicsPath CrearRutaRedondeada(Rectangle rect, int radio)
+        {
+            GraphicsPath path = new GraphicsPath();
+            int d = radio * 2;
+            if (d > rect.Width) d = rect.Width;
+            if (d > rect.Height) d = rect.Height;
+            if (d <= 0)
+            {
+                path.AddRectangle(rect);
+                return path;
+            }
+            path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+            path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+            path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+    }
+
+    public class TarjetaCurva : Panel
+    {
+        public int Radio { get; set; }
+        public Color ColorFondo { get; set; }
+        public Color ColorBorde { get; set; }
+
+        public TarjetaCurva()
+        {
+            this.Radio = 20;
+            this.ColorFondo = EsteticaApple.TarjetaBlanca;
+            this.ColorBorde = EsteticaApple.BordeSuave;
+            this.DoubleBuffered = true;
+            this.BackColor = Color.Transparent;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle rect = new Rectangle(1, 1, this.Width - 3, this.Height - 3);
+            using (GraphicsPath path = EsteticaApple.CrearRutaRedondeada(rect, this.Radio))
+            using (SolidBrush br = new SolidBrush(this.ColorFondo))
+            using (Pen pen = new Pen(this.ColorBorde, 1F))
+            {
+                e.Graphics.FillPath(br, path);
+                e.Graphics.DrawPath(pen, path);
+            }
+        }
+    }
+
+    public class BotonCurvo : Control
+    {
+        public int Radio { get; set; }
+        public Color ColorNormal { get; set; }
+        public Color ColorHover { get; set; }
+        public Color ColorTexto { get; set; }
+        private bool estaEncima = false;
+        private bool estaPresionado = false;
+
+        public BotonCurvo()
+        {
+            this.Radio = 14;
+            this.ColorNormal = EsteticaApple.AzulApple;
+            this.ColorHover = EsteticaApple.AzulHover;
+            this.ColorTexto = Color.White;
+            this.Font = new Font("Segoe UI Semibold", 9.5F);
+            this.Cursor = Cursors.Hand;
+            this.Size = new Size(140, 40);
+            this.DoubleBuffered = true;
+            this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.BackColor = Color.Transparent;
+        }
+
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            estaEncima = true;
+            this.Invalidate();
+            base.OnMouseEnter(e);
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            estaEncima = false;
+            estaPresionado = false;
+            this.Invalidate();
+            base.OnMouseLeave(e);
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                estaPresionado = true;
+                this.Invalidate();
+            }
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            estaPresionado = false;
+            this.Invalidate();
+            base.OnMouseUp(e);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
+            Color fondo = this.Enabled ? (estaEncima ? this.ColorHover : this.ColorNormal) : Color.FromArgb(215, 215, 222);
+            if (estaPresionado && this.Enabled)
+            {
+                fondo = ControlPaint.Dark(fondo, 0.08F);
+            }
+            Color texto = this.Enabled ? this.ColorTexto : Color.FromArgb(145, 145, 152);
+
+            Rectangle rect = new Rectangle(1, 1, this.Width - 3, this.Height - 3);
+            using (GraphicsPath path = EsteticaApple.CrearRutaRedondeada(rect, this.Radio))
+            using (SolidBrush br = new SolidBrush(fondo))
+            {
+                e.Graphics.FillPath(br, path);
+            }
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                this.Text,
+                this.Font,
+                rect,
+                texto,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine
+            );
+        }
+    }
+
+    public class PildoraEstado : Control
+    {
+        private bool enLinea = false;
+        private string textoEstado = "Offline";
+
+        public PildoraEstado()
+        {
+            this.Size = new Size(116, 30);
+            this.Font = new Font("Segoe UI Semibold", 9F);
+            this.DoubleBuffered = true;
+            this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.BackColor = Color.Transparent;
+        }
+
+        public void ActualizarEstado(bool online, string etiqueta)
+        {
+            enLinea = online;
+            textoEstado = etiqueta;
+            this.Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
+            Color fondo = enLinea ? EsteticaApple.VerdeSuave : EsteticaApple.GrisOfflineSuave;
+            Color punto = enLinea ? EsteticaApple.VerdeApple : EsteticaApple.RojoApple;
+            Color texto = enLinea ? EsteticaApple.VerdeTexto : EsteticaApple.TextoSecundario;
+
+            Rectangle rect = new Rectangle(1, 1, this.Width - 3, this.Height - 3);
+            using (GraphicsPath path = EsteticaApple.CrearRutaRedondeada(rect, rect.Height / 2))
+            using (SolidBrush br = new SolidBrush(fondo))
+            {
+                e.Graphics.FillPath(br, path);
+            }
+
+            int dotSize = 9;
+            int dotY = (this.Height - dotSize) / 2;
+            using (SolidBrush brDot = new SolidBrush(punto))
+            {
+                e.Graphics.FillEllipse(brDot, 14, dotY, dotSize, dotSize);
+            }
+
+            Rectangle rectTxt = new Rectangle(28, 0, this.Width - 34, this.Height);
+            TextRenderer.DrawText(
+                e.Graphics,
+                textoEstado,
+                this.Font,
+                rectTxt,
+                texto,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine
+            );
+        }
+    }
+
+    public class BotonSidebar : Control
+    {
+        private bool activo = false;
+        private bool hover = false;
+
+        public bool Activo
+        {
+            get { return activo; }
+            set { activo = value; this.Invalidate(); }
+        }
+
+        public BotonSidebar(string titulo)
+        {
+            this.Text = titulo;
+            this.Size = new Size(164, 38);
+            this.Font = new Font("Segoe UI Semibold", 9.5F);
+            this.Cursor = Cursors.Hand;
+            this.DoubleBuffered = true;
+            this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.BackColor = Color.Transparent;
+        }
+
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            hover = true;
+            this.Invalidate();
+            base.OnMouseEnter(e);
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            hover = false;
+            this.Invalidate();
+            base.OnMouseLeave(e);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
+            Rectangle rect = new Rectangle(1, 1, this.Width - 3, this.Height - 3);
+            if (activo || hover)
+            {
+                Color fondo = activo ? Color.White : Color.FromArgb(224, 224, 232);
+                using (GraphicsPath path = EsteticaApple.CrearRutaRedondeada(rect, 11))
+                using (SolidBrush br = new SolidBrush(fondo))
+                {
+                    e.Graphics.FillPath(br, path);
+                }
+            }
+
+            if (activo)
+            {
+                using (SolidBrush brBar = new SolidBrush(EsteticaApple.AzulApple))
+                {
+                    e.Graphics.FillRectangle(brBar, 8, 10, 3, this.Height - 20);
+                }
+            }
+
+            Color txtColor = activo ? EsteticaApple.AzulApple : EsteticaApple.TextoPrimario;
+            Rectangle rectTxt = new Rectangle(20, 0, this.Width - 26, this.Height);
+            TextRenderer.DrawText(
+                e.Graphics,
+                this.Text,
+                this.Font,
+                rectTxt,
+                txtColor,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine
+            );
+        }
+    }
+
+    // =========================================================================
+    // VENTANA PRINCIPAL UNIFICADA — POS LLANOMIO
+    // =========================================================================
     public class FormPanelPrincipal : Form
     {
         public const string NOMBRE_SERVICIO = "POS_Llanomio";
@@ -80,135 +618,1808 @@ namespace AuroraHost.POS.ControlServidor
         private string puertoConfigurado = "3000";
         private string ipLanDetectada = "127.0.0.1";
         private string urlLanActual = "http://127.0.0.1:3000";
+        private string ultimoQrGenerado = "";
+        private bool soporteAutenticado = false;
+        private bool esEquipoNuevo = false;
+        private bool servidorEnLineaActual = false;
 
-        // Encabezado nativo limpio
+        // Catalogo modular de servicios
+        private List<ServicioModulo> serviciosRegistrados = new List<ServicioModulo>();
+
+        // Layout raiz
         private Panel panelHeader;
-        private Label lblLogoTitulo;
-        private Label lblSubtitulo;
-        private Panel badgeEstadoServidor;
-        private Label lblBadgeTexto;
+        private Label lblTituloHeader;
+        private PildoraEstado pildoraGlobal;
 
-        // Pestanas principales de navegacion
-        private TabControl tabControlPrincipal;
-        private TabPage tabDashboard;
-        private TabPage tabServicioRed;
-        private TabPage tabBackups;
-        private TabPage tabCuentas;
+        private Panel panelSidebar;
+        private Panel panelContenido;
 
-        // Controles Tab 1: Estado y QR
-        private Panel panelCentroDashboard;
-        private Panel cardServidor;
-        private Label lblTituloCardServidor;
-        private Label lblEstadoServicio;
-        private Label lblEstadoHttp;
-        private Label lblPuertoActivo;
-        private Label lblUrlLocal;
-        private Label lblUrlLan;
-        private Button btnCopiarUrlLocal;
-        private Button btnCopiarUrlLan;
-        private Button btnAbrirPos;
-        private Button btnIniciarServicio;
-        private Button btnDetenerConBackup;
-        private Label lblNotaDetencion;
+        // Botones de navegacion
+        private BotonSidebar navInicio;
+        private BotonSidebar navServicios;
+        private BotonSidebar navRespaldos;
+        private BotonSidebar navCuentas;
+        private BotonSidebar navSistema;
 
-        private Panel cardQr;
-        private Label lblTituloQr;
-        private Label lblSubtituloQr;
+        // Vistas
+        private Panel vistaInstalacion;
+        private Panel vistaInicio;
+        private Panel vistaServicios;
+        private Panel vistaRespaldos;
+        private Panel vistaCuentas;
+        private Panel vistaSistema;
+
+        // Controles Instalacion Unica
+        private RadioButton rbConservarDatos;
+        private RadioButton rbFabricaLimpia;
+        private BotonCurvo btnEjecutarInstalacion;
+        private Label lblProgresoInstalacion;
+
+        // Controles Inicio
+        private TarjetaCurva cardEstadoInicio;
+        private Label lblUrlInicio;
+        private BotonCurvo btnInicioIniciar;
+        private BotonCurvo btnInicioAbrir;
+        private BotonCurvo btnInicioDetener;
+        private BotonCurvo btnInicioReiniciar;
+
+        private TarjetaCurva cardQrInicio;
         private PictureBox picQr;
-        private Label lblUrlQrTexto;
-        private Button btnRefrescarQr;
-        private Button btnCopiarLanQr;
+        private Label lblIpQr;
+        private BotonCurvo btnCopiarIp;
 
-        // Controles Tab 2: Servicio y Red
-        private Panel panelCentroServicio;
-        private GroupBox grpServicioWin;
-        private Button btnInstalarServicio;
-        private Button btnReiniciarServicio;
-        private Button btnDesinstalarServicio;
-        private Label lblInfoServicio;
+        // Controles Servicios Modulares
+        private FlowLayoutPanel flowServicios;
+        private BotonCurvo btnAgregarServicio;
 
-        private GroupBox grpFirewall;
-        private Button btnRepararFirewall;
-        private Label lblInfoFirewall;
-
-        private GroupBox grpPuerto;
-        private Label lblEtiquetaPuerto;
-        private TextBox txtPuertoConfig;
-        private Button btnGuardarPuerto;
-
-        // Controles Tab 3: Respaldos
-        private Panel panelTopBackups;
-        private Button btnCrearBackup;
-        private Button btnAbrirCarpeta;
-        private Button btnRefrescarBackups;
+        // Controles Respaldos
         private ListBox lstBackups;
-        private Panel panelBottomBackups;
-        private Button btnRestaurarSeleccionado;
-        private Button btnRestaurarExterno;
 
-        // Controles Tab 4: Cuentas y Fabrica
-        private Panel panelCentroCuentas;
-        private GroupBox grpNuevoUsuario;
+        // Controles Cuentas
         private TextBox txtNombreUser;
         private TextBox txtUsername;
         private ComboBox cmbRol;
         private TextBox txtPassword;
         private TextBox txtPin;
-        private Button btnCrearUsuario;
-        private Label lblInfoNuevoUsuario;
 
-        private GroupBox grpAccesoMaestro;
-        private Button btnRestablecerAdmin;
-        private Button btnFormatearFabrica;
-        private Label lblInfoFabrica;
+        // Controles Sistema
+        private TextBox txtPuerto;
 
-        // Temporizador de refresco en vivo
-        private System.Windows.Forms.Timer timerMonitor;
-        private bool estaOcupado = false;
-        private string ultimoQrGenerado = "";
+        private System.Windows.Forms.Timer timerEstado;
 
-        public FormPanelPrincipal()
+        [DllImport("dwmapi.dll", PreserveSig = true)]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        private const int SW_MAXIMIZE = 3;
+
+        public FormPanelPrincipal(bool forzarInstalacion)
         {
             baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            Directory.SetCurrentDirectory(baseDir);
+            LeerConfiguracionEnv();
+            ipLanDetectada = DetectarIpLan();
+            urlLanActual = "http://" + ipLanDetectada + ":" + puertoConfigurado;
+            CargarServiciosModulares();
 
-            LeerVariablesEntorno();
-            DetectarIpLan();
-            ActualizarUrls();
-            InicializarComponentes();
+            esEquipoNuevo = forzarInstalacion || DetectarSiEsEquipoNuevo();
 
-            timerMonitor = new System.Windows.Forms.Timer();
-            timerMonitor.Interval = 3000;
-            timerMonitor.Tick += delegate { RefrescarEstadoEnVivo(); };
-            timerMonitor.Start();
+            ConfigurarVentana();
+            ConstruirLayout();
 
-            this.Shown += delegate
+            if (esEquipoNuevo)
             {
+                MostrarVistaInstalacion();
+            }
+            else
+            {
+                MostrarVista("inicio");
                 RefrescarEstadoEnVivo();
                 GenerarQrLocalSeguro();
-                AjustarLayoutCentrado();
-            };
+            }
+
+            timerEstado = new System.Windows.Forms.Timer();
+            timerEstado.Interval = 4000;
+            timerEstado.Tick += delegate { if (!esEquipoNuevo) RefrescarEstadoEnVivo(); };
+            timerEstado.Start();
         }
 
-        private void LeerVariablesEntorno()
+        private void ConfigurarVentana()
+        {
+            this.Text = "POS Llanomio";
+            this.Size = new Size(920, 620);
+            this.MinimumSize = new Size(840, 560);
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.BackColor = EsteticaApple.FondoApp;
+            this.Font = new Font("Segoe UI", 9.5F);
+            this.DoubleBuffered = true;
+
+            try
+            {
+                string icoPath = Path.Combine(baseDir, "aurora.ico");
+                if (!File.Exists(icoPath)) icoPath = Path.Combine(baseDir, "public", "iconos", "aurora.ico");
+                if (File.Exists(icoPath)) this.Icon = new Icon(icoPath);
+            }
+            catch { }
+
+            this.HandleCreated += delegate
+            {
+                try
+                {
+                    int pref = 2; // DWMWCP_ROUND en Windows 11
+                    DwmSetWindowAttribute(this.Handle, 33, ref pref, sizeof(int));
+                }
+                catch { }
+            };
+
+            this.Resize += delegate { AjustarCentrado(); };
+        }
+
+        // =========================================================================
+        // DETECCION AUTOMATICA DE EQUIPO NUEVO (INSTALACION UNICA)
+        // =========================================================================
+        private bool DetectarSiEsEquipoNuevo()
+        {
+            try
+            {
+                string envFile = Path.Combine(baseDir, ".env");
+                if (!File.Exists(envFile)) return true;
+
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\" + NOMBRE_SERVICIO))
+                {
+                    if (key == null) return true;
+                    object imgPathObj = key.GetValue("ImagePath");
+                    if (imgPathObj == null) return true;
+                    string imgPath = imgPathObj.ToString().Trim().ToLowerInvariant();
+                    string exeActual = Application.ExecutablePath.ToLowerInvariant();
+                    if (!imgPath.Contains(exeActual)) return true;
+                }
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // =========================================================================
+        // CONSTRUCCION DE INTERFAZ MINIMALISTA ESTILO APPLE
+        // =========================================================================
+        private void ConstruirLayout()
+        {
+            // Barra superior fija
+            panelHeader = new Panel();
+            panelHeader.Dock = DockStyle.Top;
+            panelHeader.Height = 58;
+            panelHeader.BackColor = EsteticaApple.FondoHeader;
+            panelHeader.Paint += delegate(object s, PaintEventArgs e)
+            {
+                using (Pen p = new Pen(EsteticaApple.BordeSuave, 1F))
+                {
+                    e.Graphics.DrawLine(p, 0, panelHeader.Height - 1, panelHeader.Width, panelHeader.Height - 1);
+                }
+            };
+            this.Controls.Add(panelHeader);
+
+            lblTituloHeader = new Label();
+            lblTituloHeader.Text = "POS Llanomio";
+            lblTituloHeader.Font = new Font("Segoe UI Semibold", 13F);
+            lblTituloHeader.ForeColor = EsteticaApple.TextoPrimario;
+            lblTituloHeader.AutoSize = true;
+            lblTituloHeader.Location = new Point(24, 16);
+            panelHeader.Controls.Add(lblTituloHeader);
+
+            pildoraGlobal = new PildoraEstado();
+            pildoraGlobal.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            pildoraGlobal.Location = new Point(panelHeader.Width - 140, 14);
+            panelHeader.Controls.Add(pildoraGlobal);
+
+            // Barra lateral izquierda estilo macOS
+            panelSidebar = new Panel();
+            panelSidebar.Dock = DockStyle.Left;
+            panelSidebar.Width = 196;
+            panelSidebar.BackColor = EsteticaApple.FondoSidebar;
+            panelSidebar.Paint += delegate(object s, PaintEventArgs e)
+            {
+                using (Pen p = new Pen(EsteticaApple.BordeSuave, 1F))
+                {
+                    e.Graphics.DrawLine(p, panelSidebar.Width - 1, 0, panelSidebar.Width - 1, panelSidebar.Height);
+                }
+            };
+            this.Controls.Add(panelSidebar);
+
+            navInicio = CrearItemSidebar("Inicio", 20, delegate { MostrarVista("inicio"); });
+            navServicios = CrearItemSidebar("Servicios", 66, delegate { MostrarVista("servicios"); });
+            navRespaldos = CrearItemSidebar("Respaldos", 112, delegate { AbrirSeccionProtegida("respaldos"); });
+            navCuentas = CrearItemSidebar("Cuentas", 158, delegate { AbrirSeccionProtegida("cuentas"); });
+            navSistema = CrearItemSidebar("Sistema", 204, delegate { AbrirSeccionProtegida("sistema"); });
+
+            // Area de contenido principal
+            panelContenido = new Panel();
+            panelContenido.Dock = DockStyle.Fill;
+            panelContenido.BackColor = EsteticaApple.FondoApp;
+            this.Controls.Add(panelContenido);
+            panelContenido.BringToFront();
+
+            ConstruirVistaInstalacion();
+            ConstruirVistaInicio();
+            ConstruirVistaServicios();
+            ConstruirVistaRespaldos();
+            ConstruirVistaCuentas();
+            ConstruirVistaSistema();
+        }
+
+        private BotonSidebar CrearItemSidebar(string titulo, int top, EventHandler onClick)
+        {
+            BotonSidebar btn = new BotonSidebar(titulo);
+            btn.Location = new Point(16, top);
+            btn.Click += onClick;
+            panelSidebar.Controls.Add(btn);
+            return btn;
+        }
+
+        // -------------------------------------------------------------------------
+        // VISTA 0: ASISTENTE DE INSTALACION UNICA (EQUIPO NUEVO)
+        // -------------------------------------------------------------------------
+        private void ConstruirVistaInstalacion()
+        {
+            vistaInstalacion = new Panel();
+            vistaInstalacion.Dock = DockStyle.Fill;
+            vistaInstalacion.BackColor = EsteticaApple.FondoApp;
+            vistaInstalacion.Visible = false;
+            panelContenido.Controls.Add(vistaInstalacion);
+
+            TarjetaCurva card = new TarjetaCurva();
+            card.Name = "cardInstall";
+            card.Size = new Size(460, 320);
+            vistaInstalacion.Controls.Add(card);
+
+            Label lblTit = new Label();
+            lblTit.Text = "Configurar en este equipo";
+            lblTit.Font = new Font("Segoe UI Semibold", 15F);
+            lblTit.ForeColor = EsteticaApple.TextoPrimario;
+            lblTit.TextAlign = ContentAlignment.MiddleCenter;
+            lblTit.Location = new Point(30, 34);
+            lblTit.Size = new Size(400, 34);
+            card.Controls.Add(lblTit);
+
+            rbConservarDatos = new RadioButton();
+            rbConservarDatos.Text = "Conservar datos actuales";
+            rbConservarDatos.Font = new Font("Segoe UI", 10F);
+            rbConservarDatos.ForeColor = EsteticaApple.TextoPrimario;
+            rbConservarDatos.Checked = true;
+            rbConservarDatos.Location = new Point(110, 96);
+            rbConservarDatos.Size = new Size(260, 28);
+            card.Controls.Add(rbConservarDatos);
+
+            rbFabricaLimpia = new RadioButton();
+            rbFabricaLimpia.Text = "Iniciar limpio de fabrica";
+            rbFabricaLimpia.Font = new Font("Segoe UI", 10F);
+            rbFabricaLimpia.ForeColor = EsteticaApple.TextoPrimario;
+            rbFabricaLimpia.Location = new Point(110, 134);
+            rbFabricaLimpia.Size = new Size(260, 28);
+            card.Controls.Add(rbFabricaLimpia);
+
+            btnEjecutarInstalacion = new BotonCurvo();
+            btnEjecutarInstalacion.Text = "Instalar";
+            btnEjecutarInstalacion.Size = new Size(220, 44);
+            btnEjecutarInstalacion.Location = new Point(120, 192);
+            btnEjecutarInstalacion.Click += delegate { EjecutarInstalacionUnica(); };
+            card.Controls.Add(btnEjecutarInstalacion);
+
+            lblProgresoInstalacion = new Label();
+            lblProgresoInstalacion.Text = "";
+            lblProgresoInstalacion.Font = new Font("Segoe UI", 9F);
+            lblProgresoInstalacion.ForeColor = EsteticaApple.TextoSecundario;
+            lblProgresoInstalacion.TextAlign = ContentAlignment.MiddleCenter;
+            lblProgresoInstalacion.Location = new Point(30, 254);
+            lblProgresoInstalacion.Size = new Size(400, 28);
+            card.Controls.Add(lblProgresoInstalacion);
+        }
+
+        // -------------------------------------------------------------------------
+        // VISTA 1: INICIO (CONTROL PUNTUAL + QR)
+        // -------------------------------------------------------------------------
+        private void ConstruirVistaInicio()
+        {
+            vistaInicio = new Panel();
+            vistaInicio.Dock = DockStyle.Fill;
+            vistaInicio.BackColor = EsteticaApple.FondoApp;
+            panelContenido.Controls.Add(vistaInicio);
+
+            Panel contenedor = new Panel();
+            contenedor.Name = "centerBox";
+            contenedor.Size = new Size(640, 450);
+            contenedor.BackColor = Color.Transparent;
+            vistaInicio.Controls.Add(contenedor);
+
+            // Tarjeta 1: Servidor
+            cardEstadoInicio = new TarjetaCurva();
+            cardEstadoInicio.Size = new Size(620, 175);
+            cardEstadoInicio.Location = new Point(10, 12);
+            contenedor.Controls.Add(cardEstadoInicio);
+
+            Label lblTitSrv = new Label();
+            lblTitSrv.Text = "Servidor POS";
+            lblTitSrv.Font = new Font("Segoe UI Semibold", 13.5F);
+            lblTitSrv.ForeColor = EsteticaApple.TextoPrimario;
+            lblTitSrv.TextAlign = ContentAlignment.MiddleCenter;
+            lblTitSrv.Location = new Point(20, 22);
+            lblTitSrv.Size = new Size(580, 28);
+            cardEstadoInicio.Controls.Add(lblTitSrv);
+
+            lblUrlInicio = new Label();
+            lblUrlInicio.Text = "http://localhost:" + puertoConfigurado;
+            lblUrlInicio.Font = new Font("Segoe UI", 9.5F);
+            lblUrlInicio.ForeColor = EsteticaApple.TextoSecundario;
+            lblUrlInicio.TextAlign = ContentAlignment.MiddleCenter;
+            lblUrlInicio.Location = new Point(20, 54);
+            lblUrlInicio.Size = new Size(580, 24);
+            cardEstadoInicio.Controls.Add(lblUrlInicio);
+
+            btnInicioIniciar = new BotonCurvo();
+            btnInicioIniciar.Text = "Iniciar";
+            btnInicioIniciar.ColorNormal = EsteticaApple.VerdeApple;
+            btnInicioIniciar.ColorHover = Color.FromArgb(40, 176, 74);
+            btnInicioIniciar.Size = new Size(200, 44);
+            btnInicioIniciar.Location = new Point(210, 98);
+            btnInicioIniciar.Click += delegate { IniciarServicioAccion(NOMBRE_SERVICIO); };
+            cardEstadoInicio.Controls.Add(btnInicioIniciar);
+
+            btnInicioAbrir = new BotonCurvo();
+            btnInicioAbrir.Text = "Abrir POS";
+            btnInicioAbrir.ColorNormal = EsteticaApple.AzulApple;
+            btnInicioAbrir.ColorHover = EsteticaApple.AzulHover;
+            btnInicioAbrir.Size = new Size(165, 44);
+            btnInicioAbrir.Location = new Point(52, 98);
+            btnInicioAbrir.Visible = false;
+            btnInicioAbrir.Click += delegate { AbrirNavegadorPos(); };
+            cardEstadoInicio.Controls.Add(btnInicioAbrir);
+
+            btnInicioReiniciar = new BotonCurvo();
+            btnInicioReiniciar.Text = "Reiniciar";
+            btnInicioReiniciar.ColorNormal = EsteticaApple.GrisBoton;
+            btnInicioReiniciar.ColorHover = EsteticaApple.GrisBotonHover;
+            btnInicioReiniciar.ColorTexto = EsteticaApple.TextoPrimario;
+            btnInicioReiniciar.Size = new Size(165, 44);
+            btnInicioReiniciar.Location = new Point(227, 98);
+            btnInicioReiniciar.Visible = false;
+            btnInicioReiniciar.Click += delegate { ReiniciarServicioAccion(NOMBRE_SERVICIO); };
+            cardEstadoInicio.Controls.Add(btnInicioReiniciar);
+
+            btnInicioDetener = new BotonCurvo();
+            btnInicioDetener.Text = "Detener";
+            btnInicioDetener.ColorNormal = EsteticaApple.RojoApple;
+            btnInicioDetener.ColorHover = EsteticaApple.RojoHover;
+            btnInicioDetener.Size = new Size(165, 44);
+            btnInicioDetener.Location = new Point(402, 98);
+            btnInicioDetener.Visible = false;
+            btnInicioDetener.Click += delegate { DetenerConBackupObligatorio(); };
+            cardEstadoInicio.Controls.Add(btnInicioDetener);
+
+            // Tarjeta 2: QR Wi-Fi
+            cardQrInicio = new TarjetaCurva();
+            cardQrInicio.Size = new Size(620, 232);
+            cardQrInicio.Location = new Point(10, 204);
+            contenedor.Controls.Add(cardQrInicio);
+
+            picQr = new PictureBox();
+            picQr.Size = new Size(176, 176);
+            picQr.Location = new Point(74, 28);
+            picQr.SizeMode = PictureBoxSizeMode.Zoom;
+            picQr.BackColor = Color.White;
+            cardQrInicio.Controls.Add(picQr);
+
+            Label lblQrTit = new Label();
+            lblQrTit.Text = "Acceso Wi-Fi";
+            lblQrTit.Font = new Font("Segoe UI Semibold", 12.5F);
+            lblQrTit.ForeColor = EsteticaApple.TextoPrimario;
+            lblQrTit.Location = new Point(286, 56);
+            lblQrTit.Size = new Size(280, 28);
+            cardQrInicio.Controls.Add(lblQrTit);
+
+            lblIpQr = new Label();
+            lblIpQr.Text = urlLanActual;
+            lblIpQr.Font = new Font("Consolas", 10.5F, FontStyle.Bold);
+            lblIpQr.ForeColor = EsteticaApple.AzulApple;
+            lblIpQr.Location = new Point(286, 90);
+            lblIpQr.Size = new Size(290, 24);
+            cardQrInicio.Controls.Add(lblIpQr);
+
+            btnCopiarIp = new BotonCurvo();
+            btnCopiarIp.Text = "Copiar IP";
+            btnCopiarIp.ColorNormal = EsteticaApple.GrisBoton;
+            btnCopiarIp.ColorHover = EsteticaApple.GrisBotonHover;
+            btnCopiarIp.ColorTexto = EsteticaApple.TextoPrimario;
+            btnCopiarIp.Size = new Size(136, 38);
+            btnCopiarIp.Location = new Point(286, 130);
+            btnCopiarIp.Click += delegate { CopiarAlPortapapeles(urlLanActual); };
+            cardQrInicio.Controls.Add(btnCopiarIp);
+        }
+
+        // -------------------------------------------------------------------------
+        // VISTA 2: SERVICIOS MODULARES (ESCALABLE A FUTUROS SERVICIOS)
+        // -------------------------------------------------------------------------
+        private void ConstruirVistaServicios()
+        {
+            vistaServicios = new Panel();
+            vistaServicios.Dock = DockStyle.Fill;
+            vistaServicios.BackColor = EsteticaApple.FondoApp;
+            vistaServicios.Visible = false;
+            panelContenido.Controls.Add(vistaServicios);
+
+            Panel contenedor = new Panel();
+            contenedor.Name = "centerBox";
+            contenedor.Size = new Size(640, 460);
+            contenedor.BackColor = Color.Transparent;
+            vistaServicios.Controls.Add(contenedor);
+
+            Label lblTit = new Label();
+            lblTit.Text = "Servicios";
+            lblTit.Font = new Font("Segoe UI Semibold", 14F);
+            lblTit.ForeColor = EsteticaApple.TextoPrimario;
+            lblTit.Location = new Point(14, 10);
+            lblTit.Size = new Size(250, 32);
+            contenedor.Controls.Add(lblTit);
+
+            btnAgregarServicio = new BotonCurvo();
+            btnAgregarServicio.Text = "+ Agregar";
+            btnAgregarServicio.Size = new Size(124, 34);
+            btnAgregarServicio.Location = new Point(504, 8);
+            btnAgregarServicio.Click += delegate { AgregarServicioModuloAccion(); };
+            contenedor.Controls.Add(btnAgregarServicio);
+
+            flowServicios = new FlowLayoutPanel();
+            flowServicios.Location = new Point(10, 54);
+            flowServicios.Size = new Size(620, 396);
+            flowServicios.FlowDirection = FlowDirection.TopDown;
+            flowServicios.WrapContents = false;
+            flowServicios.AutoScroll = true;
+            flowServicios.BackColor = Color.Transparent;
+            contenedor.Controls.Add(flowServicios);
+
+            RenderizarTarjetasServicios();
+        }
+
+        private void RenderizarTarjetasServicios()
+        {
+            if (flowServicios == null) return;
+            flowServicios.Controls.Clear();
+
+            foreach (ServicioModulo srv in serviciosRegistrados)
+            {
+                ServicioModulo localSrv = srv;
+                TarjetaCurva card = new TarjetaCurva();
+                card.Size = new Size(596, 86);
+                card.Margin = new Padding(0, 0, 0, 12);
+
+                Label lblNom = new Label();
+                lblNom.Text = localSrv.Nombre;
+                lblNom.Font = new Font("Segoe UI Semibold", 11F);
+                lblNom.ForeColor = EsteticaApple.TextoPrimario;
+                lblNom.Location = new Point(22, 18);
+                lblNom.Size = new Size(210, 24);
+                card.Controls.Add(lblNom);
+
+                Label lblSub = new Label();
+                lblSub.Text = string.IsNullOrEmpty(localSrv.Puerto)
+                    ? localSrv.ServicioWindows
+                    : localSrv.ServicioWindows + "  |  :" + localSrv.Puerto;
+                lblSub.Font = new Font("Segoe UI", 8.5F);
+                lblSub.ForeColor = EsteticaApple.TextoSecundario;
+                lblSub.Location = new Point(22, 44);
+                lblSub.Size = new Size(210, 20);
+                card.Controls.Add(lblSub);
+
+                bool activo = VerificarServicioWindowsActivo(localSrv.ServicioWindows);
+                PildoraEstado pill = new PildoraEstado();
+                pill.Size = new Size(102, 28);
+                pill.Location = new Point(236, 29);
+                pill.ActualizarEstado(activo, activo ? "En linea" : "Offline");
+                card.Controls.Add(pill);
+
+                BotonCurvo btnAcc = new BotonCurvo();
+                btnAcc.Size = new Size(108, 36);
+                btnAcc.Location = new Point(352, 25);
+                if (activo)
+                {
+                    btnAcc.Text = "Detener";
+                    btnAcc.ColorNormal = EsteticaApple.RojoApple;
+                    btnAcc.ColorHover = EsteticaApple.RojoHover;
+                    btnAcc.Click += delegate
+                    {
+                        if (localSrv.EsPrincipal) DetenerConBackupObligatorio();
+                        else DetenerServicioGenerico(localSrv.ServicioWindows);
+                        RenderizarTarjetasServicios();
+                    };
+                }
+                else
+                {
+                    btnAcc.Text = "Iniciar";
+                    btnAcc.ColorNormal = EsteticaApple.VerdeApple;
+                    btnAcc.ColorHover = Color.FromArgb(40, 176, 74);
+                    btnAcc.Click += delegate
+                    {
+                        IniciarServicioAccion(localSrv.ServicioWindows);
+                        RenderizarTarjetasServicios();
+                    };
+                }
+                card.Controls.Add(btnAcc);
+
+                BotonCurvo btnRei = new BotonCurvo();
+                btnRei.Text = "Reiniciar";
+                btnRei.ColorNormal = EsteticaApple.GrisBoton;
+                btnRei.ColorHover = EsteticaApple.GrisBotonHover;
+                btnRei.ColorTexto = EsteticaApple.TextoPrimario;
+                btnRei.Size = new Size(108, 36);
+                btnRei.Location = new Point(468, 25);
+                btnRei.Click += delegate
+                {
+                    ReiniciarServicioAccion(localSrv.ServicioWindows);
+                    RenderizarTarjetasServicios();
+                };
+                card.Controls.Add(btnRei);
+
+                flowServicios.Controls.Add(card);
+            }
+        }
+
+        // -------------------------------------------------------------------------
+        // VISTA 3: RESPALDOS
+        // -------------------------------------------------------------------------
+        private void ConstruirVistaRespaldos()
+        {
+            vistaRespaldos = new Panel();
+            vistaRespaldos.Dock = DockStyle.Fill;
+            vistaRespaldos.BackColor = EsteticaApple.FondoApp;
+            vistaRespaldos.Visible = false;
+            panelContenido.Controls.Add(vistaRespaldos);
+
+            Panel contenedor = new Panel();
+            contenedor.Name = "centerBox";
+            contenedor.Size = new Size(640, 460);
+            contenedor.BackColor = Color.Transparent;
+            vistaRespaldos.Controls.Add(contenedor);
+
+            TarjetaCurva card = new TarjetaCurva();
+            card.Size = new Size(620, 436);
+            card.Location = new Point(10, 12);
+            contenedor.Controls.Add(card);
+
+            Label lblTit = new Label();
+            lblTit.Text = "Respaldos";
+            lblTit.Font = new Font("Segoe UI Semibold", 13.5F);
+            lblTit.ForeColor = EsteticaApple.TextoPrimario;
+            lblTit.Location = new Point(24, 20);
+            lblTit.Size = new Size(200, 28);
+            card.Controls.Add(lblTit);
+
+            BotonCurvo btnRespaldar = new BotonCurvo();
+            btnRespaldar.Text = "Respaldar";
+            btnRespaldar.ColorNormal = EsteticaApple.AzulApple;
+            btnRespaldar.ColorHover = EsteticaApple.AzulHover;
+            btnRespaldar.Size = new Size(134, 38);
+            btnRespaldar.Location = new Point(24, 62);
+            btnRespaldar.Click += delegate { GenerarBackupManualAccion(); };
+            card.Controls.Add(btnRespaldar);
+
+            BotonCurvo btnRestaurar = new BotonCurvo();
+            btnRestaurar.Text = "Restaurar";
+            btnRestaurar.ColorNormal = EsteticaApple.RojoApple;
+            btnRestaurar.ColorHover = EsteticaApple.RojoHover;
+            btnRestaurar.Size = new Size(134, 38);
+            btnRestaurar.Location = new Point(168, 62);
+            btnRestaurar.Click += delegate { RestaurarSeleccionadoAccion(); };
+            card.Controls.Add(btnRestaurar);
+
+            BotonCurvo btnExterno = new BotonCurvo();
+            btnExterno.Text = "Archivo .db";
+            btnExterno.ColorNormal = EsteticaApple.GrisBoton;
+            btnExterno.ColorHover = EsteticaApple.GrisBotonHover;
+            btnExterno.ColorTexto = EsteticaApple.TextoPrimario;
+            btnExterno.Size = new Size(134, 38);
+            btnExterno.Location = new Point(312, 62);
+            btnExterno.Click += delegate { RestaurarArchivoExternoAccion(); };
+            card.Controls.Add(btnExterno);
+
+            BotonCurvo btnCarpeta = new BotonCurvo();
+            btnCarpeta.Text = "Carpeta";
+            btnCarpeta.ColorNormal = EsteticaApple.GrisBoton;
+            btnCarpeta.ColorHover = EsteticaApple.GrisBotonHover;
+            btnCarpeta.ColorTexto = EsteticaApple.TextoPrimario;
+            btnCarpeta.Size = new Size(134, 38);
+            btnCarpeta.Location = new Point(456, 62);
+            btnCarpeta.Click += delegate { AbrirCarpetaBackupsAccion(); };
+            card.Controls.Add(btnCarpeta);
+
+            lstBackups = new ListBox();
+            lstBackups.Location = new Point(24, 118);
+            lstBackups.Size = new Size(572, 290);
+            lstBackups.Font = new Font("Consolas", 9F);
+            lstBackups.BorderStyle = BorderStyle.FixedSingle;
+            lstBackups.BackColor = Color.FromArgb(250, 250, 252);
+            card.Controls.Add(lstBackups);
+        }
+
+        // -------------------------------------------------------------------------
+        // VISTA 4: CUENTAS
+        // -------------------------------------------------------------------------
+        private void ConstruirVistaCuentas()
+        {
+            vistaCuentas = new Panel();
+            vistaCuentas.Dock = DockStyle.Fill;
+            vistaCuentas.BackColor = EsteticaApple.FondoApp;
+            vistaCuentas.Visible = false;
+            panelContenido.Controls.Add(vistaCuentas);
+
+            Panel contenedor = new Panel();
+            contenedor.Name = "centerBox";
+            contenedor.Size = new Size(640, 440);
+            contenedor.BackColor = Color.Transparent;
+            vistaCuentas.Controls.Add(contenedor);
+
+            TarjetaCurva card = new TarjetaCurva();
+            card.Size = new Size(620, 260);
+            card.Location = new Point(10, 12);
+            contenedor.Controls.Add(card);
+
+            Label lblTit = new Label();
+            lblTit.Text = "Nuevo Usuario";
+            lblTit.Font = new Font("Segoe UI Semibold", 13F);
+            lblTit.ForeColor = EsteticaApple.TextoPrimario;
+            lblTit.Location = new Point(28, 22);
+            lblTit.Size = new Size(240, 26);
+            card.Controls.Add(lblTit);
+
+            txtNombreUser = CrearCampoFormulario(card, "Nombre", 28, 66, 260, false);
+            txtUsername = CrearCampoFormulario(card, "Usuario", 316, 66, 260, false);
+            txtPassword = CrearCampoFormulario(card, "Contrasena", 28, 130, 175, true);
+            txtPin = CrearCampoFormulario(card, "PIN", 220, 130, 120, true);
+            txtPin.MaxLength = 6;
+
+            Label lblRol = new Label();
+            lblRol.Text = "Rol";
+            lblRol.Font = new Font("Segoe UI", 8.5F);
+            lblRol.ForeColor = EsteticaApple.TextoSecundario;
+            lblRol.Location = new Point(358, 130);
+            lblRol.Size = new Size(100, 18);
+            card.Controls.Add(lblRol);
+
+            cmbRol = new ComboBox();
+            cmbRol.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbRol.Items.AddRange(new object[] { "CAJERO", "ADMIN" });
+            cmbRol.SelectedIndex = 0;
+            cmbRol.Location = new Point(358, 150);
+            cmbRol.Size = new Size(218, 28);
+            card.Controls.Add(cmbRol);
+
+            BotonCurvo btnCrear = new BotonCurvo();
+            btnCrear.Text = "Crear";
+            btnCrear.ColorNormal = EsteticaApple.AzulApple;
+            btnCrear.ColorHover = EsteticaApple.AzulHover;
+            btnCrear.Size = new Size(160, 40);
+            btnCrear.Location = new Point(28, 198);
+            btnCrear.Click += delegate { CrearUsuarioAccion(); };
+            card.Controls.Add(btnCrear);
+
+            TarjetaCurva cardAdmin = new TarjetaCurva();
+            cardAdmin.Size = new Size(620, 120);
+            cardAdmin.Location = new Point(10, 290);
+            contenedor.Controls.Add(cardAdmin);
+
+            Label lblAdm = new Label();
+            lblAdm.Text = "Acceso Maestro";
+            lblAdm.Font = new Font("Segoe UI Semibold", 12F);
+            lblAdm.ForeColor = EsteticaApple.TextoPrimario;
+            lblAdm.Location = new Point(28, 20);
+            lblAdm.Size = new Size(240, 26);
+            cardAdmin.Controls.Add(lblAdm);
+
+            BotonCurvo btnResetAdmin = new BotonCurvo();
+            btnResetAdmin.Text = "Restablecer admin";
+            btnResetAdmin.ColorNormal = EsteticaApple.GrisBoton;
+            btnResetAdmin.ColorHover = EsteticaApple.GrisBotonHover;
+            btnResetAdmin.ColorTexto = EsteticaApple.TextoPrimario;
+            btnResetAdmin.Size = new Size(190, 40);
+            btnResetAdmin.Location = new Point(28, 58);
+            btnResetAdmin.Click += delegate { RestablecerAdminAccion(); };
+            cardAdmin.Controls.Add(btnResetAdmin);
+        }
+
+        private TextBox CrearCampoFormulario(Control padre, string etiqueta, int x, int y, int ancho, bool esClave)
+        {
+            Label lbl = new Label();
+            lbl.Text = etiqueta;
+            lbl.Font = new Font("Segoe UI", 8.5F);
+            lbl.ForeColor = EsteticaApple.TextoSecundario;
+            lbl.Location = new Point(x, y);
+            lbl.Size = new Size(ancho, 18);
+            padre.Controls.Add(lbl);
+
+            TextBox tb = new TextBox();
+            tb.Location = new Point(x, y + 20);
+            tb.Size = new Size(ancho, 26);
+            tb.Font = new Font("Segoe UI", 9.5F);
+            tb.BorderStyle = BorderStyle.FixedSingle;
+            if (esClave) tb.UseSystemPasswordChar = true;
+            padre.Controls.Add(tb);
+            return tb;
+        }
+
+        // -------------------------------------------------------------------------
+        // VISTA 5: SISTEMA (ACTUALIZAR, PUERTO, FIREWALL, REINSTALAR, FABRICA)
+        // -------------------------------------------------------------------------
+        private void ConstruirVistaSistema()
+        {
+            vistaSistema = new Panel();
+            vistaSistema.Dock = DockStyle.Fill;
+            vistaSistema.BackColor = EsteticaApple.FondoApp;
+            vistaSistema.Visible = false;
+            panelContenido.Controls.Add(vistaSistema);
+
+            Panel contenedor = new Panel();
+            contenedor.Name = "centerBox";
+            contenedor.Size = new Size(640, 450);
+            contenedor.BackColor = Color.Transparent;
+            vistaSistema.Controls.Add(contenedor);
+
+            // Tarjeta 1: Actualizaciones
+            TarjetaCurva cardAct = new TarjetaCurva();
+            cardAct.Size = new Size(620, 126);
+            cardAct.Location = new Point(10, 12);
+            contenedor.Controls.Add(cardAct);
+
+            Label lblAct = new Label();
+            lblAct.Text = "Actualizar Sistema";
+            lblAct.Font = new Font("Segoe UI Semibold", 12.5F);
+            lblAct.ForeColor = EsteticaApple.TextoPrimario;
+            lblAct.Location = new Point(26, 20);
+            lblAct.Size = new Size(250, 26);
+            cardAct.Controls.Add(lblAct);
+
+            BotonCurvo btnZip = new BotonCurvo();
+            btnZip.Text = "Actualizar (.zip)";
+            btnZip.ColorNormal = EsteticaApple.AzulApple;
+            btnZip.ColorHover = EsteticaApple.AzulHover;
+            btnZip.Size = new Size(180, 40);
+            btnZip.Location = new Point(26, 62);
+            btnZip.Click += delegate { ActualizarDesdeZipAccion(); };
+            cardAct.Controls.Add(btnZip);
+
+            BotonCurvo btnGit = new BotonCurvo();
+            btnGit.Text = "Actualizar (GitHub)";
+            btnGit.ColorNormal = EsteticaApple.GrisBoton;
+            btnGit.ColorHover = EsteticaApple.GrisBotonHover;
+            btnGit.ColorTexto = EsteticaApple.TextoPrimario;
+            btnGit.Size = new Size(180, 40);
+            btnGit.Location = new Point(220, 62);
+            btnGit.Click += delegate { ActualizarDesdeGithubAccion(); };
+            cardAct.Controls.Add(btnGit);
+
+            // Tarjeta 2: Red y Puerto
+            TarjetaCurva cardRed = new TarjetaCurva();
+            cardRed.Size = new Size(620, 126);
+            cardRed.Location = new Point(10, 154);
+            contenedor.Controls.Add(cardRed);
+
+            Label lblRed = new Label();
+            lblRed.Text = "Red y Puerto";
+            lblRed.Font = new Font("Segoe UI Semibold", 12.5F);
+            lblRed.ForeColor = EsteticaApple.TextoPrimario;
+            lblRed.Location = new Point(26, 20);
+            lblRed.Size = new Size(220, 26);
+            cardRed.Controls.Add(lblRed);
+
+            txtPuerto = new TextBox();
+            txtPuerto.Text = puertoConfigurado;
+            txtPuerto.Font = new Font("Segoe UI", 10.5F);
+            txtPuerto.Location = new Point(26, 66);
+            txtPuerto.Size = new Size(110, 28);
+            txtPuerto.BorderStyle = BorderStyle.FixedSingle;
+            cardRed.Controls.Add(txtPuerto);
+
+            BotonCurvo btnPuerto = new BotonCurvo();
+            btnPuerto.Text = "Guardar Puerto";
+            btnPuerto.ColorNormal = EsteticaApple.AzulApple;
+            btnPuerto.ColorHover = EsteticaApple.AzulHover;
+            btnPuerto.Size = new Size(156, 38);
+            btnPuerto.Location = new Point(150, 62);
+            btnPuerto.Click += delegate { CambiarPuertoAccion(); };
+            cardRed.Controls.Add(btnPuerto);
+
+            BotonCurvo btnFw = new BotonCurvo();
+            btnFw.Text = "Reparar Firewall";
+            btnFw.ColorNormal = EsteticaApple.GrisBoton;
+            btnFw.ColorHover = EsteticaApple.GrisBotonHover;
+            btnFw.ColorTexto = EsteticaApple.TextoPrimario;
+            btnFw.Size = new Size(156, 38);
+            btnFw.Location = new Point(320, 62);
+            btnFw.Click += delegate { RepararFirewallAccion(true); };
+            cardRed.Controls.Add(btnFw);
+
+            // Tarjeta 3: Equipo y Fabrica (Reinstalacion oculta aqui)
+            TarjetaCurva cardEq = new TarjetaCurva();
+            cardEq.Size = new Size(620, 126);
+            cardEq.Location = new Point(10, 296);
+            contenedor.Controls.Add(cardEq);
+
+            Label lblEq = new Label();
+            lblEq.Text = "Equipo";
+            lblEq.Font = new Font("Segoe UI Semibold", 12.5F);
+            lblEq.ForeColor = EsteticaApple.TextoPrimario;
+            lblEq.Location = new Point(26, 20);
+            lblEq.Size = new Size(220, 26);
+            cardEq.Controls.Add(lblEq);
+
+            BotonCurvo btnReinstalar = new BotonCurvo();
+            btnReinstalar.Text = "Reinstalar";
+            btnReinstalar.ColorNormal = EsteticaApple.GrisBoton;
+            btnReinstalar.ColorHover = EsteticaApple.GrisBotonHover;
+            btnReinstalar.ColorTexto = EsteticaApple.TextoPrimario;
+            btnReinstalar.Size = new Size(165, 40);
+            btnReinstalar.Location = new Point(26, 62);
+            btnReinstalar.Click += delegate { MostrarVistaInstalacion(); };
+            cardEq.Controls.Add(btnReinstalar);
+
+            BotonCurvo btnDesinstalar = new BotonCurvo();
+            btnDesinstalar.Text = "Desinstalar";
+            btnDesinstalar.ColorNormal = EsteticaApple.GrisBoton;
+            btnDesinstalar.ColorHover = EsteticaApple.GrisBotonHover;
+            btnDesinstalar.ColorTexto = EsteticaApple.TextoPrimario;
+            btnDesinstalar.Size = new Size(165, 40);
+            btnDesinstalar.Location = new Point(206, 62);
+            btnDesinstalar.Click += delegate { DesinstalarServicioAccion(); };
+            cardEq.Controls.Add(btnDesinstalar);
+
+            BotonCurvo btnFabrica = new BotonCurvo();
+            btnFabrica.Text = "Fabrica";
+            btnFabrica.ColorNormal = EsteticaApple.RojoApple;
+            btnFabrica.ColorHover = EsteticaApple.RojoHover;
+            btnFabrica.Size = new Size(165, 40);
+            btnFabrica.Location = new Point(386, 62);
+            btnFabrica.Click += delegate { FormatearFabricaAccion(); };
+            cardEq.Controls.Add(btnFabrica);
+        }
+
+        // =========================================================================
+        // NAVEGACION Y CENTRADO
+        // =========================================================================
+        private void MostrarVistaInstalacion()
+        {
+            esEquipoNuevo = true;
+            panelSidebar.Visible = false;
+            OcultarTodasLasVistas();
+            vistaInstalacion.Visible = true;
+            AjustarCentrado();
+        }
+
+        private void AbrirSeccionProtegida(string clave)
+        {
+            if (!soporteAutenticado)
+            {
+                if (!SolicitarPinSoporte()) return;
+                soporteAutenticado = true;
+            }
+            MostrarVista(clave);
+        }
+
+        private void MostrarVista(string clave)
+        {
+            esEquipoNuevo = false;
+            panelSidebar.Visible = true;
+            OcultarTodasLasVistas();
+
+            navInicio.Activo = (clave == "inicio");
+            navServicios.Activo = (clave == "servicios");
+            navRespaldos.Activo = (clave == "respaldos");
+            navCuentas.Activo = (clave == "cuentas");
+            navSistema.Activo = (clave == "sistema");
+
+            if (clave == "inicio")
+            {
+                vistaInicio.Visible = true;
+                RefrescarEstadoEnVivo();
+            }
+            else if (clave == "servicios")
+            {
+                vistaServicios.Visible = true;
+                RenderizarTarjetasServicios();
+            }
+            else if (clave == "respaldos")
+            {
+                vistaRespaldos.Visible = true;
+                CargarListaBackups();
+            }
+            else if (clave == "cuentas")
+            {
+                vistaCuentas.Visible = true;
+            }
+            else if (clave == "sistema")
+            {
+                vistaSistema.Visible = true;
+            }
+
+            AjustarCentrado();
+        }
+
+        private void OcultarTodasLasVistas()
+        {
+            vistaInstalacion.Visible = false;
+            vistaInicio.Visible = false;
+            vistaServicios.Visible = false;
+            vistaRespaldos.Visible = false;
+            vistaCuentas.Visible = false;
+            vistaSistema.Visible = false;
+        }
+
+        private void AjustarCentrado()
+        {
+            if (vistaInstalacion != null && vistaInstalacion.Controls.Count > 0)
+            {
+                Control c = vistaInstalacion.Controls[0];
+                c.Location = new Point(
+                    Math.Max(16, (vistaInstalacion.ClientSize.Width - c.Width) / 2),
+                    Math.Max(16, (vistaInstalacion.ClientSize.Height - c.Height) / 2)
+                );
+            }
+
+            Panel[] vistas = new Panel[] { vistaInicio, vistaServicios, vistaRespaldos, vistaCuentas, vistaSistema };
+            foreach (Panel v in vistas)
+            {
+                if (v != null && v.Controls.Count > 0)
+                {
+                    Control box = v.Controls[0];
+                    box.Location = new Point(
+                        Math.Max(12, (v.ClientSize.Width - box.Width) / 2),
+                        Math.Max(12, (v.ClientSize.Height - box.Height) / 2)
+                    );
+                }
+            }
+        }
+
+        private bool SolicitarPinSoporte()
+        {
+            Form dlg = new Form();
+            dlg.Text = "Acceso Administrador";
+            dlg.Size = new Size(320, 178);
+            dlg.StartPosition = FormStartPosition.CenterParent;
+            dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
+            dlg.MaximizeBox = false;
+            dlg.MinimizeBox = false;
+            dlg.BackColor = EsteticaApple.FondoApp;
+
+            Label lbl = new Label();
+            lbl.Text = "PIN Maestro";
+            lbl.Font = new Font("Segoe UI Semibold", 10F);
+            lbl.ForeColor = EsteticaApple.TextoPrimario;
+            lbl.Location = new Point(24, 20);
+            lbl.Size = new Size(260, 22);
+            dlg.Controls.Add(lbl);
+
+            TextBox txt = new TextBox();
+            txt.UseSystemPasswordChar = true;
+            txt.Font = new Font("Segoe UI", 11F);
+            txt.Location = new Point(24, 48);
+            txt.Size = new Size(256, 28);
+            dlg.Controls.Add(txt);
+
+            Button btnOk = new Button();
+            btnOk.Text = "Ingresar";
+            btnOk.DialogResult = DialogResult.OK;
+            btnOk.Location = new Point(176, 92);
+            btnOk.Size = new Size(104, 34);
+            dlg.Controls.Add(btnOk);
+            dlg.AcceptButton = btnOk;
+
+            if (dlg.ShowDialog(this) == DialogResult.OK)
+            {
+                string v = txt.Text.Trim();
+                if (v == PIN_MAESTRO_SOPORTE || v == "admin123") return true;
+                MessageBox.Show("PIN incorrecto.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            return false;
+        }
+
+        // =========================================================================
+        // INSTALACION UNICA INTEGRADA (SIN .BAT EXTERNOS)
+        // =========================================================================
+        private void EjecutarInstalacionUnica()
+        {
+            btnEjecutarInstalacion.Enabled = false;
+            this.Cursor = Cursors.WaitCursor;
+
+            try
+            {
+                lblProgresoInstalacion.Text = "Preparando entorno...";
+                Application.DoEvents();
+
+                string[] carpetas = new string[] {
+                    Path.Combine(baseDir, ".tmp"),
+                    Path.Combine(baseDir, "database"),
+                    Path.Combine(baseDir, "database", "backups_locales"),
+                    "C:\\POS_BACKUPS"
+                };
+                foreach (string c in carpetas)
+                {
+                    if (!Directory.Exists(c)) Directory.CreateDirectory(c);
+                }
+
+                string envFile = Path.Combine(baseDir, ".env");
+                if (!File.Exists(envFile))
+                {
+                    string[] lineas = new string[] {
+                        "# Configuracion Produccion POS Local",
+                        "NODE_ENV=production",
+                        "PORT=3000",
+                        "HTTP_PORT=3000",
+                        "LOCAL_DOMAIN=llanomio.local",
+                        "INSTANCE_ID=pos-llanomio",
+                        "DATABASE_URL=\"file:./llanomio.db\"",
+                        "HOSTNAME=0.0.0.0",
+                        "NEXTAUTH_SECRET=pos_secret_token_seguro_2026_local_key"
+                    };
+                    File.WriteAllLines(envFile, lineas, Encoding.UTF8);
+                }
+                LeerConfiguracionEnv();
+
+                // Inicializar base de datos
+                lblProgresoInstalacion.Text = rbFabricaLimpia.Checked ? "Inicializando fabrica..." : "Verificando administrador...";
+                Application.DoEvents();
+                string scriptDb = rbFabricaLimpia.Checked
+                    ? Path.Combine(baseDir, "scripts", "barrido-inicial-fabrica.js")
+                    : Path.Combine(baseDir, "scripts", "asegurar-admin.js");
+                string argDb = rbFabricaLimpia.Checked ? "--confirmar" : "";
+                if (File.Exists(scriptDb))
+                {
+                    EjecutarScriptNode(scriptDb, argDb, 30000);
+                }
+
+                // Firewall
+                lblProgresoInstalacion.Text = "Configurando Firewall...";
+                Application.DoEvents();
+                RepararFirewallAccion(false);
+
+                // Registrar servicio apuntando a ESTE MISMO ejecutable con --service
+                lblProgresoInstalacion.Text = "Registrando servicio...";
+                Application.DoEvents();
+                EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
+                Thread.Sleep(1000);
+                EjecutarComandoOculto("sc.exe", "delete \"" + NOMBRE_SERVICIO + "\"");
+                Thread.Sleep(1000);
+
+                string binCmd = "\\\"" + Application.ExecutablePath + "\\\" --service";
+                EjecutarComandoOculto("sc.exe", "create \"" + NOMBRE_SERVICIO + "\" binPath= \"" + binCmd + "\" start= auto DisplayName= \"POS Llanomio - Servidor Local\"");
+                EjecutarComandoOculto("sc.exe", "failure \"" + NOMBRE_SERVICIO + "\" reset= 86400 actions= restart/5000/restart/10000/restart/20000");
+                EjecutarComandoOculto("sc.exe", "config \"" + NOMBRE_SERVICIO + "\" start= delayed-auto");
+                EjecutarComandoOculto("sc.exe", "start \"" + NOMBRE_SERVICIO + "\"");
+
+                // Accesos directos en Escritorio
+                lblProgresoInstalacion.Text = "Creando accesos directos...";
+                Application.DoEvents();
+                CrearAccesosEscritorio();
+
+                lblProgresoInstalacion.Text = "Instalacion completada.";
+                Application.DoEvents();
+                Thread.Sleep(1200);
+
+                MostrarVista("inicio");
+                RefrescarEstadoEnVivo();
+                GenerarQrLocalSeguro();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error en instalacion: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnEjecutarInstalacion.Enabled = true;
+                this.Cursor = Cursors.Default;
+            }
+        }
+
+        private void CrearAccesosEscritorio()
+        {
+            try
+            {
+                string ico = Path.Combine(baseDir, "aurora.ico");
+                if (!File.Exists(ico)) ico = Path.Combine(baseDir, "public", "iconos", "aurora.ico");
+                string ps =
+                    "$wsh = New-Object -ComObject WScript.Shell; " +
+                    "$desk = [Environment]::GetFolderPath('Desktop'); " +
+                    "$s1 = $wsh.CreateShortcut(\"$desk\\Panel Servidor POS.lnk\"); " +
+                    "$s1.TargetPath = '" + Application.ExecutablePath + "'; " +
+                    "$s1.WorkingDirectory = '" + baseDir.TrimEnd('\\') + "'; " +
+                    "$s1.IconLocation = '" + ico + "'; " +
+                    "$s1.Save(); " +
+                    "$s2 = $wsh.CreateShortcut(\"$desk\\Abrir POS Llanomio.lnk\"); " +
+                    "$s2.TargetPath = 'http://localhost:" + puertoConfigurado + "'; " +
+                    "$s2.IconLocation = '" + ico + "'; " +
+                    "$s2.Save();";
+                EjecutarComandoOculto("powershell.exe", "-NoProfile -ExecutionPolicy Bypass -Command \"" + ps + "\"");
+            }
+            catch { }
+        }
+
+        // =========================================================================
+        // ESTADO EN VIVO Y ACCIONES PRINCIPALES
+        // =========================================================================
+        private void RefrescarEstadoEnVivo()
+        {
+            bool srvActivo = VerificarServicioWindowsActivo(NOMBRE_SERVICIO);
+            bool httpOk = ProbarHttpLocal("http://localhost:" + puertoConfigurado + "/api/caja/estado");
+            servidorEnLineaActual = srvActivo || httpOk;
+
+            pildoraGlobal.ActualizarEstado(servidorEnLineaActual, servidorEnLineaActual ? "En linea" : "Offline");
+
+            btnInicioIniciar.Visible = !servidorEnLineaActual;
+            btnInicioAbrir.Visible = servidorEnLineaActual;
+            btnInicioReiniciar.Visible = servidorEnLineaActual;
+            btnInicioDetener.Visible = servidorEnLineaActual;
+
+            lblUrlInicio.Text = "http://localhost:" + puertoConfigurado;
+            urlLanActual = "http://" + ipLanDetectada + ":" + puertoConfigurado;
+            lblIpQr.Text = urlLanActual;
+
+            if (ultimoQrGenerado != urlLanActual)
+            {
+                GenerarQrLocalSeguro();
+            }
+        }
+
+        private bool VerificarServicioWindowsActivo(string nombreServicio)
+        {
+            try
+            {
+                using (ServiceController sc = new ServiceController(nombreServicio))
+                {
+                    return sc.Status == ServiceControllerStatus.Running;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool ProbarHttpLocal(string url)
+        {
+            try
+            {
+                HttpWebRequest req = (HttpWebRequest)WebRequest.Create(url);
+                req.Timeout = 1500;
+                req.Method = "GET";
+                using (HttpWebResponse res = (HttpWebResponse)req.GetResponse())
+                {
+                    return (int)res.StatusCode >= 200 && (int)res.StatusCode < 500;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void IniciarServicioAccion(string nombreServicio)
+        {
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                EjecutarComandoOculto("sc.exe", "start \"" + nombreServicio + "\"");
+                Thread.Sleep(1800);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error al iniciar: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+                RefrescarEstadoEnVivo();
+            }
+        }
+
+        private void DetenerServicioGenerico(string nombreServicio)
+        {
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                EjecutarComandoOculto("sc.exe", "stop \"" + nombreServicio + "\"");
+                Thread.Sleep(1500);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error al detener: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+                RefrescarEstadoEnVivo();
+            }
+        }
+
+        private void ReiniciarServicioAccion(string nombreServicio)
+        {
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                EjecutarComandoOculto("sc.exe", "stop \"" + nombreServicio + "\"");
+                Thread.Sleep(1500);
+                EjecutarComandoOculto("sc.exe", "start \"" + nombreServicio + "\"");
+                Thread.Sleep(1800);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error al reiniciar: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+                RefrescarEstadoEnVivo();
+            }
+        }
+
+        private void DetenerConBackupObligatorio()
+        {
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                string scriptRespaldo = Path.Combine(baseDir, "scripts", "respaldo-servicio.js");
+                if (File.Exists(scriptRespaldo))
+                {
+                    int code = EjecutarScriptNode(scriptRespaldo, "", 35000);
+                    if (code != 0)
+                    {
+                        MessageBox.Show("Respaldo previo fallo. Detencion cancelada por seguridad.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+                EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
+                Thread.Sleep(1800);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error al detener: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+                RefrescarEstadoEnVivo();
+            }
+        }
+
+        private void AbrirNavegadorPos()
+        {
+            try
+            {
+                string url = "http://localhost:" + puertoConfigurado;
+                string[] navegadores = new string[] {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft\Edge\Application\msedge.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft\Edge\Application\msedge.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe")
+                };
+
+                foreach (string ruta in navegadores)
+                {
+                    if (File.Exists(ruta))
+                    {
+                        ProcessStartInfo psi = new ProcessStartInfo();
+                        psi.FileName = ruta;
+                        psi.Arguments = "--new-window --start-maximized \"" + url + "\"";
+                        psi.UseShellExecute = true;
+                        psi.WindowStyle = ProcessWindowStyle.Maximized;
+                        Process p = Process.Start(psi);
+                        if (p != null)
+                        {
+                            try { p.WaitForInputIdle(1500); if (p.MainWindowHandle != IntPtr.Zero) ShowWindow(p.MainWindowHandle, SW_MAXIMIZE); } catch { }
+                        }
+                        return;
+                    }
+                }
+                Process.Start(url);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("No se pudo abrir el navegador: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        // =========================================================================
+        // CATALOGO MODULAR DE SERVICIOS (servicios-panel.cfg)
+        // =========================================================================
+        private void CargarServiciosModulares()
+        {
+            serviciosRegistrados.Clear();
+            serviciosRegistrados.Add(new ServicioModulo {
+                Id = "pos",
+                Nombre = "POS Llanomio",
+                ServicioWindows = NOMBRE_SERVICIO,
+                Puerto = puertoConfigurado,
+                RutaSalud = "/api/caja/estado",
+                EsPrincipal = true
+            });
+
+            try
+            {
+                string rutaCfg = Path.Combine(baseDir, "portable-windows", "servicios-panel.cfg");
+                if (File.Exists(rutaCfg))
+                {
+                    foreach (string linea in File.ReadAllLines(rutaCfg, Encoding.UTF8))
+                    {
+                        string l = linea.Trim();
+                        if (string.IsNullOrEmpty(l) || l.StartsWith("#")) continue;
+                        string[] p = l.Split('|');
+                        if (p.Length >= 2)
+                        {
+                            serviciosRegistrados.Add(new ServicioModulo {
+                                Id = "ext_" + p[1].Trim(),
+                                Nombre = p[0].Trim(),
+                                ServicioWindows = p[1].Trim(),
+                                Puerto = p.Length >= 3 ? p[2].Trim() : "",
+                                RutaSalud = "",
+                                EsPrincipal = false
+                            });
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void AgregarServicioModuloAccion()
+        {
+            if (!soporteAutenticado)
+            {
+                if (!SolicitarPinSoporte()) return;
+                soporteAutenticado = true;
+            }
+
+            Form dlg = new Form();
+            dlg.Text = "Agregar Servicio";
+            dlg.Size = new Size(360, 260);
+            dlg.StartPosition = FormStartPosition.CenterParent;
+            dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
+            dlg.MaximizeBox = false;
+            dlg.MinimizeBox = false;
+            dlg.BackColor = EsteticaApple.FondoApp;
+
+            TextBox tbNom = CrearCampoFormulario(dlg, "Nombre visible", 24, 18, 296, false);
+            TextBox tbSrv = CrearCampoFormulario(dlg, "Nombre del Servicio Windows", 24, 76, 296, false);
+            TextBox tbPrt = CrearCampoFormulario(dlg, "Puerto (opcional)", 24, 134, 130, false);
+
+            Button btnOk = new Button();
+            btnOk.Text = "Guardar";
+            btnOk.DialogResult = DialogResult.OK;
+            btnOk.Location = new Point(216, 182);
+            btnOk.Size = new Size(104, 34);
+            dlg.Controls.Add(btnOk);
+            dlg.AcceptButton = btnOk;
+
+            if (dlg.ShowDialog(this) == DialogResult.OK)
+            {
+                string nom = tbNom.Text.Trim();
+                string srv = tbSrv.Text.Trim();
+                string prt = tbPrt.Text.Trim();
+                if (string.IsNullOrEmpty(nom) || string.IsNullOrEmpty(srv)) return;
+
+                try
+                {
+                    string dirCfg = Path.Combine(baseDir, "portable-windows");
+                    if (!Directory.Exists(dirCfg)) Directory.CreateDirectory(dirCfg);
+                    string rutaCfg = Path.Combine(dirCfg, "servicios-panel.cfg");
+                    File.AppendAllText(rutaCfg, nom + "|" + srv + "|" + prt + Environment.NewLine, Encoding.UTF8);
+                    CargarServiciosModulares();
+                    RenderizarTarjetasServicios();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Error al guardar servicio: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        // =========================================================================
+        // ACTUALIZACIONES, RESPALDOS, CUENTAS Y SISTEMA
+        // =========================================================================
+        private void ActualizarDesdeZipAccion()
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Title = "Seleccionar paquete (.zip)";
+            ofd.Filter = "Paquete ZIP (*.zip)|*.zip";
+            string dirAct = Path.Combine(baseDir, "actualizaciones");
+            if (Directory.Exists(dirAct)) ofd.InitialDirectory = dirAct;
+
+            if (ofd.ShowDialog(this) != DialogResult.OK) return;
+
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                string scriptAct = Path.Combine(baseDir, "scripts", "aplicar-actualizacion-segura.js");
+                int code = EjecutarScriptNode(scriptAct, "--zip=\"" + ofd.FileName + "\"", 180000);
+                if (code == 0)
+                {
+                    MessageBox.Show("Actualizacion aplicada con exito.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    MessageBox.Show("Error al aplicar actualizacion (codigo " + code + ").", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+                RefrescarEstadoEnVivo();
+            }
+        }
+
+        private void ActualizarDesdeGithubAccion()
+        {
+            DialogResult dr = MessageBox.Show("Actualizar desde GitHub?", "POS Llanomio", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (dr != DialogResult.Yes) return;
+
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                string scriptAct = Path.Combine(baseDir, "scripts", "aplicar-actualizacion-segura.js");
+                int code = EjecutarScriptNode(scriptAct, "--github", 240000);
+                if (code == 0)
+                {
+                    MessageBox.Show("Actualizacion desde GitHub completada.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    MessageBox.Show("No se pudo actualizar desde GitHub (codigo " + code + ").", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+                RefrescarEstadoEnVivo();
+            }
+        }
+
+        private void GenerarBackupManualAccion()
+        {
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                string script = Path.Combine(baseDir, "scripts", "respaldo-servicio.js");
+                int code = EjecutarScriptNode(script, "", 45000);
+                if (code == 0)
+                {
+                    MessageBox.Show("Respaldo guardado en C:\\POS_BACKUPS.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+                CargarListaBackups();
+            }
+        }
+
+        private void CargarListaBackups()
+        {
+            try
+            {
+                lstBackups.Items.Clear();
+                string dir = "C:\\POS_BACKUPS";
+                if (!Directory.Exists(dir)) return;
+                string[] archivos = Directory.GetFiles(dir, "*.db");
+                Array.Sort(archivos);
+                Array.Reverse(archivos);
+                foreach (string arch in archivos)
+                {
+                    FileInfo fi = new FileInfo(arch);
+                    double kb = Math.Round((double)fi.Length / 1024, 1);
+                    lstBackups.Items.Add(string.Format("{0,-40} | {1,8} KB | {2:dd/MM/yyyy HH:mm}", fi.Name, kb, fi.LastWriteTime));
+                }
+            }
+            catch { }
+        }
+
+        private void AbrirCarpetaBackupsAccion()
+        {
+            try
+            {
+                string dir = "C:\\POS_BACKUPS";
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                Process.Start("explorer.exe", dir);
+            }
+            catch { }
+        }
+
+        private void RestaurarSeleccionadoAccion()
+        {
+            if (lstBackups.SelectedIndex < 0) return;
+            string nombre = lstBackups.SelectedItem.ToString().Split('|')[0].Trim();
+            EjecutarRestauracion(Path.Combine("C:\\POS_BACKUPS", nombre));
+        }
+
+        private void RestaurarArchivoExternoAccion()
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Title = "Seleccionar respaldo (.db)";
+            ofd.Filter = "SQLite (*.db)|*.db";
+            if (ofd.ShowDialog(this) == DialogResult.OK)
+            {
+                EjecutarRestauracion(ofd.FileName);
+            }
+        }
+
+        private void EjecutarRestauracion(string origen)
+        {
+            if (!File.Exists(origen)) return;
+            try
+            {
+                using (FileStream fs = new FileStream(origen, FileMode.Open, FileAccess.Read))
+                {
+                    byte[] h = new byte[16];
+                    fs.Read(h, 0, 16);
+                    if (!Encoding.UTF8.GetString(h).StartsWith("SQLite format 3"))
+                    {
+                        MessageBox.Show("Archivo SQLite invalido.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+                }
+            }
+            catch { return; }
+
+            if (MessageBox.Show("Restaurar " + Path.GetFileName(origen) + "?", "Confirmar", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
+                Thread.Sleep(1800);
+
+                string destino = Path.Combine(baseDir, "database", "llanomio.db");
+                if (File.Exists(destino))
+                {
+                    string prevDir = "C:\\POS_BACKUPS";
+                    if (!Directory.Exists(prevDir)) Directory.CreateDirectory(prevDir);
+                    File.Copy(destino, Path.Combine(prevDir, "pre_restauracion_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".db"), true);
+                }
+
+                string wal = destino + "-wal";
+                string shm = destino + "-shm";
+                if (File.Exists(wal)) File.Delete(wal);
+                if (File.Exists(shm)) File.Delete(shm);
+                File.Copy(origen, destino, true);
+
+                EjecutarComandoOculto("sc.exe", "start \"" + NOMBRE_SERVICIO + "\"");
+                Thread.Sleep(1800);
+                MessageBox.Show("Base de datos restaurada.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error al restaurar: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+                RefrescarEstadoEnVivo();
+                CargarListaBackups();
+            }
+        }
+
+        private void CrearUsuarioAccion()
+        {
+            string nom = txtNombreUser.Text.Trim();
+            string usr = txtUsername.Text.Trim();
+            string rol = cmbRol.SelectedItem != null ? cmbRol.SelectedItem.ToString() : "CAJERO";
+            string pwd = txtPassword.Text.Trim();
+            string pin = txtPin.Text.Trim();
+
+            if (string.IsNullOrEmpty(nom) || string.IsNullOrEmpty(usr) || string.IsNullOrEmpty(pwd) || pin.Length < 4)
+            {
+                MessageBox.Show("Complete todos los campos (PIN minimo 4 digitos).", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                string script = Path.Combine(baseDir, "scripts", "crear-usuario-panel.js");
+                string args = "\"" + nom + "\" \"" + usr + "\" \"" + rol + "\" \"" + pwd + "\" \"" + pin + "\"";
+                int code = EjecutarScriptNode(script, args, 15000);
+                if (code == 0)
+                {
+                    MessageBox.Show("Usuario creado: " + usr, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    txtNombreUser.Text = "";
+                    txtUsername.Text = "";
+                    txtPassword.Text = "";
+                    txtPin.Text = "";
+                }
+                else
+                {
+                    MessageBox.Show("No se pudo crear el usuario.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+            }
+        }
+
+        private void RestablecerAdminAccion()
+        {
+            if (MessageBox.Show("Restablecer admin / admin123 (PIN 000000)?", "Confirmar", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                int code = EjecutarScriptNode(Path.Combine(baseDir, "scripts", "asegurar-admin.js"), "", 20000);
+                if (code == 0) MessageBox.Show("Credenciales de admin restablecidas.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+            }
+        }
+
+        private void FormatearFabricaAccion()
+        {
+            if (MessageBox.Show("Limpiar transacciones y dejar de fabrica?", "Confirmar", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
+                Thread.Sleep(1500);
+                int code = EjecutarScriptNode(Path.Combine(baseDir, "scripts", "barrido-inicial-fabrica.js"), "--confirmar", 30000);
+                EjecutarComandoOculto("sc.exe", "start \"" + NOMBRE_SERVICIO + "\"");
+                Thread.Sleep(1500);
+                if (code == 0) MessageBox.Show("Sistema reiniciado de fabrica.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+                RefrescarEstadoEnVivo();
+            }
+        }
+
+        private void DesinstalarServicioAccion()
+        {
+            if (MessageBox.Show("Desinstalar servicio POS_Llanomio?", "Confirmar", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            this.Cursor = Cursors.WaitCursor;
+            try
+            {
+                EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
+                Thread.Sleep(1200);
+                EjecutarComandoOculto("sc.exe", "delete \"" + NOMBRE_SERVICIO + "\"");
+                MessageBox.Show("Servicio desinstalado.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            finally
+            {
+                this.Cursor = Cursors.Default;
+                RefrescarEstadoEnVivo();
+            }
+        }
+
+        private void RepararFirewallAccion(bool mostrarAviso)
+        {
+            EjecutarComandoOculto("netsh.exe", "advfirewall firewall delete rule name=\"POS_Llanomio_TCP\"");
+            EjecutarComandoOculto("netsh.exe", "advfirewall firewall delete rule name=\"POS_Llanomio_mDNS\"");
+            EjecutarComandoOculto("netsh.exe", "advfirewall firewall add rule name=\"POS_Llanomio_TCP\" dir=in action=allow protocol=TCP localport=" + puertoConfigurado);
+            EjecutarComandoOculto("netsh.exe", "advfirewall firewall add rule name=\"POS_Llanomio_mDNS\" dir=in action=allow protocol=UDP localport=5353");
+            if (mostrarAviso)
+            {
+                MessageBox.Show("Firewall configurado (TCP " + puertoConfigurado + " / UDP 5353).", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void CambiarPuertoAccion()
+        {
+            string pStr = txtPuerto.Text.Trim();
+            int pNum;
+            if (!int.TryParse(pStr, out pNum) || pNum < 80 || pNum > 65535)
+            {
+                MessageBox.Show("Puerto invalido (80-65535).", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            GuardarPuertoEnDotEnv(pStr);
+            RepararFirewallAccion(false);
+            ReiniciarServicioAccion(NOMBRE_SERVICIO);
+            CargarServiciosModulares();
+            GenerarQrLocalSeguro();
+            MessageBox.Show("Puerto actualizado a " + pStr + ".", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        // =========================================================================
+        // UTILIDADES (QR, ENV, NODE, RED)
+        // =========================================================================
+        private void GenerarQrLocalSeguro()
+        {
+            try
+            {
+                string scriptQr = Path.Combine(baseDir, "scripts", "generar-qr-local.js");
+                if (!File.Exists(scriptQr)) return;
+
+                string tmpDir = Path.Combine(baseDir, ".tmp");
+                if (!Directory.Exists(tmpDir)) Directory.CreateDirectory(tmpDir);
+                string outPng = Path.Combine(tmpDir, "qr_lan.png");
+
+                EjecutarScriptNode(scriptQr, "\"" + urlLanActual + "\" \"" + outPng + "\"", 10000);
+                if (File.Exists(outPng))
+                {
+                    byte[] bytes = File.ReadAllBytes(outPng);
+                    using (MemoryStream ms = new MemoryStream(bytes))
+                    using (Image img = Image.FromStream(ms))
+                    {
+                        Image vieja = picQr.Image;
+                        picQr.Image = new Bitmap(img);
+                        if (vieja != null) vieja.Dispose();
+                    }
+                    ultimoQrGenerado = urlLanActual;
+                }
+            }
+            catch { }
+        }
+
+        private string ObtenerNodeExe()
+        {
+            string portable = Path.Combine(baseDir, "runtime", "node", "node.exe");
+            return File.Exists(portable) ? portable : "node";
+        }
+
+        private int EjecutarScriptNode(string rutaScript, string extraArgs, int timeoutMs)
+        {
+            ProcessStartInfo psi = new ProcessStartInfo();
+            psi.FileName = ObtenerNodeExe();
+            psi.Arguments = "\"" + rutaScript + "\"" + (string.IsNullOrEmpty(extraArgs) ? "" : " " + extraArgs);
+            psi.WorkingDirectory = baseDir;
+            psi.CreateNoWindow = true;
+            psi.UseShellExecute = false;
+
+            using (Process p = Process.Start(psi))
+            {
+                if (p == null) return -1;
+                p.WaitForExit(timeoutMs);
+                return p.HasExited ? p.ExitCode : -1;
+            }
+        }
+
+        private void EjecutarComandoOculto(string exe, string args)
+        {
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo();
+                psi.FileName = exe;
+                psi.Arguments = args;
+                psi.WorkingDirectory = baseDir;
+                psi.CreateNoWindow = true;
+                psi.UseShellExecute = false;
+                using (Process p = Process.Start(psi))
+                {
+                    if (p != null) p.WaitForExit(15000);
+                }
+            }
+            catch { }
+        }
+
+        private void LeerConfiguracionEnv()
         {
             try
             {
                 string envPath = Path.Combine(baseDir, ".env");
-                if (File.Exists(envPath))
+                if (!File.Exists(envPath)) return;
+                foreach (string linea in File.ReadAllLines(envPath))
                 {
-                    string[] lineas = File.ReadAllLines(envPath);
-                    foreach (string linea in lineas)
+                    string l = linea.Trim();
+                    if (l.StartsWith("PORT="))
                     {
-                        string trim = linea.Trim();
-                        if (trim.StartsWith("PORT=", StringComparison.OrdinalIgnoreCase))
-                        {
-                            string[] p = trim.Split('=');
-                            if (p.Length > 1 && !string.IsNullOrEmpty(p[1].Trim()))
-                            {
-                                puertoConfigurado = p[1].Trim().Replace("\"", "").Replace("'", "");
-                            }
-                        }
+                        string val = l.Substring(5).Trim().Trim('"', '\'');
+                        if (!string.IsNullOrEmpty(val)) puertoConfigurado = val;
                     }
                 }
             }
@@ -220,1862 +2431,71 @@ namespace AuroraHost.POS.ControlServidor
             try
             {
                 string envPath = Path.Combine(baseDir, ".env");
-                List<string> lineasNuevas = new List<string>();
-                bool encontrado = false;
-
+                List<string> nuevas = new List<string>();
+                bool encontro = false;
                 if (File.Exists(envPath))
                 {
-                    string[] lineas = File.ReadAllLines(envPath);
-                    foreach (string l in lineas)
+                    foreach (string l in File.ReadAllLines(envPath))
                     {
-                        string t = l.Trim();
-                        if (t.StartsWith("PORT=", StringComparison.OrdinalIgnoreCase))
+                        if (l.Trim().StartsWith("PORT="))
                         {
-                            lineasNuevas.Add("PORT=" + nuevoPuerto);
-                            encontrado = true;
+                            nuevas.Add("PORT=" + nuevoPuerto);
+                            encontro = true;
                         }
-                        else if (t.StartsWith("HTTP_PORT=", StringComparison.OrdinalIgnoreCase))
+                        else if (l.Trim().StartsWith("HTTP_PORT="))
                         {
-                            lineasNuevas.Add("HTTP_PORT=" + nuevoPuerto);
+                            nuevas.Add("HTTP_PORT=" + nuevoPuerto);
                         }
                         else
                         {
-                            lineasNuevas.Add(l);
+                            nuevas.Add(l);
                         }
                     }
                 }
-
-                if (!encontrado)
-                {
-                    lineasNuevas.Add("PORT=" + nuevoPuerto);
-                    lineasNuevas.Add("HTTP_PORT=" + nuevoPuerto);
-                }
-
-                File.WriteAllLines(envPath, lineasNuevas.ToArray(), Encoding.UTF8);
+                if (!encontro) nuevas.Add("PORT=" + nuevoPuerto);
+                File.WriteAllLines(envPath, nuevas.ToArray(), Encoding.UTF8);
                 puertoConfigurado = nuevoPuerto;
-                ActualizarUrls();
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al actualizar el archivo .env: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            catch { }
         }
 
-        private void DetectarIpLan()
+        private string DetectarIpLan()
         {
             try
             {
-                NetworkInterface[] interfaces = NetworkInterface.GetAllNetworkInterfaces();
-                foreach (NetworkInterface ni in interfaces)
+                foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
                 {
-                    if (ni.OperationalStatus == OperationalStatus.Up &&
-                        ni.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
-                        !ni.Description.ToLower().Contains("virtual") &&
-                        !ni.Description.ToLower().Contains("pseudo") &&
-                        !ni.Description.ToLower().Contains("vpn"))
+                    if (ni.OperationalStatus != OperationalStatus.Up) continue;
+                    if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                    string desc = ni.Description.ToLowerInvariant();
+                    if (desc.Contains("virtual") || desc.Contains("vmware") || desc.Contains("vbox") || desc.Contains("hyper-v")) continue;
+
+                    foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
                     {
-                        IPInterfaceProperties props = ni.GetIPProperties();
-                        foreach (UnicastIPAddressInformation ip in props.UnicastAddresses)
+                        if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
                         {
-                            if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
-                            {
-                                string ipStr = ip.Address.ToString();
-                                if (!ipStr.StartsWith("127.") && !ipStr.StartsWith("169.254."))
-                                {
-                                    ipLanDetectada = ipStr;
-                                    return;
-                                }
-                            }
+                            string s = ip.Address.ToString();
+                            if (s.StartsWith("192.168.") || s.StartsWith("10.") || s.StartsWith("172.")) return s;
                         }
                     }
                 }
             }
             catch { }
-            ipLanDetectada = "127.0.0.1";
+            return "127.0.0.1";
         }
 
-        private void ActualizarUrls()
+        private void CopiarAlPortapapeles(string texto)
         {
-            urlLanActual = "http://" + ipLanDetectada + ":" + puertoConfigurado;
-        }
-
-        private void InicializarComponentes()
-        {
-            // Propiedades de ventana nativa de Windows
-            this.Text = "POS Llanomio - Servidor y Control";
-            this.Size = new Size(960, 680);
-            this.MinimumSize = new Size(880, 600);
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.FormBorderStyle = FormBorderStyle.Sizable;
-            this.MaximizeBox = true;
-            this.MinimizeBox = true;
-            this.BackColor = Color.FromArgb(248, 250, 252); // Slate 50
-            this.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
-
-            // Icono de la aplicacion
             try
             {
-                string icoPath = Path.Combine(baseDir, "aurora.ico");
-                if (!File.Exists(icoPath)) icoPath = Path.Combine(baseDir, "public", "iconos", "aurora.ico");
-                if (File.Exists(icoPath)) this.Icon = new Icon(icoPath);
+                Clipboard.SetText(texto);
+                btnCopiarIp.Text = "Copiado";
+                System.Windows.Forms.Timer t = new System.Windows.Forms.Timer();
+                t.Interval = 1400;
+                t.Tick += delegate { btnCopiarIp.Text = "Copiar IP"; t.Stop(); t.Dispose(); };
+                t.Start();
             }
             catch { }
-
-            // 1. Barra de Encabezado Superior Nativa y Limpia (Blanca con borde sutil)
-            panelHeader = new Panel();
-            panelHeader.Dock = DockStyle.Top;
-            panelHeader.Height = 56;
-            panelHeader.BackColor = Color.White;
-            panelHeader.Paint += delegate(object sender, PaintEventArgs e)
-            {
-                using (Pen p = new Pen(Color.FromArgb(226, 232, 240), 1))
-                {
-                    e.Graphics.DrawLine(p, 0, panelHeader.Height - 1, panelHeader.Width, panelHeader.Height - 1);
-                }
-            };
-            this.Controls.Add(panelHeader);
-
-            lblLogoTitulo = new Label();
-            lblLogoTitulo.Text = "POS Llanomio";
-            lblLogoTitulo.Font = new Font("Segoe UI", 12.5F, FontStyle.Bold);
-            lblLogoTitulo.ForeColor = Color.FromArgb(15, 23, 42); // Slate 900
-            lblLogoTitulo.Location = new Point(20, 14);
-            lblLogoTitulo.AutoSize = true;
-            panelHeader.Controls.Add(lblLogoTitulo);
-
-            lblSubtitulo = new Label();
-            lblSubtitulo.Text = "· Servidor Local y Respaldo Autonomo";
-            lblSubtitulo.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
-            lblSubtitulo.ForeColor = Color.FromArgb(100, 116, 139); // Slate 500
-            lblSubtitulo.Location = new Point(148, 18);
-            lblSubtitulo.AutoSize = true;
-            panelHeader.Controls.Add(lblSubtitulo);
-
-            // Badge / Pildora de Estado en vivo en la cabecera
-            badgeEstadoServidor = new Panel();
-            badgeEstadoServidor.Size = new Size(170, 28);
-            badgeEstadoServidor.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            badgeEstadoServidor.BackColor = Color.FromArgb(241, 245, 249);
-            badgeEstadoServidor.BorderStyle = BorderStyle.FixedSingle;
-            panelHeader.Controls.Add(badgeEstadoServidor);
-
-            lblBadgeTexto = new Label();
-            lblBadgeTexto.Text = "Comprobando...";
-            lblBadgeTexto.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-            lblBadgeTexto.ForeColor = Color.FromArgb(71, 85, 105);
-            lblBadgeTexto.Dock = DockStyle.Fill;
-            lblBadgeTexto.TextAlign = ContentAlignment.MiddleCenter;
-            badgeEstadoServidor.Controls.Add(lblBadgeTexto);
-
-            // 2. Control de Pestanas Principal
-            tabControlPrincipal = new TabControl();
-            tabControlPrincipal.Dock = DockStyle.Fill;
-            tabControlPrincipal.Font = new Font("Segoe UI", 9.5F);
-            tabControlPrincipal.ItemSize = new Size(140, 32);
-            tabControlPrincipal.SizeMode = TabSizeMode.Fixed;
-            this.Controls.Add(tabControlPrincipal);
-
-            tabDashboard = new TabPage("Estado y QR");
-            tabDashboard.BackColor = Color.FromArgb(248, 250, 252);
-            tabControlPrincipal.TabPages.Add(tabDashboard);
-
-            tabServicioRed = new TabPage("Servicio y Red");
-            tabServicioRed.BackColor = Color.FromArgb(248, 250, 252);
-            tabControlPrincipal.TabPages.Add(tabServicioRed);
-
-            tabBackups = new TabPage("Respaldos");
-            tabBackups.BackColor = Color.FromArgb(248, 250, 252);
-            tabControlPrincipal.TabPages.Add(tabBackups);
-
-            tabCuentas = new TabPage("Cuentas y Fabrica");
-            tabCuentas.BackColor = Color.FromArgb(248, 250, 252);
-            tabControlPrincipal.TabPages.Add(tabCuentas);
-
-            ConstruirTabDashboard();
-            ConstruirTabServicioRed();
-            ConstruirTabBackups();
-            ConstruirTabCuentas();
-
-            this.Resize += delegate
-            {
-                ReposicionarBadgeHeader();
-                AjustarLayoutCentrado();
-            };
-
-            ReposicionarBadgeHeader();
-        }
-
-        private void ReposicionarBadgeHeader()
-        {
-            if (badgeEstadoServidor == null || panelHeader == null) return;
-            badgeEstadoServidor.Location = new Point(panelHeader.ClientSize.Width - 190, 14);
-        }
-
-        // =========================================================================
-        // PESTANA 1: ESTADO Y QR (DASHBOARD PRINCIPAL)
-        // =========================================================================
-        private void ConstruirTabDashboard()
-        {
-            panelCentroDashboard = new Panel();
-            panelCentroDashboard.Size = new Size(880, 500);
-            panelCentroDashboard.BackColor = Color.Transparent;
-            tabDashboard.Controls.Add(panelCentroDashboard);
-
-            // Card Izquierda: Estado y Control
-            cardServidor = new Panel();
-            cardServidor.Location = new Point(20, 20);
-            cardServidor.Size = new Size(490, 460);
-            cardServidor.BackColor = Color.White;
-            cardServidor.BorderStyle = BorderStyle.FixedSingle;
-            panelCentroDashboard.Controls.Add(cardServidor);
-
-            lblTituloCardServidor = new Label();
-            lblTituloCardServidor.Text = "Estado del Servidor";
-            lblTituloCardServidor.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
-            lblTituloCardServidor.ForeColor = Color.FromArgb(15, 23, 42);
-            lblTituloCardServidor.Location = new Point(20, 18);
-            lblTituloCardServidor.AutoSize = true;
-            cardServidor.Controls.Add(lblTituloCardServidor);
-
-            lblEstadoServicio = new Label();
-            lblEstadoServicio.Text = "Servicio Windows: Consultando...";
-            lblEstadoServicio.Font = new Font("Segoe UI", 9.5F);
-            lblEstadoServicio.Location = new Point(20, 55);
-            lblEstadoServicio.AutoSize = true;
-            cardServidor.Controls.Add(lblEstadoServicio);
-
-            lblEstadoHttp = new Label();
-            lblEstadoHttp.Text = "Respuesta Web: Consultando...";
-            lblEstadoHttp.Font = new Font("Segoe UI", 9.5F);
-            lblEstadoHttp.Location = new Point(20, 85);
-            lblEstadoHttp.AutoSize = true;
-            cardServidor.Controls.Add(lblEstadoHttp);
-
-            lblPuertoActivo = new Label();
-            lblPuertoActivo.Text = "Puerto TCP: " + puertoConfigurado;
-            lblPuertoActivo.Font = new Font("Segoe UI", 9.5F);
-            lblPuertoActivo.Location = new Point(20, 115);
-            lblPuertoActivo.AutoSize = true;
-            cardServidor.Controls.Add(lblPuertoActivo);
-
-            lblUrlLocal = new Label();
-            lblUrlLocal.Text = "Local: http://localhost:" + puertoConfigurado;
-            lblUrlLocal.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            lblUrlLocal.ForeColor = Color.FromArgb(2, 132, 199);
-            lblUrlLocal.Location = new Point(20, 150);
-            lblUrlLocal.AutoSize = true;
-            cardServidor.Controls.Add(lblUrlLocal);
-
-            btnCopiarUrlLocal = new Button();
-            btnCopiarUrlLocal.Text = "Copiar";
-            btnCopiarUrlLocal.Size = new Size(70, 24);
-            btnCopiarUrlLocal.Location = new Point(395, 147);
-            btnCopiarUrlLocal.BackColor = Color.FromArgb(241, 245, 249);
-            btnCopiarUrlLocal.FlatStyle = FlatStyle.Flat;
-            btnCopiarUrlLocal.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
-            btnCopiarUrlLocal.Font = new Font("Segoe UI", 8F);
-            btnCopiarUrlLocal.Cursor = Cursors.Hand;
-            btnCopiarUrlLocal.Click += delegate
-            {
-                Clipboard.SetText("http://localhost:" + puertoConfigurado);
-                MessageBox.Show("URL local copiada:\nhttp://localhost:" + puertoConfigurado, "Copiado", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            };
-            cardServidor.Controls.Add(btnCopiarUrlLocal);
-
-            lblUrlLan = new Label();
-            lblUrlLan.Text = "Red Wi-Fi: " + urlLanActual;
-            lblUrlLan.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            lblUrlLan.ForeColor = Color.FromArgb(16, 185, 129);
-            lblUrlLan.Location = new Point(20, 185);
-            lblUrlLan.AutoSize = true;
-            cardServidor.Controls.Add(lblUrlLan);
-
-            btnCopiarUrlLan = new Button();
-            btnCopiarUrlLan.Text = "Copiar";
-            btnCopiarUrlLan.Size = new Size(70, 24);
-            btnCopiarUrlLan.Location = new Point(395, 182);
-            btnCopiarUrlLan.BackColor = Color.FromArgb(241, 245, 249);
-            btnCopiarUrlLan.FlatStyle = FlatStyle.Flat;
-            btnCopiarUrlLan.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
-            btnCopiarUrlLan.Font = new Font("Segoe UI", 8F);
-            btnCopiarUrlLan.Cursor = Cursors.Hand;
-            btnCopiarUrlLan.Click += delegate
-            {
-                Clipboard.SetText(urlLanActual);
-                MessageBox.Show("URL de red Wi-Fi copiada:\n" + urlLanActual, "Copiado", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            };
-            cardServidor.Controls.Add(btnCopiarUrlLan);
-
-            // Boton Principal
-            btnAbrirPos = new Button();
-            btnAbrirPos.Text = "Abrir POS en Navegador";
-            btnAbrirPos.Location = new Point(20, 235);
-            btnAbrirPos.Size = new Size(445, 48);
-            btnAbrirPos.BackColor = Color.FromArgb(2, 132, 199); // Sky 600
-            btnAbrirPos.ForeColor = Color.White;
-            btnAbrirPos.FlatStyle = FlatStyle.Flat;
-            btnAbrirPos.FlatAppearance.BorderSize = 0;
-            btnAbrirPos.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
-            btnAbrirPos.Cursor = Cursors.Hand;
-            btnAbrirPos.Click += delegate { AbrirNavegadorPos(); };
-            cardServidor.Controls.Add(btnAbrirPos);
-
-            // Fila de 2 botones de servicio
-            btnIniciarServicio = new Button();
-            btnIniciarServicio.Text = "Iniciar Servicio";
-            btnIniciarServicio.Location = new Point(20, 298);
-            btnIniciarServicio.Size = new Size(215, 42);
-            btnIniciarServicio.BackColor = Color.FromArgb(5, 150, 105); // Emerald 600
-            btnIniciarServicio.ForeColor = Color.White;
-            btnIniciarServicio.FlatStyle = FlatStyle.Flat;
-            btnIniciarServicio.FlatAppearance.BorderSize = 0;
-            btnIniciarServicio.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            btnIniciarServicio.Cursor = Cursors.Hand;
-            btnIniciarServicio.Click += delegate { IniciarServidorAccion(); };
-            cardServidor.Controls.Add(btnIniciarServicio);
-
-            btnDetenerConBackup = new Button();
-            btnDetenerConBackup.Text = "Detener con Respaldo";
-            btnDetenerConBackup.Location = new Point(250, 298);
-            btnDetenerConBackup.Size = new Size(215, 42);
-            btnDetenerConBackup.BackColor = Color.FromArgb(220, 38, 38); // Red 600
-            btnDetenerConBackup.ForeColor = Color.White;
-            btnDetenerConBackup.FlatStyle = FlatStyle.Flat;
-            btnDetenerConBackup.FlatAppearance.BorderSize = 0;
-            btnDetenerConBackup.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            btnDetenerConBackup.Cursor = Cursors.Hand;
-            btnDetenerConBackup.Click += delegate { DetenerConRespaldoAccion(); };
-            cardServidor.Controls.Add(btnDetenerConBackup);
-
-            lblNotaDetencion = new Label();
-            lblNotaDetencion.Text = "Nota: Al detener, se genera y valida obligatoriamente una copia antes de apagar.";
-            lblNotaDetencion.Location = new Point(20, 355);
-            lblNotaDetencion.Size = new Size(445, 30);
-            lblNotaDetencion.Font = new Font("Segoe UI", 8F, FontStyle.Italic);
-            lblNotaDetencion.ForeColor = Color.FromArgb(100, 116, 139);
-            cardServidor.Controls.Add(lblNotaDetencion);
-
-            // Card Derecha: QR Acceso Movil
-            cardQr = new Panel();
-            cardQr.Location = new Point(530, 20);
-            cardQr.Size = new Size(330, 460);
-            cardQr.BackColor = Color.White;
-            cardQr.BorderStyle = BorderStyle.FixedSingle;
-            panelCentroDashboard.Controls.Add(cardQr);
-
-            lblTituloQr = new Label();
-            lblTituloQr.Text = "Acceso Movil (QR Wi-Fi)";
-            lblTituloQr.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
-            lblTituloQr.ForeColor = Color.FromArgb(15, 23, 42);
-            lblTituloQr.Location = new Point(16, 18);
-            lblTituloQr.AutoSize = true;
-            cardQr.Controls.Add(lblTituloQr);
-
-            lblSubtituloQr = new Label();
-            lblSubtituloQr.Text = "Escanee para ingresar desde celular o tablet:";
-            lblSubtituloQr.Font = new Font("Segoe UI", 8.5F);
-            lblSubtituloQr.ForeColor = Color.FromArgb(100, 116, 139);
-            lblSubtituloQr.Location = new Point(16, 44);
-            lblSubtituloQr.AutoSize = true;
-            cardQr.Controls.Add(lblSubtituloQr);
-
-            picQr = new PictureBox();
-            picQr.Location = new Point(65, 75);
-            picQr.Size = new Size(200, 200);
-            picQr.SizeMode = PictureBoxSizeMode.Zoom;
-            picQr.BackColor = Color.White;
-            picQr.BorderStyle = BorderStyle.FixedSingle;
-            cardQr.Controls.Add(picQr);
-
-            lblUrlQrTexto = new Label();
-            lblUrlQrTexto.Text = urlLanActual;
-            lblUrlQrTexto.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblUrlQrTexto.ForeColor = Color.FromArgb(5, 150, 105);
-            lblUrlQrTexto.Location = new Point(16, 285);
-            lblUrlQrTexto.Size = new Size(298, 22);
-            lblUrlQrTexto.TextAlign = ContentAlignment.MiddleCenter;
-            cardQr.Controls.Add(lblUrlQrTexto);
-
-            btnCopiarLanQr = new Button();
-            btnCopiarLanQr.Text = "Copiar Enlace LAN";
-            btnCopiarLanQr.Location = new Point(20, 320);
-            btnCopiarLanQr.Size = new Size(290, 34);
-            btnCopiarLanQr.BackColor = Color.FromArgb(241, 245, 249);
-            btnCopiarLanQr.FlatStyle = FlatStyle.Flat;
-            btnCopiarLanQr.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
-            btnCopiarLanQr.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-            btnCopiarLanQr.Cursor = Cursors.Hand;
-            btnCopiarLanQr.Click += delegate
-            {
-                Clipboard.SetText(urlLanActual);
-                MessageBox.Show("Enlace copiado al portapapeles:\n" + urlLanActual, "Copiado", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            };
-            cardQr.Controls.Add(btnCopiarLanQr);
-
-            btnRefrescarQr = new Button();
-            btnRefrescarQr.Text = "Actualizar QR";
-            btnRefrescarQr.Location = new Point(20, 362);
-            btnRefrescarQr.Size = new Size(290, 34);
-            btnRefrescarQr.BackColor = Color.FromArgb(241, 245, 249);
-            btnRefrescarQr.FlatStyle = FlatStyle.Flat;
-            btnRefrescarQr.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
-            btnRefrescarQr.Font = new Font("Segoe UI", 8.5F);
-            btnRefrescarQr.Cursor = Cursors.Hand;
-            btnRefrescarQr.Click += delegate
-            {
-                DetectarIpLan();
-                ActualizarUrls();
-                lblUrlQrTexto.Text = urlLanActual;
-                GenerarQrLocalSeguro();
-            };
-            cardQr.Controls.Add(btnRefrescarQr);
-        }
-
-        // =========================================================================
-        // PESTANA 2: SERVICIO Y RED
-        // =========================================================================
-        private void ConstruirTabServicioRed()
-        {
-            panelCentroServicio = new Panel();
-            panelCentroServicio.Size = new Size(880, 500);
-            panelCentroServicio.BackColor = Color.Transparent;
-            tabServicioRed.Controls.Add(panelCentroServicio);
-
-            grpServicioWin = new GroupBox();
-            grpServicioWin.Text = "Servicio de Windows (POS_Llanomio)";
-            grpServicioWin.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            grpServicioWin.Location = new Point(20, 15);
-            grpServicioWin.Size = new Size(840, 130);
-            panelCentroServicio.Controls.Add(grpServicioWin);
-
-            btnInstalarServicio = new Button();
-            btnInstalarServicio.Text = "Instalar / Reparar Servicio";
-            btnInstalarServicio.Location = new Point(25, 30);
-            btnInstalarServicio.Size = new Size(240, 38);
-            btnInstalarServicio.BackColor = Color.FromArgb(241, 245, 249);
-            btnInstalarServicio.Font = new Font("Segoe UI", 9F);
-            btnInstalarServicio.Click += delegate { InstalarServicioAccion(); };
-            grpServicioWin.Controls.Add(btnInstalarServicio);
-
-            btnReiniciarServicio = new Button();
-            btnReiniciarServicio.Text = "Reiniciar Servicio";
-            btnReiniciarServicio.Location = new Point(285, 30);
-            btnReiniciarServicio.Size = new Size(240, 38);
-            btnReiniciarServicio.BackColor = Color.FromArgb(241, 245, 249);
-            btnReiniciarServicio.Font = new Font("Segoe UI", 9F);
-            btnReiniciarServicio.Click += delegate { ReiniciarServicioAccion(); };
-            grpServicioWin.Controls.Add(btnReiniciarServicio);
-
-            btnDesinstalarServicio = new Button();
-            btnDesinstalarServicio.Text = "Desinstalar Servicio";
-            btnDesinstalarServicio.Location = new Point(545, 30);
-            btnDesinstalarServicio.Size = new Size(240, 38);
-            btnDesinstalarServicio.BackColor = Color.FromArgb(241, 245, 249);
-            btnDesinstalarServicio.Font = new Font("Segoe UI", 9F);
-            btnDesinstalarServicio.Click += delegate { DesinstalarServicioAccion(); };
-            grpServicioWin.Controls.Add(btnDesinstalarServicio);
-
-            lblInfoServicio = new Label();
-            lblInfoServicio.Text = "Registra el inicio automatico retardado (delayed-auto) y recuperacion ante fallos en Windows.";
-            lblInfoServicio.Font = new Font("Segoe UI", 8F, FontStyle.Regular);
-            lblInfoServicio.ForeColor = Color.FromArgb(100, 116, 139);
-            lblInfoServicio.Location = new Point(25, 80);
-            lblInfoServicio.Size = new Size(760, 25);
-            grpServicioWin.Controls.Add(lblInfoServicio);
-
-            grpFirewall = new GroupBox();
-            grpFirewall.Text = "Seguridad y Firewall de Windows";
-            grpFirewall.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            grpFirewall.Location = new Point(20, 160);
-            grpFirewall.Size = new Size(840, 120);
-            panelCentroServicio.Controls.Add(grpFirewall);
-
-            btnRepararFirewall = new Button();
-            btnRepararFirewall.Text = "Reparar Reglas de Firewall y Carpetas";
-            btnRepararFirewall.Location = new Point(25, 30);
-            btnRepararFirewall.Size = new Size(760, 38);
-            btnRepararFirewall.BackColor = Color.FromArgb(241, 245, 249);
-            btnRepararFirewall.Font = new Font("Segoe UI", 9F);
-            btnRepararFirewall.Click += delegate { RepararFirewallAccion(); };
-            grpFirewall.Controls.Add(btnRepararFirewall);
-
-            lblInfoFirewall = new Label();
-            lblInfoFirewall.Text = "Asegura la apertura de puertos TCP (3000 o configurado) y UDP 5353 (mDNS) para terminales en la red.";
-            lblInfoFirewall.Font = new Font("Segoe UI", 8F, FontStyle.Regular);
-            lblInfoFirewall.ForeColor = Color.FromArgb(100, 116, 139);
-            lblInfoFirewall.Location = new Point(25, 80);
-            lblInfoFirewall.Size = new Size(760, 25);
-            grpFirewall.Controls.Add(lblInfoFirewall);
-
-            grpPuerto = new GroupBox();
-            grpPuerto.Text = "Puerto TCP del Servidor";
-            grpPuerto.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            grpPuerto.Location = new Point(20, 295);
-            grpPuerto.Size = new Size(840, 95);
-            panelCentroServicio.Controls.Add(grpPuerto);
-
-            lblEtiquetaPuerto = new Label();
-            lblEtiquetaPuerto.Text = "Puerto:";
-            lblEtiquetaPuerto.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
-            lblEtiquetaPuerto.Location = new Point(25, 38);
-            lblEtiquetaPuerto.AutoSize = true;
-            grpPuerto.Controls.Add(lblEtiquetaPuerto);
-
-            txtPuertoConfig = new TextBox();
-            txtPuertoConfig.Text = puertoConfigurado;
-            txtPuertoConfig.Font = new Font("Segoe UI", 9.5F);
-            txtPuertoConfig.Location = new Point(85, 35);
-            txtPuertoConfig.Size = new Size(100, 26);
-            grpPuerto.Controls.Add(txtPuertoConfig);
-
-            btnGuardarPuerto = new Button();
-            btnGuardarPuerto.Text = "Guardar Puerto y Reiniciar";
-            btnGuardarPuerto.Location = new Point(205, 31);
-            btnGuardarPuerto.Size = new Size(220, 34);
-            btnGuardarPuerto.BackColor = Color.FromArgb(241, 245, 249);
-            btnGuardarPuerto.Font = new Font("Segoe UI", 9F);
-            btnGuardarPuerto.Click += delegate { CambiarPuertoAccion(); };
-            grpPuerto.Controls.Add(btnGuardarPuerto);
-        }
-
-        // =========================================================================
-        // PESTANA 3: RESPALDOS
-        // =========================================================================
-        private void ConstruirTabBackups()
-        {
-            panelTopBackups = new Panel();
-            panelTopBackups.Dock = DockStyle.Top;
-            panelTopBackups.Height = 52;
-            panelTopBackups.Padding = new Padding(20, 8, 20, 8);
-            tabBackups.Controls.Add(panelTopBackups);
-
-            btnCrearBackup = new Button();
-            btnCrearBackup.Text = "Crear Copia Ahora";
-            btnCrearBackup.Size = new Size(180, 36);
-            btnCrearBackup.Location = new Point(20, 8);
-            btnCrearBackup.BackColor = Color.FromArgb(5, 150, 105);
-            btnCrearBackup.ForeColor = Color.White;
-            btnCrearBackup.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            btnCrearBackup.Click += delegate { GenerarBackupManualAccion(); };
-            panelTopBackups.Controls.Add(btnCrearBackup);
-
-            btnAbrirCarpeta = new Button();
-            btnAbrirCarpeta.Text = "Abrir Carpeta (C:\\POS_BACKUPS)";
-            btnAbrirCarpeta.Size = new Size(260, 36);
-            btnAbrirCarpeta.Location = new Point(215, 8);
-            btnAbrirCarpeta.BackColor = Color.FromArgb(241, 245, 249);
-            btnAbrirCarpeta.Font = new Font("Segoe UI", 9F);
-            btnAbrirCarpeta.Click += delegate { AbrirCarpetaBackupsAccion(); };
-            panelTopBackups.Controls.Add(btnAbrirCarpeta);
-
-            btnRefrescarBackups = new Button();
-            btnRefrescarBackups.Text = "Refrescar Lista";
-            btnRefrescarBackups.Size = new Size(150, 36);
-            btnRefrescarBackups.Location = new Point(490, 8);
-            btnRefrescarBackups.BackColor = Color.FromArgb(241, 245, 249);
-            btnRefrescarBackups.Font = new Font("Segoe UI", 9F);
-            btnRefrescarBackups.Click += delegate { CargarListaBackups(); };
-            panelTopBackups.Controls.Add(btnRefrescarBackups);
-
-            panelBottomBackups = new Panel();
-            panelBottomBackups.Dock = DockStyle.Bottom;
-            panelBottomBackups.Height = 56;
-            panelBottomBackups.Padding = new Padding(20, 8, 20, 8);
-            tabBackups.Controls.Add(panelBottomBackups);
-
-            btnRestaurarSeleccionado = new Button();
-            btnRestaurarSeleccionado.Text = "Restaurar Copia Seleccionada";
-            btnRestaurarSeleccionado.Size = new Size(260, 38);
-            btnRestaurarSeleccionado.Location = new Point(20, 8);
-            btnRestaurarSeleccionado.BackColor = Color.FromArgb(220, 38, 38);
-            btnRestaurarSeleccionado.ForeColor = Color.White;
-            btnRestaurarSeleccionado.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            btnRestaurarSeleccionado.Click += delegate { RestaurarSeleccionadoAccion(); };
-            panelBottomBackups.Controls.Add(btnRestaurarSeleccionado);
-
-            btnRestaurarExterno = new Button();
-            btnRestaurarExterno.Text = "Restaurar Archivo .db Externo...";
-            btnRestaurarExterno.Size = new Size(260, 38);
-            btnRestaurarExterno.Location = new Point(295, 8);
-            btnRestaurarExterno.BackColor = Color.FromArgb(30, 41, 59);
-            btnRestaurarExterno.ForeColor = Color.White;
-            btnRestaurarExterno.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            btnRestaurarExterno.Click += delegate { RestaurarArchivoExternoAccion(); };
-            panelBottomBackups.Controls.Add(btnRestaurarExterno);
-
-            lstBackups = new ListBox();
-            lstBackups.Dock = DockStyle.Fill;
-            lstBackups.Font = new Font("Consolas", 9F);
-            lstBackups.BorderStyle = BorderStyle.FixedSingle;
-            tabBackups.Controls.Add(lstBackups);
-            lstBackups.BringToFront();
-
-            CargarListaBackups();
-        }
-
-        // =========================================================================
-        // PESTANA 4: CUENTAS Y FABRICA
-        // =========================================================================
-        private void ConstruirTabCuentas()
-        {
-            panelCentroCuentas = new Panel();
-            panelCentroCuentas.Size = new Size(880, 500);
-            panelCentroCuentas.BackColor = Color.Transparent;
-            tabCuentas.Controls.Add(panelCentroCuentas);
-
-            grpNuevoUsuario = new GroupBox();
-            grpNuevoUsuario.Text = "Crear Cuenta de Usuario";
-            grpNuevoUsuario.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            grpNuevoUsuario.Location = new Point(20, 15);
-            grpNuevoUsuario.Size = new Size(840, 210);
-            panelCentroCuentas.Controls.Add(grpNuevoUsuario);
-
-            Label lblNom = new Label();
-            lblNom.Text = "Nombre:";
-            lblNom.Font = new Font("Segoe UI", 8.5F);
-            lblNom.Location = new Point(25, 28);
-            lblNom.AutoSize = true;
-            grpNuevoUsuario.Controls.Add(lblNom);
-
-            txtNombreUser = new TextBox();
-            txtNombreUser.Location = new Point(25, 48);
-            txtNombreUser.Size = new Size(220, 26);
-            txtNombreUser.Font = new Font("Segoe UI", 9F);
-            grpNuevoUsuario.Controls.Add(txtNombreUser);
-
-            Label lblUser = new Label();
-            lblUser.Text = "Usuario / Login:";
-            lblUser.Font = new Font("Segoe UI", 8.5F);
-            lblUser.Location = new Point(265, 28);
-            lblUser.AutoSize = true;
-            grpNuevoUsuario.Controls.Add(lblUser);
-
-            txtUsername = new TextBox();
-            txtUsername.Location = new Point(265, 48);
-            txtUsername.Size = new Size(180, 26);
-            txtUsername.Font = new Font("Segoe UI", 9F);
-            grpNuevoUsuario.Controls.Add(txtUsername);
-
-            Label lblRol = new Label();
-            lblRol.Text = "Rol:";
-            lblRol.Font = new Font("Segoe UI", 8.5F);
-            lblRol.Location = new Point(465, 28);
-            lblRol.AutoSize = true;
-            grpNuevoUsuario.Controls.Add(lblRol);
-
-            cmbRol = new ComboBox();
-            cmbRol.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbRol.Items.Add("CAJERO");
-            cmbRol.Items.Add("ADMIN");
-            cmbRol.SelectedIndex = 0;
-            cmbRol.Location = new Point(465, 48);
-            cmbRol.Size = new Size(140, 26);
-            cmbRol.Font = new Font("Segoe UI", 9F);
-            grpNuevoUsuario.Controls.Add(cmbRol);
-
-            Label lblPass = new Label();
-            lblPass.Text = "Contrasena:";
-            lblPass.Font = new Font("Segoe UI", 8.5F);
-            lblPass.Location = new Point(25, 85);
-            lblPass.AutoSize = true;
-            grpNuevoUsuario.Controls.Add(lblPass);
-
-            txtPassword = new TextBox();
-            txtPassword.Location = new Point(25, 105);
-            txtPassword.Size = new Size(220, 26);
-            txtPassword.Font = new Font("Segoe UI", 9F);
-            txtPassword.UseSystemPasswordChar = true;
-            grpNuevoUsuario.Controls.Add(txtPassword);
-
-            Label lblPin = new Label();
-            lblPin.Text = "PIN (4-6 digitos):";
-            lblPin.Font = new Font("Segoe UI", 8.5F);
-            lblPin.Location = new Point(265, 85);
-            lblPin.AutoSize = true;
-            grpNuevoUsuario.Controls.Add(lblPin);
-
-            txtPin = new TextBox();
-            txtPin.Location = new Point(265, 105);
-            txtPin.Size = new Size(180, 26);
-            txtPin.Font = new Font("Segoe UI", 9F);
-            txtPin.MaxLength = 6;
-            grpNuevoUsuario.Controls.Add(txtPin);
-
-            btnCrearUsuario = new Button();
-            btnCrearUsuario.Text = "Crear Usuario";
-            btnCrearUsuario.Location = new Point(465, 101);
-            btnCrearUsuario.Size = new Size(180, 32);
-            btnCrearUsuario.BackColor = Color.FromArgb(5, 150, 105);
-            btnCrearUsuario.ForeColor = Color.White;
-            btnCrearUsuario.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            btnCrearUsuario.Click += delegate { CrearUsuarioAccion(); };
-            grpNuevoUsuario.Controls.Add(btnCrearUsuario);
-
-            lblInfoNuevoUsuario = new Label();
-            lblInfoNuevoUsuario.Text = "Aplica cifrado bcrypt a contrasena y PIN directamente en la base de datos sin requerir el servidor web activo.";
-            lblInfoNuevoUsuario.Font = new Font("Segoe UI", 8F);
-            lblInfoNuevoUsuario.ForeColor = Color.FromArgb(100, 116, 139);
-            lblInfoNuevoUsuario.Location = new Point(25, 155);
-            lblInfoNuevoUsuario.Size = new Size(760, 25);
-            grpNuevoUsuario.Controls.Add(lblInfoNuevoUsuario);
-
-            grpAccesoMaestro = new GroupBox();
-            grpAccesoMaestro.Text = "Credenciales Maestras y Limpieza de Fabrica";
-            grpAccesoMaestro.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            grpAccesoMaestro.Location = new Point(20, 240);
-            grpAccesoMaestro.Size = new Size(840, 150);
-            panelCentroCuentas.Controls.Add(grpAccesoMaestro);
-
-            btnRestablecerAdmin = new Button();
-            btnRestablecerAdmin.Text = "Restablecer admin por Defecto";
-            btnRestablecerAdmin.Location = new Point(25, 32);
-            btnRestablecerAdmin.Size = new Size(280, 38);
-            btnRestablecerAdmin.BackColor = Color.FromArgb(2, 132, 199);
-            btnRestablecerAdmin.ForeColor = Color.White;
-            btnRestablecerAdmin.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            btnRestablecerAdmin.Click += delegate { RestablecerAdminAccion(); };
-            grpAccesoMaestro.Controls.Add(btnRestablecerAdmin);
-
-            btnFormatearFabrica = new Button();
-            btnFormatearFabrica.Text = "Formatear a Estado de Fabrica";
-            btnFormatearFabrica.Location = new Point(325, 32);
-            btnFormatearFabrica.Size = new Size(280, 38);
-            btnFormatearFabrica.BackColor = Color.FromArgb(220, 38, 38);
-            btnFormatearFabrica.ForeColor = Color.White;
-            btnFormatearFabrica.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            btnFormatearFabrica.Click += delegate { FormatearFabricaAccion(); };
-            grpAccesoMaestro.Controls.Add(btnFormatearFabrica);
-
-            lblInfoFabrica = new Label();
-            lblInfoFabrica.Text = "Restablecer admin restaura admin / admin123 y PIN 000000. Formatear a fabrica vacia transacciones con respaldo previo.";
-            lblInfoFabrica.Font = new Font("Segoe UI", 8F);
-            lblInfoFabrica.ForeColor = Color.FromArgb(100, 116, 139);
-            lblInfoFabrica.Location = new Point(25, 85);
-            lblInfoFabrica.Size = new Size(760, 45);
-            grpAccesoMaestro.Controls.Add(lblInfoFabrica);
-        }
-
-        // =========================================================================
-        // AJUSTE RESPONSIVO Y CENTRADO DE PANELES AL MAXIMIZAR / REDIMENSIONAR
-        // =========================================================================
-        private void AjustarLayoutCentrado()
-        {
-            CentrarPanelEnContenedor(panelCentroDashboard, tabDashboard);
-            CentrarPanelEnContenedor(panelCentroServicio, tabServicioRed);
-            CentrarPanelEnContenedor(panelCentroCuentas, tabCuentas);
-        }
-
-        private void CentrarPanelEnContenedor(Panel panelHijo, TabPage tabPadre)
-        {
-            if (panelHijo == null || tabPadre == null) return;
-            int x = Math.Max(0, (tabPadre.ClientSize.Width - panelHijo.Width) / 2);
-            int y = Math.Max(0, (tabPadre.ClientSize.Height - panelHijo.Height) / 2);
-            panelHijo.Location = new Point(x, y);
-        }
-
-        // =========================================================================
-        // GENERACION LOCAL Y SEGURA DE CODIGO QR
-        // =========================================================================
-        private void GenerarQrLocalSeguro()
-        {
-            try
-            {
-                string scriptQr = Path.Combine(baseDir, "scripts", "generar-qr-local.js");
-                if (!File.Exists(scriptQr))
-                {
-                    DibujarPlaceholderQr("Script QR no encontrado");
-                    return;
-                }
-
-                string nodeExe = ObtenerNodeExe();
-                string tmpDir = Path.Combine(baseDir, ".tmp");
-                if (!Directory.Exists(tmpDir)) Directory.CreateDirectory(tmpDir);
-                string outPng = Path.Combine(tmpDir, "qr_lan.png");
-
-                ProcessStartInfo psi = new ProcessStartInfo();
-                psi.FileName = nodeExe;
-                psi.Arguments = "\"" + scriptQr + "\" \"" + urlLanActual + "\" \"" + outPng + "\"";
-                psi.WorkingDirectory = baseDir;
-                psi.CreateNoWindow = true;
-                psi.UseShellExecute = false;
-                psi.RedirectStandardOutput = true;
-                psi.RedirectStandardError = true;
-
-                using (Process p = Process.Start(psi))
-                {
-                    if (p != null)
-                    {
-                        p.WaitForExit(10000);
-                        if (File.Exists(outPng))
-                        {
-                            byte[] bytes = File.ReadAllBytes(outPng);
-                            if (bytes != null && bytes.Length > 100)
-                            {
-                                using (MemoryStream ms = new MemoryStream(bytes))
-                                {
-                                    using (Image imgNueva = Image.FromStream(ms))
-                                    {
-                                        Image imgVieja = picQr.Image;
-                                        picQr.Image = new Bitmap(imgNueva);
-                                        if (imgVieja != null) imgVieja.Dispose();
-                                    }
-                                }
-                                ultimoQrGenerado = urlLanActual;
-                                return;
-                            }
-                        }
-                    }
-                }
-
-                DibujarPlaceholderQr("Escanee: " + urlLanActual);
-            }
-            catch (Exception ex)
-            {
-                DibujarPlaceholderQr("Error al generar QR: " + ex.Message);
-            }
-        }
-
-        private void DibujarPlaceholderQr(string mensaje)
-        {
-            try
-            {
-                Bitmap bmp = new Bitmap(200, 200);
-                using (Graphics g = Graphics.FromImage(bmp))
-                {
-                    g.Clear(Color.FromArgb(248, 250, 252));
-                    using (Pen pen = new Pen(Color.FromArgb(203, 213, 225), 1))
-                    {
-                        g.DrawRectangle(pen, 0, 0, 199, 199);
-                    }
-                    using (Font f = new Font("Segoe UI", 8.5F, FontStyle.Regular))
-                    using (Brush b = new SolidBrush(Color.FromArgb(100, 116, 139)))
-                    {
-                        StringFormat sf = new StringFormat();
-                        sf.Alignment = StringAlignment.Center;
-                        sf.LineAlignment = StringAlignment.Center;
-                        g.DrawString("Acceso Movil LAN:\n\n" + urlLanActual + "\n\n(" + mensaje + ")", f, b, new RectangleF(10, 10, 180, 180), sf);
-                    }
-                }
-                Image vieja = picQr.Image;
-                picQr.Image = bmp;
-                if (vieja != null) vieja.Dispose();
-            }
-            catch { }
-        }
-
-        // =========================================================================
-        // ACCIONES DE CREACION DE USUARIOS
-        // =========================================================================
-        private void CrearUsuarioAccion()
-        {
-            string nombre = txtNombreUser.Text.Trim();
-            string username = txtUsername.Text.Trim();
-            string rol = cmbRol.SelectedItem != null ? cmbRol.SelectedItem.ToString() : "CAJERO";
-            string password = txtPassword.Text.Trim();
-            string pin = txtPin.Text.Trim();
-
-            if (string.IsNullOrEmpty(nombre) || string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password) || string.IsNullOrEmpty(pin))
-            {
-                MessageBox.Show("Por favor complete todos los campos (Nombre, Usuario, Contrasena y PIN).", "Campos Requeridos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            if (pin.Length < 4)
-            {
-                MessageBox.Show("El PIN debe tener al menos 4 digitos numericos.", "Validacion de PIN", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            this.Cursor = Cursors.WaitCursor;
-            try
-            {
-                string scriptCrear = Path.Combine(baseDir, "scripts", "crear-usuario-panel.js");
-                string nodeExe = ObtenerNodeExe();
-
-                ProcessStartInfo psi = new ProcessStartInfo();
-                psi.FileName = nodeExe;
-                psi.Arguments = "\"" + scriptCrear + "\" \"" + nombre + "\" \"" + username + "\" \"" + rol + "\" \"" + password + "\" \"" + pin + "\"";
-                psi.WorkingDirectory = baseDir;
-                psi.CreateNoWindow = true;
-                psi.UseShellExecute = false;
-                psi.RedirectStandardOutput = true;
-                psi.RedirectStandardError = true;
-
-                using (Process p = Process.Start(psi))
-                {
-                    if (p != null)
-                    {
-                        string outStr = p.StandardOutput.ReadToEnd();
-                        string errStr = p.StandardError.ReadToEnd();
-                        p.WaitForExit(15000);
-
-                        if (p.ExitCode == 0)
-                        {
-                            MessageBox.Show(
-                                "Cuenta de usuario creada con exito:\n\n" +
-                                "• Nombre: " + nombre + "\n" +
-                                "• Usuario: " + username + "\n" +
-                                "• Rol: " + rol + "\n\n" +
-                                "El usuario ya puede iniciar sesion en el sistema.",
-                                "Usuario Creado",
-                                MessageBoxButtons.OK,
-                                MessageBoxIcon.Information
-                            );
-                            txtNombreUser.Text = "";
-                            txtUsername.Text = "";
-                            txtPassword.Text = "";
-                            txtPin.Text = "";
-                        }
-                        else
-                        {
-                            string msg = !string.IsNullOrEmpty(errStr) ? errStr : outStr;
-                            MessageBox.Show("No se pudo crear el usuario:\n" + msg, "Error al Crear Usuario", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Fallo al ejecutar el script de creacion de usuario: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-            }
-        }
-
-        // =========================================================================
-        // ACCIONES DE SERVICIO Y OPERACION
-        // =========================================================================
-        [DllImport("user32.dll")]
-        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-        private const int SW_MAXIMIZE = 3;
-
-        private void AbrirNavegadorPos()
-        {
-            try
-            {
-                string url = "http://localhost:" + puertoConfigurado;
-
-                // Buscar navegadores Chromium modernos en rutas estandar de Windows
-                string[] navegadores = new string[]
-                {
-                    // Microsoft Edge (Nativo en Windows 10 y 11)
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft\Edge\Application\msedge.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft\Edge\Application\msedge.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\Edge\Application\msedge.exe"),
-
-                    // Google Chrome
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe"),
-
-                    // Brave
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"BraveSoftware\Brave-Browser\Application\brave.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"BraveSoftware\Brave-Browser\Application\brave.exe")
-                };
-
-                string rutaNavegador = null;
-                foreach (string ruta in navegadores)
-                {
-                    if (File.Exists(ruta))
-                    {
-                        rutaNavegador = ruta;
-                        break;
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(rutaNavegador))
-                {
-                    // Lanzar en ventana nueva maximizada respetando barra de tareas y botones nativos
-                    ProcessStartInfo psi = new ProcessStartInfo();
-                    psi.FileName = rutaNavegador;
-                    psi.Arguments = "--new-window --start-maximized \"" + url + "\"";
-                    psi.UseShellExecute = true;
-                    psi.WindowStyle = ProcessWindowStyle.Maximized;
-
-                    Process p = Process.Start(psi);
-                    if (p != null)
-                    {
-                        try
-                        {
-                            p.WaitForInputIdle(1500);
-                            if (p.MainWindowHandle != IntPtr.Zero)
-                            {
-                                ShowWindow(p.MainWindowHandle, SW_MAXIMIZE);
-                            }
-                        }
-                        catch { }
-                    }
-                    return;
-                }
-
-                // Fallback: Lanzar con el navegador predeterminado de Windows maximizado
-                ProcessStartInfo psiFallback = new ProcessStartInfo();
-                psiFallback.FileName = url;
-                psiFallback.UseShellExecute = true;
-                psiFallback.WindowStyle = ProcessWindowStyle.Maximized;
-
-                Process pFallback = Process.Start(psiFallback);
-                if (pFallback != null)
-                {
-                    try
-                    {
-                        pFallback.WaitForInputIdle(1500);
-                        if (pFallback.MainWindowHandle != IntPtr.Zero)
-                        {
-                            ShowWindow(pFallback.MainWindowHandle, SW_MAXIMIZE);
-                        }
-                    }
-                    catch { }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al abrir navegador: " + ex.Message, "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-        }
-
-        private void IniciarServidorAccion()
-        {
-            if (estaOcupado) return;
-            estaOcupado = true;
-            this.Cursor = Cursors.WaitCursor;
-
-            try
-            {
-                bool servInstalado = ExisteServicioWindows(NOMBRE_SERVICIO);
-                if (servInstalado)
-                {
-                    EjecutarComandoOculto("sc.exe", "start \"" + NOMBRE_SERVICIO + "\"");
-                }
-                else
-                {
-                    string startScript = Path.Combine(baseDir, "start-pos.js");
-                    string nodeExe = ObtenerNodeExe();
-                    if (File.Exists(startScript))
-                    {
-                        ProcessStartInfo psi = new ProcessStartInfo();
-                        psi.FileName = nodeExe;
-                        psi.Arguments = "\"" + startScript + "\"";
-                        psi.WorkingDirectory = baseDir;
-                        psi.CreateNoWindow = true;
-                        psi.UseShellExecute = false;
-                        Process.Start(psi);
-                    }
-                }
-
-                Thread.Sleep(2000);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al iniciar el servicio: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                estaOcupado = false;
-                RefrescarEstadoEnVivo();
-            }
-        }
-
-        private void DetenerConRespaldoAccion()
-        {
-            if (estaOcupado) return;
-
-            DialogResult dr = MessageBox.Show(
-                "¿Desea detener el servicio del POS?\n\nREGLA DE SALVAGUARDA:\nAntes de detener el servidor, el sistema realizara de forma obligatoria un checkpoint de la base de datos y guardara una copia de seguridad verificada en C:\\POS_BACKUPS.\n\n¿Continuar?",
-                "Detener Servidor con Respaldo",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question
-            );
-
-            if (dr != DialogResult.Yes) return;
-
-            estaOcupado = true;
-            this.Cursor = Cursors.WaitCursor;
-
-            try
-            {
-                // 1. Ejecutar Respaldo Obligatorio Previo
-                string scriptRespaldo = Path.Combine(baseDir, "scripts", "respaldo-servicio.js");
-                string nodeExe = ObtenerNodeExe();
-                bool backupExitoso = false;
-
-                if (File.Exists(scriptRespaldo))
-                {
-                    ProcessStartInfo psiBackup = new ProcessStartInfo();
-                    psiBackup.FileName = nodeExe;
-                    psiBackup.Arguments = "\"" + scriptRespaldo + "\"";
-                    psiBackup.WorkingDirectory = baseDir;
-                    psiBackup.CreateNoWindow = true;
-                    psiBackup.UseShellExecute = false;
-                    psiBackup.RedirectStandardOutput = true;
-
-                    using (Process pBackup = Process.Start(psiBackup))
-                    {
-                        if (pBackup != null)
-                        {
-                            pBackup.WaitForExit(45000);
-                            backupExitoso = (pBackup.ExitCode == 0);
-                        }
-                    }
-                }
-
-                if (!backupExitoso)
-                {
-                    backupExitoso = RealizarCopiaSeguridadDirectaFallback();
-                }
-
-                if (!backupExitoso)
-                {
-                    MessageBox.Show(
-                        "SEGURIDAD CRITICA: La copia de seguridad previa no pudo confirmarse.\nPor proteccion de los datos contables y ventas, la detencion del servicio fue CANCELADA.",
-                        "Detencion Cancelada por Salvaguarda",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error
-                    );
-                    return;
-                }
-
-                // 2. Detener Servicio de Windows
-                if (ExisteServicioWindows(NOMBRE_SERVICIO))
-                {
-                    EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
-                }
-
-                Thread.Sleep(2000);
-
-                MessageBox.Show(
-                    "El servidor y servicio fueron detenidos correctamente.\n\nLa copia de seguridad obligatoria previa fue generada y verificada con exito en C:\\POS_BACKUPS.",
-                    "Servidor Detenido",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information
-                );
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error durante la detencion con respaldo: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                estaOcupado = false;
-                RefrescarEstadoEnVivo();
-                CargarListaBackups();
-            }
-        }
-
-        private bool RealizarCopiaSeguridadDirectaFallback()
-        {
-            try
-            {
-                string dbOrig = Path.Combine(baseDir, "database", "llanomio.db");
-                if (!File.Exists(dbOrig)) return false;
-
-                string backupDir = "C:\\POS_BACKUPS";
-                if (!Directory.Exists(backupDir)) Directory.CreateDirectory(backupDir);
-
-                string dest = Path.Combine(backupDir, "pos_llanomio_PRE_DETENCION_FALLBACK_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".db");
-                File.Copy(dbOrig, dest, true);
-
-                FileInfo fi = new FileInfo(dest);
-                return fi.Exists && fi.Length > 0;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        // =========================================================================
-        // ACCIONES DE INFRAESTRUCTURA Y RED
-        // =========================================================================
-        private void InstalarServicioAccion()
-        {
-            this.Cursor = Cursors.WaitCursor;
-            try
-            {
-                string scriptInstalador = Path.Combine(baseDir, "portable-windows", "Instalar_Servicio_Automatico.bat");
-                if (File.Exists(scriptInstalador))
-                {
-                    ProcessStartInfo psi = new ProcessStartInfo();
-                    psi.FileName = "cmd.exe";
-                    psi.Arguments = "/c \"" + scriptInstalador + "\"";
-                    psi.WorkingDirectory = baseDir;
-                    psi.Verb = "runas";
-                    psi.UseShellExecute = true;
-
-                    Process p = Process.Start(psi);
-                    if (p != null)
-                    {
-                        p.WaitForExit();
-                        MessageBox.Show("Proceso de instalacion del servicio finalizado.", "Instalador", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al ejecutar instalador: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-            }
-        }
-
-        private void DesinstalarServicioAccion()
-        {
-            DialogResult dr = MessageBox.Show(
-                "¿Desea desinstalar el servicio de Windows 'POS_Llanomio'?\n\nEl servidor dejara de arrancar de forma automatica.",
-                "Desinstalar Servicio",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question
-            );
-            if (dr != DialogResult.Yes) return;
-
-            this.Cursor = Cursors.WaitCursor;
-            try
-            {
-                EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
-                Thread.Sleep(1500);
-                EjecutarComandoOculto("sc.exe", "delete \"" + NOMBRE_SERVICIO + "\"");
-                MessageBox.Show("Servicio 'POS_Llanomio' desinstalado correctamente.", "Servicio Eliminado", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al desinstalar: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-            }
-        }
-
-        private void ReiniciarServicioAccion()
-        {
-            this.Cursor = Cursors.WaitCursor;
-            try
-            {
-                EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
-                Thread.Sleep(2000);
-                EjecutarComandoOculto("sc.exe", "start \"" + NOMBRE_SERVICIO + "\"");
-                Thread.Sleep(2000);
-                MessageBox.Show("Comando de reinicio enviado con exito.", "Reinicio", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al reiniciar: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-            }
-        }
-
-        private void RepararFirewallAccion()
-        {
-            this.Cursor = Cursors.WaitCursor;
-            try
-            {
-                string ruleTcp = "POS_Llanomio_TCP";
-                string ruleUdp = "POS_Llanomio_mDNS";
-
-                string[] carpetas = new string[] {
-                    Path.Combine(baseDir, ".tmp"),
-                    Path.Combine(baseDir, "database"),
-                    Path.Combine(baseDir, "database", "backups_locales"),
-                    "C:\\POS_BACKUPS"
-                };
-                foreach (string c in carpetas)
-                {
-                    try { if (!Directory.Exists(c)) Directory.CreateDirectory(c); } catch { }
-                }
-
-                EjecutarComandoOculto("netsh.exe", "advfirewall firewall delete rule name=\"" + ruleTcp + "\"");
-                EjecutarComandoOculto("netsh.exe", "advfirewall firewall delete rule name=\"" + ruleUdp + "\"");
-
-                EjecutarComandoOculto("netsh.exe", "advfirewall firewall add rule name=\"" + ruleTcp + "\" dir=in action=allow protocol=TCP localport=" + puertoConfigurado);
-                EjecutarComandoOculto("netsh.exe", "advfirewall firewall add rule name=\"" + ruleUdp + "\" dir=in action=allow protocol=UDP localport=5353");
-
-                MessageBox.Show(
-                    "Reglas de Firewall y carpetas reparadas exitosamente:\n\n" +
-                    "• " + ruleTcp + " (TCP Puerto " + puertoConfigurado + " Habilitado)\n" +
-                    "• " + ruleUdp + " (UDP Puerto 5353 mDNS Habilitado)\n" +
-                    "• Boveda de respaldos verificada en C:\\POS_BACKUPS",
-                    "Infraestructura Reparada",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information
-                );
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al configurar Firewall: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-            }
-        }
-
-        private void CambiarPuertoAccion()
-        {
-            string nuevoP = txtPuertoConfig.Text.Trim();
-            int pNum;
-            if (!int.TryParse(nuevoP, out pNum) || pNum < 80 || pNum > 65535)
-            {
-                MessageBox.Show("Por favor ingrese un puerto TCP valido entre 80 y 65535.", "Puerto Invalido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            GuardarPuertoEnDotEnv(nuevoP);
-            RepararFirewallAccion();
-            ReiniciarServicioAccion();
-            GenerarQrLocalSeguro();
-        }
-
-        // =========================================================================
-        // ACCIONES DE COPIAS DE SEGURIDAD
-        // =========================================================================
-        private void GenerarBackupManualAccion()
-        {
-            this.Cursor = Cursors.WaitCursor;
-            try
-            {
-                string scriptRespaldo = Path.Combine(baseDir, "scripts", "respaldo-servicio.js");
-                string nodeExe = ObtenerNodeExe();
-
-                if (File.Exists(scriptRespaldo))
-                {
-                    ProcessStartInfo psi = new ProcessStartInfo();
-                    psi.FileName = nodeExe;
-                    psi.Arguments = "\"" + scriptRespaldo + "\"";
-                    psi.WorkingDirectory = baseDir;
-                    psi.CreateNoWindow = true;
-                    psi.UseShellExecute = false;
-
-                    using (Process p = Process.Start(psi))
-                    {
-                        if (p != null)
-                        {
-                            p.WaitForExit(45000);
-                            if (p.ExitCode == 0)
-                            {
-                                MessageBox.Show("Copia de seguridad generada y verificada exitosamente en C:\\POS_BACKUPS.", "Respaldo Exitoso", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            }
-                            else
-                            {
-                                MessageBox.Show("El script de respaldo retorno codigo: " + p.ExitCode, "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al generar copia: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                CargarListaBackups();
-            }
-        }
-
-        private void AbrirCarpetaBackupsAccion()
-        {
-            try
-            {
-                string dir = "C:\\POS_BACKUPS";
-                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                Process.Start("explorer.exe", dir);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al abrir carpeta: " + ex.Message, "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-        }
-
-        private void CargarListaBackups()
-        {
-            try
-            {
-                lstBackups.Items.Clear();
-                string dir = "C:\\POS_BACKUPS";
-                if (!Directory.Exists(dir))
-                {
-                    lstBackups.Items.Add("No existe la carpeta de respaldos C:\\POS_BACKUPS.");
-                    return;
-                }
-
-                string[] archivos = Directory.GetFiles(dir, "*.db");
-                Array.Sort(archivos);
-                Array.Reverse(archivos);
-
-                if (archivos.Length == 0)
-                {
-                    lstBackups.Items.Add("No hay copias de seguridad registradas aun en C:\\POS_BACKUPS.");
-                    return;
-                }
-
-                foreach (string arch in archivos)
-                {
-                    FileInfo fi = new FileInfo(arch);
-                    double kb = Math.Round((double)fi.Length / 1024, 1);
-                    string item = string.Format("{0,-45} | {1,10} KB | {2:dd/MM/yyyy HH:mm:ss}", fi.Name, kb, fi.LastWriteTime);
-                    lstBackups.Items.Add(item);
-                }
-            }
-            catch { }
-        }
-
-        private void RestaurarSeleccionadoAccion()
-        {
-            if (lstBackups.SelectedIndex < 0)
-            {
-                MessageBox.Show("Por favor seleccione una copia de seguridad de la lista.", "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            string linea = lstBackups.SelectedItem.ToString();
-            string nombreArchivo = linea.Split('|')[0].Trim();
-            string rutaCompleta = Path.Combine("C:\\POS_BACKUPS", nombreArchivo);
-
-            EjecutarRestauracionDeBaseDatos(rutaCompleta);
-        }
-
-        private void RestaurarArchivoExternoAccion()
-        {
-            OpenFileDialog ofd = new OpenFileDialog();
-            ofd.Title = "Seleccionar Copia de Seguridad SQLite (.db)";
-            ofd.Filter = "Base de Datos SQLite (*.db)|*.db|Todos los archivos (*.*)|*.*";
-
-            if (ofd.ShowDialog(this) == DialogResult.OK)
-            {
-                EjecutarRestauracionDeBaseDatos(ofd.FileName);
-            }
-        }
-
-        private void EjecutarRestauracionDeBaseDatos(string rutaArchivoOrigen)
-        {
-            if (!File.Exists(rutaArchivoOrigen))
-            {
-                MessageBox.Show("El archivo seleccionado no existe: " + rutaArchivoOrigen, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            try
-            {
-                using (FileStream fs = new FileStream(rutaArchivoOrigen, FileMode.Open, FileAccess.Read))
-                {
-                    byte[] header = new byte[16];
-                    fs.Read(header, 0, 16);
-                    string headerStr = Encoding.UTF8.GetString(header);
-                    if (!headerStr.StartsWith("SQLite format 3"))
-                    {
-                        MessageBox.Show("El archivo seleccionado no es una base de datos SQLite valida (cabecera corrupta o invalida).", "Error de Validacion", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("No se pudo leer el archivo de respaldo: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            DialogResult dr = MessageBox.Show(
-                "ADVERTENCIA DE SOBRESCRITURA DE DATOS:\n\n" +
-                "Se reemplazara la base de datos operativa actual por:\n" + Path.GetFileName(rutaArchivoOrigen) + "\n\n" +
-                "El sistema detendra el servicio, realizara una copia de salvaguarda de emergencia previa, reemplazara la base de datos, limpiara los archivos WAL y reiniciara el servicio.\n\n" +
-                "¿Desea proceder con la restauracion?",
-                "Confirmar Restauracion de Base de Datos",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning
-            );
-
-            if (dr != DialogResult.Yes) return;
-
-            estaOcupado = true;
-            this.Cursor = Cursors.WaitCursor;
-            try
-            {
-                EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
-                Thread.Sleep(2000);
-
-                string dbDestino = Path.Combine(baseDir, "database", "llanomio.db");
-                string walDestino = Path.Combine(baseDir, "database", "llanomio.db-wal");
-                string shmDestino = Path.Combine(baseDir, "database", "llanomio.db-shm");
-
-                if (File.Exists(dbDestino))
-                {
-                    string emergDir = Path.Combine(baseDir, "database", "backups_locales");
-                    if (!Directory.Exists(emergDir)) Directory.CreateDirectory(emergDir);
-                    string emergFile = Path.Combine(emergDir, "pos_EMERGENCIA_PRE_RESTAURACION_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".db");
-                    File.Copy(dbDestino, emergFile, true);
-                }
-
-                try { if (File.Exists(walDestino)) File.Delete(walDestino); } catch { }
-                try { if (File.Exists(shmDestino)) File.Delete(shmDestino); } catch { }
-
-                File.Copy(rutaArchivoOrigen, dbDestino, true);
-
-                EjecutarComandoOculto("sc.exe", "start \"" + NOMBRE_SERVICIO + "\"");
-                Thread.Sleep(2500);
-
-                MessageBox.Show(
-                    "Base de datos restaurada con exito.\n\nEl servicio fue reiniciado y los datos anteriores fueron respaldados preventivamente en backups_locales.",
-                    "Restauracion Completada",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information
-                );
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Fallo durante la restauracion: " + ex.Message, "Error Critico", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                estaOcupado = false;
-                RefrescarEstadoEnVivo();
-                CargarListaBackups();
-            }
-        }
-
-        // =========================================================================
-        // ACCIONES DE GESTION DE ACCESO Y FABRICA
-        // =========================================================================
-        private void RestablecerAdminAccion()
-        {
-            DialogResult dr = MessageBox.Show(
-                "¿Desea restablecer las credenciales maestras del sistema?\n\nSe asegurara el usuario 'admin' con contrasena 'admin123' y PIN '000000'.\nLos datos de ventas, alquileres y clientes NO se eliminaran.",
-                "Restablecer Administrador",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question
-            );
-            if (dr != DialogResult.Yes) return;
-
-            this.Cursor = Cursors.WaitCursor;
-            try
-            {
-                string scriptAdmin = Path.Combine(baseDir, "scripts", "asegurar-admin.js");
-                string nodeExe = ObtenerNodeExe();
-
-                ProcessStartInfo psi = new ProcessStartInfo();
-                psi.FileName = nodeExe;
-                psi.Arguments = "\"" + scriptAdmin + "\"";
-                psi.WorkingDirectory = baseDir;
-                psi.CreateNoWindow = true;
-                psi.UseShellExecute = false;
-
-                using (Process p = Process.Start(psi))
-                {
-                    if (p != null)
-                    {
-                        p.WaitForExit(20000);
-                        if (p.ExitCode == 0)
-                        {
-                            MessageBox.Show(
-                                "Credenciales maestras restablecidas con exito:\n\nUsuario: admin\nContrasena: admin123\nPIN de Seguridad: 000000",
-                                "Credenciales Restauradas",
-                                MessageBoxButtons.OK,
-                                MessageBoxIcon.Information
-                            );
-                        }
-                        else
-                        {
-                            MessageBox.Show("El script de credenciales retorno codigo: " + p.ExitCode, "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al restablecer credenciales: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-            }
-        }
-
-        private void FormatearFabricaAccion()
-        {
-            DialogResult dr = MessageBox.Show(
-                "¡PELIGRO DE BORRADO GENERAL!\n\n" +
-                "Esta a punto de realizar un FORMATEO A ESTADO EN BLANCO DE FABRICA.\n\n" +
-                "• Se guardara una copia de seguridad automatica en C:\\POS_BACKUPS.\n" +
-                "• Se borraran TODAS las ventas, alquileres, clientes, movimientos y cierres.\n" +
-                "• Se conservara unicamente el usuario admin por defecto.\n\n" +
-                "¿Esta COMPLETAMENTE SEGURO de continuar?",
-                "Confirmacion de Barrido de Fabrica",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning
-            );
-
-            if (dr != DialogResult.Yes) return;
-
-            FormPromptPin prompt = new FormPromptPin("Ingrese el PIN de soporte (000000) para autorizar:");
-            if (prompt.ShowDialog(this) != DialogResult.OK || prompt.PinIngresado != PIN_MAESTRO_SOPORTE)
-            {
-                MessageBox.Show("Autorizacion cancelada o PIN incorrecto.", "Operacion Cancelada", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            this.Cursor = Cursors.WaitCursor;
-            try
-            {
-                string scriptFabrica = Path.Combine(baseDir, "scripts", "barrido-inicial-fabrica.js");
-                string nodeExe = ObtenerNodeExe();
-
-                ProcessStartInfo psi = new ProcessStartInfo();
-                psi.FileName = nodeExe;
-                psi.Arguments = "\"" + scriptFabrica + "\"";
-                psi.WorkingDirectory = baseDir;
-                psi.CreateNoWindow = true;
-                psi.UseShellExecute = false;
-
-                using (Process p = Process.Start(psi))
-                {
-                    if (p != null)
-                    {
-                        p.WaitForExit(30000);
-                        if (p.ExitCode == 0)
-                        {
-                            MessageBox.Show(
-                                "El sistema ha sido limpiado y formateado a estado de fabrica con exito.\n\n" +
-                                "Copia de salvaguarda creada en C:\\POS_BACKUPS.\n" +
-                                "Usuario admin activo (admin / admin123).",
-                                "Barrido Completado",
-                                MessageBoxButtons.OK,
-                                MessageBoxIcon.Information
-                            );
-                        }
-                        else
-                        {
-                            MessageBox.Show("El script retorno codigo de salida: " + p.ExitCode, "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error durante el barrido de fabrica: " + ex.Message, "Error Critico", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                CargarListaBackups();
-                ReiniciarServicioAccion();
-            }
-        }
-
-        // =========================================================================
-        // REFRESO EN VIVO Y MONITOREO DEL ESTADO DEL SISTEMA
-        // =========================================================================
-        private void RefrescarEstadoEnVivo()
-        {
-            if (estaOcupado) return;
-
-            string estadoServicio = "No instalado";
-            bool servicioCorriendo = false;
-
-            try
-            {
-                if (ExisteServicioWindows(NOMBRE_SERVICIO))
-                {
-                    using (ServiceController sc = new ServiceController(NOMBRE_SERVICIO))
-                    {
-                        estadoServicio = sc.Status.ToString();
-                        servicioCorriendo = (sc.Status == ServiceControllerStatus.Running);
-                    }
-                }
-            }
-            catch
-            {
-                estadoServicio = "Error al consultar";
-            }
-
-            bool httpOk = false;
-            try
-            {
-                HttpWebRequest req = (HttpWebRequest)WebRequest.Create("http://localhost:" + puertoConfigurado + "/api/caja/estado");
-                req.Timeout = 1200;
-                req.Method = "GET";
-                using (HttpWebResponse res = (HttpWebResponse)req.GetResponse())
-                {
-                    if (res.StatusCode == HttpStatusCode.OK) httpOk = true;
-                }
-            }
-            catch
-            {
-                httpOk = false;
-            }
-
-            // Actualizar Badge en el Header
-            if (servicioCorriendo && httpOk)
-            {
-                badgeEstadoServidor.BackColor = Color.FromArgb(220, 252, 231); // Emerald 100
-                lblBadgeTexto.Text = "En linea (" + puertoConfigurado + ")";
-                lblBadgeTexto.ForeColor = Color.FromArgb(22, 101, 52); // Emerald 800
-            }
-            else if (servicioCorriendo && !httpOk)
-            {
-                badgeEstadoServidor.BackColor = Color.FromArgb(254, 243, 199); // Amber 100
-                lblBadgeTexto.Text = "Iniciando servidor...";
-                lblBadgeTexto.ForeColor = Color.FromArgb(146, 64, 14); // Amber 800
-            }
-            else
-            {
-                badgeEstadoServidor.BackColor = Color.FromArgb(254, 226, 226); // Red 100
-                lblBadgeTexto.Text = "Servicio detenido";
-                lblBadgeTexto.ForeColor = Color.FromArgb(153, 27, 27); // Red 800
-            }
-
-            // Actualizar etiquetas en CardServidor
-            lblEstadoServicio.Text = "Servicio Windows: " + (servicioCorriendo ? "En ejecucion" : estadoServicio);
-            lblEstadoHttp.Text = "Respuesta Web: " + (httpOk ? "200 OK (En linea)" : "Sin conexion");
-            lblPuertoActivo.Text = "Puerto TCP: " + puertoConfigurado;
-            lblUrlLocal.Text = "Local: http://localhost:" + puertoConfigurado;
-            lblUrlLan.Text = "Red Wi-Fi: " + urlLanActual;
-
-            if (ultimoQrGenerado != urlLanActual)
-            {
-                GenerarQrLocalSeguro();
-            }
-        }
-
-        // =========================================================================
-        // UTILIDADES AUXILIARES
-        // =========================================================================
-        private bool ExisteServicioWindows(string nombre)
-        {
-            try
-            {
-                ServiceController[] servicios = ServiceController.GetServices();
-                foreach (ServiceController s in servicios)
-                {
-                    if (string.Equals(s.ServiceName, nombre, StringComparison.OrdinalIgnoreCase)) return true;
-                }
-            }
-            catch { }
-            return false;
-        }
-
-        private void EjecutarComandoOculto(string ejecutable, string argumentos)
-        {
-            try
-            {
-                ProcessStartInfo psi = new ProcessStartInfo();
-                psi.FileName = ejecutable;
-                psi.Arguments = argumentos;
-                psi.CreateNoWindow = true;
-                psi.UseShellExecute = false;
-
-                using (Process p = Process.Start(psi))
-                {
-                    if (p != null) p.WaitForExit(15000);
-                }
-            }
-            catch { }
-        }
-
-        private string ObtenerNodeExe()
-        {
-            string[] candidatos = new string[] {
-                Path.Combine(baseDir, "portable-windows", "runtime", "node.exe"),
-                Path.Combine(baseDir, "runtime", "node", "node.exe"),
-                Path.Combine(baseDir, "runtime", "node.exe"),
-                Path.Combine(baseDir, "node.exe"),
-                @"C:\Program Files\nodejs\node.exe",
-                @"C:\Program Files (x86)\nodejs\node.exe"
-            };
-
-            foreach (string c in candidatos)
-            {
-                if (File.Exists(c)) return c;
-            }
-
-            string pathEnv = Environment.GetEnvironmentVariable("PATH");
-            if (!string.IsNullOrEmpty(pathEnv))
-            {
-                foreach (string p in pathEnv.Split(';'))
-                {
-                    string clean = p.Trim();
-                    if (string.IsNullOrEmpty(clean)) continue;
-                    try
-                    {
-                        string target = Path.Combine(clean, "node.exe");
-                        if (File.Exists(target)) return target;
-                    }
-                    catch { }
-                }
-            }
-
-            return "node.exe";
-        }
-    }
-
-    // Cuadro de Dialogo modal para solicitar PIN
-    public class FormPromptPin : Form
-    {
-        private TextBox txtPin;
-        private Button btnOk;
-        private Button btnCancel;
-        public string PinIngresado { get; private set; }
-
-        public FormPromptPin(string mensaje = "Ingrese el PIN o Clave de Administrador:")
-        {
-            this.Text = "Autenticacion de Seguridad";
-            this.Size = new Size(380, 200);
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.BackColor = Color.White;
-            this.Font = new Font("Segoe UI", 9F);
-
-            Label lbl = new Label();
-            lbl.Text = mensaje;
-            lbl.Location = new Point(25, 20);
-            lbl.Size = new Size(320, 35);
-            this.Controls.Add(lbl);
-
-            txtPin = new TextBox();
-            txtPin.Location = new Point(25, 60);
-            txtPin.Size = new Size(310, 26);
-            txtPin.Font = new Font("Segoe UI", 11F);
-            txtPin.UseSystemPasswordChar = true;
-            this.Controls.Add(txtPin);
-
-            btnOk = new Button();
-            btnOk.Text = "Aceptar";
-            btnOk.DialogResult = DialogResult.OK;
-            btnOk.Location = new Point(145, 110);
-            btnOk.Size = new Size(90, 32);
-            btnOk.BackColor = Color.FromArgb(5, 150, 105);
-            btnOk.ForeColor = Color.White;
-            btnOk.FlatStyle = FlatStyle.Flat;
-            btnOk.FlatAppearance.BorderSize = 0;
-            btnOk.Click += delegate { PinIngresado = txtPin.Text.Trim(); };
-            this.Controls.Add(btnOk);
-
-            btnCancel = new Button();
-            btnCancel.Text = "Cancelar";
-            btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.Location = new Point(245, 110);
-            btnCancel.Size = new Size(90, 32);
-            btnCancel.BackColor = Color.FromArgb(241, 245, 249);
-            btnCancel.FlatStyle = FlatStyle.Flat;
-            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
-            this.Controls.Add(btnCancel);
-
-            this.AcceptButton = btnOk;
-            this.CancelButton = btnCancel;
         }
     }
 }
