@@ -59,6 +59,28 @@ if exist "%ROOT_DIR%\portable-windows" (
 )
 echo   [OK] Directorio temporal, carpetas residuales y notas depurados.
 
+:: 3B. Formateo de fabrica de la base de datos (cero datos, solo admin predeterminado)
+::     Se puede omitir con el parametro --conservar-datos (uso exclusivo de desarrollo)
+set "NODE_BIN=node"
+if exist "%ROOT_DIR%\runtime\node\node.exe" set "NODE_BIN=%ROOT_DIR%\runtime\node\node.exe"
+set "CONSERVAR_DATOS=0"
+for %%A in (%*) do (
+    if /i "%%~A"=="--conservar-datos" set "CONSERVAR_DATOS=1"
+)
+if "%CONSERVAR_DATOS%"=="1" (
+    echo [3B] Formateo de fabrica OMITIDO por parametro --conservar-datos.
+) else (
+    echo [3B] Formateando base de datos a estado de fabrica limpio...
+    "%NODE_BIN%" "%ROOT_DIR%\scripts\barrido-inicial-fabrica.js" --confirmar
+    if errorlevel 1 (
+        echo   [ERROR] No se pudo formatear la base de datos. Detenga el servidor POS y reintente.
+        if /i not "%~1"=="--no-pause" pause
+        exit /b 1
+    )
+    echo   [OK] Base de datos en estado de fabrica: admin / admin123 / PIN 000000.
+    echo   [OK] Copia previa de seguridad guardada en C:\POS_BACKUPS\backups_antiguos_historicos
+)
+
 :: 4. Limpiar respaldos historicos locales de desarrollo conservando estructura
 echo [4/6] Depurando copias historicas de prueba en database\backups_locales...
 if exist "%ROOT_DIR%\database\backups_locales" (
@@ -68,8 +90,6 @@ echo   [OK] Boveda interna limpia y lista para el servidor destino.
 
 :: 5. Consolidar SQLite WAL y eliminar residuos del sistema operativo
 echo [5/6] Consolidando base de datos SQLite (Checkpoint WAL) y limpiando residuos...
-set "NODE_BIN=node"
-if exist "%ROOT_DIR%\runtime\node\node.exe" set "NODE_BIN=%ROOT_DIR%\runtime\node\node.exe"
 
 "%NODE_BIN%" -e "const path=require('path');try{const {PrismaClient}=require('@prisma/client');const dbPath=path.resolve(process.cwd(),'database','llanomio.db').replace(/\\/g,'/');const p=new PrismaClient({datasources:{db:{url:'file:'+dbPath}}});p.$queryRawUnsafe('PRAGMA wal_checkpoint(TRUNCATE);').then(()=>p.$disconnect()).catch(()=>process.exit(0));}catch(e){}" >nul 2>&1
 
