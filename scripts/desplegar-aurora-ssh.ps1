@@ -75,10 +75,12 @@ EOF
   echo "[AURORA REMOTO] Archivo .env de produccion generado con JWT_SECRET criptografico."
 fi
 
-# Extraer codigo limpio conservando ./data y ./.env intactos
+# Extraer codigo limpio normalizando permisos Windows -> Linux
+chmod -R u+rwX "$RemoteDir/app" 2>/dev/null || true
 rm -rf "$RemoteDir/app"
 mkdir -p "$RemoteDir/app"
-tar -xzf aurorapos_deploy.tar.gz -C "$RemoteDir/app"
+python3 -c 'import tarfile; tf=tarfile.open("aurorapos_deploy.tar.gz","r:gz"); [setattr(m,"mode",0o755 if m.isdir() else 0o644) or tf.extract(m,"./app") for m in tf.getmembers()]; tf.close()'
+chmod +x "$RemoteDir/app/scripts/docker-entrypoint.sh"
 rm -f aurorapos_deploy.tar.gz
 cp "$RemoteDir/app/docker-compose.yml" "$RemoteDir/docker-compose.yml"
 sed -i 's|context: \.|context: ./app|g' "$RemoteDir/docker-compose.yml"
