@@ -318,41 +318,48 @@ namespace AuroraHost.POS.ControlServidor
     }
 
     // =========================================================================
-    // CONTROLES VISUALES ESTILO APPLE (iOS / macOS) CON ANTIALIASING GDI+
+    // PALETA Y COMPONENTES FLOTANTES ESTILO FINORA / APPLE (GDI+ ANTI-ALIASED)
     // =========================================================================
-    public static class EsteticaApple
+    public static class TemaFinora
     {
-        public static readonly Color FondoApp = Color.FromArgb(242, 242, 247);         // #F2F2F7 iOS System Grouped BG
-        public static readonly Color FondoSidebar = Color.FromArgb(235, 235, 242);     // #EBEBF2 macOS Sidebar
-        public static readonly Color FondoHeader = Color.FromArgb(248, 248, 252);      // #F8F8FC Translucent Top
-        public static readonly Color TarjetaBlanca = Color.FromArgb(255, 255, 255);    // #FFFFFF
-        public static readonly Color BordeSuave = Color.FromArgb(226, 226, 232);       // #E2E2E8
-        public static readonly Color TextoPrimario = Color.FromArgb(28, 28, 30);       // #1C1C1E
-        public static readonly Color TextoSecundario = Color.FromArgb(110, 110, 118);  // #6E6E76
-        public static readonly Color AzulApple = Color.FromArgb(0, 122, 255);          // #007AFF
-        public static readonly Color AzulHover = Color.FromArgb(0, 100, 215);
-        public static readonly Color VerdeApple = Color.FromArgb(52, 199, 89);         // #34C759
-        public static readonly Color VerdeSuave = Color.FromArgb(230, 249, 236);
-        public static readonly Color VerdeTexto = Color.FromArgb(22, 130, 56);
-        public static readonly Color RojoApple = Color.FromArgb(255, 59, 48);          // #FF3B30
-        public static readonly Color RojoHover = Color.FromArgb(220, 42, 34);
-        public static readonly Color RojoSuave = Color.FromArgb(254, 236, 235);
-        public static readonly Color RojoTexto = Color.FromArgb(196, 36, 28);
-        public static readonly Color GrisBoton = Color.FromArgb(229, 229, 234);        // #E5E5EA
-        public static readonly Color GrisBotonHover = Color.FromArgb(212, 212, 220);
-        public static readonly Color GrisOfflineSuave = Color.FromArgb(235, 235, 240);
+        public static readonly Color LienzoFondo = Color.FromArgb(245, 248, 252);      // #F5F8FC Aireado
+        public static readonly Color BlancoPuro = Color.FromArgb(255, 255, 255);       // #FFFFFF
+        public static readonly Color BordeFino = Color.FromArgb(234, 240, 247);        // #EAF0F7
+        public static readonly Color TextoOscuro = Color.FromArgb(20, 28, 46);         // #141C2E
+        public static readonly Color TextoSuave = Color.FromArgb(115, 128, 150);       // #738096
 
-        public static GraphicsPath CrearRutaRedondeada(Rectangle rect, int radio)
+        public static readonly Color AzulPrimario = Color.FromArgb(37, 118, 246);      // #2576F6
+        public static readonly Color AzulHover = Color.FromArgb(24, 98, 218);
+        public static readonly Color AzulPastel = Color.FromArgb(232, 243, 255);       // #E8F3FF
+        public static readonly Color AzulTarjeta = Color.FromArgb(242, 247, 255);      // #F2F7FF
+
+        public static readonly Color VerdePrimario = Color.FromArgb(22, 184, 110);     // #16B86E
+        public static readonly Color VerdeHover = Color.FromArgb(18, 158, 94);
+        public static readonly Color VerdePastel = Color.FromArgb(226, 249, 237);      // #E2F9ED
+        public static readonly Color VerdeTarjeta = Color.FromArgb(242, 252, 247);     // #F2FCF7
+        public static readonly Color VerdeTexto = Color.FromArgb(16, 134, 78);
+
+        public static readonly Color AmbarPrimario = Color.FromArgb(235, 158, 18);     // #EB9E12
+        public static readonly Color AmbarPastel = Color.FromArgb(255, 243, 214);      // #FFF3D6
+        public static readonly Color AmbarTarjeta = Color.FromArgb(255, 251, 241);     // #FFFBF1
+        public static readonly Color AmbarTexto = Color.FromArgb(172, 108, 6);
+
+        public static readonly Color RosaPrimario = Color.FromArgb(239, 78, 92);       // #EF4E5C
+        public static readonly Color RosaHover = Color.FromArgb(214, 56, 70);
+        public static readonly Color RosaPastel = Color.FromArgb(254, 232, 235);       // #FEE8EB
+        public static readonly Color RosaTarjeta = Color.FromArgb(255, 245, 246);      // #FFF5F6
+        public static readonly Color RosaTexto = Color.FromArgb(198, 42, 56);
+
+        public static readonly Color GrisPill = Color.FromArgb(238, 242, 248);         // #EEF2F8
+        public static readonly Color GrisPillHover = Color.FromArgb(224, 231, 242);
+
+        public static GraphicsPath CrearRuta(Rectangle rect, int radio)
         {
             GraphicsPath path = new GraphicsPath();
             int d = radio * 2;
             if (d > rect.Width) d = rect.Width;
             if (d > rect.Height) d = rect.Height;
-            if (d <= 0)
-            {
-                path.AddRectangle(rect);
-                return path;
-            }
+            if (d <= 0) { path.AddRectangle(rect); return path; }
             path.AddArc(rect.X, rect.Y, d, d, 180, 90);
             path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
             path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
@@ -360,34 +367,193 @@ namespace AuroraHost.POS.ControlServidor
             path.CloseFigure();
             return path;
         }
+
+        public static void DibujarSombraSuave(Graphics g, Rectangle cardRect, int radio)
+        {
+            for (int i = 3; i >= 1; i--)
+            {
+                Rectangle r = new Rectangle(cardRect.X - i + 1, cardRect.Y + i, cardRect.Width + (i * 2) - 2, cardRect.Height + i);
+                int alpha = (4 - i) * 5;
+                using (GraphicsPath p = CrearRuta(r, radio + i))
+                using (SolidBrush br = new SolidBrush(Color.FromArgb(alpha, 25, 45, 80)))
+                {
+                    g.FillPath(br, p);
+                }
+            }
+        }
+
+        public static void DibujarIconoVectorial(Graphics g, string tipo, Rectangle r, Color color)
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using (Pen pen = new Pen(color, 1.8F))
+            {
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                pen.LineJoin = LineJoin.Round;
+
+                int x = r.X;
+                int y = r.Y;
+                int w = r.Width;
+                int h = r.Height;
+
+                if (tipo == "home")
+                {
+                    Point[] techo = new Point[] {
+                        new Point(x + 2, y + h / 2),
+                        new Point(x + w / 2, y + 2),
+                        new Point(x + w - 2, y + h / 2)
+                    };
+                    g.DrawLines(pen, techo);
+                    g.DrawRectangle(pen, x + 4, y + h / 2, w - 8, h / 2 - 2);
+                }
+                else if (tipo == "services")
+                {
+                    g.DrawRectangle(pen, x + 2, y + 3, w - 4, 5);
+                    g.DrawRectangle(pen, x + 2, y + 11, w - 4, 5);
+                    using (SolidBrush b = new SolidBrush(color))
+                    {
+                        g.FillEllipse(b, x + 5, y + 5, 2, 2);
+                        g.FillEllipse(b, x + 5, y + 13, 2, 2);
+                    }
+                }
+                else if (tipo == "backup")
+                {
+                    g.DrawEllipse(pen, x + 3, y + 2, w - 6, 5);
+                    g.DrawLine(pen, x + 3, y + 5, x + 3, y + h - 4);
+                    g.DrawLine(pen, x + w - 3, y + 5, x + w - 3, y + h - 4);
+                    g.DrawArc(pen, x + 3, y + h - 7, w - 6, 5, 0, 180);
+                }
+                else if (tipo == "users")
+                {
+                    g.DrawEllipse(pen, x + 5, y + 2, 7, 7);
+                    g.DrawArc(pen, x + 2, y + 11, w - 4, 10, 180, 180);
+                }
+                else if (tipo == "settings")
+                {
+                    g.DrawEllipse(pen, x + 6, y + 6, w - 12, h - 12);
+                    g.DrawEllipse(pen, x + 3, y + 3, w - 6, h - 6);
+                }
+                else if (tipo == "wifi")
+                {
+                    g.DrawArc(pen, x + 2, y + 4, w - 4, h - 4, 215, 110);
+                    g.DrawArc(pen, x + 5, y + 8, w - 10, h - 8, 215, 110);
+                    using (SolidBrush b = new SolidBrush(color))
+                    {
+                        g.FillEllipse(b, x + w / 2 - 2, y + h - 5, 4, 4);
+                    }
+                }
+                else if (tipo == "power")
+                {
+                    g.DrawArc(pen, x + 3, y + 4, w - 6, h - 6, 305, 290);
+                    g.DrawLine(pen, x + w / 2, y + 2, x + w / 2, y + h / 2);
+                }
+            }
+        }
     }
 
-    public class TarjetaCurva : Panel
+    public class TarjetaFlotante : Panel
     {
         public int Radio { get; set; }
-        public Color ColorFondo { get; set; }
-        public Color ColorBorde { get; set; }
+        public Color ColorInicio { get; set; }
+        public Color ColorFin { get; set; }
 
-        public TarjetaCurva()
+        public TarjetaFlotante()
         {
-            this.Radio = 20;
-            this.ColorFondo = EsteticaApple.TarjetaBlanca;
-            this.ColorBorde = EsteticaApple.BordeSuave;
+            this.Radio = 22;
+            this.ColorInicio = TemaFinora.BlancoPuro;
+            this.ColorFin = TemaFinora.BlancoPuro;
             this.DoubleBuffered = true;
             this.BackColor = Color.Transparent;
+            this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            Rectangle rect = new Rectangle(1, 1, this.Width - 3, this.Height - 3);
-            using (GraphicsPath path = EsteticaApple.CrearRutaRedondeada(rect, this.Radio))
-            using (SolidBrush br = new SolidBrush(this.ColorFondo))
-            using (Pen pen = new Pen(this.ColorBorde, 1F))
+            Rectangle rect = new Rectangle(4, 3, this.Width - 9, this.Height - 9);
+            TemaFinora.DibujarSombraSuave(e.Graphics, rect, this.Radio);
+
+            using (GraphicsPath path = TemaFinora.CrearRuta(rect, this.Radio))
+            using (LinearGradientBrush br = new LinearGradientBrush(rect, this.ColorInicio, this.ColorFin, LinearGradientMode.Vertical))
+            using (Pen pen = new Pen(TemaFinora.BordeFino, 1F))
             {
                 e.Graphics.FillPath(br, path);
                 e.Graphics.DrawPath(pen, path);
+            }
+        }
+    }
+
+    public class TarjetaKpiPastel : Control
+    {
+        public string Titulo { get; set; }
+        public string Valor { get; set; }
+        public string EtiquetaPill { get; set; }
+        public string TipoIcono { get; set; }
+        public Color FondoTarjeta { get; set; }
+        public Color FondoIcono { get; set; }
+        public Color ColorAcento { get; set; }
+        public Color FondoPill { get; set; }
+        public Color TextoPill { get; set; }
+
+        public TarjetaKpiPastel()
+        {
+            this.Size = new Size(184, 148);
+            this.DoubleBuffered = true;
+            this.BackColor = Color.Transparent;
+            this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
+            Rectangle rect = new Rectangle(4, 3, this.Width - 9, this.Height - 9);
+            TemaFinora.DibujarSombraSuave(g, rect, 20);
+
+            using (GraphicsPath path = TemaFinora.CrearRuta(rect, 20))
+            using (LinearGradientBrush br = new LinearGradientBrush(rect, this.FondoTarjeta, TemaFinora.BlancoPuro, LinearGradientMode.Vertical))
+            using (Pen pen = new Pen(TemaFinora.BordeFino, 1F))
+            {
+                g.FillPath(br, path);
+                g.DrawPath(pen, path);
+            }
+
+            // Circulo pastel con icono vectorial
+            Rectangle iconCircle = new Rectangle(18, 16, 36, 36);
+            using (SolidBrush brCir = new SolidBrush(this.FondoIcono))
+            {
+                g.FillEllipse(brCir, iconCircle);
+            }
+            TemaFinora.DibujarIconoVectorial(g, this.TipoIcono, new Rectangle(27, 25, 18, 18), this.ColorAcento);
+
+            // Titulo
+            using (Font fTit = new Font("Segoe UI", 8.8F))
+            {
+                TextRenderer.DrawText(g, this.Titulo ?? "", fTit, new Rectangle(18, 60, this.Width - 36, 20), TemaFinora.TextoSuave, TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+            }
+
+            // Valor grande
+            using (Font fVal = new Font("Segoe UI Semibold", 13F))
+            {
+                TextRenderer.DrawText(g, this.Valor ?? "", fVal, new Rectangle(18, 80, this.Width - 36, 26), TemaFinora.TextoOscuro, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            }
+
+            // Pill inferior
+            if (!string.IsNullOrEmpty(this.EtiquetaPill))
+            {
+                Rectangle pillRect = new Rectangle(18, 110, 96, 22);
+                using (GraphicsPath pp = TemaFinora.CrearRuta(pillRect, 11))
+                using (SolidBrush brP = new SolidBrush(this.FondoPill))
+                {
+                    g.FillPath(brP, pp);
+                }
+                using (Font fP = new Font("Segoe UI Semibold", 7.8F))
+                {
+                    TextRenderer.DrawText(g, this.EtiquetaPill, fP, pillRect, this.TextoPill, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                }
             }
         }
     }
@@ -404,76 +570,39 @@ namespace AuroraHost.POS.ControlServidor
         public BotonCurvo()
         {
             this.Radio = 14;
-            this.ColorNormal = EsteticaApple.AzulApple;
-            this.ColorHover = EsteticaApple.AzulHover;
+            this.ColorNormal = TemaFinora.AzulPrimario;
+            this.ColorHover = TemaFinora.AzulHover;
             this.ColorTexto = Color.White;
             this.Font = new Font("Segoe UI Semibold", 9.5F);
             this.Cursor = Cursors.Hand;
-            this.Size = new Size(140, 40);
+            this.Size = new Size(140, 42);
             this.DoubleBuffered = true;
             this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
             this.BackColor = Color.Transparent;
         }
 
-        protected override void OnMouseEnter(EventArgs e)
-        {
-            estaEncima = true;
-            this.Invalidate();
-            base.OnMouseEnter(e);
-        }
-
-        protected override void OnMouseLeave(EventArgs e)
-        {
-            estaEncima = false;
-            estaPresionado = false;
-            this.Invalidate();
-            base.OnMouseLeave(e);
-        }
-
-        protected override void OnMouseDown(MouseEventArgs e)
-        {
-            if (e.Button == MouseButtons.Left)
-            {
-                estaPresionado = true;
-                this.Invalidate();
-            }
-            base.OnMouseDown(e);
-        }
-
-        protected override void OnMouseUp(MouseEventArgs e)
-        {
-            estaPresionado = false;
-            this.Invalidate();
-            base.OnMouseUp(e);
-        }
+        protected override void OnMouseEnter(EventArgs e) { estaEncima = true; this.Invalidate(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { estaEncima = false; estaPresionado = false; this.Invalidate(); base.OnMouseLeave(e); }
+        protected override void OnMouseDown(MouseEventArgs e) { if (e.Button == MouseButtons.Left) { estaPresionado = true; this.Invalidate(); } base.OnMouseDown(e); }
+        protected override void OnMouseUp(MouseEventArgs e) { estaPresionado = false; this.Invalidate(); base.OnMouseUp(e); }
 
         protected override void OnPaint(PaintEventArgs e)
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             e.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
-            Color fondo = this.Enabled ? (estaEncima ? this.ColorHover : this.ColorNormal) : Color.FromArgb(215, 215, 222);
-            if (estaPresionado && this.Enabled)
-            {
-                fondo = ControlPaint.Dark(fondo, 0.08F);
-            }
-            Color texto = this.Enabled ? this.ColorTexto : Color.FromArgb(145, 145, 152);
+            Color fondo = this.Enabled ? (estaEncima ? this.ColorHover : this.ColorNormal) : Color.FromArgb(222, 228, 236);
+            if (estaPresionado && this.Enabled) fondo = ControlPaint.Dark(fondo, 0.06F);
+            Color texto = this.Enabled ? this.ColorTexto : Color.FromArgb(148, 158, 174);
 
             Rectangle rect = new Rectangle(1, 1, this.Width - 3, this.Height - 3);
-            using (GraphicsPath path = EsteticaApple.CrearRutaRedondeada(rect, this.Radio))
+            using (GraphicsPath path = TemaFinora.CrearRuta(rect, this.Radio))
             using (SolidBrush br = new SolidBrush(fondo))
             {
                 e.Graphics.FillPath(br, path);
             }
 
-            TextRenderer.DrawText(
-                e.Graphics,
-                this.Text,
-                this.Font,
-                rect,
-                texto,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine
-            );
+            TextRenderer.DrawText(e.Graphics, this.Text, this.Font, rect, texto, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
         }
     }
 
@@ -484,7 +613,7 @@ namespace AuroraHost.POS.ControlServidor
 
         public PildoraEstado()
         {
-            this.Size = new Size(116, 30);
+            this.Size = new Size(118, 34);
             this.Font = new Font("Segoe UI Semibold", 9F);
             this.DoubleBuffered = true;
             this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
@@ -503,12 +632,12 @@ namespace AuroraHost.POS.ControlServidor
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             e.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
-            Color fondo = enLinea ? EsteticaApple.VerdeSuave : EsteticaApple.GrisOfflineSuave;
-            Color punto = enLinea ? EsteticaApple.VerdeApple : EsteticaApple.RojoApple;
-            Color texto = enLinea ? EsteticaApple.VerdeTexto : EsteticaApple.TextoSecundario;
+            Color fondo = enLinea ? TemaFinora.VerdePastel : TemaFinora.RosaPastel;
+            Color punto = enLinea ? TemaFinora.VerdePrimario : TemaFinora.RosaPrimario;
+            Color texto = enLinea ? TemaFinora.VerdeTexto : TemaFinora.RosaTexto;
 
-            Rectangle rect = new Rectangle(1, 1, this.Width - 3, this.Height - 3);
-            using (GraphicsPath path = EsteticaApple.CrearRutaRedondeada(rect, rect.Height / 2))
+            Rectangle rect = new Rectangle(2, 2, this.Width - 5, this.Height - 5);
+            using (GraphicsPath path = TemaFinora.CrearRuta(rect, rect.Height / 2))
             using (SolidBrush br = new SolidBrush(fondo))
             {
                 e.Graphics.FillPath(br, path);
@@ -518,25 +647,19 @@ namespace AuroraHost.POS.ControlServidor
             int dotY = (this.Height - dotSize) / 2;
             using (SolidBrush brDot = new SolidBrush(punto))
             {
-                e.Graphics.FillEllipse(brDot, 14, dotY, dotSize, dotSize);
+                e.Graphics.FillEllipse(brDot, 16, dotY, dotSize, dotSize);
             }
 
-            Rectangle rectTxt = new Rectangle(28, 0, this.Width - 34, this.Height);
-            TextRenderer.DrawText(
-                e.Graphics,
-                textoEstado,
-                this.Font,
-                rectTxt,
-                texto,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine
-            );
+            Rectangle rectTxt = new Rectangle(32, 0, this.Width - 38, this.Height);
+            TextRenderer.DrawText(e.Graphics, textoEstado, this.Font, rectTxt, texto, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
         }
     }
 
-    public class BotonSidebar : Control
+    public class BotonSidebarFinora : Control
     {
         private bool activo = false;
         private bool hover = false;
+        private string tipoIcono;
 
         public bool Activo
         {
@@ -544,10 +667,11 @@ namespace AuroraHost.POS.ControlServidor
             set { activo = value; this.Invalidate(); }
         }
 
-        public BotonSidebar(string titulo)
+        public BotonSidebarFinora(string titulo, string icono)
         {
             this.Text = titulo;
-            this.Size = new Size(164, 38);
+            this.tipoIcono = icono;
+            this.Size = new Size(164, 42);
             this.Font = new Font("Segoe UI Semibold", 9.5F);
             this.Cursor = Cursors.Hand;
             this.DoubleBuffered = true;
@@ -555,19 +679,8 @@ namespace AuroraHost.POS.ControlServidor
             this.BackColor = Color.Transparent;
         }
 
-        protected override void OnMouseEnter(EventArgs e)
-        {
-            hover = true;
-            this.Invalidate();
-            base.OnMouseEnter(e);
-        }
-
-        protected override void OnMouseLeave(EventArgs e)
-        {
-            hover = false;
-            this.Invalidate();
-            base.OnMouseLeave(e);
-        }
+        protected override void OnMouseEnter(EventArgs e) { hover = true; this.Invalidate(); base.OnMouseEnter(e); }
+        protected override void OnMouseLeave(EventArgs e) { hover = false; this.Invalidate(); base.OnMouseLeave(e); }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -577,37 +690,24 @@ namespace AuroraHost.POS.ControlServidor
             Rectangle rect = new Rectangle(1, 1, this.Width - 3, this.Height - 3);
             if (activo || hover)
             {
-                Color fondo = activo ? Color.White : Color.FromArgb(224, 224, 232);
-                using (GraphicsPath path = EsteticaApple.CrearRutaRedondeada(rect, 11))
+                Color fondo = activo ? TemaFinora.AzulPastel : Color.FromArgb(244, 247, 252);
+                using (GraphicsPath path = TemaFinora.CrearRuta(rect, 12))
                 using (SolidBrush br = new SolidBrush(fondo))
                 {
                     e.Graphics.FillPath(br, path);
                 }
             }
 
-            if (activo)
-            {
-                using (SolidBrush brBar = new SolidBrush(EsteticaApple.AzulApple))
-                {
-                    e.Graphics.FillRectangle(brBar, 8, 10, 3, this.Height - 20);
-                }
-            }
+            Color fg = activo ? TemaFinora.AzulPrimario : TemaFinora.TextoSuave;
+            TemaFinora.DibujarIconoVectorial(e.Graphics, this.tipoIcono, new Rectangle(15, 12, 18, 18), fg);
 
-            Color txtColor = activo ? EsteticaApple.AzulApple : EsteticaApple.TextoPrimario;
-            Rectangle rectTxt = new Rectangle(20, 0, this.Width - 26, this.Height);
-            TextRenderer.DrawText(
-                e.Graphics,
-                this.Text,
-                this.Font,
-                rectTxt,
-                txtColor,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine
-            );
+            Rectangle rectTxt = new Rectangle(42, 0, this.Width - 48, this.Height);
+            TextRenderer.DrawText(e.Graphics, this.Text, this.Font, rectTxt, activo ? TemaFinora.AzulPrimario : TemaFinora.TextoOscuro, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
         }
     }
 
     // =========================================================================
-    // VENTANA PRINCIPAL UNIFICADA — POS LLANOMIO
+    // VENTANA PRINCIPAL UNIFICADA — ESTILO FINORA / APPLE
     // =========================================================================
     public class FormPanelPrincipal : Form
     {
@@ -623,23 +723,24 @@ namespace AuroraHost.POS.ControlServidor
         private bool esEquipoNuevo = false;
         private bool servidorEnLineaActual = false;
 
-        // Catalogo modular de servicios
         private List<ServicioModulo> serviciosRegistrados = new List<ServicioModulo>();
 
         // Layout raiz
-        private Panel panelHeader;
-        private Label lblTituloHeader;
+        private TarjetaFlotante panelSidebar;
+        private Panel panelDerecho;
+        private Panel panelTopBar;
+        private Label lblSaludoTop;
         private PildoraEstado pildoraGlobal;
-
-        private Panel panelSidebar;
+        private TarjetaFlotante pillFechaTop;
+        private Label lblFechaTop;
         private Panel panelContenido;
 
-        // Botones de navegacion
-        private BotonSidebar navInicio;
-        private BotonSidebar navServicios;
-        private BotonSidebar navRespaldos;
-        private BotonSidebar navCuentas;
-        private BotonSidebar navSistema;
+        // Navegacion
+        private BotonSidebarFinora navInicio;
+        private BotonSidebarFinora navServicios;
+        private BotonSidebarFinora navRespaldos;
+        private BotonSidebarFinora navCuentas;
+        private BotonSidebarFinora navSistema;
 
         // Vistas
         private Panel vistaInstalacion;
@@ -649,40 +750,43 @@ namespace AuroraHost.POS.ControlServidor
         private Panel vistaCuentas;
         private Panel vistaSistema;
 
-        // Controles Instalacion Unica
+        // Instalacion unica
         private RadioButton rbConservarDatos;
         private RadioButton rbFabricaLimpia;
         private BotonCurvo btnEjecutarInstalacion;
         private Label lblProgresoInstalacion;
 
-        // Controles Inicio
-        private TarjetaCurva cardEstadoInicio;
+        // KPI Pastel Cards (Inicio)
+        private TarjetaKpiPastel kpiServidor;
+        private TarjetaKpiPastel kpiRedLan;
+        private TarjetaKpiPastel kpiRespaldos;
+        private TarjetaKpiPastel kpiServicios;
+
+        // Control Principal + QR (Inicio)
         private Label lblUrlInicio;
         private BotonCurvo btnInicioIniciar;
         private BotonCurvo btnInicioAbrir;
-        private BotonCurvo btnInicioDetener;
         private BotonCurvo btnInicioReiniciar;
+        private BotonCurvo btnInicioDetener;
 
-        private TarjetaCurva cardQrInicio;
         private PictureBox picQr;
         private Label lblIpQr;
         private BotonCurvo btnCopiarIp;
 
-        // Controles Servicios Modulares
+        // Servicios Modulares
         private FlowLayoutPanel flowServicios;
-        private BotonCurvo btnAgregarServicio;
 
-        // Controles Respaldos
+        // Respaldos
         private ListBox lstBackups;
 
-        // Controles Cuentas
+        // Cuentas
         private TextBox txtNombreUser;
         private TextBox txtUsername;
         private ComboBox cmbRol;
         private TextBox txtPassword;
         private TextBox txtPin;
 
-        // Controles Sistema
+        // Sistema
         private TextBox txtPuerto;
 
         private System.Windows.Forms.Timer timerEstado;
@@ -727,10 +831,10 @@ namespace AuroraHost.POS.ControlServidor
         private void ConfigurarVentana()
         {
             this.Text = "POS Llanomio";
-            this.Size = new Size(920, 620);
-            this.MinimumSize = new Size(840, 560);
+            this.Size = new Size(1040, 670);
+            this.MinimumSize = new Size(980, 620);
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor = EsteticaApple.FondoApp;
+            this.BackColor = TemaFinora.LienzoFondo;
             this.Font = new Font("Segoe UI", 9.5F);
             this.DoubleBuffered = true;
 
@@ -752,12 +856,9 @@ namespace AuroraHost.POS.ControlServidor
                 catch { }
             };
 
-            this.Resize += delegate { AjustarCentrado(); };
+            this.Resize += delegate { AjustarPosiciones(); };
         }
 
-        // =========================================================================
-        // DETECCION AUTOMATICA DE EQUIPO NUEVO (INSTALACION UNICA)
-        // =========================================================================
         private bool DetectarSiEsEquipoNuevo()
         {
             try
@@ -783,62 +884,98 @@ namespace AuroraHost.POS.ControlServidor
         }
 
         // =========================================================================
-        // CONSTRUCCION DE INTERFAZ MINIMALISTA ESTILO APPLE
+        // CONSTRUCCION DEL LAYOUT FLOTANTE ESTILO FINORA
         // =========================================================================
         private void ConstruirLayout()
         {
-            // Barra superior fija
-            panelHeader = new Panel();
-            panelHeader.Dock = DockStyle.Top;
-            panelHeader.Height = 58;
-            panelHeader.BackColor = EsteticaApple.FondoHeader;
-            panelHeader.Paint += delegate(object s, PaintEventArgs e)
+            // Sidebar blanca flotante izquierda
+            panelSidebar = new TarjetaFlotante();
+            panelSidebar.Radio = 22;
+            panelSidebar.Location = new Point(14, 14);
+            panelSidebar.Size = new Size(202, this.ClientSize.Height - 28);
+            panelSidebar.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
+            this.Controls.Add(panelSidebar);
+
+            // Marca visual en el sidebar
+            Panel marcaPanel = new Panel();
+            marcaPanel.Location = new Point(18, 22);
+            marcaPanel.Size = new Size(166, 38);
+            marcaPanel.BackColor = Color.Transparent;
+            marcaPanel.Paint += delegate(object s, PaintEventArgs e)
             {
-                using (Pen p = new Pen(EsteticaApple.BordeSuave, 1F))
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (SolidBrush b1 = new SolidBrush(TemaFinora.AzulPrimario))
+                using (SolidBrush b2 = new SolidBrush(Color.FromArgb(90, 198, 250)))
                 {
-                    e.Graphics.DrawLine(p, 0, panelHeader.Height - 1, panelHeader.Width, panelHeader.Height - 1);
+                    e.Graphics.FillEllipse(b1, 2, 12, 14, 14);
+                    e.Graphics.FillEllipse(b2, 11, 5, 14, 14);
                 }
             };
-            this.Controls.Add(panelHeader);
+            panelSidebar.Controls.Add(marcaPanel);
 
-            lblTituloHeader = new Label();
-            lblTituloHeader.Text = "POS Llanomio";
-            lblTituloHeader.Font = new Font("Segoe UI Semibold", 13F);
-            lblTituloHeader.ForeColor = EsteticaApple.TextoPrimario;
-            lblTituloHeader.AutoSize = true;
-            lblTituloHeader.Location = new Point(24, 16);
-            panelHeader.Controls.Add(lblTituloHeader);
+            Label lblMarca = new Label();
+            lblMarca.Text = "Llanomio";
+            lblMarca.Font = new Font("Segoe UI Bold", 13F);
+            lblMarca.ForeColor = TemaFinora.TextoOscuro;
+            lblMarca.Location = new Point(32, 6);
+            lblMarca.AutoSize = true;
+            marcaPanel.Controls.Add(lblMarca);
+
+            navInicio = CrearItemSidebar("Inicio", "home", 84, delegate { MostrarVista("inicio"); });
+            navServicios = CrearItemSidebar("Servicios", "services", 132, delegate { MostrarVista("servicios"); });
+            navRespaldos = CrearItemSidebar("Respaldos", "backup", 180, delegate { AbrirSeccionProtegida("respaldos"); });
+            navCuentas = CrearItemSidebar("Cuentas", "users", 228, delegate { AbrirSeccionProtegida("cuentas"); });
+            navSistema = CrearItemSidebar("Sistema", "settings", 276, delegate { AbrirSeccionProtegida("sistema"); });
+
+            // Contenedor derecho aireado
+            panelDerecho = new Panel();
+            panelDerecho.Location = new Point(226, 0);
+            panelDerecho.Size = new Size(this.ClientSize.Width - 226, this.ClientSize.Height);
+            panelDerecho.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            panelDerecho.BackColor = TemaFinora.LienzoFondo;
+            this.Controls.Add(panelDerecho);
+
+            // TopBar limpia y flotante
+            panelTopBar = new Panel();
+            panelTopBar.Dock = DockStyle.Top;
+            panelTopBar.Height = 68;
+            panelTopBar.BackColor = Color.Transparent;
+            panelDerecho.Controls.Add(panelTopBar);
+
+            lblSaludoTop = new Label();
+            lblSaludoTop.Text = "Panel de Control";
+            lblSaludoTop.Font = new Font("Segoe UI Bold", 15.5F);
+            lblSaludoTop.ForeColor = TemaFinora.TextoOscuro;
+            lblSaludoTop.Location = new Point(18, 20);
+            lblSaludoTop.AutoSize = true;
+            panelTopBar.Controls.Add(lblSaludoTop);
+
+            pillFechaTop = new TarjetaFlotante();
+            pillFechaTop.Radio = 14;
+            pillFechaTop.Size = new Size(156, 38);
+            pillFechaTop.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            pillFechaTop.Location = new Point(panelTopBar.Width - 306, 15);
+            panelTopBar.Controls.Add(pillFechaTop);
+
+            lblFechaTop = new Label();
+            lblFechaTop.Text = DateTime.Now.ToString("ddd, dd MMM yyyy");
+            lblFechaTop.Font = new Font("Segoe UI Semibold", 8.5F);
+            lblFechaTop.ForeColor = TemaFinora.TextoSuave;
+            lblFechaTop.TextAlign = ContentAlignment.MiddleCenter;
+            lblFechaTop.Location = new Point(6, 4);
+            lblFechaTop.Size = new Size(144, 28);
+            pillFechaTop.Controls.Add(lblFechaTop);
 
             pildoraGlobal = new PildoraEstado();
             pildoraGlobal.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            pildoraGlobal.Location = new Point(panelHeader.Width - 140, 14);
-            panelHeader.Controls.Add(pildoraGlobal);
+            pildoraGlobal.Location = new Point(panelTopBar.Width - 138, 17);
+            panelTopBar.Controls.Add(pildoraGlobal);
 
-            // Barra lateral izquierda estilo macOS
-            panelSidebar = new Panel();
-            panelSidebar.Dock = DockStyle.Left;
-            panelSidebar.Width = 196;
-            panelSidebar.BackColor = EsteticaApple.FondoSidebar;
-            panelSidebar.Paint += delegate(object s, PaintEventArgs e)
-            {
-                using (Pen p = new Pen(EsteticaApple.BordeSuave, 1F))
-                {
-                    e.Graphics.DrawLine(p, panelSidebar.Width - 1, 0, panelSidebar.Width - 1, panelSidebar.Height);
-                }
-            };
-            this.Controls.Add(panelSidebar);
-
-            navInicio = CrearItemSidebar("Inicio", 20, delegate { MostrarVista("inicio"); });
-            navServicios = CrearItemSidebar("Servicios", 66, delegate { MostrarVista("servicios"); });
-            navRespaldos = CrearItemSidebar("Respaldos", 112, delegate { AbrirSeccionProtegida("respaldos"); });
-            navCuentas = CrearItemSidebar("Cuentas", 158, delegate { AbrirSeccionProtegida("cuentas"); });
-            navSistema = CrearItemSidebar("Sistema", 204, delegate { AbrirSeccionProtegida("sistema"); });
-
-            // Area de contenido principal
+            // Contenido principal
             panelContenido = new Panel();
             panelContenido.Dock = DockStyle.Fill;
-            panelContenido.BackColor = EsteticaApple.FondoApp;
-            this.Controls.Add(panelContenido);
+            panelContenido.BackColor = TemaFinora.LienzoFondo;
+            panelDerecho.Controls.Add(panelContenido);
             panelContenido.BringToFront();
 
             ConstruirVistaInstalacion();
@@ -849,234 +986,276 @@ namespace AuroraHost.POS.ControlServidor
             ConstruirVistaSistema();
         }
 
-        private BotonSidebar CrearItemSidebar(string titulo, int top, EventHandler onClick)
+        private BotonSidebarFinora CrearItemSidebar(string titulo, string icono, int top, EventHandler onClick)
         {
-            BotonSidebar btn = new BotonSidebar(titulo);
-            btn.Location = new Point(16, top);
+            BotonSidebarFinora btn = new BotonSidebarFinora(titulo, icono);
+            btn.Location = new Point(19, top);
             btn.Click += onClick;
             panelSidebar.Controls.Add(btn);
             return btn;
         }
 
         // -------------------------------------------------------------------------
-        // VISTA 0: ASISTENTE DE INSTALACION UNICA (EQUIPO NUEVO)
+        // VISTA 0: INSTALACION UNICA (EQUIPO NUEVO)
         // -------------------------------------------------------------------------
         private void ConstruirVistaInstalacion()
         {
             vistaInstalacion = new Panel();
             vistaInstalacion.Dock = DockStyle.Fill;
-            vistaInstalacion.BackColor = EsteticaApple.FondoApp;
+            vistaInstalacion.BackColor = TemaFinora.LienzoFondo;
             vistaInstalacion.Visible = false;
             panelContenido.Controls.Add(vistaInstalacion);
 
-            TarjetaCurva card = new TarjetaCurva();
-            card.Name = "cardInstall";
+            TarjetaFlotante card = new TarjetaFlotante();
             card.Size = new Size(460, 320);
             vistaInstalacion.Controls.Add(card);
 
             Label lblTit = new Label();
-            lblTit.Text = "Configurar en este equipo";
-            lblTit.Font = new Font("Segoe UI Semibold", 15F);
-            lblTit.ForeColor = EsteticaApple.TextoPrimario;
+            lblTit.Text = "Configurar POS Llanomio";
+            lblTit.Font = new Font("Segoe UI Bold", 15F);
+            lblTit.ForeColor = TemaFinora.TextoOscuro;
             lblTit.TextAlign = ContentAlignment.MiddleCenter;
-            lblTit.Location = new Point(30, 34);
-            lblTit.Size = new Size(400, 34);
+            lblTit.Location = new Point(28, 36);
+            lblTit.Size = new Size(404, 34);
             card.Controls.Add(lblTit);
 
             rbConservarDatos = new RadioButton();
             rbConservarDatos.Text = "Conservar datos actuales";
-            rbConservarDatos.Font = new Font("Segoe UI", 10F);
-            rbConservarDatos.ForeColor = EsteticaApple.TextoPrimario;
+            rbConservarDatos.Font = new Font("Segoe UI Semibold", 10F);
+            rbConservarDatos.ForeColor = TemaFinora.TextoOscuro;
             rbConservarDatos.Checked = true;
-            rbConservarDatos.Location = new Point(110, 96);
-            rbConservarDatos.Size = new Size(260, 28);
+            rbConservarDatos.Location = new Point(116, 98);
+            rbConservarDatos.Size = new Size(250, 28);
             card.Controls.Add(rbConservarDatos);
 
             rbFabricaLimpia = new RadioButton();
             rbFabricaLimpia.Text = "Iniciar limpio de fabrica";
-            rbFabricaLimpia.Font = new Font("Segoe UI", 10F);
-            rbFabricaLimpia.ForeColor = EsteticaApple.TextoPrimario;
-            rbFabricaLimpia.Location = new Point(110, 134);
-            rbFabricaLimpia.Size = new Size(260, 28);
+            rbFabricaLimpia.Font = new Font("Segoe UI Semibold", 10F);
+            rbFabricaLimpia.ForeColor = TemaFinora.TextoOscuro;
+            rbFabricaLimpia.Location = new Point(116, 136);
+            rbFabricaLimpia.Size = new Size(250, 28);
             card.Controls.Add(rbFabricaLimpia);
 
             btnEjecutarInstalacion = new BotonCurvo();
             btnEjecutarInstalacion.Text = "Instalar";
-            btnEjecutarInstalacion.Size = new Size(220, 44);
-            btnEjecutarInstalacion.Location = new Point(120, 192);
+            btnEjecutarInstalacion.Size = new Size(220, 46);
+            btnEjecutarInstalacion.Location = new Point(120, 194);
             btnEjecutarInstalacion.Click += delegate { EjecutarInstalacionUnica(); };
             card.Controls.Add(btnEjecutarInstalacion);
 
             lblProgresoInstalacion = new Label();
             lblProgresoInstalacion.Text = "";
             lblProgresoInstalacion.Font = new Font("Segoe UI", 9F);
-            lblProgresoInstalacion.ForeColor = EsteticaApple.TextoSecundario;
+            lblProgresoInstalacion.ForeColor = TemaFinora.TextoSuave;
             lblProgresoInstalacion.TextAlign = ContentAlignment.MiddleCenter;
-            lblProgresoInstalacion.Location = new Point(30, 254);
-            lblProgresoInstalacion.Size = new Size(400, 28);
+            lblProgresoInstalacion.Location = new Point(30, 256);
+            lblProgresoInstalacion.Size = new Size(400, 24);
             card.Controls.Add(lblProgresoInstalacion);
         }
 
         // -------------------------------------------------------------------------
-        // VISTA 1: INICIO (CONTROL PUNTUAL + QR)
+        // VISTA 1: INICIO (4 TARJETAS KPI PASTEL + 2 TARJETAS FLOTANTES)
         // -------------------------------------------------------------------------
         private void ConstruirVistaInicio()
         {
             vistaInicio = new Panel();
             vistaInicio.Dock = DockStyle.Fill;
-            vistaInicio.BackColor = EsteticaApple.FondoApp;
+            vistaInicio.BackColor = TemaFinora.LienzoFondo;
             panelContenido.Controls.Add(vistaInicio);
 
-            Panel contenedor = new Panel();
-            contenedor.Name = "centerBox";
-            contenedor.Size = new Size(640, 450);
-            contenedor.BackColor = Color.Transparent;
-            vistaInicio.Controls.Add(contenedor);
+            Panel box = new Panel();
+            box.Size = new Size(766, 520);
+            box.BackColor = Color.Transparent;
+            vistaInicio.Controls.Add(box);
 
-            // Tarjeta 1: Servidor
-            cardEstadoInicio = new TarjetaCurva();
-            cardEstadoInicio.Size = new Size(620, 175);
-            cardEstadoInicio.Location = new Point(10, 12);
-            contenedor.Controls.Add(cardEstadoInicio);
+            // Fila 1: 4 tarjetas KPI con degradados pastel estilo Finora
+            kpiServidor = new TarjetaKpiPastel();
+            kpiServidor.Titulo = "Servidor POS";
+            kpiServidor.Valor = "Offline";
+            kpiServidor.EtiquetaPill = "Puerto " + puertoConfigurado;
+            kpiServidor.TipoIcono = "power";
+            kpiServidor.FondoTarjeta = TemaFinora.AzulTarjeta;
+            kpiServidor.FondoIcono = TemaFinora.AzulPastel;
+            kpiServidor.ColorAcento = TemaFinora.AzulPrimario;
+            kpiServidor.FondoPill = TemaFinora.AzulPastel;
+            kpiServidor.TextoPill = TemaFinora.AzulPrimario;
+            kpiServidor.Location = new Point(4, 6);
+            box.Controls.Add(kpiServidor);
 
-            Label lblTitSrv = new Label();
-            lblTitSrv.Text = "Servidor POS";
-            lblTitSrv.Font = new Font("Segoe UI Semibold", 13.5F);
-            lblTitSrv.ForeColor = EsteticaApple.TextoPrimario;
-            lblTitSrv.TextAlign = ContentAlignment.MiddleCenter;
-            lblTitSrv.Location = new Point(20, 22);
-            lblTitSrv.Size = new Size(580, 28);
-            cardEstadoInicio.Controls.Add(lblTitSrv);
+            kpiRedLan = new TarjetaKpiPastel();
+            kpiRedLan.Titulo = "Red Local";
+            kpiRedLan.Valor = ipLanDetectada;
+            kpiRedLan.EtiquetaPill = "Wi-Fi LAN";
+            kpiRedLan.TipoIcono = "wifi";
+            kpiRedLan.FondoTarjeta = TemaFinora.VerdeTarjeta;
+            kpiRedLan.FondoIcono = TemaFinora.VerdePastel;
+            kpiRedLan.ColorAcento = TemaFinora.VerdePrimario;
+            kpiRedLan.FondoPill = TemaFinora.VerdePastel;
+            kpiRedLan.TextoPill = TemaFinora.VerdeTexto;
+            kpiRedLan.Location = new Point(195, 6);
+            box.Controls.Add(kpiRedLan);
+
+            kpiRespaldos = new TarjetaKpiPastel();
+            kpiRespaldos.Titulo = "Respaldos";
+            kpiRespaldos.Valor = "0 copias";
+            kpiRespaldos.EtiquetaPill = "SQLite WAL";
+            kpiRespaldos.TipoIcono = "backup";
+            kpiRespaldos.FondoTarjeta = TemaFinora.AmbarTarjeta;
+            kpiRespaldos.FondoIcono = TemaFinora.AmbarPastel;
+            kpiRespaldos.ColorAcento = TemaFinora.AmbarPrimario;
+            kpiRespaldos.FondoPill = TemaFinora.AmbarPastel;
+            kpiRespaldos.TextoPill = TemaFinora.AmbarTexto;
+            kpiRespaldos.Location = new Point(386, 6);
+            box.Controls.Add(kpiRespaldos);
+
+            kpiServicios = new TarjetaKpiPastel();
+            kpiServicios.Titulo = "Servicios";
+            kpiServicios.Valor = "0 / 1";
+            kpiServicios.EtiquetaPill = "Modulos";
+            kpiServicios.TipoIcono = "services";
+            kpiServicios.FondoTarjeta = TemaFinora.RosaTarjeta;
+            kpiServicios.FondoIcono = TemaFinora.RosaPastel;
+            kpiServicios.ColorAcento = TemaFinora.RosaPrimario;
+            kpiServicios.FondoPill = TemaFinora.RosaPastel;
+            kpiServicios.TextoPill = TemaFinora.RosaTexto;
+            kpiServicios.Location = new Point(577, 6);
+            box.Controls.Add(kpiServicios);
+
+            // Fila 2 Izquierda: Tarjeta Control del Servidor
+            TarjetaFlotante cardControl = new TarjetaFlotante();
+            cardControl.Size = new Size(462, 336);
+            cardControl.Location = new Point(4, 168);
+            box.Controls.Add(cardControl);
+
+            Label lblTitCtrl = new Label();
+            lblTitCtrl.Text = "Control del Servidor";
+            lblTitCtrl.Font = new Font("Segoe UI Bold", 13F);
+            lblTitCtrl.ForeColor = TemaFinora.TextoOscuro;
+            lblTitCtrl.Location = new Point(28, 28);
+            lblTitCtrl.Size = new Size(360, 28);
+            cardControl.Controls.Add(lblTitCtrl);
 
             lblUrlInicio = new Label();
             lblUrlInicio.Text = "http://localhost:" + puertoConfigurado;
-            lblUrlInicio.Font = new Font("Segoe UI", 9.5F);
-            lblUrlInicio.ForeColor = EsteticaApple.TextoSecundario;
-            lblUrlInicio.TextAlign = ContentAlignment.MiddleCenter;
-            lblUrlInicio.Location = new Point(20, 54);
-            lblUrlInicio.Size = new Size(580, 24);
-            cardEstadoInicio.Controls.Add(lblUrlInicio);
+            lblUrlInicio.Font = new Font("Consolas", 10F, FontStyle.Bold);
+            lblUrlInicio.ForeColor = TemaFinora.AzulPrimario;
+            lblUrlInicio.Location = new Point(28, 60);
+            lblUrlInicio.Size = new Size(360, 22);
+            cardControl.Controls.Add(lblUrlInicio);
 
             btnInicioIniciar = new BotonCurvo();
             btnInicioIniciar.Text = "Iniciar";
-            btnInicioIniciar.ColorNormal = EsteticaApple.VerdeApple;
-            btnInicioIniciar.ColorHover = Color.FromArgb(40, 176, 74);
-            btnInicioIniciar.Size = new Size(200, 44);
-            btnInicioIniciar.Location = new Point(210, 98);
+            btnInicioIniciar.ColorNormal = TemaFinora.VerdePrimario;
+            btnInicioIniciar.ColorHover = TemaFinora.VerdeHover;
+            btnInicioIniciar.Size = new Size(220, 48);
+            btnInicioIniciar.Location = new Point(120, 146);
             btnInicioIniciar.Click += delegate { IniciarServicioAccion(NOMBRE_SERVICIO); };
-            cardEstadoInicio.Controls.Add(btnInicioIniciar);
+            cardControl.Controls.Add(btnInicioIniciar);
 
             btnInicioAbrir = new BotonCurvo();
             btnInicioAbrir.Text = "Abrir POS";
-            btnInicioAbrir.ColorNormal = EsteticaApple.AzulApple;
-            btnInicioAbrir.ColorHover = EsteticaApple.AzulHover;
-            btnInicioAbrir.Size = new Size(165, 44);
-            btnInicioAbrir.Location = new Point(52, 98);
+            btnInicioAbrir.ColorNormal = TemaFinora.AzulPrimario;
+            btnInicioAbrir.ColorHover = TemaFinora.AzulHover;
+            btnInicioAbrir.Size = new Size(406, 48);
+            btnInicioAbrir.Location = new Point(28, 122);
             btnInicioAbrir.Visible = false;
             btnInicioAbrir.Click += delegate { AbrirNavegadorPos(); };
-            cardEstadoInicio.Controls.Add(btnInicioAbrir);
+            cardControl.Controls.Add(btnInicioAbrir);
 
             btnInicioReiniciar = new BotonCurvo();
             btnInicioReiniciar.Text = "Reiniciar";
-            btnInicioReiniciar.ColorNormal = EsteticaApple.GrisBoton;
-            btnInicioReiniciar.ColorHover = EsteticaApple.GrisBotonHover;
-            btnInicioReiniciar.ColorTexto = EsteticaApple.TextoPrimario;
-            btnInicioReiniciar.Size = new Size(165, 44);
-            btnInicioReiniciar.Location = new Point(227, 98);
+            btnInicioReiniciar.ColorNormal = TemaFinora.GrisPill;
+            btnInicioReiniciar.ColorHover = TemaFinora.GrisPillHover;
+            btnInicioReiniciar.ColorTexto = TemaFinora.TextoOscuro;
+            btnInicioReiniciar.Size = new Size(196, 44);
+            btnInicioReiniciar.Location = new Point(28, 188);
             btnInicioReiniciar.Visible = false;
             btnInicioReiniciar.Click += delegate { ReiniciarServicioAccion(NOMBRE_SERVICIO); };
-            cardEstadoInicio.Controls.Add(btnInicioReiniciar);
+            cardControl.Controls.Add(btnInicioReiniciar);
 
             btnInicioDetener = new BotonCurvo();
             btnInicioDetener.Text = "Detener";
-            btnInicioDetener.ColorNormal = EsteticaApple.RojoApple;
-            btnInicioDetener.ColorHover = EsteticaApple.RojoHover;
-            btnInicioDetener.Size = new Size(165, 44);
-            btnInicioDetener.Location = new Point(402, 98);
+            btnInicioDetener.ColorNormal = TemaFinora.RosaPrimario;
+            btnInicioDetener.ColorHover = TemaFinora.RosaHover;
+            btnInicioDetener.Size = new Size(196, 44);
+            btnInicioDetener.Location = new Point(238, 188);
             btnInicioDetener.Visible = false;
             btnInicioDetener.Click += delegate { DetenerConBackupObligatorio(); };
-            cardEstadoInicio.Controls.Add(btnInicioDetener);
+            cardControl.Controls.Add(btnInicioDetener);
 
-            // Tarjeta 2: QR Wi-Fi
-            cardQrInicio = new TarjetaCurva();
-            cardQrInicio.Size = new Size(620, 232);
-            cardQrInicio.Location = new Point(10, 204);
-            contenedor.Controls.Add(cardQrInicio);
+            // Fila 2 Derecha: Tarjeta QR Wi-Fi
+            TarjetaFlotante cardQr = new TarjetaFlotante();
+            cardQr.Size = new Size(284, 336);
+            cardQr.Location = new Point(477, 168);
+            box.Controls.Add(cardQr);
+
+            Label lblTitQr = new Label();
+            lblTitQr.Text = "Acceso Wi-Fi";
+            lblTitQr.Font = new Font("Segoe UI Bold", 12.5F);
+            lblTitQr.ForeColor = TemaFinora.TextoOscuro;
+            lblTitQr.TextAlign = ContentAlignment.MiddleCenter;
+            lblTitQr.Location = new Point(20, 22);
+            lblTitQr.Size = new Size(244, 26);
+            cardQr.Controls.Add(lblTitQr);
 
             picQr = new PictureBox();
-            picQr.Size = new Size(176, 176);
-            picQr.Location = new Point(74, 28);
+            picQr.Size = new Size(168, 168);
+            picQr.Location = new Point(58, 56);
             picQr.SizeMode = PictureBoxSizeMode.Zoom;
             picQr.BackColor = Color.White;
-            cardQrInicio.Controls.Add(picQr);
-
-            Label lblQrTit = new Label();
-            lblQrTit.Text = "Acceso Wi-Fi";
-            lblQrTit.Font = new Font("Segoe UI Semibold", 12.5F);
-            lblQrTit.ForeColor = EsteticaApple.TextoPrimario;
-            lblQrTit.Location = new Point(286, 56);
-            lblQrTit.Size = new Size(280, 28);
-            cardQrInicio.Controls.Add(lblQrTit);
+            cardQr.Controls.Add(picQr);
 
             lblIpQr = new Label();
             lblIpQr.Text = urlLanActual;
-            lblIpQr.Font = new Font("Consolas", 10.5F, FontStyle.Bold);
-            lblIpQr.ForeColor = EsteticaApple.AzulApple;
-            lblIpQr.Location = new Point(286, 90);
-            lblIpQr.Size = new Size(290, 24);
-            cardQrInicio.Controls.Add(lblIpQr);
+            lblIpQr.Font = new Font("Consolas", 9F, FontStyle.Bold);
+            lblIpQr.ForeColor = TemaFinora.AzulPrimario;
+            lblIpQr.TextAlign = ContentAlignment.MiddleCenter;
+            lblIpQr.Location = new Point(16, 232);
+            lblIpQr.Size = new Size(252, 22);
+            cardQr.Controls.Add(lblIpQr);
 
             btnCopiarIp = new BotonCurvo();
             btnCopiarIp.Text = "Copiar IP";
-            btnCopiarIp.ColorNormal = EsteticaApple.GrisBoton;
-            btnCopiarIp.ColorHover = EsteticaApple.GrisBotonHover;
-            btnCopiarIp.ColorTexto = EsteticaApple.TextoPrimario;
-            btnCopiarIp.Size = new Size(136, 38);
-            btnCopiarIp.Location = new Point(286, 130);
+            btnCopiarIp.ColorNormal = TemaFinora.AzulPastel;
+            btnCopiarIp.ColorHover = Color.FromArgb(212, 232, 255);
+            btnCopiarIp.ColorTexto = TemaFinora.AzulPrimario;
+            btnCopiarIp.Size = new Size(148, 38);
+            btnCopiarIp.Location = new Point(68, 268);
             btnCopiarIp.Click += delegate { CopiarAlPortapapeles(urlLanActual); };
-            cardQrInicio.Controls.Add(btnCopiarIp);
+            cardQr.Controls.Add(btnCopiarIp);
         }
 
         // -------------------------------------------------------------------------
-        // VISTA 2: SERVICIOS MODULARES (ESCALABLE A FUTUROS SERVICIOS)
+        // VISTA 2: SERVICIOS MODULARES
         // -------------------------------------------------------------------------
         private void ConstruirVistaServicios()
         {
             vistaServicios = new Panel();
             vistaServicios.Dock = DockStyle.Fill;
-            vistaServicios.BackColor = EsteticaApple.FondoApp;
+            vistaServicios.BackColor = TemaFinora.LienzoFondo;
             vistaServicios.Visible = false;
             panelContenido.Controls.Add(vistaServicios);
 
-            Panel contenedor = new Panel();
-            contenedor.Name = "centerBox";
-            contenedor.Size = new Size(640, 460);
-            contenedor.BackColor = Color.Transparent;
-            vistaServicios.Controls.Add(contenedor);
+            Panel box = new Panel();
+            box.Size = new Size(766, 510);
+            box.BackColor = Color.Transparent;
+            vistaServicios.Controls.Add(box);
 
-            Label lblTit = new Label();
-            lblTit.Text = "Servicios";
-            lblTit.Font = new Font("Segoe UI Semibold", 14F);
-            lblTit.ForeColor = EsteticaApple.TextoPrimario;
-            lblTit.Location = new Point(14, 10);
-            lblTit.Size = new Size(250, 32);
-            contenedor.Controls.Add(lblTit);
-
-            btnAgregarServicio = new BotonCurvo();
-            btnAgregarServicio.Text = "+ Agregar";
-            btnAgregarServicio.Size = new Size(124, 34);
-            btnAgregarServicio.Location = new Point(504, 8);
-            btnAgregarServicio.Click += delegate { AgregarServicioModuloAccion(); };
-            contenedor.Controls.Add(btnAgregarServicio);
+            BotonCurvo btnAgregar = new BotonCurvo();
+            btnAgregar.Text = "+ Agregar Servicio";
+            btnAgregar.Size = new Size(168, 38);
+            btnAgregar.Location = new Point(590, 4);
+            btnAgregar.Click += delegate { AgregarServicioModuloAccion(); };
+            box.Controls.Add(btnAgregar);
 
             flowServicios = new FlowLayoutPanel();
-            flowServicios.Location = new Point(10, 54);
-            flowServicios.Size = new Size(620, 396);
+            flowServicios.Location = new Point(4, 54);
+            flowServicios.Size = new Size(758, 446);
             flowServicios.FlowDirection = FlowDirection.TopDown;
             flowServicios.WrapContents = false;
             flowServicios.AutoScroll = true;
             flowServicios.BackColor = Color.Transparent;
-            contenedor.Controls.Add(flowServicios);
+            box.Controls.Add(flowServicios);
 
             RenderizarTarjetasServicios();
         }
@@ -1089,43 +1268,43 @@ namespace AuroraHost.POS.ControlServidor
             foreach (ServicioModulo srv in serviciosRegistrados)
             {
                 ServicioModulo localSrv = srv;
-                TarjetaCurva card = new TarjetaCurva();
-                card.Size = new Size(596, 86);
+                TarjetaFlotante card = new TarjetaFlotante();
+                card.Size = new Size(734, 92);
                 card.Margin = new Padding(0, 0, 0, 12);
 
                 Label lblNom = new Label();
                 lblNom.Text = localSrv.Nombre;
-                lblNom.Font = new Font("Segoe UI Semibold", 11F);
-                lblNom.ForeColor = EsteticaApple.TextoPrimario;
-                lblNom.Location = new Point(22, 18);
-                lblNom.Size = new Size(210, 24);
+                lblNom.Font = new Font("Segoe UI Bold", 11.5F);
+                lblNom.ForeColor = TemaFinora.TextoOscuro;
+                lblNom.Location = new Point(26, 20);
+                lblNom.Size = new Size(260, 24);
                 card.Controls.Add(lblNom);
 
                 Label lblSub = new Label();
                 lblSub.Text = string.IsNullOrEmpty(localSrv.Puerto)
                     ? localSrv.ServicioWindows
                     : localSrv.ServicioWindows + "  |  :" + localSrv.Puerto;
-                lblSub.Font = new Font("Segoe UI", 8.5F);
-                lblSub.ForeColor = EsteticaApple.TextoSecundario;
-                lblSub.Location = new Point(22, 44);
-                lblSub.Size = new Size(210, 20);
+                lblSub.Font = new Font("Segoe UI", 8.8F);
+                lblSub.ForeColor = TemaFinora.TextoSuave;
+                lblSub.Location = new Point(26, 48);
+                lblSub.Size = new Size(260, 20);
                 card.Controls.Add(lblSub);
 
                 bool activo = VerificarServicioWindowsActivo(localSrv.ServicioWindows);
                 PildoraEstado pill = new PildoraEstado();
-                pill.Size = new Size(102, 28);
-                pill.Location = new Point(236, 29);
+                pill.Size = new Size(112, 32);
+                pill.Location = new Point(316, 28);
                 pill.ActualizarEstado(activo, activo ? "En linea" : "Offline");
                 card.Controls.Add(pill);
 
                 BotonCurvo btnAcc = new BotonCurvo();
-                btnAcc.Size = new Size(108, 36);
-                btnAcc.Location = new Point(352, 25);
+                btnAcc.Size = new Size(124, 38);
+                btnAcc.Location = new Point(452, 25);
                 if (activo)
                 {
                     btnAcc.Text = "Detener";
-                    btnAcc.ColorNormal = EsteticaApple.RojoApple;
-                    btnAcc.ColorHover = EsteticaApple.RojoHover;
+                    btnAcc.ColorNormal = TemaFinora.RosaPrimario;
+                    btnAcc.ColorHover = TemaFinora.RosaHover;
                     btnAcc.Click += delegate
                     {
                         if (localSrv.EsPrincipal) DetenerConBackupObligatorio();
@@ -1136,8 +1315,8 @@ namespace AuroraHost.POS.ControlServidor
                 else
                 {
                     btnAcc.Text = "Iniciar";
-                    btnAcc.ColorNormal = EsteticaApple.VerdeApple;
-                    btnAcc.ColorHover = Color.FromArgb(40, 176, 74);
+                    btnAcc.ColorNormal = TemaFinora.VerdePrimario;
+                    btnAcc.ColorHover = TemaFinora.VerdeHover;
                     btnAcc.Click += delegate
                     {
                         IniciarServicioAccion(localSrv.ServicioWindows);
@@ -1148,11 +1327,11 @@ namespace AuroraHost.POS.ControlServidor
 
                 BotonCurvo btnRei = new BotonCurvo();
                 btnRei.Text = "Reiniciar";
-                btnRei.ColorNormal = EsteticaApple.GrisBoton;
-                btnRei.ColorHover = EsteticaApple.GrisBotonHover;
-                btnRei.ColorTexto = EsteticaApple.TextoPrimario;
-                btnRei.Size = new Size(108, 36);
-                btnRei.Location = new Point(468, 25);
+                btnRei.ColorNormal = TemaFinora.GrisPill;
+                btnRei.ColorHover = TemaFinora.GrisPillHover;
+                btnRei.ColorTexto = TemaFinora.TextoOscuro;
+                btnRei.Size = new Size(124, 38);
+                btnRei.Location = new Point(588, 25);
                 btnRei.Click += delegate
                 {
                     ReiniciarServicioAccion(localSrv.ServicioWindows);
@@ -1171,73 +1350,62 @@ namespace AuroraHost.POS.ControlServidor
         {
             vistaRespaldos = new Panel();
             vistaRespaldos.Dock = DockStyle.Fill;
-            vistaRespaldos.BackColor = EsteticaApple.FondoApp;
+            vistaRespaldos.BackColor = TemaFinora.LienzoFondo;
             vistaRespaldos.Visible = false;
             panelContenido.Controls.Add(vistaRespaldos);
 
-            Panel contenedor = new Panel();
-            contenedor.Name = "centerBox";
-            contenedor.Size = new Size(640, 460);
-            contenedor.BackColor = Color.Transparent;
-            vistaRespaldos.Controls.Add(contenedor);
+            Panel box = new Panel();
+            box.Size = new Size(766, 510);
+            box.BackColor = Color.Transparent;
+            vistaRespaldos.Controls.Add(box);
 
-            TarjetaCurva card = new TarjetaCurva();
-            card.Size = new Size(620, 436);
-            card.Location = new Point(10, 12);
-            contenedor.Controls.Add(card);
-
-            Label lblTit = new Label();
-            lblTit.Text = "Respaldos";
-            lblTit.Font = new Font("Segoe UI Semibold", 13.5F);
-            lblTit.ForeColor = EsteticaApple.TextoPrimario;
-            lblTit.Location = new Point(24, 20);
-            lblTit.Size = new Size(200, 28);
-            card.Controls.Add(lblTit);
+            TarjetaFlotante card = new TarjetaFlotante();
+            card.Size = new Size(756, 488);
+            card.Location = new Point(4, 8);
+            box.Controls.Add(card);
 
             BotonCurvo btnRespaldar = new BotonCurvo();
             btnRespaldar.Text = "Respaldar";
-            btnRespaldar.ColorNormal = EsteticaApple.AzulApple;
-            btnRespaldar.ColorHover = EsteticaApple.AzulHover;
-            btnRespaldar.Size = new Size(134, 38);
-            btnRespaldar.Location = new Point(24, 62);
+            btnRespaldar.Size = new Size(158, 40);
+            btnRespaldar.Location = new Point(26, 26);
             btnRespaldar.Click += delegate { GenerarBackupManualAccion(); };
             card.Controls.Add(btnRespaldar);
 
             BotonCurvo btnRestaurar = new BotonCurvo();
             btnRestaurar.Text = "Restaurar";
-            btnRestaurar.ColorNormal = EsteticaApple.RojoApple;
-            btnRestaurar.ColorHover = EsteticaApple.RojoHover;
-            btnRestaurar.Size = new Size(134, 38);
-            btnRestaurar.Location = new Point(168, 62);
+            btnRestaurar.ColorNormal = TemaFinora.RosaPrimario;
+            btnRestaurar.ColorHover = TemaFinora.RosaHover;
+            btnRestaurar.Size = new Size(158, 40);
+            btnRestaurar.Location = new Point(198, 26);
             btnRestaurar.Click += delegate { RestaurarSeleccionadoAccion(); };
             card.Controls.Add(btnRestaurar);
 
             BotonCurvo btnExterno = new BotonCurvo();
             btnExterno.Text = "Archivo .db";
-            btnExterno.ColorNormal = EsteticaApple.GrisBoton;
-            btnExterno.ColorHover = EsteticaApple.GrisBotonHover;
-            btnExterno.ColorTexto = EsteticaApple.TextoPrimario;
-            btnExterno.Size = new Size(134, 38);
-            btnExterno.Location = new Point(312, 62);
+            btnExterno.ColorNormal = TemaFinora.GrisPill;
+            btnExterno.ColorHover = TemaFinora.GrisPillHover;
+            btnExterno.ColorTexto = TemaFinora.TextoOscuro;
+            btnExterno.Size = new Size(158, 40);
+            btnExterno.Location = new Point(370, 26);
             btnExterno.Click += delegate { RestaurarArchivoExternoAccion(); };
             card.Controls.Add(btnExterno);
 
             BotonCurvo btnCarpeta = new BotonCurvo();
             btnCarpeta.Text = "Carpeta";
-            btnCarpeta.ColorNormal = EsteticaApple.GrisBoton;
-            btnCarpeta.ColorHover = EsteticaApple.GrisBotonHover;
-            btnCarpeta.ColorTexto = EsteticaApple.TextoPrimario;
-            btnCarpeta.Size = new Size(134, 38);
-            btnCarpeta.Location = new Point(456, 62);
+            btnCarpeta.ColorNormal = TemaFinora.GrisPill;
+            btnCarpeta.ColorHover = TemaFinora.GrisPillHover;
+            btnCarpeta.ColorTexto = TemaFinora.TextoOscuro;
+            btnCarpeta.Size = new Size(158, 40);
+            btnCarpeta.Location = new Point(542, 26);
             btnCarpeta.Click += delegate { AbrirCarpetaBackupsAccion(); };
             card.Controls.Add(btnCarpeta);
 
             lstBackups = new ListBox();
-            lstBackups.Location = new Point(24, 118);
-            lstBackups.Size = new Size(572, 290);
-            lstBackups.Font = new Font("Consolas", 9F);
+            lstBackups.Location = new Point(26, 84);
+            lstBackups.Size = new Size(704, 376);
+            lstBackups.Font = new Font("Consolas", 9.5F);
             lstBackups.BorderStyle = BorderStyle.FixedSingle;
-            lstBackups.BackColor = Color.FromArgb(250, 250, 252);
+            lstBackups.BackColor = TemaFinora.LienzoFondo;
             card.Controls.Add(lstBackups);
         }
 
@@ -1248,40 +1416,39 @@ namespace AuroraHost.POS.ControlServidor
         {
             vistaCuentas = new Panel();
             vistaCuentas.Dock = DockStyle.Fill;
-            vistaCuentas.BackColor = EsteticaApple.FondoApp;
+            vistaCuentas.BackColor = TemaFinora.LienzoFondo;
             vistaCuentas.Visible = false;
             panelContenido.Controls.Add(vistaCuentas);
 
-            Panel contenedor = new Panel();
-            contenedor.Name = "centerBox";
-            contenedor.Size = new Size(640, 440);
-            contenedor.BackColor = Color.Transparent;
-            vistaCuentas.Controls.Add(contenedor);
+            Panel box = new Panel();
+            box.Size = new Size(766, 480);
+            box.BackColor = Color.Transparent;
+            vistaCuentas.Controls.Add(box);
 
-            TarjetaCurva card = new TarjetaCurva();
-            card.Size = new Size(620, 260);
-            card.Location = new Point(10, 12);
-            contenedor.Controls.Add(card);
+            TarjetaFlotante card = new TarjetaFlotante();
+            card.Size = new Size(756, 286);
+            card.Location = new Point(4, 8);
+            box.Controls.Add(card);
 
             Label lblTit = new Label();
             lblTit.Text = "Nuevo Usuario";
-            lblTit.Font = new Font("Segoe UI Semibold", 13F);
-            lblTit.ForeColor = EsteticaApple.TextoPrimario;
-            lblTit.Location = new Point(28, 22);
-            lblTit.Size = new Size(240, 26);
+            lblTit.Font = new Font("Segoe UI Bold", 13F);
+            lblTit.ForeColor = TemaFinora.TextoOscuro;
+            lblTit.Location = new Point(28, 24);
+            lblTit.Size = new Size(240, 28);
             card.Controls.Add(lblTit);
 
-            txtNombreUser = CrearCampoFormulario(card, "Nombre", 28, 66, 260, false);
-            txtUsername = CrearCampoFormulario(card, "Usuario", 316, 66, 260, false);
-            txtPassword = CrearCampoFormulario(card, "Contrasena", 28, 130, 175, true);
-            txtPin = CrearCampoFormulario(card, "PIN", 220, 130, 120, true);
+            txtNombreUser = CrearCampoFormulario(card, "Nombre", 28, 70, 330, false);
+            txtUsername = CrearCampoFormulario(card, "Usuario", 386, 70, 330, false);
+            txtPassword = CrearCampoFormulario(card, "Contrasena", 28, 138, 220, true);
+            txtPin = CrearCampoFormulario(card, "PIN", 270, 138, 150, true);
             txtPin.MaxLength = 6;
 
             Label lblRol = new Label();
             lblRol.Text = "Rol";
             lblRol.Font = new Font("Segoe UI", 8.5F);
-            lblRol.ForeColor = EsteticaApple.TextoSecundario;
-            lblRol.Location = new Point(358, 130);
+            lblRol.ForeColor = TemaFinora.TextoSuave;
+            lblRol.Location = new Point(442, 138);
             lblRol.Size = new Size(100, 18);
             card.Controls.Add(lblRol);
 
@@ -1289,39 +1456,37 @@ namespace AuroraHost.POS.ControlServidor
             cmbRol.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbRol.Items.AddRange(new object[] { "CAJERO", "ADMIN" });
             cmbRol.SelectedIndex = 0;
-            cmbRol.Location = new Point(358, 150);
-            cmbRol.Size = new Size(218, 28);
+            cmbRol.Location = new Point(442, 158);
+            cmbRol.Size = new Size(274, 28);
             card.Controls.Add(cmbRol);
 
             BotonCurvo btnCrear = new BotonCurvo();
             btnCrear.Text = "Crear";
-            btnCrear.ColorNormal = EsteticaApple.AzulApple;
-            btnCrear.ColorHover = EsteticaApple.AzulHover;
-            btnCrear.Size = new Size(160, 40);
-            btnCrear.Location = new Point(28, 198);
+            btnCrear.Size = new Size(176, 42);
+            btnCrear.Location = new Point(28, 214);
             btnCrear.Click += delegate { CrearUsuarioAccion(); };
             card.Controls.Add(btnCrear);
 
-            TarjetaCurva cardAdmin = new TarjetaCurva();
-            cardAdmin.Size = new Size(620, 120);
-            cardAdmin.Location = new Point(10, 290);
-            contenedor.Controls.Add(cardAdmin);
+            TarjetaFlotante cardAdmin = new TarjetaFlotante();
+            cardAdmin.Size = new Size(756, 132);
+            cardAdmin.Location = new Point(4, 312);
+            box.Controls.Add(cardAdmin);
 
             Label lblAdm = new Label();
             lblAdm.Text = "Acceso Maestro";
-            lblAdm.Font = new Font("Segoe UI Semibold", 12F);
-            lblAdm.ForeColor = EsteticaApple.TextoPrimario;
-            lblAdm.Location = new Point(28, 20);
+            lblAdm.Font = new Font("Segoe UI Bold", 12.5F);
+            lblAdm.ForeColor = TemaFinora.TextoOscuro;
+            lblAdm.Location = new Point(28, 22);
             lblAdm.Size = new Size(240, 26);
             cardAdmin.Controls.Add(lblAdm);
 
             BotonCurvo btnResetAdmin = new BotonCurvo();
             btnResetAdmin.Text = "Restablecer admin";
-            btnResetAdmin.ColorNormal = EsteticaApple.GrisBoton;
-            btnResetAdmin.ColorHover = EsteticaApple.GrisBotonHover;
-            btnResetAdmin.ColorTexto = EsteticaApple.TextoPrimario;
-            btnResetAdmin.Size = new Size(190, 40);
-            btnResetAdmin.Location = new Point(28, 58);
+            btnResetAdmin.ColorNormal = TemaFinora.AzulPastel;
+            btnResetAdmin.ColorHover = Color.FromArgb(212, 232, 255);
+            btnResetAdmin.ColorTexto = TemaFinora.AzulPrimario;
+            btnResetAdmin.Size = new Size(210, 42);
+            btnResetAdmin.Location = new Point(28, 62);
             btnResetAdmin.Click += delegate { RestablecerAdminAccion(); };
             cardAdmin.Controls.Add(btnResetAdmin);
         }
@@ -1331,15 +1496,15 @@ namespace AuroraHost.POS.ControlServidor
             Label lbl = new Label();
             lbl.Text = etiqueta;
             lbl.Font = new Font("Segoe UI", 8.5F);
-            lbl.ForeColor = EsteticaApple.TextoSecundario;
+            lbl.ForeColor = TemaFinora.TextoSuave;
             lbl.Location = new Point(x, y);
             lbl.Size = new Size(ancho, 18);
             padre.Controls.Add(lbl);
 
             TextBox tb = new TextBox();
             tb.Location = new Point(x, y + 20);
-            tb.Size = new Size(ancho, 26);
-            tb.Font = new Font("Segoe UI", 9.5F);
+            tb.Size = new Size(ancho, 28);
+            tb.Font = new Font("Segoe UI", 10F);
             tb.BorderStyle = BorderStyle.FixedSingle;
             if (esClave) tb.UseSystemPasswordChar = true;
             padre.Controls.Add(tb);
@@ -1347,136 +1512,131 @@ namespace AuroraHost.POS.ControlServidor
         }
 
         // -------------------------------------------------------------------------
-        // VISTA 5: SISTEMA (ACTUALIZAR, PUERTO, FIREWALL, REINSTALAR, FABRICA)
+        // VISTA 5: SISTEMA
         // -------------------------------------------------------------------------
         private void ConstruirVistaSistema()
         {
             vistaSistema = new Panel();
             vistaSistema.Dock = DockStyle.Fill;
-            vistaSistema.BackColor = EsteticaApple.FondoApp;
+            vistaSistema.BackColor = TemaFinora.LienzoFondo;
             vistaSistema.Visible = false;
             panelContenido.Controls.Add(vistaSistema);
 
-            Panel contenedor = new Panel();
-            contenedor.Name = "centerBox";
-            contenedor.Size = new Size(640, 450);
-            contenedor.BackColor = Color.Transparent;
-            vistaSistema.Controls.Add(contenedor);
+            Panel box = new Panel();
+            box.Size = new Size(766, 480);
+            box.BackColor = Color.Transparent;
+            vistaSistema.Controls.Add(box);
 
-            // Tarjeta 1: Actualizaciones
-            TarjetaCurva cardAct = new TarjetaCurva();
-            cardAct.Size = new Size(620, 126);
-            cardAct.Location = new Point(10, 12);
-            contenedor.Controls.Add(cardAct);
+            // Actualizacion
+            TarjetaFlotante cardAct = new TarjetaFlotante();
+            cardAct.Size = new Size(756, 134);
+            cardAct.Location = new Point(4, 8);
+            box.Controls.Add(cardAct);
 
             Label lblAct = new Label();
-            lblAct.Text = "Actualizar Sistema";
-            lblAct.Font = new Font("Segoe UI Semibold", 12.5F);
-            lblAct.ForeColor = EsteticaApple.TextoPrimario;
-            lblAct.Location = new Point(26, 20);
-            lblAct.Size = new Size(250, 26);
+            lblAct.Text = "Actualizar";
+            lblAct.Font = new Font("Segoe UI Bold", 12.5F);
+            lblAct.ForeColor = TemaFinora.TextoOscuro;
+            lblAct.Location = new Point(28, 22);
+            lblAct.Size = new Size(240, 26);
             cardAct.Controls.Add(lblAct);
 
             BotonCurvo btnZip = new BotonCurvo();
             btnZip.Text = "Actualizar (.zip)";
-            btnZip.ColorNormal = EsteticaApple.AzulApple;
-            btnZip.ColorHover = EsteticaApple.AzulHover;
-            btnZip.Size = new Size(180, 40);
-            btnZip.Location = new Point(26, 62);
+            btnZip.Size = new Size(192, 42);
+            btnZip.Location = new Point(28, 64);
             btnZip.Click += delegate { ActualizarDesdeZipAccion(); };
             cardAct.Controls.Add(btnZip);
 
             BotonCurvo btnGit = new BotonCurvo();
             btnGit.Text = "Actualizar (GitHub)";
-            btnGit.ColorNormal = EsteticaApple.GrisBoton;
-            btnGit.ColorHover = EsteticaApple.GrisBotonHover;
-            btnGit.ColorTexto = EsteticaApple.TextoPrimario;
-            btnGit.Size = new Size(180, 40);
-            btnGit.Location = new Point(220, 62);
+            btnGit.ColorNormal = TemaFinora.GrisPill;
+            btnGit.ColorHover = TemaFinora.GrisPillHover;
+            btnGit.ColorTexto = TemaFinora.TextoOscuro;
+            btnGit.Size = new Size(192, 42);
+            btnGit.Location = new Point(236, 64);
             btnGit.Click += delegate { ActualizarDesdeGithubAccion(); };
             cardAct.Controls.Add(btnGit);
 
-            // Tarjeta 2: Red y Puerto
-            TarjetaCurva cardRed = new TarjetaCurva();
-            cardRed.Size = new Size(620, 126);
-            cardRed.Location = new Point(10, 154);
-            contenedor.Controls.Add(cardRed);
+            // Red y Puerto
+            TarjetaFlotante cardRed = new TarjetaFlotante();
+            cardRed.Size = new Size(756, 134);
+            cardRed.Location = new Point(4, 158);
+            box.Controls.Add(cardRed);
 
             Label lblRed = new Label();
             lblRed.Text = "Red y Puerto";
-            lblRed.Font = new Font("Segoe UI Semibold", 12.5F);
-            lblRed.ForeColor = EsteticaApple.TextoPrimario;
-            lblRed.Location = new Point(26, 20);
+            lblRed.Font = new Font("Segoe UI Bold", 12.5F);
+            lblRed.ForeColor = TemaFinora.TextoOscuro;
+            lblRed.Location = new Point(28, 22);
             lblRed.Size = new Size(220, 26);
             cardRed.Controls.Add(lblRed);
 
             txtPuerto = new TextBox();
             txtPuerto.Text = puertoConfigurado;
             txtPuerto.Font = new Font("Segoe UI", 10.5F);
-            txtPuerto.Location = new Point(26, 66);
-            txtPuerto.Size = new Size(110, 28);
+            txtPuerto.Location = new Point(28, 68);
+            txtPuerto.Size = new Size(114, 28);
             txtPuerto.BorderStyle = BorderStyle.FixedSingle;
             cardRed.Controls.Add(txtPuerto);
 
             BotonCurvo btnPuerto = new BotonCurvo();
             btnPuerto.Text = "Guardar Puerto";
-            btnPuerto.ColorNormal = EsteticaApple.AzulApple;
-            btnPuerto.ColorHover = EsteticaApple.AzulHover;
-            btnPuerto.Size = new Size(156, 38);
-            btnPuerto.Location = new Point(150, 62);
+            btnPuerto.Size = new Size(168, 40);
+            btnPuerto.Location = new Point(158, 64);
             btnPuerto.Click += delegate { CambiarPuertoAccion(); };
             cardRed.Controls.Add(btnPuerto);
 
             BotonCurvo btnFw = new BotonCurvo();
-            btnFw.Text = "Reparar Firewall";
-            btnFw.ColorNormal = EsteticaApple.GrisBoton;
-            btnFw.ColorHover = EsteticaApple.GrisBotonHover;
-            btnFw.ColorTexto = EsteticaApple.TextoPrimario;
-            btnFw.Size = new Size(156, 38);
-            btnFw.Location = new Point(320, 62);
+            btnFw.Text = "Firewall";
+            btnFw.ColorNormal = TemaFinora.GrisPill;
+            btnFw.ColorHover = TemaFinora.GrisPillHover;
+            btnFw.ColorTexto = TemaFinora.TextoOscuro;
+            btnFw.Size = new Size(168, 40);
+            btnFw.Location = new Point(342, 64);
             btnFw.Click += delegate { RepararFirewallAccion(true); };
             cardRed.Controls.Add(btnFw);
 
-            // Tarjeta 3: Equipo y Fabrica (Reinstalacion oculta aqui)
-            TarjetaCurva cardEq = new TarjetaCurva();
-            cardEq.Size = new Size(620, 126);
-            cardEq.Location = new Point(10, 296);
-            contenedor.Controls.Add(cardEq);
+            // Equipo (Reinstalacion oculta aqui)
+            TarjetaFlotante cardEq = new TarjetaFlotante();
+            cardEq.Size = new Size(756, 134);
+            cardEq.Location = new Point(4, 308);
+            box.Controls.Add(cardEq);
 
             Label lblEq = new Label();
             lblEq.Text = "Equipo";
-            lblEq.Font = new Font("Segoe UI Semibold", 12.5F);
-            lblEq.ForeColor = EsteticaApple.TextoPrimario;
-            lblEq.Location = new Point(26, 20);
+            lblEq.Font = new Font("Segoe UI Bold", 12.5F);
+            lblEq.ForeColor = TemaFinora.TextoOscuro;
+            lblEq.Location = new Point(28, 22);
             lblEq.Size = new Size(220, 26);
             cardEq.Controls.Add(lblEq);
 
             BotonCurvo btnReinstalar = new BotonCurvo();
             btnReinstalar.Text = "Reinstalar";
-            btnReinstalar.ColorNormal = EsteticaApple.GrisBoton;
-            btnReinstalar.ColorHover = EsteticaApple.GrisBotonHover;
-            btnReinstalar.ColorTexto = EsteticaApple.TextoPrimario;
-            btnReinstalar.Size = new Size(165, 40);
-            btnReinstalar.Location = new Point(26, 62);
+            btnReinstalar.ColorNormal = TemaFinora.GrisPill;
+            btnReinstalar.ColorHover = TemaFinora.GrisPillHover;
+            btnReinstalar.ColorTexto = TemaFinora.TextoOscuro;
+            btnReinstalar.Size = new Size(176, 42);
+            btnReinstalar.Location = new Point(28, 64);
             btnReinstalar.Click += delegate { MostrarVistaInstalacion(); };
             cardEq.Controls.Add(btnReinstalar);
 
             BotonCurvo btnDesinstalar = new BotonCurvo();
             btnDesinstalar.Text = "Desinstalar";
-            btnDesinstalar.ColorNormal = EsteticaApple.GrisBoton;
-            btnDesinstalar.ColorHover = EsteticaApple.GrisBotonHover;
-            btnDesinstalar.ColorTexto = EsteticaApple.TextoPrimario;
-            btnDesinstalar.Size = new Size(165, 40);
-            btnDesinstalar.Location = new Point(206, 62);
+            btnDesinstalar.ColorNormal = TemaFinora.GrisPill;
+            btnDesinstalar.ColorHover = TemaFinora.GrisPillHover;
+            btnDesinstalar.ColorTexto = TemaFinora.TextoOscuro;
+            btnDesinstalar.Size = new Size(176, 42);
+            btnDesinstalar.Location = new Point(220, 64);
             btnDesinstalar.Click += delegate { DesinstalarServicioAccion(); };
             cardEq.Controls.Add(btnDesinstalar);
 
             BotonCurvo btnFabrica = new BotonCurvo();
             btnFabrica.Text = "Fabrica";
-            btnFabrica.ColorNormal = EsteticaApple.RojoApple;
-            btnFabrica.ColorHover = EsteticaApple.RojoHover;
-            btnFabrica.Size = new Size(165, 40);
-            btnFabrica.Location = new Point(386, 62);
+            btnFabrica.ColorNormal = TemaFinora.RosaPrimario;
+            btnFabrica.ColorHover = TemaFinora.RosaHover;
+            btnFabrica.Size = new Size(176, 42);
+            btnFabrica.Location = new Point(412, 64);
             btnFabrica.Click += delegate { FormatearFabricaAccion(); };
             cardEq.Controls.Add(btnFabrica);
         }
@@ -1488,9 +1648,12 @@ namespace AuroraHost.POS.ControlServidor
         {
             esEquipoNuevo = true;
             panelSidebar.Visible = false;
+            panelDerecho.Location = new Point(0, 0);
+            panelDerecho.Width = this.ClientSize.Width;
+            lblSaludoTop.Text = "Instalacion";
             OcultarTodasLasVistas();
             vistaInstalacion.Visible = true;
-            AjustarCentrado();
+            AjustarPosiciones();
         }
 
         private void AbrirSeccionProtegida(string clave)
@@ -1507,6 +1670,8 @@ namespace AuroraHost.POS.ControlServidor
         {
             esEquipoNuevo = false;
             panelSidebar.Visible = true;
+            panelDerecho.Location = new Point(226, 0);
+            panelDerecho.Width = this.ClientSize.Width - 226;
             OcultarTodasLasVistas();
 
             navInicio.Activo = (clave == "inicio");
@@ -1515,31 +1680,13 @@ namespace AuroraHost.POS.ControlServidor
             navCuentas.Activo = (clave == "cuentas");
             navSistema.Activo = (clave == "sistema");
 
-            if (clave == "inicio")
-            {
-                vistaInicio.Visible = true;
-                RefrescarEstadoEnVivo();
-            }
-            else if (clave == "servicios")
-            {
-                vistaServicios.Visible = true;
-                RenderizarTarjetasServicios();
-            }
-            else if (clave == "respaldos")
-            {
-                vistaRespaldos.Visible = true;
-                CargarListaBackups();
-            }
-            else if (clave == "cuentas")
-            {
-                vistaCuentas.Visible = true;
-            }
-            else if (clave == "sistema")
-            {
-                vistaSistema.Visible = true;
-            }
+            if (clave == "inicio") { lblSaludoTop.Text = "Panel de Control"; vistaInicio.Visible = true; RefrescarEstadoEnVivo(); }
+            else if (clave == "servicios") { lblSaludoTop.Text = "Servicios"; vistaServicios.Visible = true; RenderizarTarjetasServicios(); }
+            else if (clave == "respaldos") { lblSaludoTop.Text = "Respaldos"; vistaRespaldos.Visible = true; CargarListaBackups(); }
+            else if (clave == "cuentas") { lblSaludoTop.Text = "Cuentas"; vistaCuentas.Visible = true; }
+            else if (clave == "sistema") { lblSaludoTop.Text = "Sistema"; vistaSistema.Visible = true; }
 
-            AjustarCentrado();
+            AjustarPosiciones();
         }
 
         private void OcultarTodasLasVistas()
@@ -1552,26 +1699,32 @@ namespace AuroraHost.POS.ControlServidor
             vistaSistema.Visible = false;
         }
 
-        private void AjustarCentrado()
+        private void AjustarPosiciones()
         {
-            if (vistaInstalacion != null && vistaInstalacion.Controls.Count > 0)
+            if (panelSidebar != null && panelDerecho != null)
             {
-                Control c = vistaInstalacion.Controls[0];
-                c.Location = new Point(
-                    Math.Max(16, (vistaInstalacion.ClientSize.Width - c.Width) / 2),
-                    Math.Max(16, (vistaInstalacion.ClientSize.Height - c.Height) / 2)
-                );
+                panelSidebar.Height = Math.Max(400, this.ClientSize.Height - 28);
+                if (panelSidebar.Visible)
+                {
+                    panelDerecho.Location = new Point(226, 0);
+                    panelDerecho.Size = new Size(Math.Max(600, this.ClientSize.Width - 226), this.ClientSize.Height);
+                }
+                else
+                {
+                    panelDerecho.Location = new Point(0, 0);
+                    panelDerecho.Size = this.ClientSize;
+                }
             }
 
-            Panel[] vistas = new Panel[] { vistaInicio, vistaServicios, vistaRespaldos, vistaCuentas, vistaSistema };
+            Panel[] vistas = new Panel[] { vistaInstalacion, vistaInicio, vistaServicios, vistaRespaldos, vistaCuentas, vistaSistema };
             foreach (Panel v in vistas)
             {
                 if (v != null && v.Controls.Count > 0)
                 {
                     Control box = v.Controls[0];
                     box.Location = new Point(
-                        Math.Max(12, (v.ClientSize.Width - box.Width) / 2),
-                        Math.Max(12, (v.ClientSize.Height - box.Height) / 2)
+                        Math.Max(14, (v.ClientSize.Width - box.Width) / 2),
+                        Math.Max(10, (v.ClientSize.Height - box.Height) / 2)
                     );
                 }
             }
@@ -1586,12 +1739,12 @@ namespace AuroraHost.POS.ControlServidor
             dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
             dlg.MaximizeBox = false;
             dlg.MinimizeBox = false;
-            dlg.BackColor = EsteticaApple.FondoApp;
+            dlg.BackColor = TemaFinora.LienzoFondo;
 
             Label lbl = new Label();
             lbl.Text = "PIN Maestro";
             lbl.Font = new Font("Segoe UI Semibold", 10F);
-            lbl.ForeColor = EsteticaApple.TextoPrimario;
+            lbl.ForeColor = TemaFinora.TextoOscuro;
             lbl.Location = new Point(24, 20);
             lbl.Size = new Size(260, 22);
             dlg.Controls.Add(lbl);
@@ -1621,7 +1774,7 @@ namespace AuroraHost.POS.ControlServidor
         }
 
         // =========================================================================
-        // INSTALACION UNICA INTEGRADA (SIN .BAT EXTERNOS)
+        // INSTALACION UNICA INTEGRADA
         // =========================================================================
         private void EjecutarInstalacionUnica()
         {
@@ -1662,24 +1815,18 @@ namespace AuroraHost.POS.ControlServidor
                 }
                 LeerConfiguracionEnv();
 
-                // Inicializar base de datos
                 lblProgresoInstalacion.Text = rbFabricaLimpia.Checked ? "Inicializando fabrica..." : "Verificando administrador...";
                 Application.DoEvents();
                 string scriptDb = rbFabricaLimpia.Checked
                     ? Path.Combine(baseDir, "scripts", "barrido-inicial-fabrica.js")
                     : Path.Combine(baseDir, "scripts", "asegurar-admin.js");
                 string argDb = rbFabricaLimpia.Checked ? "--confirmar" : "";
-                if (File.Exists(scriptDb))
-                {
-                    EjecutarScriptNode(scriptDb, argDb, 30000);
-                }
+                if (File.Exists(scriptDb)) EjecutarScriptNode(scriptDb, argDb, 30000);
 
-                // Firewall
                 lblProgresoInstalacion.Text = "Configurando Firewall...";
                 Application.DoEvents();
                 RepararFirewallAccion(false);
 
-                // Registrar servicio apuntando a ESTE MISMO ejecutable con --service
                 lblProgresoInstalacion.Text = "Registrando servicio...";
                 Application.DoEvents();
                 EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
@@ -1694,14 +1841,13 @@ namespace AuroraHost.POS.ControlServidor
                 EjecutarComandoOculto("sc.exe", "config \"" + NOMBRE_SERVICIO + "\" start= delayed-auto");
                 EjecutarComandoOculto("sc.exe", "start \"" + NOMBRE_SERVICIO + "\"");
 
-                // Accesos directos en Escritorio
                 lblProgresoInstalacion.Text = "Creando accesos directos...";
                 Application.DoEvents();
                 CrearAccesosEscritorio();
 
                 lblProgresoInstalacion.Text = "Instalacion completada.";
                 Application.DoEvents();
-                Thread.Sleep(1200);
+                Thread.Sleep(1000);
 
                 MostrarVista("inicio");
                 RefrescarEstadoEnVivo();
@@ -1742,7 +1888,7 @@ namespace AuroraHost.POS.ControlServidor
         }
 
         // =========================================================================
-        // ESTADO EN VIVO Y ACCIONES PRINCIPALES
+        // ESTADO EN VIVO Y ACTUALIZACION DE TARJETAS KPI
         // =========================================================================
         private void RefrescarEstadoEnVivo()
         {
@@ -1761,6 +1907,36 @@ namespace AuroraHost.POS.ControlServidor
             urlLanActual = "http://" + ipLanDetectada + ":" + puertoConfigurado;
             lblIpQr.Text = urlLanActual;
 
+            // Actualizar KPIs pastel
+            if (kpiServidor != null)
+            {
+                kpiServidor.Valor = servidorEnLineaActual ? "En linea" : "Offline";
+                kpiServidor.EtiquetaPill = "Puerto " + puertoConfigurado;
+                kpiServidor.Invalidate();
+            }
+            if (kpiRedLan != null)
+            {
+                kpiRedLan.Valor = ipLanDetectada;
+                kpiRedLan.Invalidate();
+            }
+            if (kpiRespaldos != null)
+            {
+                int totalBak = 0;
+                try { if (Directory.Exists("C:\\POS_BACKUPS")) totalBak = Directory.GetFiles("C:\\POS_BACKUPS", "*.db").Length; } catch { }
+                kpiRespaldos.Valor = totalBak + (totalBak == 1 ? " copia" : " copias");
+                kpiRespaldos.Invalidate();
+            }
+            if (kpiServicios != null)
+            {
+                int activos = 0;
+                foreach (ServicioModulo s in serviciosRegistrados)
+                {
+                    if (VerificarServicioWindowsActivo(s.ServicioWindows)) activos++;
+                }
+                kpiServicios.Valor = activos + " / " + serviciosRegistrados.Count;
+                kpiServicios.Invalidate();
+            }
+
             if (ultimoQrGenerado != urlLanActual)
             {
                 GenerarQrLocalSeguro();
@@ -1776,10 +1952,7 @@ namespace AuroraHost.POS.ControlServidor
                     return sc.Status == ServiceControllerStatus.Running;
                 }
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         private bool ProbarHttpLocal(string url)
@@ -1794,48 +1967,23 @@ namespace AuroraHost.POS.ControlServidor
                     return (int)res.StatusCode >= 200 && (int)res.StatusCode < 500;
                 }
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         private void IniciarServicioAccion(string nombreServicio)
         {
             this.Cursor = Cursors.WaitCursor;
-            try
-            {
-                EjecutarComandoOculto("sc.exe", "start \"" + nombreServicio + "\"");
-                Thread.Sleep(1800);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al iniciar: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-            }
+            try { EjecutarComandoOculto("sc.exe", "start \"" + nombreServicio + "\""); Thread.Sleep(1800); }
+            catch (Exception ex) { MessageBox.Show("Error al iniciar: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            finally { this.Cursor = Cursors.Default; RefrescarEstadoEnVivo(); }
         }
 
         private void DetenerServicioGenerico(string nombreServicio)
         {
             this.Cursor = Cursors.WaitCursor;
-            try
-            {
-                EjecutarComandoOculto("sc.exe", "stop \"" + nombreServicio + "\"");
-                Thread.Sleep(1500);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al detener: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-            }
+            try { EjecutarComandoOculto("sc.exe", "stop \"" + nombreServicio + "\""); Thread.Sleep(1500); }
+            catch (Exception ex) { MessageBox.Show("Error al detener: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            finally { this.Cursor = Cursors.Default; RefrescarEstadoEnVivo(); }
         }
 
         private void ReiniciarServicioAccion(string nombreServicio)
@@ -1848,15 +1996,8 @@ namespace AuroraHost.POS.ControlServidor
                 EjecutarComandoOculto("sc.exe", "start \"" + nombreServicio + "\"");
                 Thread.Sleep(1800);
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al reiniciar: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-            }
+            catch (Exception ex) { MessageBox.Show("Error al reiniciar: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            finally { this.Cursor = Cursors.Default; RefrescarEstadoEnVivo(); }
         }
 
         private void DetenerConBackupObligatorio()
@@ -1870,22 +2011,15 @@ namespace AuroraHost.POS.ControlServidor
                     int code = EjecutarScriptNode(scriptRespaldo, "", 35000);
                     if (code != 0)
                     {
-                        MessageBox.Show("Respaldo previo fallo. Detencion cancelada por seguridad.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        MessageBox.Show("Respaldo previo fallo. Detencion cancelada.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                 }
                 EjecutarComandoOculto("sc.exe", "stop \"" + NOMBRE_SERVICIO + "\"");
                 Thread.Sleep(1800);
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al detener: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-            }
+            catch (Exception ex) { MessageBox.Show("Error al detener: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            finally { this.Cursor = Cursors.Default; RefrescarEstadoEnVivo(); }
         }
 
         private void AbrirNavegadorPos()
@@ -1910,23 +2044,17 @@ namespace AuroraHost.POS.ControlServidor
                         psi.UseShellExecute = true;
                         psi.WindowStyle = ProcessWindowStyle.Maximized;
                         Process p = Process.Start(psi);
-                        if (p != null)
-                        {
-                            try { p.WaitForInputIdle(1500); if (p.MainWindowHandle != IntPtr.Zero) ShowWindow(p.MainWindowHandle, SW_MAXIMIZE); } catch { }
-                        }
+                        if (p != null) { try { p.WaitForInputIdle(1500); if (p.MainWindowHandle != IntPtr.Zero) ShowWindow(p.MainWindowHandle, SW_MAXIMIZE); } catch { } }
                         return;
                     }
                 }
                 Process.Start(url);
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("No se pudo abrir el navegador: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
+            catch (Exception ex) { MessageBox.Show("Error al abrir navegador: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
         }
 
         // =========================================================================
-        // CATALOGO MODULAR DE SERVICIOS (servicios-panel.cfg)
+        // CATALOGO MODULAR DE SERVICIOS
         // =========================================================================
         private void CargarServiciosModulares()
         {
@@ -1982,7 +2110,7 @@ namespace AuroraHost.POS.ControlServidor
             dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
             dlg.MaximizeBox = false;
             dlg.MinimizeBox = false;
-            dlg.BackColor = EsteticaApple.FondoApp;
+            dlg.BackColor = TemaFinora.LienzoFondo;
 
             TextBox tbNom = CrearCampoFormulario(dlg, "Nombre visible", 24, 18, 296, false);
             TextBox tbSrv = CrearCampoFormulario(dlg, "Nombre del Servicio Windows", 24, 76, 296, false);
@@ -2007,15 +2135,12 @@ namespace AuroraHost.POS.ControlServidor
                 {
                     string dirCfg = Path.Combine(baseDir, "portable-windows");
                     if (!Directory.Exists(dirCfg)) Directory.CreateDirectory(dirCfg);
-                    string rutaCfg = Path.Combine(dirCfg, "servicios-panel.cfg");
-                    File.AppendAllText(rutaCfg, nom + "|" + srv + "|" + prt + Environment.NewLine, Encoding.UTF8);
+                    File.AppendAllText(Path.Combine(dirCfg, "servicios-panel.cfg"), nom + "|" + srv + "|" + prt + Environment.NewLine, Encoding.UTF8);
                     CargarServiciosModulares();
                     RenderizarTarjetasServicios();
+                    RefrescarEstadoEnVivo();
                 }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Error al guardar servicio: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                catch (Exception ex) { MessageBox.Show("Error al guardar: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error); }
             }
         }
 
@@ -2029,62 +2154,27 @@ namespace AuroraHost.POS.ControlServidor
             ofd.Filter = "Paquete ZIP (*.zip)|*.zip";
             string dirAct = Path.Combine(baseDir, "actualizaciones");
             if (Directory.Exists(dirAct)) ofd.InitialDirectory = dirAct;
-
             if (ofd.ShowDialog(this) != DialogResult.OK) return;
 
             this.Cursor = Cursors.WaitCursor;
             try
             {
-                string scriptAct = Path.Combine(baseDir, "scripts", "aplicar-actualizacion-segura.js");
-                int code = EjecutarScriptNode(scriptAct, "--zip=\"" + ofd.FileName + "\"", 180000);
-                if (code == 0)
-                {
-                    MessageBox.Show("Actualizacion aplicada con exito.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-                else
-                {
-                    MessageBox.Show("Error al aplicar actualizacion (codigo " + code + ").", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
+                int code = EjecutarScriptNode(Path.Combine(baseDir, "scripts", "aplicar-actualizacion-segura.js"), "--zip=\"" + ofd.FileName + "\"", 180000);
+                MessageBox.Show(code == 0 ? "Actualizacion aplicada." : "Error (codigo " + code + ").", "POS Llanomio", MessageBoxButtons.OK, code == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-            }
+            finally { this.Cursor = Cursors.Default; RefrescarEstadoEnVivo(); }
         }
 
         private void ActualizarDesdeGithubAccion()
         {
-            DialogResult dr = MessageBox.Show("Actualizar desde GitHub?", "POS Llanomio", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-            if (dr != DialogResult.Yes) return;
-
+            if (MessageBox.Show("Actualizar desde GitHub?", "POS Llanomio", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
             this.Cursor = Cursors.WaitCursor;
             try
             {
-                string scriptAct = Path.Combine(baseDir, "scripts", "aplicar-actualizacion-segura.js");
-                int code = EjecutarScriptNode(scriptAct, "--github", 240000);
-                if (code == 0)
-                {
-                    MessageBox.Show("Actualizacion desde GitHub completada.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-                else
-                {
-                    MessageBox.Show("No se pudo actualizar desde GitHub (codigo " + code + ").", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
+                int code = EjecutarScriptNode(Path.Combine(baseDir, "scripts", "aplicar-actualizacion-segura.js"), "--github", 240000);
+                MessageBox.Show(code == 0 ? "Actualizacion completada." : "Error (codigo " + code + ").", "POS Llanomio", MessageBoxButtons.OK, code == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-            }
+            finally { this.Cursor = Cursors.Default; RefrescarEstadoEnVivo(); }
         }
 
         private void GenerarBackupManualAccion()
@@ -2092,22 +2182,10 @@ namespace AuroraHost.POS.ControlServidor
             this.Cursor = Cursors.WaitCursor;
             try
             {
-                string script = Path.Combine(baseDir, "scripts", "respaldo-servicio.js");
-                int code = EjecutarScriptNode(script, "", 45000);
-                if (code == 0)
-                {
-                    MessageBox.Show("Respaldo guardado en C:\\POS_BACKUPS.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
+                int code = EjecutarScriptNode(Path.Combine(baseDir, "scripts", "respaldo-servicio.js"), "", 45000);
+                if (code == 0) MessageBox.Show("Respaldo guardado.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                CargarListaBackups();
-            }
+            finally { this.Cursor = Cursors.Default; CargarListaBackups(); RefrescarEstadoEnVivo(); }
         }
 
         private void CargarListaBackups()
@@ -2124,7 +2202,7 @@ namespace AuroraHost.POS.ControlServidor
                 {
                     FileInfo fi = new FileInfo(arch);
                     double kb = Math.Round((double)fi.Length / 1024, 1);
-                    lstBackups.Items.Add(string.Format("{0,-40} | {1,8} KB | {2:dd/MM/yyyy HH:mm}", fi.Name, kb, fi.LastWriteTime));
+                    lstBackups.Items.Add(string.Format("{0,-42} | {1,8} KB | {2:dd/MM/yyyy HH:mm}", fi.Name, kb, fi.LastWriteTime));
                 }
             }
             catch { }
@@ -2153,10 +2231,7 @@ namespace AuroraHost.POS.ControlServidor
             OpenFileDialog ofd = new OpenFileDialog();
             ofd.Title = "Seleccionar respaldo (.db)";
             ofd.Filter = "SQLite (*.db)|*.db";
-            if (ofd.ShowDialog(this) == DialogResult.OK)
-            {
-                EjecutarRestauracion(ofd.FileName);
-            }
+            if (ofd.ShowDialog(this) == DialogResult.OK) EjecutarRestauracion(ofd.FileName);
         }
 
         private void EjecutarRestauracion(string origen)
@@ -2193,26 +2268,16 @@ namespace AuroraHost.POS.ControlServidor
                     File.Copy(destino, Path.Combine(prevDir, "pre_restauracion_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".db"), true);
                 }
 
-                string wal = destino + "-wal";
-                string shm = destino + "-shm";
-                if (File.Exists(wal)) File.Delete(wal);
-                if (File.Exists(shm)) File.Delete(shm);
+                if (File.Exists(destino + "-wal")) File.Delete(destino + "-wal");
+                if (File.Exists(destino + "-shm")) File.Delete(destino + "-shm");
                 File.Copy(origen, destino, true);
 
                 EjecutarComandoOculto("sc.exe", "start \"" + NOMBRE_SERVICIO + "\"");
                 Thread.Sleep(1800);
                 MessageBox.Show("Base de datos restaurada.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error al restaurar: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-                CargarListaBackups();
-            }
+            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            finally { this.Cursor = Cursors.Default; RefrescarEstadoEnVivo(); CargarListaBackups(); }
         }
 
         private void CrearUsuarioAccion()
@@ -2232,9 +2297,8 @@ namespace AuroraHost.POS.ControlServidor
             this.Cursor = Cursors.WaitCursor;
             try
             {
-                string script = Path.Combine(baseDir, "scripts", "crear-usuario-panel.js");
                 string args = "\"" + nom + "\" \"" + usr + "\" \"" + rol + "\" \"" + pwd + "\" \"" + pin + "\"";
-                int code = EjecutarScriptNode(script, args, 15000);
+                int code = EjecutarScriptNode(Path.Combine(baseDir, "scripts", "crear-usuario-panel.js"), args, 15000);
                 if (code == 0)
                 {
                     MessageBox.Show("Usuario creado: " + usr, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -2243,15 +2307,9 @@ namespace AuroraHost.POS.ControlServidor
                     txtPassword.Text = "";
                     txtPin.Text = "";
                 }
-                else
-                {
-                    MessageBox.Show("No se pudo crear el usuario.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
+                else MessageBox.Show("No se pudo crear el usuario.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-            }
+            finally { this.Cursor = Cursors.Default; }
         }
 
         private void RestablecerAdminAccion()
@@ -2261,12 +2319,9 @@ namespace AuroraHost.POS.ControlServidor
             try
             {
                 int code = EjecutarScriptNode(Path.Combine(baseDir, "scripts", "asegurar-admin.js"), "", 20000);
-                if (code == 0) MessageBox.Show("Credenciales de admin restablecidas.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (code == 0) MessageBox.Show("Admin restablecido.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-            }
+            finally { this.Cursor = Cursors.Default; }
         }
 
         private void FormatearFabricaAccion()
@@ -2282,11 +2337,7 @@ namespace AuroraHost.POS.ControlServidor
                 Thread.Sleep(1500);
                 if (code == 0) MessageBox.Show("Sistema reiniciado de fabrica.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-            }
+            finally { this.Cursor = Cursors.Default; RefrescarEstadoEnVivo(); }
         }
 
         private void DesinstalarServicioAccion()
@@ -2300,11 +2351,7 @@ namespace AuroraHost.POS.ControlServidor
                 EjecutarComandoOculto("sc.exe", "delete \"" + NOMBRE_SERVICIO + "\"");
                 MessageBox.Show("Servicio desinstalado.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            finally
-            {
-                this.Cursor = Cursors.Default;
-                RefrescarEstadoEnVivo();
-            }
+            finally { this.Cursor = Cursors.Default; RefrescarEstadoEnVivo(); }
         }
 
         private void RepararFirewallAccion(bool mostrarAviso)
@@ -2313,10 +2360,7 @@ namespace AuroraHost.POS.ControlServidor
             EjecutarComandoOculto("netsh.exe", "advfirewall firewall delete rule name=\"POS_Llanomio_mDNS\"");
             EjecutarComandoOculto("netsh.exe", "advfirewall firewall add rule name=\"POS_Llanomio_TCP\" dir=in action=allow protocol=TCP localport=" + puertoConfigurado);
             EjecutarComandoOculto("netsh.exe", "advfirewall firewall add rule name=\"POS_Llanomio_mDNS\" dir=in action=allow protocol=UDP localport=5353");
-            if (mostrarAviso)
-            {
-                MessageBox.Show("Firewall configurado (TCP " + puertoConfigurado + " / UDP 5353).", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
+            if (mostrarAviso) MessageBox.Show("Firewall configurado.", "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void CambiarPuertoAccion()
@@ -2438,19 +2482,9 @@ namespace AuroraHost.POS.ControlServidor
                 {
                     foreach (string l in File.ReadAllLines(envPath))
                     {
-                        if (l.Trim().StartsWith("PORT="))
-                        {
-                            nuevas.Add("PORT=" + nuevoPuerto);
-                            encontro = true;
-                        }
-                        else if (l.Trim().StartsWith("HTTP_PORT="))
-                        {
-                            nuevas.Add("HTTP_PORT=" + nuevoPuerto);
-                        }
-                        else
-                        {
-                            nuevas.Add(l);
-                        }
+                        if (l.Trim().StartsWith("PORT=")) { nuevas.Add("PORT=" + nuevoPuerto); encontro = true; }
+                        else if (l.Trim().StartsWith("HTTP_PORT=")) { nuevas.Add("HTTP_PORT=" + nuevoPuerto); }
+                        else { nuevas.Add(l); }
                     }
                 }
                 if (!encontro) nuevas.Add("PORT=" + nuevoPuerto);
