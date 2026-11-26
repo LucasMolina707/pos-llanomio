@@ -463,13 +463,22 @@ namespace AuroraHost.POS.ControlServidor
             this.ColorInicio = TemaFinora.BlancoPuro;
             this.ColorFin = TemaFinora.BlancoPuro;
             this.DoubleBuffered = true;
-            this.BackColor = Color.Transparent;
-            this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.BackColor = TemaFinora.LienzoFondo;
+        }
+
+        protected override void OnControlAdded(ControlEventArgs e)
+        {
+            base.OnControlAdded(e);
+            if (e.Control is Label || e.Control is RadioButton || e.Control is BotonCurvo || e.Control is PildoraEstado || e.Control is BotonSidebarFinora)
+            {
+                e.Control.BackColor = TemaFinora.BlancoPuro;
+            }
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e);
+            e.Graphics.Clear(this.BackColor);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             Rectangle rect = new Rectangle(4, 3, this.Width - 9, this.Height - 9);
             TemaFinora.DibujarSombraSuave(e.Graphics, rect, this.Radio);
@@ -500,13 +509,14 @@ namespace AuroraHost.POS.ControlServidor
         {
             this.Size = new Size(184, 148);
             this.DoubleBuffered = true;
-            this.BackColor = Color.Transparent;
-            this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.BackColor = TemaFinora.LienzoFondo;
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
             Graphics g = e.Graphics;
+            g.Clear(this.BackColor);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
@@ -577,8 +587,8 @@ namespace AuroraHost.POS.ControlServidor
             this.Cursor = Cursors.Hand;
             this.Size = new Size(140, 42);
             this.DoubleBuffered = true;
-            this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
-            this.BackColor = Color.Transparent;
+            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.BackColor = TemaFinora.BlancoPuro;
         }
 
         protected override void OnMouseEnter(EventArgs e) { estaEncima = true; this.Invalidate(); base.OnMouseEnter(e); }
@@ -616,8 +626,8 @@ namespace AuroraHost.POS.ControlServidor
             this.Size = new Size(118, 34);
             this.Font = new Font("Segoe UI Semibold", 9F);
             this.DoubleBuffered = true;
-            this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
-            this.BackColor = Color.Transparent;
+            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.BackColor = TemaFinora.LienzoFondo;
         }
 
         public void ActualizarEstado(bool online, string etiqueta)
@@ -675,8 +685,8 @@ namespace AuroraHost.POS.ControlServidor
             this.Font = new Font("Segoe UI Semibold", 9.5F);
             this.Cursor = Cursors.Hand;
             this.DoubleBuffered = true;
-            this.SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
-            this.BackColor = Color.Transparent;
+            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.BackColor = TemaFinora.BlancoPuro;
         }
 
         protected override void OnMouseEnter(EventArgs e) { hover = true; this.Invalidate(); base.OnMouseEnter(e); }
@@ -900,7 +910,7 @@ namespace AuroraHost.POS.ControlServidor
             Panel marcaPanel = new Panel();
             marcaPanel.Location = new Point(18, 22);
             marcaPanel.Size = new Size(166, 38);
-            marcaPanel.BackColor = Color.Transparent;
+            marcaPanel.BackColor = TemaFinora.BlancoPuro;
             marcaPanel.Paint += delegate(object s, PaintEventArgs e)
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -939,7 +949,7 @@ namespace AuroraHost.POS.ControlServidor
             panelTopBar = new Panel();
             panelTopBar.Dock = DockStyle.Top;
             panelTopBar.Height = 68;
-            panelTopBar.BackColor = Color.Transparent;
+            panelTopBar.BackColor = TemaFinora.LienzoFondo;
             panelDerecho.Controls.Add(panelTopBar);
 
             lblSaludoTop = new Label();
@@ -1065,7 +1075,7 @@ namespace AuroraHost.POS.ControlServidor
 
             Panel box = new Panel();
             box.Size = new Size(766, 520);
-            box.BackColor = Color.Transparent;
+            box.BackColor = TemaFinora.LienzoFondo;
             vistaInicio.Controls.Add(box);
 
             // Fila 1: 4 tarjetas KPI con degradados pastel estilo Finora
@@ -1238,11 +1248,12 @@ namespace AuroraHost.POS.ControlServidor
 
             Panel box = new Panel();
             box.Size = new Size(766, 510);
-            box.BackColor = Color.Transparent;
+            box.BackColor = TemaFinora.LienzoFondo;
             vistaServicios.Controls.Add(box);
 
             BotonCurvo btnAgregar = new BotonCurvo();
             btnAgregar.Text = "+ Agregar Servicio";
+            btnAgregar.BackColor = TemaFinora.LienzoFondo;
             btnAgregar.Size = new Size(168, 38);
             btnAgregar.Location = new Point(590, 4);
             btnAgregar.Click += delegate { AgregarServicioModuloAccion(); };
@@ -1254,7 +1265,7 @@ namespace AuroraHost.POS.ControlServidor
             flowServicios.FlowDirection = FlowDirection.TopDown;
             flowServicios.WrapContents = false;
             flowServicios.AutoScroll = true;
-            flowServicios.BackColor = Color.Transparent;
+            flowServicios.BackColor = TemaFinora.LienzoFondo;
             box.Controls.Add(flowServicios);
 
             RenderizarTarjetasServicios();
@@ -1356,7 +1367,7 @@ namespace AuroraHost.POS.ControlServidor
 
             Panel box = new Panel();
             box.Size = new Size(766, 510);
-            box.BackColor = Color.Transparent;
+            box.BackColor = TemaFinora.LienzoFondo;
             vistaRespaldos.Controls.Add(box);
 
             TarjetaFlotante card = new TarjetaFlotante();
@@ -1422,7 +1433,7 @@ namespace AuroraHost.POS.ControlServidor
 
             Panel box = new Panel();
             box.Size = new Size(766, 480);
-            box.BackColor = Color.Transparent;
+            box.BackColor = TemaFinora.LienzoFondo;
             vistaCuentas.Controls.Add(box);
 
             TarjetaFlotante card = new TarjetaFlotante();
@@ -1524,7 +1535,7 @@ namespace AuroraHost.POS.ControlServidor
 
             Panel box = new Panel();
             box.Size = new Size(766, 480);
-            box.BackColor = Color.Transparent;
+            box.BackColor = TemaFinora.LienzoFondo;
             vistaSistema.Controls.Add(box);
 
             // Actualizacion
