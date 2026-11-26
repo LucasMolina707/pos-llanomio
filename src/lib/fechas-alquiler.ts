@@ -63,18 +63,29 @@ export function parsearFechaLocal(fechaInput?: string | Date | null): Date {
   const limpia = String(fechaInput).trim();
   if (!limpia) return new Date();
 
-  // Si viene en formato 'YYYY-MM-DD' o 'YYYY-MM-DDTHH:mm'
-  if (/^\d{4}-\d{2}-\d{2}/.test(limpia)) {
-    const partesFecha = limpia.split("T")[0].split("-").map(Number);
-    let hora = 12;
-    let min = 0;
-    if (limpia.includes("T")) {
-      const parteHora = limpia.split("T")[1];
-      const sub = parteHora.split(":").map(Number);
-      hora = sub[0] ?? 12;
-      min = sub[1] ?? 0;
-    }
-    return new Date(partesFecha[0], partesFecha[1] - 1, partesFecha[2], hora, min);
+  // 1. Si viene con marca UTC ('Z') o con offset de zona horaria explícito ('+00:00', '-05:00')
+  // El motor de JavaScript lo traslada con precisión exacta a la hora local del usuario
+  if (limpia.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(limpia)) {
+    const d = new Date(limpia);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }
+
+  // 2. Si viene en formato simple 'YYYY-MM-DD' (solo fecha, sin hora ni zona horaria)
+  // Se fija a las 12:00 del mediodía local para evitar que medianoche UTC retroceda de día en UTC-5
+  if (/^\d{4}-\d{2}-\d{2}$/.test(limpia)) {
+    const [yyyy, mm, dd] = limpia.split("-").map(Number);
+    return new Date(yyyy, mm - 1, dd, 12, 0, 0, 0);
+  }
+
+  // 3. Si viene en formato local 'YYYY-MM-DDTHH:mm' o 'YYYY-MM-DDTHH:mm:ss' (sin Z)
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(limpia)) {
+    const [fechaParte, horaParte] = limpia.split("T");
+    const [yyyy, mm, dd] = fechaParte.split("-").map(Number);
+    const partesHora = horaParte.split(":").map(Number);
+    const hora = partesHora[0] ?? 12;
+    const min = partesHora[1] ?? 0;
+    const seg = partesHora[2] ?? 0;
+    return new Date(yyyy, mm - 1, dd, hora, min, seg, 0);
   }
 
   const d = new Date(limpia);
@@ -198,4 +209,73 @@ export function obtenerDescripcionReglaDevolucion(fechaSalidaInput?: string | Da
     mensajeInformativo: `Entrega pactada: ${diaEntrega}`,
   };
 }
+
+/**
+ * Indica si una fecha corresponde a un domingo (día no laboral)
+ */
+export function esDomingo(fechaInput?: string | Date | null): boolean {
+  if (!fechaInput) return false;
+  const d = parsearFechaLocal(fechaInput);
+  return d.getDay() === 0;
+}
+
+/**
+ * Calcula los días y horas de retraso excluyendo estrictamente los domingos (no laborales).
+ * La mora comercial de Llanomio nunca suma días domingos.
+ */
+export function calcularRetrasoSinDomingos(
+  fechaPactadaInput: string | Date,
+  fechaReferencia: Date = new Date()
+): {
+  enMora: boolean;
+  diasRetraso: number;
+  horasRetraso: number;
+  domingosExcluidos: number;
+} {
+  const fechaLimite = parsearFechaLocal(fechaPactadaInput);
+  const diffMs = fechaReferencia.getTime() - fechaLimite.getTime();
+
+  if (diffMs <= 0) {
+    return {
+      enMora: false,
+      diasRetraso: 0,
+      horasRetraso: 0,
+      domingosExcluidos: 0,
+    };
+  }
+
+  const totalHorasRetraso = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
+
+  // Recorrer los días calendario transcurridos para excluir estrictamente los domingos
+  let domingosExcluidos = 0;
+  let diasHabilesMora = 0;
+
+  const inicio = new Date(fechaLimite.getFullYear(), fechaLimite.getMonth(), fechaLimite.getDate(), 0, 0, 0);
+  const fin = new Date(fechaReferencia.getFullYear(), fechaReferencia.getMonth(), fechaReferencia.getDate(), 0, 0, 0);
+  const cursor = new Date(inicio.getTime());
+
+  // Avanzar desde el día siguiente al vencimiento pactado
+  cursor.setDate(cursor.getDate() + 1);
+  while (cursor <= fin) {
+    if (cursor.getDay() === 0) {
+      domingosExcluidos++;
+    } else {
+      diasHabilesMora++;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  // Si venció el mismo día después de las 8:00 p.m., cuenta 1 día hábil salvo que sea domingo
+  if (diasHabilesMora === 0 && diffMs > 0 && fechaReferencia.getDay() !== 0) {
+    diasHabilesMora = 1;
+  }
+
+  return {
+    enMora: true,
+    diasRetraso: Math.max(1, diasHabilesMora),
+    horasRetraso: totalHorasRetraso,
+    domingosExcluidos,
+  };
+}
+
 

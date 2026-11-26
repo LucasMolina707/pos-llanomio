@@ -224,6 +224,11 @@ function parseFechaSegura(val: unknown): Date | null {
   if (typeof val === "string") {
     const trimmed = val.trim();
     if (!trimmed) return null;
+    // Si viene solo la fecha 'YYYY-MM-DD', fijar a las 12:00 mediodía para evitar saltos UTC
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [yyyy, mm, dd] = trimmed.split("-").map(Number);
+      return new Date(yyyy, mm - 1, dd, 12, 0, 0);
+    }
     const d = new Date(trimmed);
     return isNaN(d.getTime()) ? null : d;
   }

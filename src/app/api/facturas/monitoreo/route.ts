@@ -96,32 +96,40 @@ export async function GET(req: NextRequest) {
 
     // Procesar cada factura con el motor dinámico de moras
     const facturasProcesadas = facturas.map((fac) => {
-      const calculo = calcularMoraDeFactura(fac, ahora);
+      const esAnulada = fac.estado === EstadoFactura.ANULADA;
+      const calculo = esAnulada
+        ? { enMora: false, recargoMoraCalculado: 0, diasRetraso: 0, horasRetraso: 0, prendasEnMora: [] }
+        : calcularMoraDeFactura(fac, ahora);
 
-      const saldoBase = Math.max(
-        0,
-        Math.round(((fac.totalFactura || 0) - (fac.totalAbonado || 0)) * 100) / 100
-      );
-      const recargoMora = Math.round(calculo.recargoMoraCalculado * 100) / 100;
-      const totalExigible = Math.round((saldoBase + recargoMora) * 100) / 100;
+      const saldoBase = esAnulada
+        ? 0
+        : Math.max(
+            0,
+            Math.round(((fac.totalFactura || 0) - (fac.totalAbonado || 0)) * 100) / 100
+          );
+      const recargoMora = esAnulada ? 0 : Math.round(calculo.recargoMoraCalculado * 100) / 100;
+      const totalExigible = esAnulada ? 0 : Math.round((saldoBase + recargoMora) * 100) / 100;
 
       const esAlquilerOp = fac.tipoOperacion === "ALQUILER";
       const esSepareOp = fac.tipoOperacion === "SEPARE" || (fac.tipoOperacion as string) === "APARTADO";
       const esVentaOp = !esAlquilerOp && !esSepareOp;
 
-      // 1. Alquileres finalizados / cerrados: el traje ya regresó a la tienda
+      // 1. Alquileres finalizados / cerrados: el traje ya regresó a la tienda (y no está anulada)
       const esAlquilerFinalizado =
+        !esAnulada &&
         esAlquilerOp &&
         (fac.estado === EstadoFactura.CERRADA || Boolean(fac.fechaDevolucionReal));
 
       // 2. Alquileres activos ("En Alquiler"): trajes que actualmente están en poder del cliente
       const esCajaAlquiler =
+        !esAnulada &&
         esAlquilerOp &&
         !fac.fechaDevolucionReal &&
         fac.estado !== EstadoFactura.CERRADA;
 
       // 3. Apartados activos: prendas reservadas en tienda esperando retiro
       const esApartado =
+        !esAnulada &&
         esSepareOp &&
         fac.estado !== EstadoFactura.CERRADA;
 
@@ -140,11 +148,13 @@ export async function GET(req: NextRequest) {
 
       // En mora activa con días corriendo
       const enMora =
+        !esAnulada &&
         !esAlquilerFinalizado &&
         (calculo.enMora || prendaSinEntregar || calculo.diasRetraso > 0 || recargoMora > 0);
 
       // Venta saldada (100% pagada)
       const esPazYSalvoVenta =
+        !esAnulada &&
         esVentaOp &&
         (fac.estado === EstadoFactura.CERRADA || saldoBase === 0);
 
@@ -152,10 +162,12 @@ export async function GET(req: NextRequest) {
       // Si es alquiler: debe tener traje devuelto y estar sin saldo de mora ni canon
       // Si es venta: saldoBase === 0
       const esPazYSalvo =
-        (esAlquilerOp && esAlquilerFinalizado && saldoBase === 0 && recargoMora === 0) ||
-        (esVentaOp && esPazYSalvoVenta);
+        !esAnulada &&
+        ((esAlquilerOp && esAlquilerFinalizado && saldoBase === 0 && recargoMora === 0) ||
+          (esVentaOp && esPazYSalvoVenta));
 
       const estaCerrada =
+        esAnulada ||
         fac.estado === EstadoFactura.CERRADA ||
         (esAlquilerFinalizado && saldoBase === 0) ||
         (esVentaOp && saldoBase === 0);
@@ -179,6 +191,7 @@ export async function GET(req: NextRequest) {
         diasRetraso: calculo.diasRetraso,
         horasRetraso: calculo.horasRetraso,
         enMora,
+        esAnulada,
         prendasEnMora: calculo.prendasEnMora,
         prendaPrincipal,
         // Flags principales unificados
@@ -210,6 +223,7 @@ export async function GET(req: NextRequest) {
     const conteoAlquileresFinalizados = facturasProcesadas.filter((f) => f.esAlquilerFinalizado).length;
     const conteoPazYSalvos = facturasProcesadas.filter((f) => f.esPazYSalvo || f.esPazYSalvoVenta || f.esAlquilerFinalizado).length;
     const conteoPazYSalvoVentas = facturasProcesadas.filter((f) => f.esPazYSalvoVenta).length;
+    const conteoAnuladas = facturasProcesadas.filter((f) => f.esAnulada).length;
 
     // Conteos legados
     const conteoPendientesAlDia = conteoCajaAlquilerAlDia;
@@ -290,6 +304,8 @@ export async function GET(req: NextRequest) {
       facturasFiltradas = facturasProcesadas.filter((f) => f.esMoraYSaldo);
     } else if (pestana === "SOLO_MORA") {
       facturasFiltradas = facturasProcesadas.filter((f) => f.esSoloMora);
+    } else if (pestana === "ANULADAS" || pestana === "ANULADA") {
+      facturasFiltradas = facturasProcesadas.filter((f) => f.esAnulada);
     } else if (pestana === "TODOS" || pestana === "ALL") {
       facturasFiltradas = facturasProcesadas;
     }
@@ -308,6 +324,7 @@ export async function GET(req: NextRequest) {
           conteoPazYSalvos,
           conteoAlquileresFinalizados,
           conteoPazYSalvoVentas,
+          conteoAnuladas,
           conteoPendientesAlDia,
           conteoMoraYSaldo,
           conteoSoloMora,

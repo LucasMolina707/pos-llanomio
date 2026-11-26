@@ -25,7 +25,7 @@ import {
   descargarPdfSegunFormato,
 } from "@/lib/pdf-media-carta";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
-import { formatearFechaConDia } from "@/lib/fechas-alquiler";
+import { formatearFechaConDia, calcularRetrasoSinDomingos } from "@/lib/fechas-alquiler";
 import {
   FormatoImpresionTipo,
   esFormatoImpresionValido,
@@ -637,9 +637,12 @@ export default function PlantillaImpresion({
       factura.estado === "CERRADA" ||
       Boolean(factura.fechaDevolucionReal);
 
+    const esFacturaAnulada = factura.estado === "ANULADA";
     let tituloComprobante = "FACTURA DE VENTA";
 
-    if (esVenta) {
+    if (esFacturaAnulada) {
+      tituloComprobante = `DOCUMENTO ANULADO — ${esAlquiler ? "ALQUILER" : esApartado ? "APARTADO" : "VENTA"}`;
+    } else if (esVenta) {
       tituloComprobante = esPazYSalvo
         ? "FACTURA DE VENTA"
         : "COMPROBANTE DE VENTA — SALDO PENDIENTE";
@@ -677,16 +680,14 @@ export default function PlantillaImpresion({
       if (factura.fechaDevolucionReal) {
         textoPlazoYDevolucion = "PRENDAS DEVUELTAS A CONFORMIDAD";
       } else if (factura.fechaDevolucionPactada) {
-        const ahora = new Date();
-        const limite = new Date(factura.fechaDevolucionPactada);
-        if (ahora > limite) {
+        const retraso = calcularRetrasoSinDomingos(factura.fechaDevolucionPactada);
+        if (retraso.enMora) {
           estaEnMora = true;
-          const diffMs = ahora.getTime() - limite.getTime();
-          diasRetraso = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-          horasRetraso = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          diasRetraso = retraso.diasRetraso;
+          horasRetraso = retraso.horasRetraso;
           const detalleMora =
             diasRetraso > 0 ? `${diasRetraso} d y ${horasRetraso} h` : `${horasRetraso} h`;
-          textoPlazoYDevolucion = `YA SE PASÓ DE LA FECHA DE ENTREGA (EN MORA — ${detalleMora} de retraso)`;
+          textoPlazoYDevolucion = `YA SE PASÓ DE LA FECHA DE ENTREGA (EN MORA — ${detalleMora} de retraso sin domingos)`;
         } else {
           textoPlazoYDevolucion = esPazYSalvo
             ? "ESTÁ EN PLAZO / AL DÍA (Prendas en custodia — Pago completo)"
@@ -1128,7 +1129,7 @@ export default function PlantillaImpresion({
               <div className="my-1.5 p-2 bg-amber-50/90 rounded border border-amber-300 text-amber-950 text-center text-[10px] leading-snug w-full space-y-1">
                 <p className="font-black uppercase tracking-wider text-[9px] text-amber-900 border-b border-amber-200 pb-0.5">OBSERVACIONES</p>
                 <p className="font-semibold">
-                  A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.
+                  A partir del día siguiente hábil a la fecha pactada de entrega (excluyendo domingos no laborales) se descontará {formatCOP(tarifaMoraDiariaOficial)} por día de mora del depósito en garantía.
                 </p>
                 {factura.observaciones && (
                   <p className="italic text-[9.5px] text-slate-800 pt-0.5 border-t border-amber-200">
@@ -1693,7 +1694,7 @@ export default function PlantillaImpresion({
                 {/* BANNER OFICIAL DE OBSERVACIONES Y MORA (DEBAJO DEL CUADRO) */}
                 <div className="p-1.5 bg-amber-50/60 border border-amber-300 text-center text-[8.5px] sm:text-[9.5px] text-amber-950 my-1 w-full leading-snug space-y-0.5">
                   <div className="font-bold">
-                    OBSERVACIÓN: A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.
+                    OBSERVACIÓN: A partir del día siguiente hábil a la fecha pactada de entrega (excluyendo domingos no laborales) se descontará {formatCOP(tarifaMoraDiariaOficial)} por día de mora del depósito en garantía.
                   </div>
                   {factura.observaciones && (
                     <div className="italic text-[8px] sm:text-[9px] text-slate-800 pt-0.5 border-t border-amber-200">
@@ -2255,7 +2256,7 @@ export default function PlantillaImpresion({
                 <div className="p-3 bg-amber-50/90 rounded-xl border border-amber-300 text-center text-xs text-amber-950 my-1 w-full leading-relaxed space-y-1">
                   <p className="font-black uppercase tracking-wider text-[11px] text-amber-900 border-b border-amber-200 pb-0.5">OBSERVACIONES</p>
                   <p className="font-bold">
-                    A partir del día siguiente de la fecha de entrega se descontará {formatCOP(tarifaMoraDiariaOficial)} pesos por día de mora del depósito en garantía.
+                    A partir del día siguiente hábil a la fecha pactada de entrega (excluyendo domingos no laborales) se descontará {formatCOP(tarifaMoraDiariaOficial)} por día de mora del depósito en garantía.
                   </p>
                   {factura.observaciones && (
                     <p className="italic text-slate-800 pt-1 border-t border-amber-200">

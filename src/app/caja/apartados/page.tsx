@@ -75,7 +75,13 @@ import { useCajonSincronizado } from "@/hooks/useCajonSincronizado";
 import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
-import { calcularFechaDevolucionAlquiler, obtenerDescripcionReglaDevolucion, formatearEtiquetaDiaYFecha, formatearFechaConDia } from "@/lib/fechas-alquiler";
+import {
+  calcularFechaDevolucionAlquiler,
+  obtenerDescripcionReglaDevolucion,
+  formatearEtiquetaDiaYFecha,
+  formatearFechaConDia,
+  parsearFechaLocal,
+} from "@/lib/fechas-alquiler";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useMapaAtajosTeclado } from "@/hooks/useAtajoTeclado";
 import ModalAnularFactura, { FacturaParaAnular } from "@/components/facturas/ModalAnularFactura";
@@ -672,8 +678,8 @@ const procesarGuardadoApartado = async () => {
       clienteId: clienteSeleccionado.id,
       tipoOperacion: "SEPARE",
       items: detallesPayload,
-      fechaRetiroApartado: fechaSalida ? new Date(fechaSalida).toISOString() : null,
-      fechaDevolucionEstimada: fechaDevolucion ? new Date(fechaDevolucion).toISOString() : null,
+      fechaRetiroApartado: fechaSalida ? parsearFechaLocal(fechaSalida).toISOString() : null,
+      fechaDevolucionEstimada: fechaDevolucion ? parsearFechaLocal(fechaDevolucion).toISOString() : null,
       // Bloque A: Reserva / Alquiler
       totalFactura: totalAlquiler,
       totalAbonado: abonoComercialReal,

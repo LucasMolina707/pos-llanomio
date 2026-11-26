@@ -148,6 +148,8 @@ export interface FacturaMonitoreo {
   esPazYSalvoVenta?: boolean;
   fechaRetiroApartado?: string | null;
   fechaDevolucionEstimada?: string | null;
+  esAnulada?: boolean;
+  observaciones?: string | null;
   cliente: {
     id: string;
     nombre: string;
@@ -203,7 +205,8 @@ export type VistaPrincipalPos = "NUEVA_FACTURA" | "HISTORIAL";
 export type PestanaHistorial =
   | "EN_ALQUILER"
   | "APARTADOS"
-  | "PAZ_Y_SALVOS";
+  | "PAZ_Y_SALVOS"
+  | "ANULADAS";
 
 export type EstadoSeguridadPos = EstadoSeguridadCajaInfo;
 
@@ -310,6 +313,7 @@ export default function PosPage() {
     conteoPazYSalvos: number;
     conteoAlquileresFinalizados: number;
     conteoPazYSalvoVentas: number;
+    conteoAnuladas?: number;
     conteoPendientesAlDia: number;
     conteoMoraYSaldo: number;
     conteoSoloMora: number;
@@ -328,6 +332,7 @@ export default function PosPage() {
     conteoPazYSalvos: 0,
     conteoAlquileresFinalizados: 0,
     conteoPazYSalvoVentas: 0,
+    conteoAnuladas: 0,
     conteoPendientesAlDia: 0,
     conteoMoraYSaldo: 0,
     conteoSoloMora: 0,
@@ -654,10 +659,13 @@ export default function PosPage() {
       });
     } else if (pestanaHistorial === "PAZ_Y_SALVOS") {
       porPestana = facturasMonitoreo.filter((f) => {
+        if (f.estado === "ANULADA" || f.esAnulada) return false;
         if (subfiltroHistorial === "DEVUELTOS") return Boolean(f.esAlquilerFinalizado);
         if (subfiltroHistorial === "VENTAS") return Boolean(f.esPazYSalvoVenta);
         return f.esPazYSalvo || f.esAlquilerFinalizado || f.esPazYSalvoVenta;
       });
+    } else if (pestanaHistorial === "ANULADAS") {
+      porPestana = facturasMonitoreo.filter((f) => f.estado === "ANULADA" || f.esAnulada);
     }
 
     // Filtrado difuso fuzzy multi-campo
@@ -1587,8 +1595,8 @@ export default function PosPage() {
                 </div>
               </div>
 
-              {/* Barra de 3 Pestañas Oficiales */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+              {/* Barra de Pestañas Oficiales */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
                 {/* Pestaña 1: En Alquiler */}
                 <button
                   type="button"
@@ -1670,6 +1678,34 @@ export default function PosPage() {
                     }`}
                   >
                     {estadisticasMonitoreo.conteoPazYSalvos ?? 0}
+                  </span>
+                </button>
+
+                {/* Pestaña 4: Anuladas (Registros Fantasma) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPestanaHistorial("ANULADAS");
+                    setSubfiltroHistorial("TODOS");
+                  }}
+                  className={`flex items-center justify-between p-3 rounded-xl border text-xs sm:text-sm font-bold transition min-h-[44px] cursor-pointer ${
+                    pestanaHistorial === "ANULADAS"
+                      ? "bg-rose-50 border-rose-600 text-rose-950 ring-2 ring-rose-600/20"
+                      : "bg-slate-50/80 border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>4. Anuladas</span>
+                  </div>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-black ${
+                      pestanaHistorial === "ANULADAS"
+                        ? "bg-rose-600 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
+                  >
+                    {estadisticasMonitoreo.conteoAnuladas ?? 0}
                   </span>
                 </button>
               </div>
@@ -1849,6 +1885,16 @@ export default function PosPage() {
                           </>
                         )}
 
+                        {pestanaHistorial === "ANULADAS" && (
+                          <>
+                            <th className="px-3.5 py-3">Operación / Ítems</th>
+                            <th className="px-3.5 py-3 text-center">Fecha Transacción</th>
+                            <th className="px-3.5 py-3 text-right font-bold text-slate-800">Valor Anulado</th>
+                            <th className="px-3.5 py-3 text-center">Estado en Sistema</th>
+                            <th className="px-3.5 py-3 text-center">Observaciones / Motivo</th>
+                          </>
+                        )}
+
                         <th className="px-3.5 py-3 text-center">Acciones</th>
                       </tr>
                     </thead>
@@ -1859,8 +1905,17 @@ export default function PosPage() {
                             ? `${f.diasRetraso} d ${f.horasRetraso % 24} h`
                             : `${f.horasRetraso} hrs`;
 
+                        const esRegistroAnulado = f.esAnulada || f.estado === "ANULADA";
+
                         return (
-                          <tr key={f.id} className="hover:bg-slate-50/80 transition">
+                          <tr
+                            key={f.id}
+                            className={`transition ${
+                              esRegistroAnulado
+                                ? "bg-slate-50/70 opacity-75 hover:opacity-100 border-l-4 border-l-rose-500"
+                                : "hover:bg-slate-50/80"
+                            }`}
+                          >
                             {/* Operación / Fecha */}
                             <td className="px-3.5 py-3">
                               <strong className="font-mono text-slate-900 block font-black text-sm md:text-base">
@@ -2012,6 +2067,40 @@ export default function PosPage() {
                               </>
                             )}
 
+                            {/* COLUMNAS ANULADAS (REGISTRO FANTASMA) */}
+                            {pestanaHistorial === "ANULADAS" && (
+                              <>
+                                <td className="px-3.5 py-3">
+                                  <span className="px-2 py-0.5 rounded text-[10.5px] font-black uppercase bg-rose-100 text-rose-800 border border-rose-300 block w-fit mb-1">
+                                    {f.tipoOperacion} (ANULADA)
+                                  </span>
+                                  <strong className="text-slate-600 text-xs font-bold block truncate max-w-[200px] line-through">
+                                    {f.prendaPrincipal}
+                                  </strong>
+                                </td>
+                                <td className="px-3.5 py-3 text-center text-xs font-mono text-slate-500 capitalize">
+                                  {formatearFechaConDia(f.fechaCreacion, false, "corto")}
+                                </td>
+                                <td className="px-3.5 py-3 text-right font-mono font-bold text-slate-400 text-sm md:text-base line-through">
+                                  ${f.totalFactura.toLocaleString("es-CO")}
+                                </td>
+                                <td className="px-3.5 py-3 text-center">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                                    <span>Anulada en Historial</span>
+                                  </span>
+                                  <span className="block text-[10px] text-slate-500 font-medium mt-0.5">
+                                    Dinero revertido en caja &bull; Stock devuelto
+                                  </span>
+                                </td>
+                                <td className="px-3.5 py-3 text-center text-xs text-slate-600 max-w-[220px]">
+                                  <span className="block truncate italic text-[11px]" title={f.observaciones || "Anulada por supervisor"}>
+                                    {f.observaciones || "Anulación autorizada"}
+                                  </span>
+                                </td>
+                              </>
+                            )}
+
                             {/* Acciones */}
                             <td className="px-3.5 py-3 text-center">
                               <div className="flex items-center justify-center gap-1.5">
@@ -2086,27 +2175,36 @@ export default function PosPage() {
                                   onClick={() => abrirReimpresionUniversal(f)}
                                 />
 
-                                {/* Botón Anular Factura (Doble Verificación) */}
-                                <IconButtonTooltip
-                                  icon={Trash2}
-                                  label="Anular factura (doble verificación de 2 pasos con clave supervisor)"
-                                  variant="danger"
-                                  size="md"
-                                  onClick={() => {
-                                    setFacturaParaAnular({
-                                      id: f.id,
-                                      numeroFactura: f.numeroFactura,
-                                      clienteNombre: f.cliente?.nombre,
-                                      clienteDocumento: f.cliente?.documento,
-                                      tipoOperacion: f.tipoOperacion,
-                                      totalFactura: f.totalFactura,
-                                      totalAbonado: f.totalAbonado,
-                                      saldoPendiente: f.saldoPendiente,
-                                      cantidadPrendas: f.detalles?.length,
-                                      prendaPrincipal: f.detalles?.[0]?.producto?.nombre || f.detalles?.[0]?.descripcionLibre || undefined,
-                                    });
-                                  }}
-                                />
+                                {/* Botón Anular Factura (Doble Verificación) - Solo si no está anulada */}
+                                {!f.esAnulada && f.estado !== "ANULADA" ? (
+                                  <IconButtonTooltip
+                                    icon={Trash2}
+                                    label="Anular factura (reintegra productos a inventario y revierte dinero a caja)"
+                                    variant="danger"
+                                    size="md"
+                                    onClick={() => {
+                                      setFacturaParaAnular({
+                                        id: f.id,
+                                        numeroFactura: f.numeroFactura,
+                                        clienteNombre: f.cliente?.nombre,
+                                        clienteDocumento: f.cliente?.documento,
+                                        tipoOperacion: f.tipoOperacion,
+                                        totalFactura: f.totalFactura,
+                                        totalAbonado: f.totalAbonado,
+                                        saldoPendiente: f.saldoPendiente,
+                                        cantidadPrendas: f.detalles?.length,
+                                        prendaPrincipal: f.detalles?.[0]?.producto?.nombre || f.detalles?.[0]?.descripcionLibre || undefined,
+                                      });
+                                    }}
+                                  />
+                                ) : (
+                                  <span
+                                    className="px-2 py-1 rounded text-[10.5px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-200 select-none"
+                                    title={f.observaciones || "Comprobante anulado y revertido"}
+                                  >
+                                    Anulado
+                                  </span>
+                                )}
                               </div>
                             </td>
                           </tr>

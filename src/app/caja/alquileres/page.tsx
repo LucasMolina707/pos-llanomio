@@ -55,6 +55,7 @@ import {
   Split,
   Wallet,
   ChevronDown,
+  Edit3,
 } from "lucide-react";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import InputDinero from "@/components/ui/InputDinero";
@@ -86,7 +87,14 @@ import ModalAnularFactura, { FacturaParaAnular } from "@/components/facturas/Mod
 import BarraEstadoCajon from "@/components/caja/BarraEstadoCajon";
 import BotonAbrirCajon from "@/components/caja/BotonAbrirCajon";
 import { safeFetchJson } from "@/lib/safe-fetch";
-import { calcularFechaDevolucionAlquiler, obtenerDescripcionReglaDevolucion, formatearEtiquetaDiaYFecha, formatearFechaConDia } from "@/lib/fechas-alquiler";
+import {
+  calcularFechaDevolucionAlquiler,
+  obtenerDescripcionReglaDevolucion,
+  formatearEtiquetaDiaYFecha,
+  formatearFechaConDia,
+  esDomingo,
+  parsearFechaLocal,
+} from "@/lib/fechas-alquiler";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useMapaAtajosTeclado } from "@/hooks/useAtajoTeclado";
 
@@ -269,6 +277,8 @@ export default function TerminalAlquileresPage() {
     return calcularFechaDevolucionAlquiler();
   });
 
+  const [modalEditarFechasAbierto, setModalEditarFechasAbierto] = useState(false);
+
   const reglaFechaTexto = useMemo(() => {
     return obtenerDescripcionReglaDevolucion(fechaSalida);
   }, [fechaSalida]);
@@ -279,6 +289,24 @@ export default function TerminalAlquileresPage() {
       const calculada = calcularFechaDevolucionAlquiler(nuevaFechaSalida);
       setFechaDevolucion(calculada);
     }
+  };
+
+  // Ajusta la devolución sumando días hábiles (omitiendo domingos no laborales) con hora fija a las 20:00
+  const aplicarAjusteDiasDevolucion = (diasHabilesASumar: number) => {
+    const base = parsearFechaLocal(fechaSalida);
+    const cursor = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 20, 0, 0, 0);
+    let agregados = 0;
+    while (agregados < diasHabilesASumar) {
+      cursor.setDate(cursor.getDate() + 1);
+      if (cursor.getDay() !== 0) {
+        agregados++;
+      }
+    }
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const yyyy = cursor.getFullYear();
+    const mm = pad(cursor.getMonth() + 1);
+    const dd = pad(cursor.getDate());
+    setFechaDevolucion(`${yyyy}-${mm}-${dd}T20:00`);
   };
 
   // Bloque 1: Depósito en Garantía (Custodia Devoluble)
@@ -1272,8 +1300,8 @@ export default function TerminalAlquileresPage() {
           metodoPagoDeposito: metodoCustodiaFinal,
           depositoRecibidoHoy: montoDeposito > 0,
           tarifaMoraDiaria: Number(tarifaMoraDiaria) || 3000,
-          fechaEntregaAlquiler: fechaSalida,
-          fechaDevolucionPactada: new Date(fechaDevolucion).toISOString(),
+          fechaEntregaAlquiler: fechaSalida ? parsearFechaLocal(fechaSalida).toISOString() : new Date().toISOString(),
+          fechaDevolucionPactada: fechaDevolucion ? parsearFechaLocal(fechaDevolucion).toISOString() : new Date().toISOString(),
           notas: notasAlquiler.trim() || undefined,
           detalles: itemsCarrito.map((it) => ({
             productoId: it.productoId || undefined,
@@ -1305,8 +1333,8 @@ export default function TerminalAlquileresPage() {
           clienteId: clienteSeleccionado.id,
           turnoCajaId: cajon.cajonConectado?.id || cajon.turnoAbierto?.id || undefined,
           tipoOperacion: "ALQUILER",
-          fechaEntregaAlquiler: fechaSalida,
-          fechaDevolucionPactada: new Date(fechaDevolucion).toISOString(),
+          fechaEntregaAlquiler: fechaSalida ? parsearFechaLocal(fechaSalida).toISOString() : new Date().toISOString(),
+          fechaDevolucionPactada: fechaDevolucion ? parsearFechaLocal(fechaDevolucion).toISOString() : new Date().toISOString(),
           notas: notasAlquiler.trim() || undefined,
           montoDeposito: montoDeposito,
           depositoAbonado: depositoExigibleHoy,
@@ -1332,8 +1360,8 @@ export default function TerminalAlquileresPage() {
             productoId: it.productoId,
             cantidad: it.cantidad,
             precioUnitario: it.precioUnitario,
-            fechaEntrega: fechaSalida,
-            fechaDevolucion: new Date(fechaDevolucion).toISOString(),
+            fechaEntrega: fechaSalida ? parsearFechaLocal(fechaSalida).toISOString() : new Date().toISOString(),
+            fechaDevolucion: fechaDevolucion ? parsearFechaLocal(fechaDevolucion).toISOString() : new Date().toISOString(),
             descripcionDetallada: it.descripcionDetallada?.trim() || undefined,
           })),
           metodoPago: listaPagosFinal.length === 1 ? listaPagosFinal[0].metodoPago : listaPagosFinal.length > 1 ? "MIXTO" : metodoPagoPrincipal,
@@ -2947,31 +2975,61 @@ export default function TerminalAlquileresPage() {
                   {/* Fechas del Contrato (shrink-0) */}
                   <div className="shrink-0 px-3 py-2 border-b border-slate-200 bg-slate-50/70">
                     <div className="flex items-center justify-between gap-1 mb-1.5 min-w-0">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block shrink-0">
-                        Fechas del Contrato
-                      </span>
-                      {itemsCarrito.length > 0 && reglaFechaTexto.diaEntrega && (
-                        <span
-                          className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-semibold truncate max-w-[190px]"
-                          title={reglaFechaTexto.mensajeInformativo}
-                        >
-                          Pactado: {reglaFechaTexto.diaEntrega}
+                      <div className="flex items-center gap-1.5">
+                        <CalendarClock className="w-3.5 h-3.5 text-orange-600" />
+                        <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block shrink-0">
+                          Fechas del Contrato
                         </span>
-                      )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {itemsCarrito.length > 0 && reglaFechaTexto.diaEntrega && (
+                          <span
+                            className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-semibold truncate max-w-[130px]"
+                            title={reglaFechaTexto.mensajeInformativo}
+                          >
+                            Pactado: {reglaFechaTexto.diaEntrega}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setModalEditarFechasAbierto(true)}
+                          className="px-2 py-0.5 rounded-lg border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-950 font-bold text-[10px] transition flex items-center gap-1 cursor-pointer"
+                          title="Personalizar fecha de salida o devolución pactada"
+                        >
+                          <Edit3 className="w-2.5 h-2.5 text-orange-700" />
+                          <span>Editar</span>
+                        </button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="p-1.5 rounded-lg bg-white border border-slate-200 flex flex-col justify-center">
-                        <span className="text-[9.5px] font-bold text-slate-500 uppercase">Salida</span>
+                      <button
+                        type="button"
+                        onClick={() => setModalEditarFechasAbierto(true)}
+                        className="p-1.5 rounded-lg bg-white border border-slate-200 hover:border-emerald-300 transition text-left flex flex-col justify-center cursor-pointer shadow-2xs group"
+                        title="Clic para cambiar fecha de salida"
+                      >
+                        <span className="text-[9.5px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                          <span>Salida</span>
+                          <Edit3 className="w-2.5 h-2.5 text-slate-400 group-hover:text-emerald-600" />
+                        </span>
                         <span className="text-xs font-bold text-emerald-700 capitalize truncate">
                           {formatearEtiquetaDiaYFecha(fechaSalida)}
                         </span>
-                      </div>
-                      <div className="p-1.5 rounded-lg bg-white border border-slate-200 flex flex-col justify-center">
-                        <span className="text-[9.5px] font-bold text-slate-500 uppercase">Devolución</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setModalEditarFechasAbierto(true)}
+                        className="p-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-300 transition text-left flex flex-col justify-center cursor-pointer shadow-2xs group"
+                        title="Clic para cambiar fecha pactada de devolución"
+                      >
+                        <span className="text-[9.5px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                          <span>Devolución (8:00 p.m.)</span>
+                          <Edit3 className="w-2.5 h-2.5 text-slate-400 group-hover:text-blue-600" />
+                        </span>
                         <span className="text-xs font-bold text-blue-800 capitalize truncate">
                           {formatearEtiquetaDiaYFecha(fechaDevolucion, false)}
                         </span>
-                      </div>
+                      </button>
                     </div>
                   </div>
 
@@ -3697,6 +3755,144 @@ export default function TerminalAlquileresPage() {
               setModalCrearPrendaAbierto(false);
             }}
           />
+        )
+      }
+
+      {/* Modal de Edición Flexible de Fechas de Contrato (Sin Domingos) */}
+      {
+        modalEditarFechasAbierto && (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full flex flex-col overflow-hidden">
+              <div className="p-4 bg-orange-50/80 border-b border-orange-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CalendarClock className="w-5 h-5 text-orange-600" />
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">
+                      Editar Fechas del Contrato de Alquiler
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Límite pactado a las 8:00 p.m. Domingos no laborales.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalEditarFechasAbierto(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+                  title="Cerrar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-4 sm:p-5 space-y-4">
+                {/* Campo 1: Fecha de Salida */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                    Fecha de Salida / Entrega:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={fechaSalida}
+                      onChange={(e) => handleCambioFechaSalida(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                    <span className="text-xs font-bold text-emerald-700 px-2.5 py-2 bg-emerald-50 border border-emerald-200 rounded-xl shrink-0">
+                      {formatearEtiquetaDiaYFecha(fechaSalida)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Atajos Rápidos de Días */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Atajos rápidos según días hábiles:
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const calculada = calcularFechaDevolucionAlquiler(fechaSalida);
+                        setFechaDevolucion(calculada);
+                      }}
+                      className="px-2 py-1.5 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-950 font-bold text-[11px] transition text-center cursor-pointer"
+                    >
+                      Regla Estándar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => aplicarAjusteDiasDevolucion(2)}
+                      className="px-2 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold text-[11px] transition text-center cursor-pointer"
+                    >
+                      +2 Días Hábiles
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => aplicarAjusteDiasDevolucion(3)}
+                      className="px-2 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold text-[11px] transition text-center cursor-pointer"
+                    >
+                      +3 Días Hábiles
+                    </button>
+                  </div>
+                </div>
+
+                {/* Campo 2: Fecha de Devolución Pactada */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                    Fecha Límite de Devolución Pactada:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={fechaDevolucion ? fechaDevolucion.split("T")[0] : ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) {
+                          setFechaDevolucion("");
+                          return;
+                        }
+                        setFechaDevolucion(`${val}T20:00`);
+                      }}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                    <span className="text-xs font-bold text-blue-800 px-2.5 py-2 bg-blue-50 border border-blue-200 rounded-xl shrink-0">
+                      {formatearEtiquetaDiaYFecha(fechaDevolucion, false)} - 8:00 p.m.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Advertencia si selecciona Domingo */}
+                {esDomingo(fechaDevolucion) && (
+                  <div className="p-3 rounded-2xl bg-amber-50 border border-amber-300 flex items-start gap-2 text-xs text-amber-950 font-medium">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block font-bold">Atención: El domingo no es laboral</strong>
+                      El establecimiento no abre los domingos, no se reciben prendas ni computan moras los domingos. Se recomienda pactar la entrega para el lunes a las 8:00 p.m.
+                      <button
+                        type="button"
+                        onClick={() => aplicarAjusteDiasDevolucion(1)}
+                        className="mt-1.5 block px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition cursor-pointer"
+                      >
+                        Mover al Lunes siguiente (8:00 p.m.)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalEditarFechasAbierto(false)}
+                  className="px-5 py-2 rounded-xl text-xs font-black text-white bg-orange-600 hover:bg-orange-700 shadow-sm flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Aplicar Fechas al Contrato</span>
+                </button>
+              </div>
+            </div>
+          </div>
         )
       }
 

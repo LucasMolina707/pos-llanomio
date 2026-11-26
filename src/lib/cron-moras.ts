@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { EstadoFactura, UnidadMora, TipoProducto } from "@prisma/client";
+import { calcularRetrasoSinDomingos } from "./fechas-alquiler";
 
 export interface PrendaEnMoraInfo {
   productoId: string;
@@ -50,22 +51,15 @@ export function calcularMoraDeFactura(factura: any, fechaReferencia: Date = new 
     return resultado;
   }
 
-  const fechaLimite = new Date(factura.fechaDevolucionPactada);
-  const diffMs = fechaReferencia.getTime() - fechaLimite.getTime();
-
-  // Si aún no ha vencido la fecha pactada
-  if (diffMs <= 0) {
+  // Cálculo de mora excluyendo estrictamente los domingos (no laborales)
+  const retraso = calcularRetrasoSinDomingos(factura.fechaDevolucionPactada, fechaReferencia);
+  if (!retraso.enMora) {
     return resultado;
   }
 
   resultado.enMora = true;
-
-  // Cálculo de tiempo transcurrido
-  const totalHorasRetraso = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
-  const totalDiasRetraso = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-
-  resultado.horasRetraso = totalHorasRetraso;
-  resultado.diasRetraso = totalDiasRetraso;
+  resultado.horasRetraso = retraso.horasRetraso;
+  resultado.diasRetraso = retraso.diasRetraso;
 
   let sumaRecargoTotal = 0;
 
@@ -77,14 +71,14 @@ export function calcularMoraDeFactura(factura: any, fechaReferencia: Date = new 
       if (prod && (prod.tipo === TipoProducto.ALQUILER || prod.precioAlquilerBase > 0)) {
         const unidad = prod.unidadMora || UnidadMora.DIA;
         let tarifaAplicable = prod.tarifaMora || 0;
-        let unidadesCobro = totalDiasRetraso;
+        let unidadesCobro = retraso.diasRetraso;
 
         if (unidad === UnidadMora.HORA) {
           tarifaAplicable = prod.tarifaMoraPorHora > 0 ? prod.tarifaMoraPorHora : (prod.tarifaMora || 0);
-          unidadesCobro = totalHorasRetraso;
+          unidadesCobro = retraso.horasRetraso;
         } else {
           tarifaAplicable = prod.tarifaMoraPorDia > 0 ? prod.tarifaMoraPorDia : (prod.tarifaMora || 0);
-          unidadesCobro = totalDiasRetraso;
+          unidadesCobro = retraso.diasRetraso;
         }
 
         const cantidad = detalle.cantidad || 1;
