@@ -454,6 +454,12 @@ namespace AuroraHost.POS.ControlServidor
                     g.DrawLine(pen, x + 10, y + 7, x + w - 5, y + 7);
                     g.DrawLine(pen, x + 10, y + 11, x + w - 5, y + 11);
                 }
+                else if (tipo == "globe")
+                {
+                    g.DrawEllipse(pen, x + 2, y + 2, w - 4, h - 4);
+                    g.DrawLine(pen, x + 3, y + h / 2, x + w - 3, y + h / 2);
+                    g.DrawEllipse(pen, x + w / 2 - 4, y + 2, 8, h - 4);
+                }
             }
         }
     }
@@ -470,7 +476,7 @@ namespace AuroraHost.POS.ControlServidor
             this.ColorInicio = TemaFinora.BlancoPuro;
             this.ColorFin = TemaFinora.BlancoPuro;
             this.DoubleBuffered = true;
-            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
             this.BackColor = TemaFinora.LienzoFondo;
         }
 
@@ -486,6 +492,7 @@ namespace AuroraHost.POS.ControlServidor
         protected override void OnPaint(PaintEventArgs e)
         {
             e.Graphics.Clear(this.BackColor);
+            if (this.Width <= 12 || this.Height <= 12) return;
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             Rectangle rect = new Rectangle(4, 3, this.Width - 9, this.Height - 9);
             TemaFinora.DibujarSombraSuave(e.Graphics, rect, this.Radio);
@@ -516,7 +523,7 @@ namespace AuroraHost.POS.ControlServidor
         {
             this.Size = new Size(184, 148);
             this.DoubleBuffered = true;
-            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
             this.BackColor = TemaFinora.LienzoFondo;
         }
 
@@ -524,6 +531,7 @@ namespace AuroraHost.POS.ControlServidor
         {
             Graphics g = e.Graphics;
             g.Clear(this.BackColor);
+            if (this.Width <= 12 || this.Height <= 12) return;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
 
@@ -594,7 +602,7 @@ namespace AuroraHost.POS.ControlServidor
             this.Cursor = Cursors.Hand;
             this.Size = new Size(140, 42);
             this.DoubleBuffered = true;
-            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
             this.BackColor = TemaFinora.BlancoPuro;
         }
 
@@ -633,7 +641,7 @@ namespace AuroraHost.POS.ControlServidor
             this.Size = new Size(118, 34);
             this.Font = new Font("Segoe UI Semibold", 9F);
             this.DoubleBuffered = true;
-            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
             this.BackColor = TemaFinora.LienzoFondo;
         }
 
@@ -692,7 +700,7 @@ namespace AuroraHost.POS.ControlServidor
             this.Font = new Font("Segoe UI Semibold", 9.5F);
             this.Cursor = Cursors.Hand;
             this.DoubleBuffered = true;
-            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
             this.BackColor = TemaFinora.BlancoPuro;
         }
 
@@ -743,6 +751,7 @@ namespace AuroraHost.POS.ControlServidor
         private List<ServicioModulo> serviciosRegistrados = new List<ServicioModulo>();
 
         // Layout raiz
+        private Panel contenedorSidebar;
         private TarjetaFlotante panelSidebar;
         private Panel panelDerecho;
         private Panel panelTopBar;
@@ -758,6 +767,8 @@ namespace AuroraHost.POS.ControlServidor
         private BotonSidebarFinora navRespaldos;
         private BotonSidebarFinora navCuentas;
         private BotonSidebarFinora navSistema;
+        private BotonSidebarFinora navManualPos;
+        private BotonSidebarFinora navManualRespaldos;
 
         // Vistas
         private Panel vistaInstalacion;
@@ -766,6 +777,35 @@ namespace AuroraHost.POS.ControlServidor
         private Panel vistaRespaldos;
         private Panel vistaCuentas;
         private Panel vistaSistema;
+
+        // Contenedores responsivos por vista
+        private Panel boxInicio;
+        private TarjetaFlotante cardControlInicio;
+        private Label lblTitCtrlInicio;
+        private BotonCurvo btnManualGeneralInicio;
+        private BotonCurvo btnManualRespaldosInicio;
+        private TarjetaFlotante cardQrInicio;
+        private Label lblTitQrInicio;
+
+        private Panel boxServicios;
+        private BotonCurvo btnAgregarServicioTop;
+
+        private Panel boxRespaldos;
+        private TarjetaFlotante cardRespaldosMain;
+        private BotonCurvo btnRespaldarBak;
+        private BotonCurvo btnRestaurarBak;
+        private BotonCurvo btnExternoBak;
+        private BotonCurvo btnCarpetaBak;
+        private BotonCurvo btnManualBak;
+
+        private Panel boxCuentas;
+        private TarjetaFlotante cardCuentasForm;
+        private TarjetaFlotante cardCuentasAdmin;
+
+        private Panel boxSistema;
+        private TarjetaFlotante cardSisAct;
+        private TarjetaFlotante cardSisRed;
+        private TarjetaFlotante cardSisEq;
 
         // Instalacion unica
         private RadioButton rbConservarDatos;
@@ -847,13 +887,21 @@ namespace AuroraHost.POS.ControlServidor
 
         private void ConfigurarVentana()
         {
+            this.AutoScaleMode = AutoScaleMode.None;
             this.Text = "POS Llanomio";
-            this.Size = new Size(1040, 670);
-            this.MinimumSize = new Size(980, 620);
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor = TemaFinora.LienzoFondo;
             this.Font = new Font("Segoe UI", 9.5F);
+            this.BackColor = TemaFinora.LienzoFondo;
             this.DoubleBuffered = true;
+
+            Rectangle area = Screen.PrimaryScreen != null ? Screen.PrimaryScreen.WorkingArea : new Rectangle(0, 0, 1280, 768);
+            int minW = Math.Min(920, Math.Max(800, area.Width - 24));
+            int minH = Math.Min(580, Math.Max(520, area.Height - 24));
+            int initW = Math.Min(1140, Math.Max(minW, area.Width - 60));
+            int initH = Math.Min(700, Math.Max(minH, area.Height - 50));
+
+            this.MinimumSize = new Size(minW, minH);
+            this.Size = new Size(initW, initH);
+            this.StartPosition = FormStartPosition.CenterScreen;
 
             try
             {
@@ -873,6 +921,8 @@ namespace AuroraHost.POS.ControlServidor
                 catch { }
             };
 
+            this.Load += delegate { AjustarPosiciones(); };
+            this.Shown += delegate { AjustarPosiciones(); };
             this.Resize += delegate { AjustarPosiciones(); };
         }
 
@@ -933,22 +983,28 @@ namespace AuroraHost.POS.ControlServidor
         }
 
         // =========================================================================
-        // CONSTRUCCION DEL LAYOUT FLOTANTE ESTILO FINORA
+        // CONSTRUCCION DEL LAYOUT FLOTANTE ESTILO FINORA (100% DOCK + RESPONSIVO)
         // =========================================================================
         private void ConstruirLayout()
         {
+            // Contenedor izquierdo acoplado (evita cualquier superposicion con el contenido derecho)
+            contenedorSidebar = new Panel();
+            contenedorSidebar.Dock = DockStyle.Left;
+            contenedorSidebar.Width = 228;
+            contenedorSidebar.Padding = new Padding(14, 14, 10, 14);
+            contenedorSidebar.BackColor = TemaFinora.LienzoFondo;
+            this.Controls.Add(contenedorSidebar);
+
             // Sidebar blanca flotante izquierda
             panelSidebar = new TarjetaFlotante();
             panelSidebar.Radio = 22;
-            panelSidebar.Location = new Point(14, 14);
-            panelSidebar.Size = new Size(202, this.ClientSize.Height - 28);
-            panelSidebar.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
-            this.Controls.Add(panelSidebar);
+            panelSidebar.Dock = DockStyle.Fill;
+            contenedorSidebar.Controls.Add(panelSidebar);
 
             // Marca visual en el sidebar
             Panel marcaPanel = new Panel();
             marcaPanel.Location = new Point(18, 22);
-            marcaPanel.Size = new Size(166, 38);
+            marcaPanel.Size = new Size(168, 38);
             marcaPanel.BackColor = TemaFinora.BlancoPuro;
             marcaPanel.Paint += delegate(object s, PaintEventArgs e)
             {
@@ -970,20 +1026,29 @@ namespace AuroraHost.POS.ControlServidor
             lblMarca.AutoSize = true;
             marcaPanel.Controls.Add(lblMarca);
 
-            navInicio = CrearItemSidebar("Inicio", "home", 84, delegate { MostrarVista("inicio"); });
-            navServicios = CrearItemSidebar("Servicios", "services", 132, delegate { MostrarVista("servicios"); });
-            navRespaldos = CrearItemSidebar("Respaldos", "backup", 180, delegate { AbrirSeccionProtegida("respaldos"); });
-            navCuentas = CrearItemSidebar("Cuentas", "users", 228, delegate { AbrirSeccionProtegida("cuentas"); });
-            navSistema = CrearItemSidebar("Sistema", "settings", 276, delegate { AbrirSeccionProtegida("sistema"); });
-            CrearItemSidebar("Manual HTML", "book", 324, delegate { AbrirManualHtmlLocal(); });
+            navInicio = CrearItemSidebar("Inicio", "home", 78, delegate { MostrarVista("inicio"); });
+            navServicios = CrearItemSidebar("Servicios", "services", 124, delegate { MostrarVista("servicios"); });
+            navRespaldos = CrearItemSidebar("Respaldos", "backup", 170, delegate { AbrirSeccionProtegida("respaldos"); });
+            navCuentas = CrearItemSidebar("Cuentas", "users", 216, delegate { AbrirSeccionProtegida("cuentas"); });
+            navSistema = CrearItemSidebar("Sistema", "settings", 262, delegate { AbrirSeccionProtegida("sistema"); });
 
-            // Contenedor derecho aireado
+            Label lblSecManuales = new Label();
+            lblSecManuales.Text = "MANUALES SITIO LOCAL";
+            lblSecManuales.Font = new Font("Segoe UI Bold", 7.5F);
+            lblSecManuales.ForeColor = TemaFinora.TextoSuave;
+            lblSecManuales.Location = new Point(24, 320);
+            lblSecManuales.Size = new Size(160, 16);
+            panelSidebar.Controls.Add(lblSecManuales);
+
+            navManualPos = CrearItemSidebar("Manual POS Web", "globe", 340, delegate { AbrirManualGeneralWeb(); });
+            navManualRespaldos = CrearItemSidebar("Manual Respaldos", "book", 386, delegate { AbrirManualRespaldosWeb(); });
+
+            // Contenedor derecho acoplado en el espacio restante (nunca debajo del sidebar)
             panelDerecho = new Panel();
-            panelDerecho.Location = new Point(226, 0);
-            panelDerecho.Size = new Size(this.ClientSize.Width - 226, this.ClientSize.Height);
-            panelDerecho.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            panelDerecho.Dock = DockStyle.Fill;
             panelDerecho.BackColor = TemaFinora.LienzoFondo;
             this.Controls.Add(panelDerecho);
+            panelDerecho.BringToFront();
 
             // TopBar limpia y flotante
             panelTopBar = new Panel();
@@ -1003,8 +1068,7 @@ namespace AuroraHost.POS.ControlServidor
             pillFechaTop = new TarjetaFlotante();
             pillFechaTop.Radio = 14;
             pillFechaTop.Size = new Size(156, 38);
-            pillFechaTop.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            pillFechaTop.Location = new Point(panelTopBar.Width - 306, 15);
+            pillFechaTop.Location = new Point(460, 15);
             panelTopBar.Controls.Add(pillFechaTop);
 
             lblFechaTop = new Label();
@@ -1017,9 +1081,10 @@ namespace AuroraHost.POS.ControlServidor
             pillFechaTop.Controls.Add(lblFechaTop);
 
             pildoraGlobal = new PildoraEstado();
-            pildoraGlobal.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            pildoraGlobal.Location = new Point(panelTopBar.Width - 138, 17);
+            pildoraGlobal.Location = new Point(628, 17);
             panelTopBar.Controls.Add(pildoraGlobal);
+
+            panelTopBar.Resize += delegate { AjustarTopBar(); };
 
             // Contenido principal
             panelContenido = new Panel();
@@ -1027,6 +1092,7 @@ namespace AuroraHost.POS.ControlServidor
             panelContenido.BackColor = TemaFinora.LienzoFondo;
             panelDerecho.Controls.Add(panelContenido);
             panelContenido.BringToFront();
+            panelContenido.Resize += delegate { AjustarPosiciones(); };
 
             ConstruirVistaInstalacion();
             ConstruirVistaInicio();
@@ -1034,6 +1100,16 @@ namespace AuroraHost.POS.ControlServidor
             ConstruirVistaRespaldos();
             ConstruirVistaCuentas();
             ConstruirVistaSistema();
+        }
+
+        private void AjustarTopBar()
+        {
+            if (panelTopBar == null || pildoraGlobal == null || pillFechaTop == null) return;
+            int w = panelTopBar.ClientSize.Width;
+            int rightX = Math.Max(220, w - pildoraGlobal.Width - 20);
+            pildoraGlobal.Location = new Point(rightX, 17);
+            pillFechaTop.Location = new Point(Math.Max(180, rightX - pillFechaTop.Width - 12), 15);
+            pillFechaTop.Visible = (pillFechaTop.Left > lblSaludoTop.Right + 16);
         }
 
         private BotonSidebarFinora CrearItemSidebar(string titulo, string icono, int top, EventHandler onClick)
@@ -1104,19 +1180,20 @@ namespace AuroraHost.POS.ControlServidor
         }
 
         // -------------------------------------------------------------------------
-        // VISTA 1: INICIO (4 TARJETAS KPI PASTEL + 2 TARJETAS FLOTANTES)
+        // VISTA 1: INICIO (4 TARJETAS KPI PASTEL + 2 TARJETAS FLOTANTES ADAPTABLES)
         // -------------------------------------------------------------------------
         private void ConstruirVistaInicio()
         {
             vistaInicio = new Panel();
             vistaInicio.Dock = DockStyle.Fill;
+            vistaInicio.AutoScroll = true;
             vistaInicio.BackColor = TemaFinora.LienzoFondo;
             panelContenido.Controls.Add(vistaInicio);
 
-            Panel box = new Panel();
-            box.Size = new Size(766, 520);
-            box.BackColor = TemaFinora.LienzoFondo;
-            vistaInicio.Controls.Add(box);
+            boxInicio = new Panel();
+            boxInicio.Size = new Size(766, 512);
+            boxInicio.BackColor = TemaFinora.LienzoFondo;
+            vistaInicio.Controls.Add(boxInicio);
 
             // Fila 1: 4 tarjetas KPI con degradados pastel estilo Finora
             kpiServidor = new TarjetaKpiPastel();
@@ -1130,7 +1207,7 @@ namespace AuroraHost.POS.ControlServidor
             kpiServidor.FondoPill = TemaFinora.AzulPastel;
             kpiServidor.TextoPill = TemaFinora.AzulPrimario;
             kpiServidor.Location = new Point(4, 6);
-            box.Controls.Add(kpiServidor);
+            boxInicio.Controls.Add(kpiServidor);
 
             kpiRedLan = new TarjetaKpiPastel();
             kpiRedLan.Titulo = "Red Local";
@@ -1143,7 +1220,7 @@ namespace AuroraHost.POS.ControlServidor
             kpiRedLan.FondoPill = TemaFinora.VerdePastel;
             kpiRedLan.TextoPill = TemaFinora.VerdeTexto;
             kpiRedLan.Location = new Point(195, 6);
-            box.Controls.Add(kpiRedLan);
+            boxInicio.Controls.Add(kpiRedLan);
 
             kpiRespaldos = new TarjetaKpiPastel();
             kpiRespaldos.Titulo = "Respaldos";
@@ -1156,7 +1233,7 @@ namespace AuroraHost.POS.ControlServidor
             kpiRespaldos.FondoPill = TemaFinora.AmbarPastel;
             kpiRespaldos.TextoPill = TemaFinora.AmbarTexto;
             kpiRespaldos.Location = new Point(386, 6);
-            box.Controls.Add(kpiRespaldos);
+            boxInicio.Controls.Add(kpiRespaldos);
 
             kpiServicios = new TarjetaKpiPastel();
             kpiServicios.Titulo = "Servicios";
@@ -1169,48 +1246,48 @@ namespace AuroraHost.POS.ControlServidor
             kpiServicios.FondoPill = TemaFinora.RosaPastel;
             kpiServicios.TextoPill = TemaFinora.RosaTexto;
             kpiServicios.Location = new Point(577, 6);
-            box.Controls.Add(kpiServicios);
+            boxInicio.Controls.Add(kpiServicios);
 
             // Fila 2 Izquierda: Tarjeta Control del Servidor
-            TarjetaFlotante cardControl = new TarjetaFlotante();
-            cardControl.Size = new Size(462, 336);
-            cardControl.Location = new Point(4, 168);
-            box.Controls.Add(cardControl);
+            cardControlInicio = new TarjetaFlotante();
+            cardControlInicio.Size = new Size(462, 336);
+            cardControlInicio.Location = new Point(4, 168);
+            boxInicio.Controls.Add(cardControlInicio);
 
-            Label lblTitCtrl = new Label();
-            lblTitCtrl.Text = "Control del Servidor";
-            lblTitCtrl.Font = new Font("Segoe UI Bold", 13F);
-            lblTitCtrl.ForeColor = TemaFinora.TextoOscuro;
-            lblTitCtrl.Location = new Point(28, 28);
-            lblTitCtrl.Size = new Size(360, 28);
-            cardControl.Controls.Add(lblTitCtrl);
+            lblTitCtrlInicio = new Label();
+            lblTitCtrlInicio.Text = "Control del Servidor";
+            lblTitCtrlInicio.Font = new Font("Segoe UI Bold", 13F);
+            lblTitCtrlInicio.ForeColor = TemaFinora.TextoOscuro;
+            lblTitCtrlInicio.Location = new Point(26, 26);
+            lblTitCtrlInicio.Size = new Size(360, 28);
+            cardControlInicio.Controls.Add(lblTitCtrlInicio);
 
             lblUrlInicio = new Label();
             lblUrlInicio.Text = "http://localhost:" + puertoConfigurado;
             lblUrlInicio.Font = new Font("Consolas", 10F, FontStyle.Bold);
             lblUrlInicio.ForeColor = TemaFinora.AzulPrimario;
-            lblUrlInicio.Location = new Point(28, 60);
+            lblUrlInicio.Location = new Point(26, 58);
             lblUrlInicio.Size = new Size(360, 22);
-            cardControl.Controls.Add(lblUrlInicio);
+            cardControlInicio.Controls.Add(lblUrlInicio);
 
             btnInicioIniciar = new BotonCurvo();
             btnInicioIniciar.Text = "Iniciar";
             btnInicioIniciar.ColorNormal = TemaFinora.VerdePrimario;
             btnInicioIniciar.ColorHover = TemaFinora.VerdeHover;
             btnInicioIniciar.Size = new Size(220, 48);
-            btnInicioIniciar.Location = new Point(120, 146);
+            btnInicioIniciar.Location = new Point(120, 136);
             btnInicioIniciar.Click += delegate { IniciarServicioAccion(NOMBRE_SERVICIO); };
-            cardControl.Controls.Add(btnInicioIniciar);
+            cardControlInicio.Controls.Add(btnInicioIniciar);
 
             btnInicioAbrir = new BotonCurvo();
             btnInicioAbrir.Text = "Abrir POS";
             btnInicioAbrir.ColorNormal = TemaFinora.AzulPrimario;
             btnInicioAbrir.ColorHover = TemaFinora.AzulHover;
             btnInicioAbrir.Size = new Size(406, 48);
-            btnInicioAbrir.Location = new Point(28, 122);
+            btnInicioAbrir.Location = new Point(26, 114);
             btnInicioAbrir.Visible = false;
             btnInicioAbrir.Click += delegate { AbrirNavegadorPos(); };
-            cardControl.Controls.Add(btnInicioAbrir);
+            cardControlInicio.Controls.Add(btnInicioAbrir);
 
             btnInicioReiniciar = new BotonCurvo();
             btnInicioReiniciar.Text = "Reiniciar";
@@ -1218,61 +1295,73 @@ namespace AuroraHost.POS.ControlServidor
             btnInicioReiniciar.ColorHover = TemaFinora.GrisPillHover;
             btnInicioReiniciar.ColorTexto = TemaFinora.TextoOscuro;
             btnInicioReiniciar.Size = new Size(196, 44);
-            btnInicioReiniciar.Location = new Point(28, 188);
+            btnInicioReiniciar.Location = new Point(26, 176);
             btnInicioReiniciar.Visible = false;
             btnInicioReiniciar.Click += delegate { ReiniciarServicioAccion(NOMBRE_SERVICIO); };
-            cardControl.Controls.Add(btnInicioReiniciar);
+            cardControlInicio.Controls.Add(btnInicioReiniciar);
 
             btnInicioDetener = new BotonCurvo();
             btnInicioDetener.Text = "Detener";
             btnInicioDetener.ColorNormal = TemaFinora.RosaPrimario;
             btnInicioDetener.ColorHover = TemaFinora.RosaHover;
             btnInicioDetener.Size = new Size(196, 44);
-            btnInicioDetener.Location = new Point(238, 188);
+            btnInicioDetener.Location = new Point(236, 176);
             btnInicioDetener.Visible = false;
             btnInicioDetener.Click += delegate { DetenerConBackupObligatorio(); };
-            cardControl.Controls.Add(btnInicioDetener);
+            cardControlInicio.Controls.Add(btnInicioDetener);
 
-            BotonCurvo btnManualInicio = new BotonCurvo();
-            btnManualInicio.Text = "Abrir Manual Local (HTML)";
-            btnManualInicio.ColorNormal = TemaFinora.AzulPastel;
-            btnManualInicio.ColorHover = Color.FromArgb(212, 232, 255);
-            btnManualInicio.ColorTexto = TemaFinora.AzulPrimario;
-            btnManualInicio.Size = new Size(406, 40);
-            btnManualInicio.Location = new Point(28, 266);
-            btnManualInicio.Click += delegate { AbrirManualHtmlLocal(); };
-            cardControl.Controls.Add(btnManualInicio);
+            btnManualGeneralInicio = new BotonCurvo();
+            btnManualGeneralInicio.Text = "Manual POS Web";
+            btnManualGeneralInicio.Font = new Font("Segoe UI Semibold", 9F);
+            btnManualGeneralInicio.ColorNormal = TemaFinora.AzulPastel;
+            btnManualGeneralInicio.ColorHover = Color.FromArgb(212, 232, 255);
+            btnManualGeneralInicio.ColorTexto = TemaFinora.AzulPrimario;
+            btnManualGeneralInicio.Size = new Size(198, 42);
+            btnManualGeneralInicio.Location = new Point(26, 266);
+            btnManualGeneralInicio.Click += delegate { AbrirManualGeneralWeb(); };
+            cardControlInicio.Controls.Add(btnManualGeneralInicio);
+
+            btnManualRespaldosInicio = new BotonCurvo();
+            btnManualRespaldosInicio.Text = "Manual Respaldos Web";
+            btnManualRespaldosInicio.Font = new Font("Segoe UI Semibold", 9F);
+            btnManualRespaldosInicio.ColorNormal = TemaFinora.VerdePastel;
+            btnManualRespaldosInicio.ColorHover = Color.FromArgb(204, 240, 222);
+            btnManualRespaldosInicio.ColorTexto = TemaFinora.VerdeTexto;
+            btnManualRespaldosInicio.Size = new Size(198, 42);
+            btnManualRespaldosInicio.Location = new Point(234, 266);
+            btnManualRespaldosInicio.Click += delegate { AbrirManualRespaldosWeb(); };
+            cardControlInicio.Controls.Add(btnManualRespaldosInicio);
 
             // Fila 2 Derecha: Tarjeta QR Wi-Fi
-            TarjetaFlotante cardQr = new TarjetaFlotante();
-            cardQr.Size = new Size(284, 336);
-            cardQr.Location = new Point(477, 168);
-            box.Controls.Add(cardQr);
+            cardQrInicio = new TarjetaFlotante();
+            cardQrInicio.Size = new Size(284, 336);
+            cardQrInicio.Location = new Point(477, 168);
+            boxInicio.Controls.Add(cardQrInicio);
 
-            Label lblTitQr = new Label();
-            lblTitQr.Text = "Acceso Wi-Fi";
-            lblTitQr.Font = new Font("Segoe UI Bold", 12.5F);
-            lblTitQr.ForeColor = TemaFinora.TextoOscuro;
-            lblTitQr.TextAlign = ContentAlignment.MiddleCenter;
-            lblTitQr.Location = new Point(20, 22);
-            lblTitQr.Size = new Size(244, 26);
-            cardQr.Controls.Add(lblTitQr);
+            lblTitQrInicio = new Label();
+            lblTitQrInicio.Text = "Acceso Wi-Fi";
+            lblTitQrInicio.Font = new Font("Segoe UI Bold", 12.5F);
+            lblTitQrInicio.ForeColor = TemaFinora.TextoOscuro;
+            lblTitQrInicio.TextAlign = ContentAlignment.MiddleCenter;
+            lblTitQrInicio.Location = new Point(20, 22);
+            lblTitQrInicio.Size = new Size(244, 26);
+            cardQrInicio.Controls.Add(lblTitQrInicio);
 
             picQr = new PictureBox();
-            picQr.Size = new Size(168, 168);
-            picQr.Location = new Point(58, 56);
+            picQr.Size = new Size(164, 164);
+            picQr.Location = new Point(60, 56);
             picQr.SizeMode = PictureBoxSizeMode.Zoom;
             picQr.BackColor = Color.White;
-            cardQr.Controls.Add(picQr);
+            cardQrInicio.Controls.Add(picQr);
 
             lblIpQr = new Label();
             lblIpQr.Text = urlLanActual;
             lblIpQr.Font = new Font("Consolas", 9F, FontStyle.Bold);
             lblIpQr.ForeColor = TemaFinora.AzulPrimario;
             lblIpQr.TextAlign = ContentAlignment.MiddleCenter;
-            lblIpQr.Location = new Point(16, 232);
+            lblIpQr.Location = new Point(16, 230);
             lblIpQr.Size = new Size(252, 22);
-            cardQr.Controls.Add(lblIpQr);
+            cardQrInicio.Controls.Add(lblIpQr);
 
             btnCopiarIp = new BotonCurvo();
             btnCopiarIp.Text = "Copiar IP";
@@ -1282,7 +1371,7 @@ namespace AuroraHost.POS.ControlServidor
             btnCopiarIp.Size = new Size(148, 38);
             btnCopiarIp.Location = new Point(68, 268);
             btnCopiarIp.Click += delegate { CopiarAlPortapapeles(urlLanActual); };
-            cardQr.Controls.Add(btnCopiarIp);
+            cardQrInicio.Controls.Add(btnCopiarIp);
         }
 
         // -------------------------------------------------------------------------
@@ -1292,22 +1381,23 @@ namespace AuroraHost.POS.ControlServidor
         {
             vistaServicios = new Panel();
             vistaServicios.Dock = DockStyle.Fill;
+            vistaServicios.AutoScroll = true;
             vistaServicios.BackColor = TemaFinora.LienzoFondo;
             vistaServicios.Visible = false;
             panelContenido.Controls.Add(vistaServicios);
 
-            Panel box = new Panel();
-            box.Size = new Size(766, 510);
-            box.BackColor = TemaFinora.LienzoFondo;
-            vistaServicios.Controls.Add(box);
+            boxServicios = new Panel();
+            boxServicios.Size = new Size(766, 510);
+            boxServicios.BackColor = TemaFinora.LienzoFondo;
+            vistaServicios.Controls.Add(boxServicios);
 
-            BotonCurvo btnAgregar = new BotonCurvo();
-            btnAgregar.Text = "+ Agregar Servicio";
-            btnAgregar.BackColor = TemaFinora.LienzoFondo;
-            btnAgregar.Size = new Size(168, 38);
-            btnAgregar.Location = new Point(590, 4);
-            btnAgregar.Click += delegate { AgregarServicioModuloAccion(); };
-            box.Controls.Add(btnAgregar);
+            btnAgregarServicioTop = new BotonCurvo();
+            btnAgregarServicioTop.Text = "+ Agregar Servicio";
+            btnAgregarServicioTop.BackColor = TemaFinora.LienzoFondo;
+            btnAgregarServicioTop.Size = new Size(168, 38);
+            btnAgregarServicioTop.Location = new Point(590, 4);
+            btnAgregarServicioTop.Click += delegate { AgregarServicioModuloAccion(); };
+            boxServicios.Controls.Add(btnAgregarServicioTop);
 
             flowServicios = new FlowLayoutPanel();
             flowServicios.Location = new Point(4, 54);
@@ -1316,7 +1406,7 @@ namespace AuroraHost.POS.ControlServidor
             flowServicios.WrapContents = false;
             flowServicios.AutoScroll = true;
             flowServicios.BackColor = TemaFinora.LienzoFondo;
-            box.Controls.Add(flowServicios);
+            boxServicios.Controls.Add(flowServicios);
 
             RenderizarTarjetasServicios();
         }
@@ -1326,19 +1416,21 @@ namespace AuroraHost.POS.ControlServidor
             if (flowServicios == null) return;
             flowServicios.Controls.Clear();
 
+            int cardW = Math.Max(600, flowServicios.ClientSize.Width - 24);
+
             foreach (ServicioModulo srv in serviciosRegistrados)
             {
                 ServicioModulo localSrv = srv;
                 TarjetaFlotante card = new TarjetaFlotante();
-                card.Size = new Size(734, 92);
+                card.Size = new Size(cardW, 92);
                 card.Margin = new Padding(0, 0, 0, 12);
 
                 Label lblNom = new Label();
                 lblNom.Text = localSrv.Nombre;
                 lblNom.Font = new Font("Segoe UI Bold", 11.5F);
                 lblNom.ForeColor = TemaFinora.TextoOscuro;
-                lblNom.Location = new Point(26, 20);
-                lblNom.Size = new Size(260, 24);
+                lblNom.Location = new Point(24, 20);
+                lblNom.Size = new Size(Math.Max(180, cardW - 440), 24);
                 card.Controls.Add(lblNom);
 
                 Label lblSub = new Label();
@@ -1347,20 +1439,20 @@ namespace AuroraHost.POS.ControlServidor
                     : localSrv.ServicioWindows + "  |  :" + localSrv.Puerto;
                 lblSub.Font = new Font("Segoe UI", 8.8F);
                 lblSub.ForeColor = TemaFinora.TextoSuave;
-                lblSub.Location = new Point(26, 48);
-                lblSub.Size = new Size(260, 20);
+                lblSub.Location = new Point(24, 48);
+                lblSub.Size = new Size(Math.Max(180, cardW - 440), 20);
                 card.Controls.Add(lblSub);
 
                 bool activo = VerificarServicioWindowsActivo(localSrv.ServicioWindows);
                 PildoraEstado pill = new PildoraEstado();
-                pill.Size = new Size(112, 32);
-                pill.Location = new Point(316, 28);
+                pill.Size = new Size(110, 32);
+                pill.Location = new Point(cardW - 398, 28);
                 pill.ActualizarEstado(activo, activo ? "En linea" : "Offline");
                 card.Controls.Add(pill);
 
                 BotonCurvo btnAcc = new BotonCurvo();
-                btnAcc.Size = new Size(124, 38);
-                btnAcc.Location = new Point(452, 25);
+                btnAcc.Size = new Size(120, 38);
+                btnAcc.Location = new Point(cardW - 270, 25);
                 if (activo)
                 {
                     btnAcc.Text = "Detener";
@@ -1391,8 +1483,8 @@ namespace AuroraHost.POS.ControlServidor
                 btnRei.ColorNormal = TemaFinora.GrisPill;
                 btnRei.ColorHover = TemaFinora.GrisPillHover;
                 btnRei.ColorTexto = TemaFinora.TextoOscuro;
-                btnRei.Size = new Size(124, 38);
-                btnRei.Location = new Point(588, 25);
+                btnRei.Size = new Size(120, 38);
+                btnRei.Location = new Point(cardW - 140, 25);
                 btnRei.Click += delegate
                 {
                     ReiniciarServicioAccion(localSrv.ServicioWindows);
@@ -1411,66 +1503,66 @@ namespace AuroraHost.POS.ControlServidor
         {
             vistaRespaldos = new Panel();
             vistaRespaldos.Dock = DockStyle.Fill;
+            vistaRespaldos.AutoScroll = true;
             vistaRespaldos.BackColor = TemaFinora.LienzoFondo;
             vistaRespaldos.Visible = false;
             panelContenido.Controls.Add(vistaRespaldos);
 
-            Panel box = new Panel();
-            box.Size = new Size(766, 510);
-            box.BackColor = TemaFinora.LienzoFondo;
-            vistaRespaldos.Controls.Add(box);
+            boxRespaldos = new Panel();
+            boxRespaldos.Size = new Size(766, 510);
+            boxRespaldos.BackColor = TemaFinora.LienzoFondo;
+            vistaRespaldos.Controls.Add(boxRespaldos);
 
-            TarjetaFlotante card = new TarjetaFlotante();
-            card.Size = new Size(756, 488);
-            card.Location = new Point(4, 8);
-            box.Controls.Add(card);
+            cardRespaldosMain = new TarjetaFlotante();
+            cardRespaldosMain.Size = new Size(756, 488);
+            cardRespaldosMain.Location = new Point(4, 8);
+            boxRespaldos.Controls.Add(cardRespaldosMain);
 
-            BotonCurvo btnRespaldar = new BotonCurvo();
-            btnRespaldar.Text = "Respaldar";
-            btnRespaldar.Size = new Size(131, 40);
-            btnRespaldar.Location = new Point(26, 26);
-            btnRespaldar.Click += delegate { GenerarBackupManualAccion(); };
-            card.Controls.Add(btnRespaldar);
+            btnRespaldarBak = new BotonCurvo();
+            btnRespaldarBak.Text = "Respaldar";
+            btnRespaldarBak.Size = new Size(131, 40);
+            btnRespaldarBak.Location = new Point(26, 26);
+            btnRespaldarBak.Click += delegate { GenerarBackupManualAccion(); };
+            cardRespaldosMain.Controls.Add(btnRespaldarBak);
 
-            BotonCurvo btnRestaurar = new BotonCurvo();
-            btnRestaurar.Text = "Restaurar";
-            btnRestaurar.ColorNormal = TemaFinora.RosaPrimario;
-            btnRestaurar.ColorHover = TemaFinora.RosaHover;
-            btnRespaldar.Size = new Size(131, 40);
-            btnRestaurar.Size = new Size(131, 40);
-            btnRestaurar.Location = new Point(169, 26);
-            btnRestaurar.Click += delegate { RestaurarSeleccionadoAccion(); };
-            card.Controls.Add(btnRestaurar);
+            btnRestaurarBak = new BotonCurvo();
+            btnRestaurarBak.Text = "Restaurar";
+            btnRestaurarBak.ColorNormal = TemaFinora.RosaPrimario;
+            btnRestaurarBak.ColorHover = TemaFinora.RosaHover;
+            btnRestaurarBak.Size = new Size(131, 40);
+            btnRestaurarBak.Location = new Point(169, 26);
+            btnRestaurarBak.Click += delegate { RestaurarSeleccionadoAccion(); };
+            cardRespaldosMain.Controls.Add(btnRestaurarBak);
 
-            BotonCurvo btnExterno = new BotonCurvo();
-            btnExterno.Text = "Archivo .db";
-            btnExterno.ColorNormal = TemaFinora.GrisPill;
-            btnExterno.ColorHover = TemaFinora.GrisPillHover;
-            btnExterno.ColorTexto = TemaFinora.TextoOscuro;
-            btnExterno.Size = new Size(131, 40);
-            btnExterno.Location = new Point(312, 26);
-            btnExterno.Click += delegate { RestaurarArchivoExternoAccion(); };
-            card.Controls.Add(btnExterno);
+            btnExternoBak = new BotonCurvo();
+            btnExternoBak.Text = "Archivo .db";
+            btnExternoBak.ColorNormal = TemaFinora.GrisPill;
+            btnExternoBak.ColorHover = TemaFinora.GrisPillHover;
+            btnExternoBak.ColorTexto = TemaFinora.TextoOscuro;
+            btnExternoBak.Size = new Size(131, 40);
+            btnExternoBak.Location = new Point(312, 26);
+            btnExternoBak.Click += delegate { RestaurarArchivoExternoAccion(); };
+            cardRespaldosMain.Controls.Add(btnExternoBak);
 
-            BotonCurvo btnCarpeta = new BotonCurvo();
-            btnCarpeta.Text = "Carpeta";
-            btnCarpeta.ColorNormal = TemaFinora.GrisPill;
-            btnCarpeta.ColorHover = TemaFinora.GrisPillHover;
-            btnCarpeta.ColorTexto = TemaFinora.TextoOscuro;
-            btnCarpeta.Size = new Size(131, 40);
-            btnCarpeta.Location = new Point(455, 26);
-            btnCarpeta.Click += delegate { AbrirCarpetaBackupsAccion(); };
-            card.Controls.Add(btnCarpeta);
+            btnCarpetaBak = new BotonCurvo();
+            btnCarpetaBak.Text = "Carpeta";
+            btnCarpetaBak.ColorNormal = TemaFinora.GrisPill;
+            btnCarpetaBak.ColorHover = TemaFinora.GrisPillHover;
+            btnCarpetaBak.ColorTexto = TemaFinora.TextoOscuro;
+            btnCarpetaBak.Size = new Size(131, 40);
+            btnCarpetaBak.Location = new Point(455, 26);
+            btnCarpetaBak.Click += delegate { AbrirCarpetaBackupsAccion(); };
+            cardRespaldosMain.Controls.Add(btnCarpetaBak);
 
-            BotonCurvo btnManualBak = new BotonCurvo();
-            btnManualBak.Text = "Manual HTML";
+            btnManualBak = new BotonCurvo();
+            btnManualBak.Text = "Manual Web";
             btnManualBak.ColorNormal = TemaFinora.AzulPastel;
             btnManualBak.ColorHover = Color.FromArgb(212, 232, 255);
             btnManualBak.ColorTexto = TemaFinora.AzulPrimario;
             btnManualBak.Size = new Size(132, 40);
             btnManualBak.Location = new Point(598, 26);
-            btnManualBak.Click += delegate { AbrirManualHtmlLocal(); };
-            card.Controls.Add(btnManualBak);
+            btnManualBak.Click += delegate { AbrirManualRespaldosWeb(); };
+            cardRespaldosMain.Controls.Add(btnManualBak);
 
             lstBackups = new ListBox();
             lstBackups.Location = new Point(26, 84);
@@ -1478,7 +1570,7 @@ namespace AuroraHost.POS.ControlServidor
             lstBackups.Font = new Font("Consolas", 9.5F);
             lstBackups.BorderStyle = BorderStyle.FixedSingle;
             lstBackups.BackColor = TemaFinora.LienzoFondo;
-            card.Controls.Add(lstBackups);
+            cardRespaldosMain.Controls.Add(lstBackups);
         }
 
         // -------------------------------------------------------------------------
@@ -1488,19 +1580,20 @@ namespace AuroraHost.POS.ControlServidor
         {
             vistaCuentas = new Panel();
             vistaCuentas.Dock = DockStyle.Fill;
+            vistaCuentas.AutoScroll = true;
             vistaCuentas.BackColor = TemaFinora.LienzoFondo;
             vistaCuentas.Visible = false;
             panelContenido.Controls.Add(vistaCuentas);
 
-            Panel box = new Panel();
-            box.Size = new Size(766, 480);
-            box.BackColor = TemaFinora.LienzoFondo;
-            vistaCuentas.Controls.Add(box);
+            boxCuentas = new Panel();
+            boxCuentas.Size = new Size(766, 460);
+            boxCuentas.BackColor = TemaFinora.LienzoFondo;
+            vistaCuentas.Controls.Add(boxCuentas);
 
-            TarjetaFlotante card = new TarjetaFlotante();
-            card.Size = new Size(756, 286);
-            card.Location = new Point(4, 8);
-            box.Controls.Add(card);
+            cardCuentasForm = new TarjetaFlotante();
+            cardCuentasForm.Size = new Size(756, 286);
+            cardCuentasForm.Location = new Point(4, 8);
+            boxCuentas.Controls.Add(cardCuentasForm);
 
             Label lblTit = new Label();
             lblTit.Text = "Nuevo Usuario";
@@ -1508,41 +1601,41 @@ namespace AuroraHost.POS.ControlServidor
             lblTit.ForeColor = TemaFinora.TextoOscuro;
             lblTit.Location = new Point(28, 24);
             lblTit.Size = new Size(240, 28);
-            card.Controls.Add(lblTit);
+            cardCuentasForm.Controls.Add(lblTit);
 
-            txtNombreUser = CrearCampoFormulario(card, "Nombre", 28, 70, 330, false);
-            txtUsername = CrearCampoFormulario(card, "Usuario", 386, 70, 330, false);
-            txtPassword = CrearCampoFormulario(card, "Contrasena", 28, 138, 220, true);
-            txtPin = CrearCampoFormulario(card, "PIN", 270, 138, 150, true);
+            txtNombreUser = CrearCampoFormulario(cardCuentasForm, "Nombre", 28, 70, 280, false);
+            txtUsername = CrearCampoFormulario(cardCuentasForm, "Usuario", 332, 70, 280, false);
+            txtPassword = CrearCampoFormulario(cardCuentasForm, "Contrasena", 28, 138, 190, true);
+            txtPin = CrearCampoFormulario(cardCuentasForm, "PIN", 236, 138, 136, true);
             txtPin.MaxLength = 6;
 
             Label lblRol = new Label();
             lblRol.Text = "Rol";
             lblRol.Font = new Font("Segoe UI", 8.5F);
             lblRol.ForeColor = TemaFinora.TextoSuave;
-            lblRol.Location = new Point(442, 138);
+            lblRol.Location = new Point(390, 138);
             lblRol.Size = new Size(100, 18);
-            card.Controls.Add(lblRol);
+            cardCuentasForm.Controls.Add(lblRol);
 
             cmbRol = new ComboBox();
             cmbRol.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbRol.Items.AddRange(new object[] { "CAJERO", "ADMIN" });
             cmbRol.SelectedIndex = 0;
-            cmbRol.Location = new Point(442, 158);
-            cmbRol.Size = new Size(274, 28);
-            card.Controls.Add(cmbRol);
+            cmbRol.Location = new Point(390, 158);
+            cmbRol.Size = new Size(222, 28);
+            cardCuentasForm.Controls.Add(cmbRol);
 
             BotonCurvo btnCrear = new BotonCurvo();
             btnCrear.Text = "Crear";
             btnCrear.Size = new Size(176, 42);
             btnCrear.Location = new Point(28, 214);
             btnCrear.Click += delegate { CrearUsuarioAccion(); };
-            card.Controls.Add(btnCrear);
+            cardCuentasForm.Controls.Add(btnCrear);
 
-            TarjetaFlotante cardAdmin = new TarjetaFlotante();
-            cardAdmin.Size = new Size(756, 132);
-            cardAdmin.Location = new Point(4, 312);
-            box.Controls.Add(cardAdmin);
+            cardCuentasAdmin = new TarjetaFlotante();
+            cardCuentasAdmin.Size = new Size(756, 132);
+            cardCuentasAdmin.Location = new Point(4, 312);
+            boxCuentas.Controls.Add(cardCuentasAdmin);
 
             Label lblAdm = new Label();
             lblAdm.Text = "Acceso Maestro";
@@ -1550,7 +1643,7 @@ namespace AuroraHost.POS.ControlServidor
             lblAdm.ForeColor = TemaFinora.TextoOscuro;
             lblAdm.Location = new Point(28, 22);
             lblAdm.Size = new Size(240, 26);
-            cardAdmin.Controls.Add(lblAdm);
+            cardCuentasAdmin.Controls.Add(lblAdm);
 
             BotonCurvo btnResetAdmin = new BotonCurvo();
             btnResetAdmin.Text = "Restablecer admin";
@@ -1560,7 +1653,7 @@ namespace AuroraHost.POS.ControlServidor
             btnResetAdmin.Size = new Size(210, 42);
             btnResetAdmin.Location = new Point(28, 62);
             btnResetAdmin.Click += delegate { RestablecerAdminAccion(); };
-            cardAdmin.Controls.Add(btnResetAdmin);
+            cardCuentasAdmin.Controls.Add(btnResetAdmin);
         }
 
         private TextBox CrearCampoFormulario(Control padre, string etiqueta, int x, int y, int ancho, bool esClave)
@@ -1590,20 +1683,21 @@ namespace AuroraHost.POS.ControlServidor
         {
             vistaSistema = new Panel();
             vistaSistema.Dock = DockStyle.Fill;
+            vistaSistema.AutoScroll = true;
             vistaSistema.BackColor = TemaFinora.LienzoFondo;
             vistaSistema.Visible = false;
             panelContenido.Controls.Add(vistaSistema);
 
-            Panel box = new Panel();
-            box.Size = new Size(766, 480);
-            box.BackColor = TemaFinora.LienzoFondo;
-            vistaSistema.Controls.Add(box);
+            boxSistema = new Panel();
+            boxSistema.Size = new Size(766, 456);
+            boxSistema.BackColor = TemaFinora.LienzoFondo;
+            vistaSistema.Controls.Add(boxSistema);
 
             // Actualizacion
-            TarjetaFlotante cardAct = new TarjetaFlotante();
-            cardAct.Size = new Size(756, 134);
-            cardAct.Location = new Point(4, 8);
-            box.Controls.Add(cardAct);
+            cardSisAct = new TarjetaFlotante();
+            cardSisAct.Size = new Size(756, 134);
+            cardSisAct.Location = new Point(4, 8);
+            boxSistema.Controls.Add(cardSisAct);
 
             Label lblAct = new Label();
             lblAct.Text = "Actualizar";
@@ -1611,14 +1705,14 @@ namespace AuroraHost.POS.ControlServidor
             lblAct.ForeColor = TemaFinora.TextoOscuro;
             lblAct.Location = new Point(28, 22);
             lblAct.Size = new Size(240, 26);
-            cardAct.Controls.Add(lblAct);
+            cardSisAct.Controls.Add(lblAct);
 
             BotonCurvo btnZip = new BotonCurvo();
             btnZip.Text = "Actualizar (.zip)";
             btnZip.Size = new Size(192, 42);
             btnZip.Location = new Point(28, 64);
             btnZip.Click += delegate { ActualizarDesdeZipAccion(); };
-            cardAct.Controls.Add(btnZip);
+            cardSisAct.Controls.Add(btnZip);
 
             BotonCurvo btnGit = new BotonCurvo();
             btnGit.Text = "Actualizar (GitHub)";
@@ -1628,13 +1722,13 @@ namespace AuroraHost.POS.ControlServidor
             btnGit.Size = new Size(192, 42);
             btnGit.Location = new Point(236, 64);
             btnGit.Click += delegate { ActualizarDesdeGithubAccion(); };
-            cardAct.Controls.Add(btnGit);
+            cardSisAct.Controls.Add(btnGit);
 
             // Red y Puerto
-            TarjetaFlotante cardRed = new TarjetaFlotante();
-            cardRed.Size = new Size(756, 134);
-            cardRed.Location = new Point(4, 158);
-            box.Controls.Add(cardRed);
+            cardSisRed = new TarjetaFlotante();
+            cardSisRed.Size = new Size(756, 134);
+            cardSisRed.Location = new Point(4, 158);
+            boxSistema.Controls.Add(cardSisRed);
 
             Label lblRed = new Label();
             lblRed.Text = "Red y Puerto";
@@ -1642,7 +1736,7 @@ namespace AuroraHost.POS.ControlServidor
             lblRed.ForeColor = TemaFinora.TextoOscuro;
             lblRed.Location = new Point(28, 22);
             lblRed.Size = new Size(220, 26);
-            cardRed.Controls.Add(lblRed);
+            cardSisRed.Controls.Add(lblRed);
 
             txtPuerto = new TextBox();
             txtPuerto.Text = puertoConfigurado;
@@ -1650,14 +1744,14 @@ namespace AuroraHost.POS.ControlServidor
             txtPuerto.Location = new Point(28, 68);
             txtPuerto.Size = new Size(114, 28);
             txtPuerto.BorderStyle = BorderStyle.FixedSingle;
-            cardRed.Controls.Add(txtPuerto);
+            cardSisRed.Controls.Add(txtPuerto);
 
             BotonCurvo btnPuerto = new BotonCurvo();
             btnPuerto.Text = "Guardar Puerto";
             btnPuerto.Size = new Size(168, 40);
             btnPuerto.Location = new Point(158, 64);
             btnPuerto.Click += delegate { CambiarPuertoAccion(); };
-            cardRed.Controls.Add(btnPuerto);
+            cardSisRed.Controls.Add(btnPuerto);
 
             BotonCurvo btnFw = new BotonCurvo();
             btnFw.Text = "Firewall";
@@ -1667,13 +1761,13 @@ namespace AuroraHost.POS.ControlServidor
             btnFw.Size = new Size(168, 40);
             btnFw.Location = new Point(342, 64);
             btnFw.Click += delegate { RepararFirewallAccion(true); };
-            cardRed.Controls.Add(btnFw);
+            cardSisRed.Controls.Add(btnFw);
 
             // Equipo (Reinstalacion oculta aqui)
-            TarjetaFlotante cardEq = new TarjetaFlotante();
-            cardEq.Size = new Size(756, 134);
-            cardEq.Location = new Point(4, 308);
-            box.Controls.Add(cardEq);
+            cardSisEq = new TarjetaFlotante();
+            cardSisEq.Size = new Size(756, 134);
+            cardSisEq.Location = new Point(4, 308);
+            boxSistema.Controls.Add(cardSisEq);
 
             Label lblEq = new Label();
             lblEq.Text = "Equipo";
@@ -1681,7 +1775,7 @@ namespace AuroraHost.POS.ControlServidor
             lblEq.ForeColor = TemaFinora.TextoOscuro;
             lblEq.Location = new Point(28, 22);
             lblEq.Size = new Size(220, 26);
-            cardEq.Controls.Add(lblEq);
+            cardSisEq.Controls.Add(lblEq);
 
             BotonCurvo btnReinstalar = new BotonCurvo();
             btnReinstalar.Text = "Reinstalar";
@@ -1691,7 +1785,7 @@ namespace AuroraHost.POS.ControlServidor
             btnReinstalar.Size = new Size(176, 42);
             btnReinstalar.Location = new Point(28, 64);
             btnReinstalar.Click += delegate { MostrarVistaInstalacion(); };
-            cardEq.Controls.Add(btnReinstalar);
+            cardSisEq.Controls.Add(btnReinstalar);
 
             BotonCurvo btnDesinstalar = new BotonCurvo();
             btnDesinstalar.Text = "Desinstalar";
@@ -1701,7 +1795,7 @@ namespace AuroraHost.POS.ControlServidor
             btnDesinstalar.Size = new Size(176, 42);
             btnDesinstalar.Location = new Point(220, 64);
             btnDesinstalar.Click += delegate { DesinstalarServicioAccion(); };
-            cardEq.Controls.Add(btnDesinstalar);
+            cardSisEq.Controls.Add(btnDesinstalar);
 
             BotonCurvo btnFabrica = new BotonCurvo();
             btnFabrica.Text = "Fabrica";
@@ -1710,18 +1804,16 @@ namespace AuroraHost.POS.ControlServidor
             btnFabrica.Size = new Size(176, 42);
             btnFabrica.Location = new Point(412, 64);
             btnFabrica.Click += delegate { FormatearFabricaAccion(); };
-            cardEq.Controls.Add(btnFabrica);
+            cardSisEq.Controls.Add(btnFabrica);
         }
 
         // =========================================================================
-        // NAVEGACION Y CENTRADO
+        // NAVEGACION Y REDIMENSIONAMIENTO ADAPTABLE (CERO SUPERPOSICION)
         // =========================================================================
         private void MostrarVistaInstalacion()
         {
             esEquipoNuevo = true;
-            panelSidebar.Visible = false;
-            panelDerecho.Location = new Point(0, 0);
-            panelDerecho.Width = this.ClientSize.Width;
+            contenedorSidebar.Visible = false;
             lblSaludoTop.Text = "Instalacion";
             OcultarTodasLasVistas();
             vistaInstalacion.Visible = true;
@@ -1741,9 +1833,7 @@ namespace AuroraHost.POS.ControlServidor
         private void MostrarVista(string clave)
         {
             esEquipoNuevo = false;
-            panelSidebar.Visible = true;
-            panelDerecho.Location = new Point(226, 0);
-            panelDerecho.Width = this.ClientSize.Width - 226;
+            contenedorSidebar.Visible = true;
             OcultarTodasLasVistas();
 
             navInicio.Activo = (clave == "inicio");
@@ -1773,32 +1863,146 @@ namespace AuroraHost.POS.ControlServidor
 
         private void AjustarPosiciones()
         {
-            if (panelSidebar != null && panelDerecho != null)
+            if (this.WindowState == FormWindowState.Minimized) return;
+
+            AjustarTopBar();
+
+            // 0. Vista Instalacion
+            if (vistaInstalacion != null && vistaInstalacion.Controls.Count > 0)
             {
-                panelSidebar.Height = Math.Max(400, this.ClientSize.Height - 28);
-                if (panelSidebar.Visible)
-                {
-                    panelDerecho.Location = new Point(226, 0);
-                    panelDerecho.Size = new Size(Math.Max(600, this.ClientSize.Width - 226), this.ClientSize.Height);
-                }
-                else
-                {
-                    panelDerecho.Location = new Point(0, 0);
-                    panelDerecho.Size = this.ClientSize;
-                }
+                Control cardInst = vistaInstalacion.Controls[0];
+                cardInst.Location = new Point(
+                    Math.Max(16, (vistaInstalacion.ClientSize.Width - cardInst.Width) / 2),
+                    Math.Max(12, (vistaInstalacion.ClientSize.Height - cardInst.Height) / 2)
+                );
             }
 
-            Panel[] vistas = new Panel[] { vistaInstalacion, vistaInicio, vistaServicios, vistaRespaldos, vistaCuentas, vistaSistema };
-            foreach (Panel v in vistas)
+            // 1. Vista Inicio (tarjetas KPI + Control + QR responsivos)
+            if (vistaInicio != null && boxInicio != null && kpiServidor != null && cardControlInicio != null && cardQrInicio != null)
             {
-                if (v != null && v.Controls.Count > 0)
-                {
-                    Control box = v.Controls[0];
-                    box.Location = new Point(
-                        Math.Max(14, (v.ClientSize.Width - box.Width) / 2),
-                        Math.Max(10, (v.ClientSize.Height - box.Height) / 2)
-                    );
-                }
+                int availW = vistaInicio.ClientSize.Width;
+                int availH = vistaInicio.ClientSize.Height;
+                int boxW = Math.Min(920, Math.Max(640, availW - 36));
+                int gap = 14;
+
+                int kpiW = (boxW - (gap * 3)) / 4;
+                int kpiH = 142;
+                kpiServidor.SetBounds(0, 4, kpiW, kpiH);
+                kpiRedLan.SetBounds(kpiW + gap, 4, kpiW, kpiH);
+                kpiRespaldos.SetBounds((kpiW + gap) * 2, 4, kpiW, kpiH);
+                kpiServicios.SetBounds((kpiW + gap) * 3, 4, boxW - ((kpiW + gap) * 3), kpiH);
+
+                int row2Top = kpiH + 18;
+                int row2H = 334;
+                int qrW = Math.Min(292, Math.Max(238, (int)(boxW * 0.35)));
+                int ctrlW = boxW - qrW - gap;
+
+                cardControlInicio.SetBounds(0, row2Top, ctrlW, row2H);
+                cardQrInicio.SetBounds(ctrlW + gap, row2Top, qrW, row2H);
+
+                int padX = 24;
+                int innerW = Math.Max(300, ctrlW - (padX * 2));
+                lblTitCtrlInicio.SetBounds(padX, 24, innerW, 28);
+                lblUrlInicio.SetBounds(padX, 56, innerW, 22);
+
+                int initBtnW = Math.Min(230, innerW);
+                btnInicioIniciar.SetBounds((ctrlW - initBtnW) / 2, 134, initBtnW, 48);
+                btnInicioAbrir.SetBounds(padX, 110, innerW, 48);
+
+                int mitadW = (innerW - 12) / 2;
+                int mitadDerW = innerW - mitadW - 12;
+                btnInicioReiniciar.SetBounds(padX, 172, mitadW, 44);
+                btnInicioDetener.SetBounds(padX + mitadW + 12, 172, mitadDerW, 44);
+
+                btnManualGeneralInicio.SetBounds(padX, 262, mitadW, 42);
+                btnManualRespaldosInicio.SetBounds(padX + mitadW + 12, 262, mitadDerW, 42);
+
+                lblTitQrInicio.SetBounds(14, 20, qrW - 28, 26);
+                int qrImgSize = Math.Min(164, qrW - 60);
+                picQr.SetBounds((qrW - qrImgSize) / 2, 54, qrImgSize, qrImgSize);
+                lblIpQr.SetBounds(10, 228, qrW - 20, 22);
+                btnCopiarIp.SetBounds((qrW - 148) / 2, 266, 148, 38);
+
+                int boxH = row2Top + row2H + 8;
+                boxInicio.Size = new Size(boxW, boxH);
+                boxInicio.Location = new Point(
+                    Math.Max(16, (availW - boxW) / 2),
+                    Math.Max(8, (availH - boxH) / 2)
+                );
+            }
+
+            // 2. Vista Servicios
+            if (vistaServicios != null && boxServicios != null && flowServicios != null && btnAgregarServicioTop != null)
+            {
+                int availW = vistaServicios.ClientSize.Width;
+                int availH = vistaServicios.ClientSize.Height;
+                int boxW = Math.Min(900, Math.Max(640, availW - 36));
+                int boxH = Math.Min(620, Math.Max(460, availH - 24));
+                boxServicios.Size = new Size(boxW, boxH);
+                btnAgregarServicioTop.Location = new Point(boxW - btnAgregarServicioTop.Width - 4, 4);
+                flowServicios.SetBounds(0, 52, boxW, boxH - 56);
+                boxServicios.Location = new Point(
+                    Math.Max(16, (availW - boxW) / 2),
+                    Math.Max(8, (availH - boxH) / 2)
+                );
+                if (vistaServicios.Visible) RenderizarTarjetasServicios();
+            }
+
+            // 3. Vista Respaldos
+            if (vistaRespaldos != null && boxRespaldos != null && cardRespaldosMain != null && lstBackups != null)
+            {
+                int availW = vistaRespaldos.ClientSize.Width;
+                int availH = vistaRespaldos.ClientSize.Height;
+                int boxW = Math.Min(900, Math.Max(640, availW - 36));
+                int boxH = Math.Min(620, Math.Max(460, availH - 24));
+                boxRespaldos.Size = new Size(boxW, boxH);
+                cardRespaldosMain.SetBounds(0, 4, boxW, boxH - 8);
+
+                int innerW = boxW - 52;
+                int btnGap = 10;
+                int btnW = (innerW - (btnGap * 4)) / 5;
+                btnRespaldarBak.SetBounds(26, 26, btnW, 40);
+                btnRestaurarBak.SetBounds(26 + (btnW + btnGap), 26, btnW, 40);
+                btnExternoBak.SetBounds(26 + (btnW + btnGap) * 2, 26, btnW, 40);
+                btnCarpetaBak.SetBounds(26 + (btnW + btnGap) * 3, 26, btnW, 40);
+                btnManualBak.SetBounds(26 + (btnW + btnGap) * 4, 26, innerW - (btnW + btnGap) * 4, 40);
+
+                lstBackups.SetBounds(26, 84, innerW, Math.Max(220, cardRespaldosMain.Height - 110));
+                boxRespaldos.Location = new Point(
+                    Math.Max(16, (availW - boxW) / 2),
+                    Math.Max(8, (availH - boxH) / 2)
+                );
+            }
+
+            // 4. Vista Cuentas
+            if (vistaCuentas != null && boxCuentas != null && cardCuentasForm != null && cardCuentasAdmin != null)
+            {
+                int availW = vistaCuentas.ClientSize.Width;
+                int availH = vistaCuentas.ClientSize.Height;
+                int boxW = Math.Min(880, Math.Max(640, availW - 36));
+                cardCuentasForm.SetBounds(0, 8, boxW, 286);
+                cardCuentasAdmin.SetBounds(0, 310, boxW, 132);
+                boxCuentas.Size = new Size(boxW, 450);
+                boxCuentas.Location = new Point(
+                    Math.Max(16, (availW - boxW) / 2),
+                    Math.Max(8, (availH - boxCuentas.Height) / 2)
+                );
+            }
+
+            // 5. Vista Sistema
+            if (vistaSistema != null && boxSistema != null && cardSisAct != null && cardSisRed != null && cardSisEq != null)
+            {
+                int availW = vistaSistema.ClientSize.Width;
+                int availH = vistaSistema.ClientSize.Height;
+                int boxW = Math.Min(880, Math.Max(640, availW - 36));
+                cardSisAct.SetBounds(0, 8, boxW, 134);
+                cardSisRed.SetBounds(0, 156, boxW, 134);
+                cardSisEq.SetBounds(0, 304, boxW, 134);
+                boxSistema.Size = new Size(boxW, 446);
+                boxSistema.Location = new Point(
+                    Math.Max(16, (availW - boxW) / 2),
+                    Math.Max(8, (availH - boxSistema.Height) / 2)
+                );
             }
         }
 
@@ -2301,28 +2505,64 @@ namespace AuroraHost.POS.ControlServidor
             catch { }
         }
 
-        private void AbrirManualHtmlLocal()
+        private void AbrirManualGeneralWeb()
+        {
+            string[] rutasLocales = new string[] {
+                Path.Combine(baseDir, "public", "manual", "index.html")
+            };
+            AbrirManualSitioLocal("/manual", rutasLocales);
+        }
+
+        private void AbrirManualRespaldosWeb()
+        {
+            string[] rutasLocales = new string[] {
+                Path.Combine(baseDir, "Manual_Respaldos_POS", "Manual_Interactivo_Respaldos.html"),
+                Path.Combine(baseDir, "public", "manual-respaldos", "index.html")
+            };
+            AbrirManualSitioLocal("/manual-respaldos", rutasLocales);
+        }
+
+        private void AbrirManualSitioLocal(string rutaWeb, string[] rutasRespaldoDisco)
         {
             try
             {
-                string rutaRespaldosHtml = Path.Combine(baseDir, "Manual_Respaldos_POS", "Manual_Interactivo_Respaldos.html");
-                string rutaGeneralHtml = Path.Combine(baseDir, "public", "manual", "index.html");
-                string destino = File.Exists(rutaRespaldosHtml) ? rutaRespaldosHtml : rutaGeneralHtml;
+                string urlSitioLocal = "http://localhost:" + puertoConfigurado + rutaWeb;
+                bool servidorResponde = servidorEnLineaActual || ProbarHttpLocal(urlSitioLocal);
 
-                if (!File.Exists(destino))
+                if (servidorResponde)
                 {
-                    MessageBox.Show("No se encontro el archivo del manual HTML local.", "Panel Servidor POS", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ProcessStartInfo psiWeb = new ProcessStartInfo();
+                    psiWeb.FileName = urlSitioLocal;
+                    psiWeb.UseShellExecute = true;
+                    Process.Start(psiWeb);
                     return;
                 }
 
-                ProcessStartInfo psi = new ProcessStartInfo();
-                psi.FileName = destino;
-                psi.UseShellExecute = true;
-                Process.Start(psi);
+                if (rutasRespaldoDisco != null)
+                {
+                    foreach (string rutaDisco in rutasRespaldoDisco)
+                    {
+                        if (File.Exists(rutaDisco))
+                        {
+                            ProcessStartInfo psiArchivo = new ProcessStartInfo();
+                            psiArchivo.FileName = rutaDisco;
+                            psiArchivo.UseShellExecute = true;
+                            Process.Start(psiArchivo);
+                            return;
+                        }
+                    }
+                }
+
+                MessageBox.Show(
+                    "Inicie primero el servidor POS o verifique que la carpeta de manuales locales exista.",
+                    "Panel Servidor POS",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
             }
             catch (Exception ex)
             {
-                MessageBox.Show("No se pudo abrir el manual local: " + ex.Message, "Panel Servidor POS", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("No se pudo abrir el manual: " + ex.Message, "Panel Servidor POS", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
