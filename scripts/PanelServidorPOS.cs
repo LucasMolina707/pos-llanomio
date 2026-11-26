@@ -2041,8 +2041,12 @@ namespace AuroraHost.POS.ControlServidor
                 string[] navegadores = new string[] {
                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft\Edge\Application\msedge.exe"),
                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft\Edge\Application\msedge.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\Edge\Application\msedge.exe"),
                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Google\Chrome\Application\chrome.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe")
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Google\Chrome\Application\chrome.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Google\Chrome\Application\chrome.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"BraveSoftware\Brave-Browser\Application\brave.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"BraveSoftware\Brave-Browser\Application\brave.exe")
                 };
 
                 foreach (string ruta in navegadores)
@@ -2051,7 +2055,8 @@ namespace AuroraHost.POS.ControlServidor
                     {
                         ProcessStartInfo psi = new ProcessStartInfo();
                         psi.FileName = ruta;
-                        psi.Arguments = "--new-window --start-maximized \"" + url + "\"";
+                        // Modo Aplicacion Independiente: sin pestanas, sin barra de direcciones, maximizada y solo con barra minimizar/maximizar/cerrar
+                        psi.Arguments = "--app=\"" + url + "\" --start-maximized";
                         psi.UseShellExecute = true;
                         psi.WindowStyle = ProcessWindowStyle.Maximized;
                         Process p = Process.Start(psi);
@@ -2061,7 +2066,7 @@ namespace AuroraHost.POS.ControlServidor
                 }
                 Process.Start(url);
             }
-            catch (Exception ex) { MessageBox.Show("Error al abrir navegador: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+            catch (Exception ex) { MessageBox.Show("Error al abrir aplicacion: " + ex.Message, "POS Llanomio", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
         }
 
         // =========================================================================
