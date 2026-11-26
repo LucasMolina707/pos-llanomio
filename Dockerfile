@@ -50,13 +50,13 @@ COPY --from=builder /app/package-lock.json ./package-lock.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/database/schema.prisma ./database/schema.prisma
+COPY --from=builder /app/database/schema.prisma ./prisma/schema.prisma
 COPY --from=builder /app/plantillas_excel ./plantillas_excel
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/start-pos.js ./start-pos.js
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
-RUN mkdir -p /app/database /app/backups /app/.tmp /app/docs \
+RUN mkdir -p /app/database /app/backups /app/.tmp /app/docs /app/prisma \
     && sed -i 's/\r$//' /app/scripts/docker-entrypoint.sh \
     && chmod +x /app/scripts/docker-entrypoint.sh
 

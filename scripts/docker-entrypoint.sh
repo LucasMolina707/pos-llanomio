@@ -5,7 +5,7 @@ echo "[AURORA DOCKER] Verificando directorios persistentes..."
 mkdir -p /app/database /app/backups /app/.tmp /app/docs
 
 echo "[AURORA DOCKER] Sincronizando esquema SQLite con Prisma..."
-npx prisma db push --schema=/app/database/schema.prisma --skip-generate
+npx prisma db push --schema=/app/prisma/schema.prisma --skip-generate
 
 echo "[AURORA DOCKER] Verificando datos iniciales de vitrina Aurora POS..."
 node /app/scripts/seed-aurora-vitrina.js
