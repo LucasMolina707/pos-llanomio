@@ -25,6 +25,16 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },
+  rewrites: async () => [
+    {
+      source: '/manual',
+      destination: '/manual/index.html',
+    },
+    {
+      source: '/manual-respaldos',
+      destination: '/manual-respaldos/index.html',
+    },
+  ],
   headers: async () => [
     {
       source: '/iconos/:path*',

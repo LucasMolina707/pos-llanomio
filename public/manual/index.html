@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>POS Llanomio - Manual Técnico Oficial y Guía de Operación</title>
+  <title>Aurora POS - Manual Técnico Oficial y Guía de Operación</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -185,7 +185,7 @@
             <div class="text-emerald-200 text-[10px] uppercase">Motor de Base de Datos:</div>
             <div class="text-white font-bold text-sm">SQLite Relacional (WAL)</div>
             <div class="text-emerald-200 text-[10px] uppercase pt-1">Resolución de Red:</div>
-            <div class="text-white font-bold">http://llanomio.local:3000</div>
+            <div class="text-white font-bold">http://aurorapos.local:3000</div>
           </div>
         </div>
 
@@ -636,21 +636,27 @@
             </div>
           </div>
 
-          <div class="p-4 bg-[#F8FAF9] border border-[#E0EDE8] rounded-2xl space-y-2">
+          <div class="p-4 bg-[#F8FAF9] border border-[#E0EDE8] rounded-2xl space-y-3">
             <strong class="text-xs font-bold text-slate-900 uppercase tracking-wide">Protocolo de Restauración en Equipo Nuevo</strong>
             <ol class="list-decimal pl-4 text-xs text-slate-600 space-y-1.5 pt-1">
               <li>Instala el sistema con el asistente en el equipo nuevo.</li>
-              <li>Detén el servidor con <code class="font-mono bg-white px-1 rounded border">Detener_Servidor_POS.exe</code>.</li>
-              <li>Copia tu archivo <code class="font-mono bg-white px-1 rounded border">llanomio.db</code> de respaldo en la carpeta <code class="font-mono bg-white px-1 rounded border">C:\POS_Llanomio\database\</code>.</li>
-              <li>Inicia el servidor con <code class="font-mono bg-white px-1 rounded border">Iniciar_Servidor_POS.exe</code>. Todos los clientes, facturas y deudas quedarán activos de inmediato.</li>
+              <li>Detén el servidor desde <code class="font-mono bg-white px-1 rounded border">Panel_Servidor_POS.exe</code>.</li>
+              <li>Copia tu archivo <code class="font-mono bg-white px-1 rounded border">pos_ULTIMO.db</code> de respaldo en la carpeta <code class="font-mono bg-white px-1 rounded border">database\</code> del sistema.</li>
+              <li>Inicia nuevamente el servidor. Todos los clientes, facturas y saldos quedarán activos de inmediato.</li>
             </ol>
+            <div class="pt-1">
+              <a href="/manual-respaldos" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#3F8A79] hover:bg-[#2F6E60] text-white text-xs font-bold transition shadow-xs">
+                <i data-lucide="database" class="w-4 h-4"></i>
+                <span>Abrir Manual Interactivo Detallado de Respaldos</span>
+              </a>
+            </div>
           </div>
         </div>
       </section>
 
       <!-- Footer Integrado -->
       <footer class="pt-4 border-t border-[#D5E5E0] text-center text-[11px] text-slate-400 font-mono">
-        POS Llanomio — Manual Técnico por Módulos • 100% Offline-First
+        Aurora POS — Manual Técnico Oficial por Módulos • Operación Local y Web
       </footer>
 
     </main>

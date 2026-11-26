@@ -21,6 +21,7 @@ import {
   Shirt,
   Wifi,
   HelpCircle,
+  Database,
 } from "lucide-react";
 import LogoEmpresa from "@/components/brand/LogoEmpresa";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
@@ -220,13 +221,25 @@ export default function Navbar({ onToggleSidebarMobile, isSidebarCollapsed, usua
           variant="neutral"
         />
 
+        {/* Manual Interactivo de Respaldos */}
+        <IconButtonTooltip
+          icon={Database}
+          label="Manual Interactivo de Respaldos (Backups)"
+          modulo="Documentación"
+          destino="Abre la arquitectura interactiva de copias de seguridad"
+          href="/manual-respaldos"
+          target="_blank"
+          size="md"
+          variant="neutral"
+        />
+
         {/* Manual Interactivo de Usuario */}
         <IconButtonTooltip
           icon={HelpCircle}
           label="Manual de Usuario y Guía Comercial"
           modulo="Ayuda"
-          destino="Abre el manual interactivo paso a paso de Aurora-POS"
-          href="/manual/index.html"
+          destino="Abre el manual interactivo paso a paso de Aurora POS"
+          href="/manual"
           target="_blank"
           size="md"
           variant="neutral"

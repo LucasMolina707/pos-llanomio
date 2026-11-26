@@ -45,13 +45,14 @@ function construirUrlPublica(req: NextRequest, destinoPath: string): URL {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1. Excluir recursos estáticos e imágenes directas de inmediato
+  // 1. Excluir recursos estáticos, manuales HTML públicos e imágenes directas de inmediato
   if (
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname.startsWith("/iconos") ||
+    pathname.startsWith("/manual") ||
     pathname === "/aurora.ico" ||
-    pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|css|js|woff|woff2)$/)
+    pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|css|js|html|woff|woff2)$/)
   ) {
     return NextResponse.next();
   }
@@ -155,6 +156,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|iconos|aurora.ico|api/auth/login|api/auth/recuperar|api/empresa/publico).*)",
+    "/((?!_next/static|_next/image|favicon.ico|iconos|manual|aurora.ico|api/auth/login|api/auth/recuperar|api/empresa/publico).*)",
   ],
 };
