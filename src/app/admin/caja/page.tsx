@@ -991,10 +991,10 @@ export default function ControlCajaAdminPage() {
                         {Number(gabineteSeleccionado.arqueo.totalDigital || 0).toLocaleString("es-CO")}
                       </p>
                       <p className="text-xs text-slate-700 font-medium mt-1">
+                        Bancolombia: $
+                        {Number(gabineteSeleccionado.arqueo.totalBancolombia || 0).toLocaleString("es-CO")} |
                         Nequi: $
-                        {Number(gabineteSeleccionado.arqueo.totalNequi || 0).toLocaleString("es-CO")} |
-                        Daviplata: $
-                        {Number(gabineteSeleccionado.arqueo.totalDaviplata || 0).toLocaleString("es-CO")}
+                        {Number(gabineteSeleccionado.arqueo.totalNequi || 0).toLocaleString("es-CO")}
                       </p>
                     </div>
 

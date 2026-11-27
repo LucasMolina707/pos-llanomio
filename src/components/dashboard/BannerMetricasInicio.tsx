@@ -261,7 +261,7 @@ export default function BannerMetricasInicio({ esAdmin }: BannerMetricasInicioPr
               formatearDinero(consolidado?.dineroConsignaciones || 0)
             )}
           </div>
-          <p className="text-[11px] font-medium text-slate-500 mt-1">Nequi, Bancolombia, transferencias</p>
+          <p className="text-[11px] font-medium text-slate-500 mt-1">Bancolombia (principal), Nequi, transferencias</p>
         </div>
 
         <div className="bg-white rounded-xl p-4 border border-amber-300 shadow-2xs">

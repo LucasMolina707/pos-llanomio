@@ -261,8 +261,8 @@ export default function DashboardGerencialPage() {
   };
 
   const canalesConsignacion = [
-    { etiqueta: "Nequi", valor: consolidado.desgloseConsignaciones.nequi },
     { etiqueta: "Bancolombia", valor: consolidado.desgloseConsignaciones.bancolombia },
+    { etiqueta: "Nequi", valor: consolidado.desgloseConsignaciones.nequi },
     { etiqueta: "Daviplata", valor: consolidado.desgloseConsignaciones.daviplata },
     { etiqueta: "Llave", valor: consolidado.desgloseConsignaciones.llave },
     { etiqueta: "Transferencia", valor: consolidado.desgloseConsignaciones.transferencia },
@@ -467,7 +467,7 @@ export default function DashboardGerencialPage() {
                 ))}
               </div>
             ) : (
-              <span>Nequi, Bancolombia, Daviplata, Transferencias</span>
+              <span>Bancolombia (principal), Nequi, Daviplata, Transferencias</span>
             )}
           </div>
         </div>
