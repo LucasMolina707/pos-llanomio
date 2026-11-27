@@ -151,10 +151,9 @@ export default function ModalCrearClienteRapido({
     }
 
     const docTrim = documento.trim();
-    const telTrim = telefono.trim().replace(/[^\d+]/g, "");
 
-    // Si ambos están vacíos o es consumidor final
-    if ((!docTrim && !telTrim) || docTrim === "222222222222") {
+    // Único valor irrepetible: Cédula o NIT (se permiten nombres y teléfonos repetidos entre distintas cédulas)
+    if (!docTrim || docTrim === "222222222222") {
       setClienteDuplicado(null);
       setMotivoDuplicado(null);
       return;
@@ -163,9 +162,7 @@ export default function ModalCrearClienteRapido({
     const timer = setTimeout(async () => {
       try {
         setVerificandoDuplicado(true);
-        const params = new URLSearchParams({ verificar: "true" });
-        if (docTrim) params.set("doc", docTrim);
-        if (telTrim && telTrim.length >= 7) params.set("tel", telTrim);
+        const params = new URLSearchParams({ verificar: "true", doc: docTrim });
         if (clienteAEditar?.id) params.set("excluirId", clienteAEditar.id);
 
         const res = await fetch(`/api/clientes?${params.toString()}`);
@@ -174,7 +171,7 @@ export default function ModalCrearClienteRapido({
 
         if (data.success && data.existe && data.cliente) {
           setClienteDuplicado(data.cliente);
-          setMotivoDuplicado(data.motivo);
+          setMotivoDuplicado("documento");
         } else {
           setClienteDuplicado(null);
           setMotivoDuplicado(null);
@@ -187,7 +184,7 @@ export default function ModalCrearClienteRapido({
     }, 320);
 
     return () => clearTimeout(timer);
-  }, [documento, telefono, isOpen, clienteAEditar?.id]);
+  }, [documento, isOpen, clienteAEditar?.id]);
 
   const seleccionarClienteDuplicado = (cli: ClienteCreado) => {
     onClienteCreado(cli);
@@ -408,7 +405,7 @@ export default function ModalCrearClienteRapido({
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <strong className="text-amber-950 font-bold block">
-                  Cliente ya registrado por {motivoDuplicado === "documento" ? "Documento / Cédula" : "Teléfono / Celular"}
+                  Cliente ya registrado con esta Cédula / NIT
                 </strong>
                 <span className="text-amber-900 block font-medium truncate">
                   {clienteDuplicado.nombre} • Doc: {clienteDuplicado.documento} {clienteDuplicado.telefono ? `• Tel: ${clienteDuplicado.telefono}` : ""}
