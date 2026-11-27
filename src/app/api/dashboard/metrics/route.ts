@@ -212,52 +212,37 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // 6. DEPÓSITOS EN CUSTODIA (Regla 4: Alquileres Activos + Apartados Activos)
-    // Facturas de Alquiler activas con depósito en garantía recibido y prendas aún no retornadas
-    const alquileresActivosConDeposito = await prisma.factura.findMany({
+    // 6. DEPÓSITOS EN CUSTODIA (Solo dinero realmente recibido en garantía y aún vigente: recibido - devuelto - retenido)
+    const facturasConCustodia = await prisma.factura.findMany({
       where: {
-        tipoOperacion: "ALQUILER",
-        estado: { notIn: [EstadoFactura.CERRADA, EstadoFactura.ANULADA] },
-        fechaDevolucionReal: null,
-        montoDeposito: { gt: 0 },
+        estado: { not: EstadoFactura.ANULADA },
+        depositoAbonado: { gt: 0 },
       },
       select: {
         id: true,
-        montoDeposito: true,
-        estadoDeposito: true,
-      },
-    });
-
-    const custodiaAlquileres = alquileresActivosConDeposito.reduce(
-      (acc, f) => acc + (f.montoDeposito || 0),
-      0
-    );
-
-    // Facturas de Apartados activos (dinero recibido en garantía/custodia)
-    const apartadosActivos = await prisma.factura.findMany({
-      where: {
-        tipoOperacion: "SEPARE",
-        estado: { notIn: [EstadoFactura.CERRADA, EstadoFactura.ANULADA] },
-      },
-      select: {
-        id: true,
+        tipoOperacion: true,
         depositoAbonado: true,
-        montoDeposito: true,
-        estadoDeposito: true,
+        montoDevueltoDeposito: true,
+        montoRetenidoDeposito: true,
       },
     });
 
-    const custodiaApartados = apartadosActivos.reduce(
-      (acc, f) => {
-        const dep = (f.depositoAbonado && f.depositoAbonado > 0)
-          ? f.depositoAbonado
-          : (f.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? (f.montoDeposito || 0) : 0);
-        return acc + dep;
-      },
-      0
-    );
+    let custodiaAlquileres = 0;
+    let custodiaApartados = 0;
 
-    const totalDepositosCustodia = custodiaAlquileres + custodiaApartados;
+    for (const f of facturasConCustodia) {
+      const saldoCustodia = Math.max(
+        0,
+        Math.round(((f.depositoAbonado || 0) - (f.montoDevueltoDeposito || 0) - (f.montoRetenidoDeposito || 0)) * 100) / 100
+      );
+      if (f.tipoOperacion === "SEPARE") {
+        custodiaApartados += saldoCustodia;
+      } else {
+        custodiaAlquileres += saldoCustodia;
+      }
+    }
+
+    const totalDepositosCustodia = Math.round((custodiaAlquileres + custodiaApartados) * 100) / 100;
 
     // 7. DINERO EN LA CALLE (Regla 4: Saldos Pendientes Activos + Moras Activas de Vencidos)
     const facturasActivas = await prisma.factura.findMany({

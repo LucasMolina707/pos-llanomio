@@ -239,11 +239,25 @@ export interface ArqueoTurnoResultado {
   efectivoVentasYAbonos: number;
   dineroTienda: number;
   dineroTiendaEfectivo: number;
+  dineroTiendaDigital: number;
+  totalIngresosRealesDia: number;
   dineroCustodia: number;
+  custodiaHeredadaEfectivo: number;
+  custodiaHeredadaDigital: number;
+  custodiaVigenteEfectivo: number;
+  custodiaVigenteDigital: number;
+  custodiaVigenteTotal: number;
   depositosEfectivoRecibidos: number;
+  depositosDigitalesRecibidos: number;
   depositosEfectivoDevueltos: number;
+  depositosDigitalesDevueltos: number;
+  depositosRetenidosEfectivo: number;
+  depositosRetenidosDigital: number;
+  depositosRetenidosTotal: number;
   depositosEfectivoNetos: number;
   efectivoDepositosCustodia: number;
+  fondoPermanenteCaja: number;
+  efectivoARetirarCierre: number;
   efectivoEsperado: number;
   esperadoEnGavetaEfectivo: number;
   saldoActualEnCajon: number;
@@ -266,11 +280,18 @@ export interface ArqueoTurnoResultado {
  * Fuente única de verdad matemática para GET /api/caja, GET /api/caja/estado,
  * POST /api/caja (cierre definitivo) y vistas de control de caja.
  *
- * Reglas de cálculo:
- * 1. Abonos del turno: Vinculados al turnoCajaId (o realizados desde turno.fechaApertura si turnoCajaId es null).
- * 2. Clasificación estricta de métodos de pago (EFECTIVO, NEQUI, DAVIPLATA, BANCOLOMBIA, LLAVE, TRANSFERENCIA, CONSIGNACION).
- * 3. Depósitos en custodia de alquileres: Depósitos en efectivo recibidos menos depósitos en efectivo devueltos en ese turno.
- * 4. Total Esperado en Gaveta Física = baseInicial + efectivoAbonos + depositosEfectivoNetos.
+ * Reglas contables estrictas:
+ * 1. Flujo de caja real: Solo suman los abonos efectivamente recibidos en este turno
+ *    (ventas, pagos parciales de apartados, saldos al retirar y retenciones de depósito por mora/daño).
+ * 2. Depósitos en garantía como fondo constante (NO son ingresos):
+ *    - Se arrastra la custodia vigente de turnos anteriores (`custodiaHeredadaEfectivo` / `custodiaHeredadaDigital`).
+ *    - Suman únicamente los depósitos efectivamente recibidos hoy.
+ *    - Restan de custodia cuando se devuelven al cliente (`DEPOSITO_DEVUELTO`) o cuando se retienen por mora/daño (`DEPOSITO_RETENIDO`).
+ *    - Si se retienen por mora/daño, pasan automáticamente a Ingresos Reales de la Tienda del turno actual.
+ * 3. Cierre de caja:
+ *    - Fondo Permanente que se queda en gaveta = Base Inicial + Custodia Vigente en Efectivo.
+ *    - Efectivo Esperado en Gaveta = Fondo Permanente + Ingresos Efectivo Tienda del turno.
+ *    - Efectivo a Retirar al Cierre = Ingresos Efectivo Tienda del turno.
  */
 export async function calcularArqueoExactoTurno(
   prismaClient: PrismaClient,
@@ -283,6 +304,43 @@ export async function calcularArqueoExactoTurno(
   const fechaApertura =
     typeof turno.fechaApertura === "string" ? new Date(turno.fechaApertura) : turno.fechaApertura;
   const baseInicial = Math.round(Number(turno.baseInicialEfectivo || 0) * 100) / 100;
+
+  // 0. Custodia heredada de turnos/días anteriores (depósitos vigentes antes de este turno en facturas no anuladas)
+  const abonosCustodiaPrevios = await prismaClient.abono.findMany({
+    where: {
+      tipoAbono: { in: ["DEPOSITO_GARANTIA", "DEPOSITO_DEVUELTO", "DEPOSITO_RETENIDO"] },
+      OR: [
+        { turnoCajaId: { not: turno.id }, fecha: { lt: fechaApertura } },
+        { turnoCajaId: null, fecha: { lt: fechaApertura } },
+      ],
+      factura: {
+        estado: { not: EstadoFactura.ANULADA },
+      },
+    },
+    select: {
+      monto: true,
+      metodoPago: true,
+      tipoAbono: true,
+    },
+  });
+
+  let custodiaHeredadaEfectivo = 0;
+  let custodiaHeredadaDigital = 0;
+
+  for (const abPrev of abonosCustodiaPrevios) {
+    const monto = Number(abPrev.monto) || 0;
+    const esEfectivo = abPrev.metodoPago === MetodoPago.EFECTIVO;
+    if (abPrev.tipoAbono === "DEPOSITO_GARANTIA") {
+      if (esEfectivo) custodiaHeredadaEfectivo += monto;
+      else custodiaHeredadaDigital += monto;
+    } else if (abPrev.tipoAbono === "DEPOSITO_DEVUELTO" || abPrev.tipoAbono === "DEPOSITO_RETENIDO") {
+      if (esEfectivo) custodiaHeredadaEfectivo -= monto;
+      else custodiaHeredadaDigital -= monto;
+    }
+  }
+
+  custodiaHeredadaEfectivo = Math.max(0, Math.round(custodiaHeredadaEfectivo * 100) / 100);
+  custodiaHeredadaDigital = Math.max(0, Math.round(custodiaHeredadaDigital * 100) / 100);
 
   // 1. Abonos asociados a este turno (excluyendo facturas anuladas para cero ingresos fantasma)
   const abonos = await prismaClient.abono.findMany({
@@ -321,6 +379,9 @@ export async function calcularArqueoExactoTurno(
   let depositosEfectivoRecibidos = 0;
   let depositosDigitalesRecibidos = 0;
   let depositosEfectivoDevueltos = 0;
+  let depositosDigitalesDevueltos = 0;
+  let depositosRetenidosEfectivo = 0;
+  let depositosRetenidosDigital = 0;
   const facturasConAbonoDeposito = new Set<string>();
   const facturasConAbonoDevuelto = new Set<string>();
 
@@ -345,33 +406,49 @@ export async function calcularArqueoExactoTurno(
     }
 
     const stat = desgloseMap.get(cId)!;
-    stat.cantidadAbonos += 1;
-
     const esDepositoGarantia = a.tipoAbono === "DEPOSITO_GARANTIA";
     const esDepositoDevuelto = a.tipoAbono === "DEPOSITO_DEVUELTO";
+    const esDepositoRetenido = a.tipoAbono === "DEPOSITO_RETENIDO";
 
     if (esDepositoDevuelto) {
+      // Salida de custodia hacia el cliente (NO es ingreso ni egreso operativo de ventas)
       if (a.facturaId) facturasConAbonoDevuelto.add(a.facturaId);
       if (a.metodoPago === MetodoPago.EFECTIVO) {
         depositosEfectivoDevueltos += monto;
-        stat.efectivo -= monto;
       } else {
-        stat.digital -= monto;
+        depositosDigitalesDevueltos += monto;
       }
-      stat.total -= monto;
     } else if (esDepositoGarantia) {
-      stat.total += monto;
+      // Entrada al fondo constante de custodia (NO suma a ingresos de la tienda)
       if (a.facturaId) facturasConAbonoDeposito.add(a.facturaId);
       if (a.metodoPago === MetodoPago.EFECTIVO) {
         depositosEfectivoRecibidos += monto;
-        stat.efectivo += monto;
       } else {
         depositosDigitalesRecibidos += monto;
+      }
+    } else if (esDepositoRetenido) {
+      // Retención por mora o daño en prenda: sale de custodia y SE CONVIERTE en ingreso real de la tienda
+      stat.cantidadAbonos += 1;
+      stat.total += monto;
+      if (a.metodoPago === MetodoPago.EFECTIVO) {
+        depositosRetenidosEfectivo += monto;
+        efectivoAbonos += monto;
+        stat.efectivo += monto;
+      } else {
+        depositosRetenidosDigital += monto;
+        totalDigitalAbonos += monto;
         stat.digital += monto;
+        if (a.metodoPago === MetodoPago.NEQUI) totalNequi += monto;
+        else if (a.metodoPago === MetodoPago.DAVIPLATA) totalDaviplata += monto;
+        else if (a.metodoPago === MetodoPago.BANCOLOMBIA) totalBancolombia += monto;
+        else if (a.metodoPago === MetodoPago.LLAVE) totalLlave += monto;
+        else if (a.metodoPago === MetodoPago.TRANSFERENCIA) totalTransferencia += monto;
+        else if (a.metodoPago === MetodoPago.CONSIGNACION) totalConsignacion += monto;
       }
     } else {
+      // Ingreso real de la tienda (Venta, Alquiler, Abono Parcial de Apartado, Saldo al Retirar, Mora)
+      stat.cantidadAbonos += 1;
       stat.total += monto;
-      // Dinero de la tienda (Alquiler o Venta)
       if (a.metodoPago === MetodoPago.EFECTIVO) {
         efectivoAbonos += monto;
         stat.efectivo += monto;
@@ -388,36 +465,27 @@ export async function calcularArqueoExactoTurno(
     }
   }
 
-  // 2. Facturas vinculadas a este turno (para depósitos devueltos y depósitos legacy)
+  // 2. Respaldo legacy SOLO para facturas sin abonos de depósito explícitos (nunca sumar depósitos no pagados)
   const facturasAlquiler = await prismaClient.factura.findMany({
     where: {
       OR: [
         { turnoCajaId: turno.id },
         { turnoCajaId: null, fechaCreacion: { gte: fechaApertura } },
       ],
-      montoDeposito: { gt: 0 },
+      depositoAbonado: { gt: 0 },
       estado: { not: EstadoFactura.ANULADA },
     },
     select: {
       id: true,
-      tipoOperacion: true,
-      montoDeposito: true,
       depositoAbonado: true,
       metodoPagoDeposito: true,
       montoDevueltoDeposito: true,
-      montoRetenidoDeposito: true,
-      estadoDeposito: true,
     },
   });
 
   for (const f of facturasAlquiler) {
-    // Si la factura NO tuvo registros de Abono tipo DEPOSITO_GARANTIA en este turno (legacy),
-    // tomamos el depósito que haya sido recaudado en garantía
     if (!facturasConAbonoDeposito.has(f.id)) {
-      const depRecaudado = f.depositoAbonado > 0
-        ? Number(f.depositoAbonado) || 0
-        : (f.estadoDeposito === "RECIBIDO_EN_GARANTIA" ? Number(f.montoDeposito) || 0 : 0);
-
+      const depRecaudado = Number(f.depositoAbonado) || 0;
       if (depRecaudado > 0) {
         if (f.metodoPagoDeposito === "EFECTIVO" || !f.metodoPagoDeposito) {
           depositosEfectivoRecibidos += depRecaudado;
@@ -427,7 +495,6 @@ export async function calcularArqueoExactoTurno(
       }
     }
 
-    // Si la factura NO tuvo abonos específicos DEPOSITO_DEVUELTO registrados en este turno (legacy)
     if (!facturasConAbonoDevuelto.has(f.id)) {
       const dev = Number(f.montoDevueltoDeposito) || 0;
       if (dev > 0) {
@@ -436,22 +503,32 @@ export async function calcularArqueoExactoTurno(
     }
   }
 
+  // Cálculos consolidados de Custodia (Fondo Constante) vs Ingresos Reales de Tienda
   const depositosEfectivoNetos =
-    Math.round((depositosEfectivoRecibidos - depositosEfectivoDevueltos) * 100) / 100;
-  const efectivoDepositosCustodia = Math.max(0, depositosEfectivoNetos);
+    Math.round((depositosEfectivoRecibidos - depositosEfectivoDevueltos - depositosRetenidosEfectivo) * 100) / 100;
+  const custodiaVigenteEfectivo = Math.max(
+    0,
+    Math.round((custodiaHeredadaEfectivo + depositosEfectivoNetos) * 100) / 100
+  );
+  const custodiaVigenteDigital = Math.max(
+    0,
+    Math.round((custodiaHeredadaDigital + depositosDigitalesRecibidos - depositosDigitalesDevueltos - depositosRetenidosDigital) * 100) / 100
+  );
+  const custodiaVigenteTotal = Math.round((custodiaVigenteEfectivo + custodiaVigenteDigital) * 100) / 100;
+  const depositosRetenidosTotal = Math.round((depositosRetenidosEfectivo + depositosRetenidosDigital) * 100) / 100;
 
-  // Efectivo físico esperado en gaveta:
-  // Base Inicial + Efectivo de Abonos + Depósitos Netos en Efectivo
-  const efectivoEsperadoEnGaveta =
-    Math.round((baseInicial + efectivoAbonos + depositosEfectivoNetos) * 100) / 100;
+  const dineroTiendaEfectivo = Math.round(efectivoAbonos * 100) / 100;
+  const dineroTiendaDigital = Math.round(totalDigitalAbonos * 100) / 100;
+  const totalIngresosRealesDia = Math.round((dineroTiendaEfectivo + dineroTiendaDigital) * 100) / 100;
 
-  const totalDigitalConDepositos =
-    Math.round((totalDigitalAbonos + depositosDigitalesRecibidos) * 100) / 100;
+  // Fondo Permanente que debe permanecer en gaveta = Base Fija + Custodia Vigente en Efectivo
+  const fondoPermanenteCaja = Math.round((baseInicial + custodiaVigenteEfectivo) * 100) / 100;
 
-  const totalRecaudado =
-    Math.round(
-      (efectivoAbonos + depositosEfectivoNetos + totalDigitalConDepositos) * 100
-    ) / 100;
+  // Efectivo físico total esperado en gaveta = Fondo Permanente + Ingresos Efectivo Tienda de hoy
+  const efectivoEsperadoEnGaveta = Math.round((fondoPermanenteCaja + dineroTiendaEfectivo) * 100) / 100;
+
+  // Efectivo de ganancia/ingreso del día a retirar al cerrar caja
+  const efectivoARetirarCierre = dineroTiendaEfectivo;
 
   const cantidadFacturas = await prismaClient.factura.count({
     where: {
@@ -463,36 +540,56 @@ export async function calcularArqueoExactoTurno(
     },
   });
 
+  const cantidadAbonosIngresos = abonos.filter(
+    (a) => a.tipoAbono !== "DEPOSITO_GARANTIA" && a.tipoAbono !== "DEPOSITO_DEVUELTO"
+  ).length;
+
   return {
     baseInicialEfectivo: baseInicial,
-    efectivoAbonos: Math.round(efectivoAbonos * 100) / 100,
-    efectivoVentasYAbonos: Math.round(efectivoAbonos * 100) / 100,
+    efectivoAbonos: dineroTiendaEfectivo,
+    efectivoVentasYAbonos: dineroTiendaEfectivo,
+    dineroTienda: totalIngresosRealesDia,
+    dineroTiendaEfectivo,
+    dineroTiendaDigital,
+    totalIngresosRealesDia,
+    dineroCustodia: custodiaVigenteEfectivo,
+    custodiaHeredadaEfectivo,
+    custodiaHeredadaDigital,
+    custodiaVigenteEfectivo,
+    custodiaVigenteDigital,
+    custodiaVigenteTotal,
     depositosEfectivoRecibidos: Math.round(depositosEfectivoRecibidos * 100) / 100,
+    depositosDigitalesRecibidos: Math.round(depositosDigitalesRecibidos * 100) / 100,
     depositosEfectivoDevueltos: Math.round(depositosEfectivoDevueltos * 100) / 100,
+    depositosDigitalesDevueltos: Math.round(depositosDigitalesDevueltos * 100) / 100,
+    depositosRetenidosEfectivo: Math.round(depositosRetenidosEfectivo * 100) / 100,
+    depositosRetenidosDigital: Math.round(depositosRetenidosDigital * 100) / 100,
+    depositosRetenidosTotal,
     depositosEfectivoNetos,
-    efectivoDepositosCustodia,
-    dineroCustodia: efectivoDepositosCustodia,
-    dineroTienda: Math.round((efectivoAbonos + totalDigitalAbonos) * 100) / 100,
-    dineroTiendaEfectivo: Math.round(efectivoAbonos * 100) / 100,
+    efectivoDepositosCustodia: custodiaVigenteEfectivo,
+    fondoPermanenteCaja,
+    efectivoARetirarCierre,
     efectivoEsperado: efectivoEsperadoEnGaveta,
     esperadoEnGavetaEfectivo: efectivoEsperadoEnGaveta,
     saldoActualEnCajon: efectivoEsperadoEnGaveta,
-    totalEfectivo: Math.round(efectivoAbonos * 100) / 100,
+    totalEfectivo: dineroTiendaEfectivo,
     totalNequi: Math.round(totalNequi * 100) / 100,
     totalDaviplata: Math.round(totalDaviplata * 100) / 100,
     totalBancolombia: Math.round(totalBancolombia * 100) / 100,
     totalLlave: Math.round(totalLlave * 100) / 100,
     totalTransferencia: Math.round(totalTransferencia * 100) / 100,
     totalConsignacion: Math.round(totalConsignacion * 100) / 100,
-    totalDigital: totalDigitalConDepositos,
-    totalRecaudado,
-    cantidadAbonos: abonos.length,
+    totalDigital: dineroTiendaDigital,
+    totalRecaudado: totalIngresosRealesDia,
+    cantidadAbonos: cantidadAbonosIngresos,
     cantidadFacturas,
-    desgloseCajeros: Array.from(desgloseMap.values()).map((c) => ({
-      ...c,
-      efectivo: Math.round(c.efectivo * 100) / 100,
-      digital: Math.round(c.digital * 100) / 100,
-      total: Math.round(c.total * 100) / 100,
-    })),
+    desgloseCajeros: Array.from(desgloseMap.values())
+      .filter((c) => c.cantidadAbonos > 0)
+      .map((c) => ({
+        ...c,
+        efectivo: Math.round(c.efectivo * 100) / 100,
+        digital: Math.round(c.digital * 100) / 100,
+        total: Math.round(c.total * 100) / 100,
+      })),
   };
 }

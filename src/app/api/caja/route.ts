@@ -515,13 +515,24 @@ export async function POST(req: NextRequest) {
         }) registrada en arqueo definitivo de caja`;
       }
 
-      // Facturas generadas en este turno para desglose estadístico
-      const facturasTurno = await prisma.factura.findMany({
+      // Desglose estadístico basado ESTRICTAMENTE en lo efectivamente recibido en este turno (cero facturas anuladas, cero saldos no cobrados, cero depósitos en custodia)
+      const abonosRealesTurno = await prisma.abono.findMany({
         where: {
           OR: [
             { turnoCajaId: turnoACerrar.id },
-            { turnoCajaId: null, fechaCreacion: { gte: turnoACerrar.fechaApertura } },
+            { turnoCajaId: null, fecha: { gte: turnoACerrar.fechaApertura } },
           ],
+          tipoAbono: { notIn: ["DEPOSITO_GARANTIA", "DEPOSITO_DEVUELTO"] },
+          factura: {
+            estado: { not: "ANULADA" },
+          },
+        },
+        select: {
+          monto: true,
+          tipoAbono: true,
+          factura: {
+            select: { tipoOperacion: true },
+          },
         },
       });
 
@@ -531,12 +542,25 @@ export async function POST(req: NextRequest) {
       let totalSepares = 0;
       let totalMoras = 0;
 
-      for (const fac of facturasTurno) {
-        totalVentas += fac.subtotalProductos || 0;
-        totalArreglos += fac.subtotalArreglosLibres || 0;
-        if (fac.tipoOperacion === "ALQUILER") totalAlquileres += fac.totalFactura || 0;
-        else if (fac.tipoOperacion === "SEPARE") totalSepares += fac.totalFactura || 0;
+      for (const ab of abonosRealesTurno) {
+        const m = Number(ab.monto) || 0;
+        const tipoAb = ab.tipoAbono || "";
+        const tipoOp = ab.factura?.tipoOperacion || "VENTA";
+
+        if (tipoAb === "DEPOSITO_RETENIDO" || tipoAb === "MORA") {
+          totalMoras += m;
+        } else if (tipoAb === "RESERVA" || tipoOp === "SEPARE") {
+          totalSepares += m;
+        } else if (tipoAb === "ALQUILER" || tipoOp === "ALQUILER") {
+          totalAlquileres += m;
+        } else if (tipoOp === "ARREGLO") {
+          totalArreglos += m;
+        } else {
+          totalVentas += m;
+        }
       }
+
+      const cantidadFacturasTurno = arqueo.cantidadFacturas;
 
       const fechaCierre = new Date();
 
@@ -573,7 +597,7 @@ export async function POST(req: NextRequest) {
             totalSepares: Math.round(totalSepares * 100) / 100,
             totalArreglos: Math.round(totalArreglos * 100) / 100,
             totalMoras: Math.round(totalMoras * 100) / 100,
-            cantidadFacturas: facturasTurno.length,
+            cantidadFacturas: cantidadFacturasTurno,
             observaciones:
               body.observaciones?.trim() ||
               (tieneDiferencia

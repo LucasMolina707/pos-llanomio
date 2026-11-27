@@ -59,11 +59,25 @@ interface ArqueoTurnoGabinete {
   efectivoVentasYAbonos?: number;
   dineroTienda?: number;
   dineroTiendaEfectivo?: number;
+  dineroTiendaDigital?: number;
+  totalIngresosRealesDia?: number;
   dineroCustodia?: number;
+  custodiaHeredadaEfectivo?: number;
+  custodiaHeredadaDigital?: number;
+  custodiaVigenteEfectivo?: number;
+  custodiaVigenteDigital?: number;
+  custodiaVigenteTotal?: number;
   depositosEfectivoRecibidos?: number;
+  depositosDigitalesRecibidos?: number;
   depositosEfectivoDevueltos?: number;
+  depositosDigitalesDevueltos?: number;
+  depositosRetenidosEfectivo?: number;
+  depositosRetenidosDigital?: number;
+  depositosRetenidosTotal?: number;
   depositosEfectivoNetos?: number;
   efectivoDepositosCustodia?: number;
+  fondoPermanenteCaja?: number;
+  efectivoARetirarCierre?: number;
   efectivoEsperado?: number;
   esperadoEnGavetaEfectivo: number;
   saldoActualEnCajon?: number;
@@ -338,9 +352,37 @@ export default function ControlCajaAdminPage() {
     0
   );
 
-  // Cálculo en vivo de diferencia durante el tipeo
+  // Desglose estricto: Fondo Permanente (Base + Depósitos en Custodia) vs Ganancia/Ingreso a Retirar
+  const baseFijaGabinete = Number(gabineteSeleccionado?.baseInicialEfectivo || 0);
+  const custodiaVigenteEfectivo = Number(
+    gabineteSeleccionado?.arqueo?.custodiaVigenteEfectivo ??
+    gabineteSeleccionado?.arqueo?.efectivoDepositosCustodia ??
+    gabineteSeleccionado?.arqueo?.dineroCustodia ??
+    0
+  );
+  const fondoPermanenteEnCaja = Number(
+    gabineteSeleccionado?.arqueo?.fondoPermanenteCaja ??
+    (baseFijaGabinete + custodiaVigenteEfectivo)
+  );
+  const ingresosEfectivoDia = Number(
+    gabineteSeleccionado?.arqueo?.dineroTiendaEfectivo ??
+    gabineteSeleccionado?.arqueo?.efectivoVentasYAbonos ??
+    gabineteSeleccionado?.arqueo?.totalEfectivo ??
+    0
+  );
+  const ingresosDigitalesDia = Number(
+    gabineteSeleccionado?.arqueo?.dineroTiendaDigital ??
+    gabineteSeleccionado?.arqueo?.totalDigital ??
+    0
+  );
+
+  // Cálculo en vivo de diferencia y efectivo neto a retirar durante el tipeo
   const contadoNumerico = parseFloat(efectivoContadoInput) || 0;
   const diferenciaEnVivo = Math.round((contadoNumerico - esperadoGaveta) * 100) / 100;
+  const efectivoARetirarEnVivo =
+    efectivoContadoInput !== ""
+      ? Math.max(0, Math.round((contadoNumerico - fondoPermanenteEnCaja) * 100) / 100)
+      : ingresosEfectivoDia;
 
   // Manejador que valida antes de abrir el modal antifatiga de confirmación
   const handleSolicitarCierre = (e: React.FormEvent) => {
@@ -852,17 +894,17 @@ export default function ControlCajaAdminPage() {
                     </div>
                   </div>
 
-                  {/* Separación Contable Estricta: Dinero de la Tienda vs Dinero en Custodia */}
+                  {/* Separación Contable Estricta: Ingresos Reales del Día vs Fondo Constante de Depósitos */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Rubro A: Dinero de la Tienda (Ventas y Alquileres) */}
+                    {/* Rubro A: Ingresos Reales de la Tienda (Solo lo recibido hoy) */}
                     <div className="bg-emerald-50/70 p-5 rounded-2xl border-2 border-emerald-300 shadow-xs relative overflow-hidden">
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="text-xs font-black uppercase tracking-wider text-emerald-900 block">
-                            Dinero de la Tienda (Ventas y Alquileres)
+                            Ingresos Reales del Día (Tienda)
                           </span>
                           <span className="text-[11px] text-emerald-700 font-medium">
-                            Ingresos reales facturados y cobrados por servicios de la tienda
+                            Solo dinero realmente recibido hoy (ventas, abonos parciales, saldos de retiro y moras/daños)
                           </span>
                         </div>
                         <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
@@ -872,24 +914,25 @@ export default function ControlCajaAdminPage() {
                       <p className="text-2xl sm:text-3xl font-black text-emerald-950 mt-3 font-mono">
                         $
                         {Number(
+                          gabineteSeleccionado.arqueo.totalIngresosRealesDia ??
                           gabineteSeleccionado.arqueo.dineroTienda ??
-                          ((gabineteSeleccionado.arqueo.efectivoVentasYAbonos || 0) + (gabineteSeleccionado.arqueo.totalDigital || 0))
+                          (ingresosEfectivoDia + ingresosDigitalesDia)
                         ).toLocaleString("es-CO")}
                       </p>
                       <p className="text-xs text-emerald-800 font-medium mt-1">
-                        Efectivo Tienda: ${Number(gabineteSeleccionado.arqueo.efectivoVentasYAbonos ?? gabineteSeleccionado.arqueo.totalEfectivo ?? 0).toLocaleString("es-CO")} &bull; Digital: ${Number(gabineteSeleccionado.arqueo.totalDigital || 0).toLocaleString("es-CO")}
+                        Efectivo Tienda: ${ingresosEfectivoDia.toLocaleString("es-CO")} &bull; Consignaciones / Digital: ${ingresosDigitalesDia.toLocaleString("es-CO")}
                       </p>
                     </div>
 
-                    {/* Rubro B: Dinero en Custodia (Depósitos Pendientes por Devolver) */}
+                    {/* Rubro B: Fondo Constante de Depósitos en Custodia (NO es Ingreso) */}
                     <div className="bg-amber-50/70 p-5 rounded-2xl border-2 border-amber-300 shadow-xs relative overflow-hidden">
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="text-xs font-black uppercase tracking-wider text-amber-950 block">
-                            Dinero en Custodia (Depósitos en Garantía)
+                            Fondo Constante de Depósitos en Custodia (No es Ingreso)
                           </span>
                           <span className="text-[11px] text-amber-800 font-medium">
-                            Depósitos en garantía pertenecientes a los clientes (permanece en gaveta física hasta la devolución del traje)
+                            Se mantiene en caja junto con la base; solo sale al devolver al cliente o pasa a ingresos por mora/daño
                           </span>
                         </div>
                         <div className="p-2.5 rounded-xl bg-amber-600 text-white shadow-xs shrink-0">
@@ -897,16 +940,18 @@ export default function ControlCajaAdminPage() {
                         </div>
                       </div>
                       <p className="text-2xl sm:text-3xl font-black text-amber-950 mt-3 font-mono">
-                        $
-                        {Number(
-                          gabineteSeleccionado.arqueo.dineroCustodia ??
-                          gabineteSeleccionado.arqueo.efectivoDepositosCustodia ??
-                          gabineteSeleccionado.arqueo.depositosEfectivoNetos ??
-                          0
-                        ).toLocaleString("es-CO")}
+                        ${custodiaVigenteEfectivo.toLocaleString("es-CO")}
+                        {Number(gabineteSeleccionado.arqueo.custodiaVigenteDigital || 0) > 0 && (
+                          <span className="text-xs font-bold text-amber-800 ml-2">
+                            (+ ${Number(gabineteSeleccionado.arqueo.custodiaVigenteDigital || 0).toLocaleString("es-CO")} digital)
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs text-amber-900 font-medium mt-1">
-                        Recibidos: ${Number(gabineteSeleccionado.arqueo.depositosEfectivoRecibidos || 0).toLocaleString("es-CO")} &bull; Reintegrados: ${Number(gabineteSeleccionado.arqueo.depositosEfectivoDevueltos || 0).toLocaleString("es-CO")}
+                        Heredado: ${Number(gabineteSeleccionado.arqueo.custodiaHeredadaEfectivo || 0).toLocaleString("es-CO")} &bull; Hoy: +${Number(gabineteSeleccionado.arqueo.depositosEfectivoRecibidos || 0).toLocaleString("es-CO")} &bull; Devueltos: -${Number(gabineteSeleccionado.arqueo.depositosEfectivoDevueltos || 0).toLocaleString("es-CO")}
+                        {Number(gabineteSeleccionado.arqueo.depositosRetenidosTotal || 0) > 0 && (
+                          <span> &bull; Mora/Daño (a Ingresos): -${Number(gabineteSeleccionado.arqueo.depositosRetenidosTotal || 0).toLocaleString("es-CO")}</span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -924,23 +969,10 @@ export default function ControlCajaAdminPage() {
                         </div>
                       </div>
                       <p className="text-2xl sm:text-3xl font-extrabold text-blue-950 mt-2 font-mono">
-                        $
-                        {Number(
-                          gabineteSeleccionado.arqueo.efectivoEsperado ??
-                          gabineteSeleccionado.arqueo.esperadoEnGavetaEfectivo ??
-                          0
-                        ).toLocaleString("es-CO")}
+                        ${esperadoGaveta.toLocaleString("es-CO")}
                       </p>
                       <p className="text-xs text-slate-700 font-medium mt-1">
-                        Base (${Number(gabineteSeleccionado.baseInicialEfectivo || 0).toLocaleString("es-CO")}) + Efectivo ($
-                        {Number(
-                          gabineteSeleccionado.arqueo.efectivoVentasYAbonos ??
-                          gabineteSeleccionado.arqueo.totalEfectivo ??
-                          0
-                        ).toLocaleString("es-CO")}) + Depósitos ($
-                        {Number(
-                          gabineteSeleccionado.arqueo.depositosEfectivoNetos ?? 0
-                        ).toLocaleString("es-CO")})
+                        Base (${baseFijaGabinete.toLocaleString("es-CO")}) + Custodia (${custodiaVigenteEfectivo.toLocaleString("es-CO")}) + Ingreso Ef. (${ingresosEfectivoDia.toLocaleString("es-CO")})
                       </p>
                     </div>
 
@@ -1233,6 +1265,33 @@ export default function ControlCajaAdminPage() {
                             <span className="text-base sm:text-lg font-black font-mono">
                               {diferenciaEnVivo >= 0 ? "+" : ""}${diferenciaEnVivo.toLocaleString("es-CO")}
                             </span>
+                          </div>
+
+                          {/* Instrucción de Liquidación al Cierre: Qué dejar en gaveta vs Qué retirar */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                            <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 block">
+                                Dejar en Gaveta (Constante)
+                              </span>
+                              <span className="text-base sm:text-lg font-black font-mono text-amber-950 block mt-0.5">
+                                ${fondoPermanenteEnCaja.toLocaleString("es-CO")}
+                              </span>
+                              <span className="text-[10px] font-medium text-amber-800 block">
+                                Base (${baseFijaGabinete.toLocaleString("es-CO")}) + Depósitos (${custodiaVigenteEfectivo.toLocaleString("es-CO")})
+                              </span>
+                            </div>
+
+                            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 block">
+                                Retirar (Ingreso Efectivo Día)
+                              </span>
+                              <span className="text-base sm:text-lg font-black font-mono text-emerald-950 block mt-0.5">
+                                ${efectivoARetirarEnVivo.toLocaleString("es-CO")}
+                              </span>
+                              <span className="text-[10px] font-medium text-emerald-800 block">
+                                + Consignaciones/Bancos: ${ingresosDigitalesDia.toLocaleString("es-CO")}
+                              </span>
+                            </div>
                           </div>
                         </div>
 

@@ -371,7 +371,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         const abonosAlquilerPrevios = await tx.abono.findMany({
           where: {
             facturaId: facturaPrevia.id,
-            tipoAbono: { not: "DEPOSITO_GARANTIA" },
+            tipoAbono: { notIn: ["DEPOSITO_GARANTIA", "DEPOSITO_DEVUELTO", "DEPOSITO_RETENIDO"] },
           },
           select: { monto: true },
         });
@@ -818,7 +818,13 @@ export async function POST(req: NextRequest, { params }: Params) {
           fechaDevReal = new Date();
         }
 
-        // Trazabilidad de Devolución de Depósito en Custodia en el Turno Activo
+        // Trazabilidad de Devolución y Retención de Depósito en Custodia en el Turno Activo
+        const metodoOriginalDeposito: MetodoPago =
+          facturaExistente.metodoPagoDeposito &&
+          Object.values(MetodoPago).includes(facturaExistente.metodoPagoDeposito as MetodoPago)
+            ? (facturaExistente.metodoPagoDeposito as MetodoPago)
+            : MetodoPago.EFECTIVO;
+
         const porcionDevueltaAhora = Math.round((nuevoMontoDevuelto - (facturaExistente.montoDevueltoDeposito || 0)) * 100) / 100;
         if (porcionDevueltaAhora > 0) {
           await tx.abono.create({
@@ -827,13 +833,13 @@ export async function POST(req: NextRequest, { params }: Params) {
               cajeroId,
               turnoCajaId: turnoAbierto?.id || null,
               monto: porcionDevueltaAhora,
-              metodoPago: MetodoPago.EFECTIVO,
+              metodoPago: metodoOriginalDeposito,
               notas: "Devolución de depósito en garantía al entregar prendas",
               tipoAbono: "DEPOSITO_DEVUELTO",
             },
           });
 
-          if (turnoAbierto) {
+          if (turnoAbierto && metodoOriginalDeposito === MetodoPago.EFECTIVO) {
             await tx.turnoCaja.update({
               where: { id: turnoAbierto.id },
               data: {
@@ -842,13 +848,31 @@ export async function POST(req: NextRequest, { params }: Params) {
             });
           }
         }
+
+        // Si se retiene porción del depósito por mora o daño en prenda, sale de custodia y entra a Ingresos Reales del Día
+        const porcionRetenidaAhora = Math.round((nuevoMontoRetenido - (facturaExistente.montoRetenidoDeposito || 0)) * 100) / 100;
+        if (porcionRetenidaAhora > 0) {
+          await tx.abono.create({
+            data: {
+              facturaId: facturaExistente.id,
+              cajeroId,
+              turnoCajaId: turnoAbierto?.id || null,
+              monto: porcionRetenidaAhora,
+              metodoPago: metodoOriginalDeposito,
+              notas: nuevoMotivoRetencion
+                ? `Retención de depósito por mora/daño: ${nuevoMotivoRetencion}`
+                : "Retención de depósito en garantía por mora o daño en prenda",
+              tipoAbono: "DEPOSITO_RETENIDO",
+            },
+          });
+        }
       }
 
       // D. Calcular acumulado total de abonos desacoplados (Alquiler vs Depósito en Custodia)
       const abonosAlquiler = await tx.abono.findMany({
         where: {
           facturaId: facturaExistente.id,
-          tipoAbono: { not: "DEPOSITO_GARANTIA" },
+          tipoAbono: { notIn: ["DEPOSITO_GARANTIA", "DEPOSITO_DEVUELTO", "DEPOSITO_RETENIDO"] },
         },
       });
 
