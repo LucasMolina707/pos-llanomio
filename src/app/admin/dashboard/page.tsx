@@ -3,112 +3,52 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
-  TrendingUp,
-  DollarSign,
   AlertTriangle,
-  ShoppingBag,
-  Scissors,
   Calendar,
   RefreshCw,
   Receipt,
   Vault,
   Smartphone,
-  CreditCard,
   Banknote,
   ArrowUpRight,
-  Filter,
-  BarChart3,
-  Layers,
   ClockAlert,
-  CalendarClock,
   CheckCircle2,
-  AlertCircle,
-  FileText,
   User,
-  Radio,
   Play,
   Pause,
   ShieldCheck,
-  Building2,
-  Clock,
-  Activity,
-  Zap,
+  Wallet,
+  Scale,
 } from "lucide-react";
 import { safeFetchJson } from "@/lib/safe-fetch";
 import IconButtonTooltip from "@/components/ui/IconButtonTooltip";
 import Tooltip from "@/components/ui/Tooltip";
 
-interface MetricasData {
-  ingresosNetos: number;
-  totalGastos?: number;
-  utilidadNeta?: number;
-  balanceNeto?: number;
-  cuentasPorCobrar: number;
-  morasRecaudadas: number;
-  totalPrendasAlquiladas: number;
-  prendasAlquiladasActivas: number;
-  rendimientoSastreria: number;
-  rendimientoVentas: number;
-  rendimientoAlquileres: number;
-  rendimientoApartados?: number;
-  totalFacturas: number;
-  totalAbonos: number;
-  depositosCustodia?: number;
-  depositosEnCustodia?: number;
-  dineroEnLaCalle?: number;
-  clientesDeudoresCount?: number;
-}
-
-interface DesgloseMetodosPago {
-  totalEfectivo: number;
-  totalNequi: number;
-  totalDaviplata: number;
-  totalBancolombia: number;
-  totalLlave: number;
-  totalTransferencia: number;
-  totalConsignacion?: number;
-  totalDigital: number;
-}
-
-interface DesgloseLineasNegocio {
-  alquileres: number;
-  ventas: number;
-  apartados?: number;
-  sastreria: number;
-}
-
-interface DondeEstaElDineroData {
-  efectivoFisicoPeriodo: number;
-  efectivoEnGavetaTurno: number;
-  baseInicialGaveta?: number;
-  efectivoRecaudadoTurno?: number;
-  totalCuentasDigitales: number;
-  cuentasDigitalesOConsignaciones?: number;
-  desgloseDigital: {
+interface ConsolidadoCajaCartera {
+  baseCaja: number;
+  dineroRecibidoEfectivo: number;
+  dineroConsignaciones: number;
+  depositosCustodia: number;
+  depositosCustodiaEfectivo: number;
+  depositosCustodiaDigital: number;
+  efectivoRealEnGaveta: number;
+  fondoPermanenteCaja: number;
+  ingresosRealesTienda: number;
+  consolidadoTotal: number;
+  carteraPorCobrar: number;
+  saldosPendientes: number;
+  morasActivas: number;
+  clientesDeudoresCount: number;
+  facturasConSaldoCount: number;
+  alquileresVencidosCount: number;
+  desgloseConsignaciones: {
     nequi: number;
     bancolombia: number;
-    llave: number;
     daviplata: number;
+    llave: number;
     transferencia: number;
-    consignacion?: number;
+    consignacion: number;
   };
-  depositosCustodia: number;
-  depositosEnCustodia?: number;
-  desgloseCustodia?: {
-    alquileresActivos: number;
-    apartadosActivos: number;
-    leyenda: string;
-  };
-  dineroEnLaCalle?: number;
-  desgloseDineroCalle?: {
-    saldosPorCobrar: number;
-    morasActivas: number;
-    clientesDeudoresCount: number;
-    facturasConSaldoCount: number;
-    alquileresVencidosCount: number;
-  };
-  cuentasPorCobrar: number;
-  morasRecaudadas: number;
 }
 
 interface TurnoActualInfo {
@@ -131,69 +71,50 @@ interface UltimaFactura {
   fechaCreacion: string;
 }
 
+interface DashboardMetricsResponse {
+  success: boolean;
+  consolidadoCajaCartera?: ConsolidadoCajaCartera;
+  turnoActual?: TurnoActualInfo | null;
+  ultimasFacturas?: UltimaFactura[];
+}
+
+const CONSOLIDADO_INICIAL: ConsolidadoCajaCartera = {
+  baseCaja: 0,
+  dineroRecibidoEfectivo: 0,
+  dineroConsignaciones: 0,
+  depositosCustodia: 0,
+  depositosCustodiaEfectivo: 0,
+  depositosCustodiaDigital: 0,
+  efectivoRealEnGaveta: 0,
+  fondoPermanenteCaja: 0,
+  ingresosRealesTienda: 0,
+  consolidadoTotal: 0,
+  carteraPorCobrar: 0,
+  saldosPendientes: 0,
+  morasActivas: 0,
+  clientesDeudoresCount: 0,
+  facturasConSaldoCount: 0,
+  alquileresVencidosCount: 0,
+  desgloseConsignaciones: {
+    nequi: 0,
+    bancolombia: 0,
+    daviplata: 0,
+    llave: 0,
+    transferencia: 0,
+    consignacion: 0,
+  },
+};
+
 export default function DashboardGerencialPage() {
-  const [periodoActivo, setPeriodoActivo] = useState<"DIA" | "MES" | "ANIO" | "PERSONALIZADO">("MES");
+  const [periodoActivo, setPeriodoActivo] = useState<"DIA" | "MES" | "ANIO" | "PERSONALIZADO">("DIA");
 
-  // Fechas por defecto: mes actual
-  const [fechaDesde, setFechaDesde] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  });
-  const [fechaHasta, setFechaHasta] = useState(() => {
-    return new Date().toISOString().split("T")[0];
-  });
+  const [fechaDesde, setFechaDesde] = useState(() => new Date().toISOString().split("T")[0]);
+  const [fechaHasta, setFechaHasta] = useState(() => new Date().toISOString().split("T")[0]);
 
-  // Estados de métricas financieras
-  const [metricas, setMetricas] = useState<MetricasData>({
-    ingresosNetos: 0,
-    cuentasPorCobrar: 0,
-    morasRecaudadas: 0,
-    totalPrendasAlquiladas: 0,
-    prendasAlquiladasActivas: 0,
-    rendimientoSastreria: 0,
-    rendimientoVentas: 0,
-    rendimientoAlquileres: 0,
-    totalFacturas: 0,
-    totalAbonos: 0,
-    depositosCustodia: 0,
-  });
-
-  const [dondeEstaElDinero, setDondeEstaElDinero] = useState<DondeEstaElDineroData>({
-    efectivoFisicoPeriodo: 0,
-    efectivoEnGavetaTurno: 0,
-    totalCuentasDigitales: 0,
-    desgloseDigital: {
-      nequi: 0,
-      bancolombia: 0,
-      llave: 0,
-      daviplata: 0,
-      transferencia: 0,
-    },
-    depositosCustodia: 0,
-    cuentasPorCobrar: 0,
-    morasRecaudadas: 0,
-  });
-
-  const [metodosPago, setMetodosPago] = useState<DesgloseMetodosPago>({
-    totalEfectivo: 0,
-    totalNequi: 0,
-    totalDaviplata: 0,
-    totalBancolombia: 0,
-    totalLlave: 0,
-    totalTransferencia: 0,
-    totalDigital: 0,
-  });
-
-  const [lineasNegocio, setLineasNegocio] = useState<DesgloseLineasNegocio>({
-    alquileres: 0,
-    ventas: 0,
-    sastreria: 0,
-  });
-
+  const [consolidado, setConsolidado] = useState<ConsolidadoCajaCartera>(CONSOLIDADO_INICIAL);
   const [turnoActual, setTurnoActual] = useState<TurnoActualInfo | null>(null);
   const [ultimasFacturas, setUltimasFacturas] = useState<UltimaFactura[]>([]);
 
-  // Estados de control de telemetría en tiempo real
   const [cargandoInicial, setCargandoInicial] = useState(true);
   const [actualizandoSilencioso, setActualizandoSilencioso] = useState(false);
   const [enVivoActivo, setEnVivoActivo] = useState(true);
@@ -205,11 +126,9 @@ export default function DashboardGerencialPage() {
     setMontado(true);
   }, []);
 
-  // Referencias para evitar revalidaciones duplicadas y condiciones de carrera
   const ultimaFirmaDatosRef = useRef<string>("");
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Función principal de carga de métricas (silenciosa o con indicador)
   const cargarMetricas = useCallback(
     async (mostrarSpinner = false) => {
       if (mostrarSpinner) {
@@ -218,7 +137,6 @@ export default function DashboardGerencialPage() {
         setActualizandoSilencioso(true);
       }
 
-      // Cancelar request previo si aún está en vuelo
       if (abortControllerRef.current) {
         try {
           abortControllerRef.current.abort();
@@ -233,26 +151,25 @@ export default function DashboardGerencialPage() {
             ? `periodo=${periodoActivo.toLowerCase()}`
             : `desde=${fechaDesde}&hasta=${fechaHasta}`;
 
-        const { ok, data, error } = await safeFetchJson<any>(`/api/dashboard/metrics?${queryParam}`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
+        const { ok, data, error } = await safeFetchJson<DashboardMetricsResponse>(
+          `/api/dashboard/metrics?${queryParam}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        );
 
         if (error === "PETICION_ABORTADA") {
           return;
         }
 
-        if (ok && data?.success && data?.metricas) {
-          const firmaActual = `${data.metricas.ingresosNetos}-${data.metricas.cuentasPorCobrar}-${data.metricas.totalFacturas}-${data.dondeEstaElDinero?.depositosCustodia || 0}-${data.ultimasFacturas?.[0]?.id || ""}`;
+        if (ok && data?.success && data.consolidadoCajaCartera) {
+          const c = data.consolidadoCajaCartera;
+          const firmaActual = `${c.baseCaja}-${c.dineroRecibidoEfectivo}-${c.dineroConsignaciones}-${c.depositosCustodia}-${c.carteraPorCobrar}-${data.ultimasFacturas?.[0]?.id || ""}`;
 
           if (firmaActual !== ultimaFirmaDatosRef.current || mostrarSpinner) {
             ultimaFirmaDatosRef.current = firmaActual;
-            setMetricas(data.metricas);
-            if (data.dondeEstaElDinero) {
-              setDondeEstaElDinero(data.dondeEstaElDinero);
-            }
-            setMetodosPago(data.desgloseMetodos || data.desgloseMetodosPago);
-            setLineasNegocio(data.desgloseLineas || data.desgloseLineasNegocio);
+            setConsolidado(c);
             setUltimasFacturas(data.ultimasFacturas || []);
             setTurnoActual(data.turnoActual || null);
           }
@@ -278,26 +195,19 @@ export default function DashboardGerencialPage() {
     [periodoActivo, fechaDesde, fechaHasta]
   );
 
-  // Carga inicial al montar o al cambiar filtros
   useEffect(() => {
     cargarMetricas(true);
   }, [cargarMetricas]);
 
-  // Polling Inteligente con AbortController y Pausa por Visibilidad (15s LAN local)
-  // Reemplaza SSE permanente para liberar sockets HTTP/1.1 y garantizar transiciones de página instantáneas (<50ms)
   useEffect(() => {
     if (!enVivoActivo) return;
 
-    let pollingInterval: NodeJS.Timeout | null = null;
-
-    // Ejecutar revalidación periódica cada 15 segundos solo si la pestaña está activa
-    pollingInterval = setInterval(() => {
+    const pollingInterval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         cargarMetricas(false);
       }
     }, 15000);
 
-    // Revalidación inmediata al recibir foco o volver a la pestaña del navegador
     const handleReenfoque = () => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         cargarMetricas(false);
@@ -308,7 +218,7 @@ export default function DashboardGerencialPage() {
     document.addEventListener("visibilitychange", handleReenfoque);
 
     return () => {
-      if (pollingInterval) clearInterval(pollingInterval);
+      clearInterval(pollingInterval);
       window.removeEventListener("focus", handleReenfoque);
       document.removeEventListener("visibilitychange", handleReenfoque);
       if (abortControllerRef.current) {
@@ -319,16 +229,14 @@ export default function DashboardGerencialPage() {
     };
   }, [enVivoActivo, cargarMetricas]);
 
-  const formatearDinero = (val: number) => {
-    return new Intl.NumberFormat("es-CO", {
+  const formatearDinero = (val: number) =>
+    new Intl.NumberFormat("es-CO", {
       style: "currency",
       currency: "COP",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(val || 0);
-  };
 
-  // Atajos rápidos de fecha
   const setRangoHoy = () => {
     setPeriodoActivo("DIA");
     const hoy = new Date().toISOString().split("T")[0];
@@ -336,20 +244,10 @@ export default function DashboardGerencialPage() {
     setFechaHasta(hoy);
   };
 
-  const setRango7Dias = () => {
-    setPeriodoActivo("PERSONALIZADO");
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    setFechaDesde(d.toISOString().split("T")[0]);
-    setFechaHasta(new Date().toISOString().split("T")[0]);
-  };
-
   const setRangoEsteMes = () => {
     setPeriodoActivo("MES");
     const now = new Date();
-    const primerDia = new Date(now.getFullYear(), now.getMonth(), 1)
-      .toISOString()
-      .split("T")[0];
+    const primerDia = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
     setFechaDesde(primerDia);
     setFechaHasta(now.toISOString().split("T")[0]);
   };
@@ -357,58 +255,50 @@ export default function DashboardGerencialPage() {
   const setRangoAnoActual = () => {
     setPeriodoActivo("ANIO");
     const now = new Date();
-    const primerDiaAno = new Date(now.getFullYear(), 0, 1)
-      .toISOString()
-      .split("T")[0];
+    const primerDiaAno = new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0];
     setFechaDesde(primerDiaAno);
     setFechaHasta(now.toISOString().split("T")[0]);
   };
 
-  // Cálculo porcentual para barras de progreso
-  const totalPagos =
-    metodosPago.totalEfectivo +
-    metodosPago.totalNequi +
-    metodosPago.totalDaviplata +
-    (metodosPago.totalBancolombia || 0) +
-    (metodosPago.totalLlave || 0) +
-    metodosPago.totalTransferencia || 1;
-
-  const totalLineas =
-    lineasNegocio.alquileres + lineasNegocio.ventas + lineasNegocio.sastreria || 1;
+  const canalesConsignacion = [
+    { etiqueta: "Nequi", valor: consolidado.desgloseConsignaciones.nequi },
+    { etiqueta: "Bancolombia", valor: consolidado.desgloseConsignaciones.bancolombia },
+    { etiqueta: "Daviplata", valor: consolidado.desgloseConsignaciones.daviplata },
+    { etiqueta: "Llave", valor: consolidado.desgloseConsignaciones.llave },
+    { etiqueta: "Transferencia", valor: consolidado.desgloseConsignaciones.transferencia },
+    { etiqueta: "Consignación", valor: consolidado.desgloseConsignaciones.consignacion },
+  ].filter((c) => c.valor > 0);
 
   return (
-    <div className="w-full space-y-6">
-      {/* 1. Cabecera Gerencial & Telemetría en Vivo */}
+    <div className="w-full space-y-5">
+      {/* 1. Cabecera Gerencial & Filtros */}
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-bold text-slate-900 leading-tight truncate">
-            Metricas
+          <h1 className="text-lg font-bold text-slate-900 leading-tight">
+            Consolidado de Caja y Cartera
           </h1>
-          <p className="text-xs text-slate-500 font-medium truncate">
-            Resumen financiero en vivo
+          <p className="text-xs text-slate-500 font-medium">
+            Control directo sincronizado con el turno de caja activo
           </p>
         </div>
 
-        {/* Controles de Filtros Temporales y Botón En Vivo */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Conmutador de Pausa / Reanudación En Vivo */}
           <IconButtonTooltip
             icon={enVivoActivo ? Pause : Play}
             label={
               enVivoActivo
-                ? `Pausar Sincronización en Vivo (Pulsos: ${totalPulsosRecibidos})`
-                : "Reanudar Sincronización en Vivo"
+                ? `Pausar sincronización en vivo (Pulsos: ${totalPulsosRecibidos})`
+                : "Reanudar sincronización en vivo"
             }
             modulo="En Vivo"
-            destino="Transmisión SSE en tiempo real"
+            destino="Actualización automática cada 15s"
             onClick={() => setEnVivoActivo(!enVivoActivo)}
             size="md"
             variant={enVivoActivo ? "emerald" : "neutral"}
           />
 
-          {/* Botones de Selección Rápida de Periodo */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <Tooltip content="Filtrar métricas exclusivamente de la jornada de hoy" position="bottom">
+            <Tooltip content="Ver cifras de la jornada de hoy" position="bottom">
               <button
                 type="button"
                 onClick={setRangoHoy}
@@ -421,7 +311,7 @@ export default function DashboardGerencialPage() {
                 Hoy
               </button>
             </Tooltip>
-            <Tooltip content="Filtrar métricas acumuladas del mes en curso" position="bottom">
+            <Tooltip content="Ver acumulado del mes actual" position="bottom">
               <button
                 type="button"
                 onClick={setRangoEsteMes}
@@ -434,7 +324,7 @@ export default function DashboardGerencialPage() {
                 Mes
               </button>
             </Tooltip>
-            <Tooltip content="Filtrar métricas consolidadas del año actual" position="bottom">
+            <Tooltip content="Ver acumulado del año actual" position="bottom">
               <button
                 type="button"
                 onClick={setRangoAnoActual}
@@ -444,14 +334,13 @@ export default function DashboardGerencialPage() {
                     : "text-slate-600 hover:text-slate-900 hover:bg-white"
                 }`}
               >
-                Ano
+                Año
               </button>
             </Tooltip>
           </div>
 
-          {/* Rango de Fechas Personalizado */}
           <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-            <Calendar className="w-4 h-4 text-blue-600 ml-1.5" />
+            <Calendar className="w-4 h-4 text-blue-600 ml-1" />
             <input
               type="date"
               value={fechaDesde}
@@ -473,12 +362,11 @@ export default function DashboardGerencialPage() {
             />
           </div>
 
-          {/* Botón de Refresco Manual */}
           <IconButtonTooltip
             icon={RefreshCw}
             label="Actualizar"
-            modulo="Dashboard"
-            destino={`Recalcula ventas, cartera y moras (Última: ${montado ? ultimaSincronizacion.toLocaleTimeString("es-CO") : "--:--"})`}
+            modulo="Métricas"
+            destino={`Última actualización: ${montado ? ultimaSincronizacion.toLocaleTimeString("es-CO") : "--:--"}`}
             onClick={() => cargarMetricas(true)}
             disabled={cargandoInicial || actualizandoSilencioso}
             iconClassName={
@@ -490,379 +378,213 @@ export default function DashboardGerencialPage() {
         </div>
       </div>
 
-      {/* 2. Barra de Estado de Turno de Caja en Vivo */}
+      {/* 2. Barra de Estado de Turno Activo */}
       {turnoActual && (
-        <div className="bg-white border border-slate-200 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3 shadow-2xs">
+        <div className="bg-white border border-slate-200 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="relative flex h-2.5 w-2.5 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
             </span>
             <span className="text-sm font-semibold text-slate-800 truncate">
-              Caja Activa: <strong className="text-slate-900 font-bold">{turnoActual.cajero}</strong>
+              Turno Activo: <strong className="text-slate-950 font-bold">{turnoActual.cajero}</strong>
             </span>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <span className="text-xs font-mono font-bold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
-              Base: ${turnoActual.baseInicial.toLocaleString("es-CO")}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <span className="text-xs font-mono font-bold text-blue-900 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+              En Gaveta Física: {formatearDinero(consolidado.efectivoRealEnGaveta)}
             </span>
-            <IconButtonTooltip
-              icon={ArrowUpRight}
-              label="Arqueo de Caja"
-              modulo="Operaciones"
-              destino="Ruta: /admin/caja"
+            <Link
               href="/admin/caja"
-              size="md"
-              variant="neutral"
-            />
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition"
+            >
+              <span>Ir a Arqueo / Cierre</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
       )}
 
-      {/* 2. Cuadrícula Simplificada de Métricas Clave (Ingresos, Efectivo, Transacciones, Depósitos y Utilidades) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {/* Tarjeta 1: Ingresos Totales */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
+      {/* 3. Consolidado Limpio de los 4 Rubros Separados */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Rubro 1: Base de Caja */}
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Ingresos
+            <span className="text-xs font-black uppercase tracking-wider text-slate-600">
+              1. Base de Caja
             </span>
-            <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-100/80 flex items-center justify-center text-blue-600">
-              <DollarSign className="w-5 h-5" />
+            <div className="h-9 w-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
+              <Vault className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-slate-900 font-mono transition-colors">
-              {formatearDinero(metricas.ingresosNetos)}
-            </div>
-            <p className="text-xs font-medium text-slate-500 mt-1 flex items-center justify-between">
-              <span>Recaudado en período</span>
-              <span className="font-bold text-slate-700">{metricas.totalAbonos} abonos</span>
-            </p>
-          </div>
+          <p className="text-2xl font-black font-mono text-slate-900 mt-3">
+            {formatearDinero(consolidado.baseCaja)}
+          </p>
+          <p className="text-xs text-slate-500 font-medium mt-1">
+            Base fija inicial que permanece en gaveta
+          </p>
         </div>
 
-        {/* Tarjeta 2: Total Efectivo */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
+        {/* Rubro 2: Dinero en Caja Real (Efectivo Recibido) */}
+        <div className="bg-emerald-50/50 rounded-2xl p-5 border-2 border-emerald-200 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Efectivo
+            <span className="text-xs font-black uppercase tracking-wider text-emerald-900">
+              2. Dinero Recibido (Efectivo)
             </span>
-            <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600">
-              <Banknote className="w-5 h-5" />
+            <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+              <Banknote className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-emerald-600 font-mono transition-colors">
-              {formatearDinero(dondeEstaElDinero?.efectivoFisicoPeriodo ?? metodosPago.totalEfectivo)}
-            </div>
-            <p className="text-xs font-medium text-slate-500 mt-1 flex items-center justify-between">
-              <span>Efectivo en caja</span>
-              {turnoActual && (
-                <span className="font-bold text-emerald-700">
-                  Gaveta: {formatearDinero(dondeEstaElDinero?.efectivoEnGavetaTurno ?? turnoActual.efectivoEnGaveta ?? 0)}
-                </span>
-              )}
-            </p>
-          </div>
+          <p className="text-2xl font-black font-mono text-emerald-950 mt-3">
+            {formatearDinero(consolidado.dineroRecibidoEfectivo)}
+          </p>
+          <p className="text-xs text-emerald-800 font-medium mt-1">
+            Ingresos reales en efectivo (sin depósitos)
+          </p>
         </div>
 
-        {/* Tarjeta 3: Transacciones / Medios Digitales */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
+        {/* Rubro 3: Consignaciones y Transferencias */}
+        <div className="bg-purple-50/50 rounded-2xl p-5 border-2 border-purple-200 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Digital
+            <span className="text-xs font-black uppercase tracking-wider text-purple-900">
+              3. Consignaciones / Bancos
             </span>
-            <div className="h-10 w-10 rounded-xl bg-purple-50 border border-purple-100/80 flex items-center justify-center text-purple-600">
-              <Smartphone className="w-5 h-5" />
+            <div className="h-9 w-9 rounded-xl bg-purple-600 text-white flex items-center justify-center">
+              <Smartphone className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-purple-600 font-mono transition-colors">
-              {formatearDinero(
-                dondeEstaElDinero?.cuentasDigitalesOConsignaciones ??
-                  dondeEstaElDinero?.totalCuentasDigitales ??
-                  (metodosPago.totalNequi +
-                    metodosPago.totalDaviplata +
-                    (metodosPago.totalBancolombia || 0) +
-                    (metodosPago.totalLlave || 0) +
-                    metodosPago.totalTransferencia +
-                    (metodosPago.totalConsignacion || 0))
-              )}
-            </div>
-            <p className="text-xs font-medium text-slate-500 mt-1">
-              Nequi, Daviplata, Bancolombia, Llave
-            </p>
-          </div>
-        </div>
-
-        {/* Tarjeta 4: Depósitos en Custodia */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Garantias
-            </span>
-            <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100/80 flex items-center justify-center text-amber-600">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black tracking-tight text-amber-600 font-mono transition-colors">
-              {formatearDinero(
-                dondeEstaElDinero?.depositosEnCustodia ??
-                  dondeEstaElDinero?.depositosCustodia ??
-                  metricas.depositosCustodia ??
-                  0
-              )}
-            </div>
-            <p className="text-xs font-medium text-slate-500 mt-1">
-              Custodia por alquileres y apartados
-            </p>
-          </div>
-        </div>
-
-        {/* Tarjeta 5: Utilidad Neta */}
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Utilidad Neta
-            </span>
-            <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100/80 flex items-center justify-center text-emerald-600">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div
-              className={`text-2xl font-black tracking-tight font-mono transition-colors ${
-                (metricas.utilidadNeta ?? metricas.ingresosNetos) >= 0 ? "text-emerald-700" : "text-rose-600"
-              }`}
-            >
-              {formatearDinero(metricas.utilidadNeta ?? metricas.ingresosNetos)}
-            </div>
-            <p className="text-xs font-medium text-slate-500 mt-1 flex items-center justify-between">
-              <span>Ingresos - Gastos</span>
-              <span className="text-slate-400 font-mono">
-                Gastos: {formatearDinero(metricas.totalGastos || 0)}
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Desgloses Comparativos en 2 Columnas Grandes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Desglose por Método de Pago */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                <Banknote className="w-4 h-4" />
-              </div>
-              <h2 className="text-base font-bold text-slate-900">
-                Por Medio de Pago
-              </h2>
-            </div>
-            <span className="text-xs font-semibold text-slate-500">
-              Base: {formatearDinero(totalPagos === 1 ? 0 : totalPagos)}
-            </span>
-          </div>
-
-          <div className="space-y-4">
-            {/* Efectivo */}
-            <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-slate-700 flex items-center gap-1.5">
-                  <Banknote className="w-3.5 h-3.5 text-emerald-600" /> Efectivo
-                </span>
-                <span className="font-bold text-slate-900">
-                  {formatearDinero(metodosPago.totalEfectivo)} ({Math.round((metodosPago.totalEfectivo / totalPagos) * 100)}%)
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className="bg-emerald-500 h-2.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(metodosPago.totalEfectivo / totalPagos) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Nequi */}
-            <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-slate-700 flex items-center gap-1.5">
-                  <Smartphone className="w-3.5 h-3.5 text-purple-600" /> Nequi
-                </span>
-                <span className="font-bold text-slate-900">
-                  {formatearDinero(metodosPago.totalNequi)} ({Math.round((metodosPago.totalNequi / totalPagos) * 100)}%)
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className="bg-purple-600 h-2.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(metodosPago.totalNequi / totalPagos) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Daviplata */}
-            <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-slate-700 flex items-center gap-1.5">
-                  <CreditCard className="w-3.5 h-3.5 text-rose-600" /> Daviplata
-                </span>
-                <span className="font-bold text-slate-900">
-                  {formatearDinero(metodosPago.totalDaviplata)} ({Math.round((metodosPago.totalDaviplata / totalPagos) * 100)}%)
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className="bg-rose-500 h-2.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(metodosPago.totalDaviplata / totalPagos) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Bancolombia / Llave */}
-            {(metodosPago.totalBancolombia > 0 || metodosPago.totalLlave > 0) && (
-              <div>
-                <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-slate-700 flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-amber-600" /> Bancolombia & Llave
+          <p className="text-2xl font-black font-mono text-purple-950 mt-3">
+            {formatearDinero(consolidado.dineroConsignaciones)}
+          </p>
+          <div className="text-[11px] text-purple-800 font-medium mt-1">
+            {canalesConsignacion.length > 0 ? (
+              <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                {canalesConsignacion.map((c) => (
+                  <span key={c.etiqueta}>
+                    {c.etiqueta}: <strong>{formatearDinero(c.valor)}</strong>
                   </span>
-                  <span className="font-bold text-slate-900">
-                    {formatearDinero((metodosPago.totalBancolombia || 0) + (metodosPago.totalLlave || 0))} (
-                    {Math.round(
-                      (((metodosPago.totalBancolombia || 0) + (metodosPago.totalLlave || 0)) / totalPagos) * 100
-                    )}
-                    %)
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                  <div
-                    className="bg-amber-500 h-2.5 rounded-full transition-all duration-500"
-                    style={{
-                      width: `${
-                        (((metodosPago.totalBancolombia || 0) + (metodosPago.totalLlave || 0)) / totalPagos) * 100
-                      }%`,
-                    }}
-                  />
-                </div>
+                ))}
               </div>
+            ) : (
+              <span>Nequi, Bancolombia, Daviplata, Transferencias</span>
             )}
-
-            {/* Transferencias / Consignaciones */}
-            <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-slate-700 flex items-center gap-1.5">
-                  <ArrowUpRight className="w-3.5 h-3.5 text-blue-600" /> Transferencia Bancaria
-                </span>
-                <span className="font-bold text-slate-900">
-                  {formatearDinero(metodosPago.totalTransferencia)} ({Math.round((metodosPago.totalTransferencia / totalPagos) * 100)}%)
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(metodosPago.totalTransferencia / totalPagos) * 100}%` }}
-                />
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Desglose por Línea de Negocio */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                <Layers className="w-4 h-4" />
-              </div>
-              <h2 className="text-base font-bold text-slate-900">
-                Por Linea de Negocio
-              </h2>
-            </div>
-            <span className="text-xs font-semibold text-slate-500">
-              Total: {formatearDinero(totalLineas === 1 ? 0 : totalLineas)}
+        {/* Rubro 4: Depósitos en Custodia (Fondo Constante) */}
+        <div className="bg-amber-50/60 rounded-2xl p-5 border-2 border-amber-300 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase tracking-wider text-amber-950">
+              4. Depósitos en Custodia
             </span>
+            <div className="h-9 w-9 rounded-xl bg-amber-600 text-white flex items-center justify-center">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-black font-mono text-amber-950 mt-3">
+            {formatearDinero(consolidado.depositosCustodia)}
+          </p>
+          <p className="text-xs text-amber-900 font-medium mt-1">
+            Efectivo: {formatearDinero(consolidado.depositosCustodiaEfectivo)}
+            {consolidado.depositosCustodiaDigital > 0
+              ? ` • Digital: ${formatearDinero(consolidado.depositosCustodiaDigital)}`
+              : " • Fondo constante (no es ingreso)"}
+          </p>
+        </div>
+      </div>
+
+      {/* 4. Ecuación Consolidada Transparente (Base + Recibido Efectivo + Consignaciones + Depósitos) */}
+      <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-sm border border-slate-800">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-300">
+              <Scale className="w-4 h-4 text-emerald-400" />
+              <span>Suma Consolidada Total (Base + Efectivo Recibido + Consignaciones + Depósitos)</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm font-mono">
+              <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 text-slate-200">
+                Base: <strong>{formatearDinero(consolidado.baseCaja)}</strong>
+              </span>
+              <span className="text-slate-500 font-bold">+</span>
+              <span className="bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-700/60 text-emerald-300">
+                Recibido Ef.: <strong>{formatearDinero(consolidado.dineroRecibidoEfectivo)}</strong>
+              </span>
+              <span className="text-slate-500 font-bold">+</span>
+              <span className="bg-purple-950/80 px-2.5 py-1 rounded-lg border border-purple-700/60 text-purple-300">
+                Consignaciones: <strong>{formatearDinero(consolidado.dineroConsignaciones)}</strong>
+              </span>
+              <span className="text-slate-500 font-bold">+</span>
+              <span className="bg-amber-950/80 px-2.5 py-1 rounded-lg border border-amber-700/60 text-amber-300">
+                Depósitos: <strong>{formatearDinero(consolidado.depositosCustodia)}</strong>
+              </span>
+            </div>
           </div>
 
-          <div className="space-y-4">
-            {/* Alquileres */}
-            <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-slate-700 flex items-center gap-1.5">
-                  <CalendarClock className="w-3.5 h-3.5 text-blue-600" /> Alquiler de Trajes & Vestidos
-                </span>
-                <span className="font-bold text-slate-900">
-                  {formatearDinero(lineasNegocio.alquileres)} ({Math.round((lineasNegocio.alquileres / totalLineas) * 100)}%)
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(lineasNegocio.alquileres / totalLineas) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Venta Directa */}
-            <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-slate-700 flex items-center gap-1.5">
-                  <ShoppingBag className="w-3.5 h-3.5 text-amber-600" /> Venta Directa de Accesorios & Prendas
-                </span>
-                <span className="font-bold text-slate-900">
-                  {formatearDinero(lineasNegocio.ventas)} ({Math.round((lineasNegocio.ventas / totalLineas) * 100)}%)
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className="bg-amber-500 h-2.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(lineasNegocio.ventas / totalLineas) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Sastrería Libre */}
-            <div>
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-slate-700 flex items-center gap-1.5">
-                  <Scissors className="w-3.5 h-3.5 text-emerald-600" /> Confección & Sastrería Libre
-                </span>
-                <span className="font-bold text-slate-900">
-                  {formatearDinero(lineasNegocio.sastreria)} ({Math.round((lineasNegocio.sastreria / totalLineas) * 100)}%)
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                <div
-                  className="bg-emerald-500 h-2.5 rounded-full transition-all duration-500"
-                  style={{ width: `${(lineasNegocio.sastreria / totalLineas) * 100}%` }}
-                />
-              </div>
-            </div>
+          <div className="lg:text-right border-t lg:border-t-0 lg:border-l border-slate-700 pt-3 lg:pt-0 lg:pl-6 shrink-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+              Total Consolidado en Sistema
+            </span>
+            <span className="text-2xl sm:text-3xl font-black font-mono text-white">
+              {formatearDinero(consolidado.consolidadoTotal)}
+            </span>
+            <span className="text-[11px] text-emerald-400 font-semibold block">
+              Ingreso real tienda: {formatearDinero(consolidado.ingresosRealesTienda)} &bull; Físico en gaveta: {formatearDinero(consolidado.efectivoRealEnGaveta)}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* 5. Tabla de Últimas Facturas Emitidas en Ancho Completo */}
-      <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-slate-200/80 flex items-center justify-between">
+      {/* 5. Estado de Cartera (Saldos por Cobrar y Moras Activas) */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="h-11 w-11 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+            <Wallet className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-xs font-black uppercase tracking-wider text-slate-500 block">
+              Estado de Cartera Pendiente (Dinero en la Calle)
+            </span>
+            <div className="flex flex-wrap items-baseline gap-3 mt-0.5">
+              <span className="text-2xl font-black font-mono text-rose-700">
+                {formatearDinero(consolidado.carteraPorCobrar)}
+              </span>
+              <span className="text-xs font-semibold text-slate-600">
+                Saldos por cobrar: <strong className="text-slate-900">{formatearDinero(consolidado.saldosPendientes)}</strong>
+                {" • "}
+                Moras activas: <strong className="text-rose-700">{formatearDinero(consolidado.morasActivas)}</strong>
+                {" • "}
+                {consolidado.clientesDeudoresCount} cliente(s) / {consolidado.facturasConSaldoCount} factura(s)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <Link
+          href="/admin/monitoreo"
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-bold transition shrink-0"
+        >
+          <span>Gestionar Cartera y Cobros</span>
+          <ArrowUpRight className="w-4 h-4" />
+        </Link>
+      </div>
+
+      {/* 6. Tabla de Últimas Facturas Emitidas */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-slate-200/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
               <Receipt className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-900">
-                  Ultimas Facturas
-                </h2>
+                <h2 className="text-base font-bold text-slate-900">Últimas Facturas</h2>
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                  {ultimasFacturas.length} en pantalla
+                  {ultimasFacturas.length}
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Transacciones registradas en tiempo real en la base de datos
+                Movimientos recientes sincronizados en tiempo real
               </p>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { EstadoFactura, MetodoPago, TipoProducto, EstadoPrenda } from "@prisma/client";
-import { obtenerFechaColombiaStr } from "@/lib/caja-control";
+import { obtenerFechaColombiaStr, calcularArqueoExactoTurno } from "@/lib/caja-control";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -305,10 +305,17 @@ export async function GET(req: NextRequest) {
 
     const totalDineroEnLaCalle = totalSaldosPendientesCalle + totalMorasActivasCalle;
 
-    // 8. Efectivo disponible en gaveta si el turno está abierto
-    const efectivoEnGavetaTurno = turnoActivo
-      ? Math.max(0, (turnoActivo.baseInicialEfectivo || 0) + (turnoActivo.totalEfectivo || 0))
-      : 0;
+    // 8. Sincronización exacta 1:1 con el motor de arqueo de caja si hay turno abierto
+    const arqueoTurnoActivo = turnoActivo
+      ? await calcularArqueoExactoTurno(prisma, {
+          id: turnoActivo.id,
+          fechaApertura: turnoActivo.fechaApertura,
+          baseInicialEfectivo: turnoActivo.baseInicialEfectivo,
+        })
+      : null;
+
+    const baseCaja = arqueoTurnoActivo?.baseInicialEfectivo ?? (turnoActivo?.baseInicialEfectivo || 0);
+    const efectivoEnGavetaTurno = arqueoTurnoActivo?.efectivoEsperado ?? 0;
 
     const totalDigital =
       totalNequi +
@@ -317,6 +324,55 @@ export async function GET(req: NextRequest) {
       totalLlave +
       totalTransferencia +
       totalConsignacion;
+
+    const efectivoRecibidoPeriodo = Math.round(totalEfectivo * 100) / 100;
+    const consignacionesPeriodo = Math.round(totalDigital * 100) / 100;
+    const depositosVigenteConsolidado =
+      arqueoTurnoActivo?.custodiaVigenteTotal ?? Math.round(totalDepositosCustodia * 100) / 100;
+    const depositosVigenteEfectivo =
+      arqueoTurnoActivo?.custodiaVigenteEfectivo ?? Math.round(totalDepositosCustodia * 100) / 100;
+    const depositosVigenteDigital = arqueoTurnoActivo?.custodiaVigenteDigital ?? 0;
+
+    // Consolidado explícito: Base + Dinero Recibido Efectivo + Consignaciones/Transferencias + Depósitos en Custodia
+    const dineroRecibidoEfectivoRef =
+      periodo === "dia" || periodo === "hoy"
+        ? (arqueoTurnoActivo?.dineroTiendaEfectivo ?? efectivoRecibidoPeriodo)
+        : efectivoRecibidoPeriodo;
+    const consignacionesRef =
+      periodo === "dia" || periodo === "hoy"
+        ? (arqueoTurnoActivo?.dineroTiendaDigital ?? consignacionesPeriodo)
+        : consignacionesPeriodo;
+
+    const consolidadoTotalTesoreria = Math.round(
+      (baseCaja + dineroRecibidoEfectivoRef + consignacionesRef + depositosVigenteConsolidado) * 100
+    ) / 100;
+
+    const consolidadoCajaCartera = {
+      baseCaja: Math.round(baseCaja * 100) / 100,
+      dineroRecibidoEfectivo: Math.round(dineroRecibidoEfectivoRef * 100) / 100,
+      dineroConsignaciones: Math.round(consignacionesRef * 100) / 100,
+      depositosCustodia: Math.round(depositosVigenteConsolidado * 100) / 100,
+      depositosCustodiaEfectivo: Math.round(depositosVigenteEfectivo * 100) / 100,
+      depositosCustodiaDigital: Math.round(depositosVigenteDigital * 100) / 100,
+      efectivoRealEnGaveta: Math.round(efectivoEnGavetaTurno * 100) / 100,
+      fondoPermanenteCaja: arqueoTurnoActivo?.fondoPermanenteCaja ?? Math.round((baseCaja + depositosVigenteEfectivo) * 100) / 100,
+      ingresosRealesTienda: Math.round((dineroRecibidoEfectivoRef + consignacionesRef) * 100) / 100,
+      consolidadoTotal: consolidadoTotalTesoreria,
+      carteraPorCobrar: Math.round(totalDineroEnLaCalle * 100) / 100,
+      saldosPendientes: Math.round(totalSaldosPendientesCalle * 100) / 100,
+      morasActivas: Math.round(totalMorasActivasCalle * 100) / 100,
+      clientesDeudoresCount: clientesDeudoresSet.size,
+      facturasConSaldoCount,
+      alquileresVencidosCount,
+      desgloseConsignaciones: {
+        nequi: Math.round((periodo === "dia" || periodo === "hoy" ? (arqueoTurnoActivo?.totalNequi ?? totalNequi) : totalNequi) * 100) / 100,
+        bancolombia: Math.round((periodo === "dia" || periodo === "hoy" ? (arqueoTurnoActivo?.totalBancolombia ?? totalBancolombia) : totalBancolombia) * 100) / 100,
+        daviplata: Math.round((periodo === "dia" || periodo === "hoy" ? (arqueoTurnoActivo?.totalDaviplata ?? totalDaviplata) : totalDaviplata) * 100) / 100,
+        llave: Math.round((periodo === "dia" || periodo === "hoy" ? (arqueoTurnoActivo?.totalLlave ?? totalLlave) : totalLlave) * 100) / 100,
+        transferencia: Math.round((periodo === "dia" || periodo === "hoy" ? (arqueoTurnoActivo?.totalTransferencia ?? totalTransferencia) : totalTransferencia) * 100) / 100,
+        consignacion: Math.round((periodo === "dia" || periodo === "hoy" ? (arqueoTurnoActivo?.totalConsignacion ?? totalConsignacion) : totalConsignacion) * 100) / 100,
+      },
+    };
 
     const desgloseMetodos = {
       totalEfectivo: Math.round(totalEfectivo * 100) / 100,
@@ -414,6 +470,7 @@ export async function GET(req: NextRequest) {
           clientesDeudoresCount: clientesDeudoresSet.size,
         },
         dondeEstaElDinero,
+        consolidadoCajaCartera,
         desgloseMetodos,
         desgloseMetodosPago: desgloseMetodos,
         desgloseLineas,
